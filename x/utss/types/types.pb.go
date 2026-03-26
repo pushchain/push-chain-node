@@ -82,6 +82,7 @@ func (TssProcessType) EnumDescriptor() ([]byte, []int) {
 	return fileDescriptor_6ecfa9650339f6c3, []int{1}
 }
 
+// TSS Event types
 type TssEventType int32
 
 const (
@@ -107,6 +108,7 @@ func (TssEventType) EnumDescriptor() ([]byte, []int) {
 	return fileDescriptor_6ecfa9650339f6c3, []int{2}
 }
 
+// TSS Event statuses
 type TssEventStatus int32
 
 const (
@@ -263,7 +265,91 @@ func (m *TssKeyProcess) GetId() uint64 {
 	return 0
 }
 
-// TssEvent is a persistent record of a TSS lifecycle event.
+// Finalized TSS key details
+type TssKey struct {
+	TssPubkey            string   `protobuf:"bytes,1,opt,name=tss_pubkey,json=tssPubkey,proto3" json:"tss_pubkey,omitempty"`
+	KeyId                string   `protobuf:"bytes,2,opt,name=key_id,json=keyId,proto3" json:"key_id,omitempty"`
+	Participants         []string `protobuf:"bytes,3,rep,name=participants,proto3" json:"participants,omitempty"`
+	FinalizedBlockHeight int64    `protobuf:"varint,4,opt,name=finalized_block_height,json=finalizedBlockHeight,proto3" json:"finalized_block_height,omitempty"`
+	KeygenBlockHeight    int64    `protobuf:"varint,5,opt,name=keygen_block_height,json=keygenBlockHeight,proto3" json:"keygen_block_height,omitempty"`
+	ProcessId            uint64   `protobuf:"varint,6,opt,name=process_id,json=processId,proto3" json:"process_id,omitempty"`
+}
+
+func (m *TssKey) Reset()      { *m = TssKey{} }
+func (*TssKey) ProtoMessage() {}
+func (*TssKey) Descriptor() ([]byte, []int) {
+	return fileDescriptor_6ecfa9650339f6c3, []int{2}
+}
+func (m *TssKey) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *TssKey) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_TssKey.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *TssKey) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TssKey.Merge(m, src)
+}
+func (m *TssKey) XXX_Size() int {
+	return m.Size()
+}
+func (m *TssKey) XXX_DiscardUnknown() {
+	xxx_messageInfo_TssKey.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_TssKey proto.InternalMessageInfo
+
+func (m *TssKey) GetTssPubkey() string {
+	if m != nil {
+		return m.TssPubkey
+	}
+	return ""
+}
+
+func (m *TssKey) GetKeyId() string {
+	if m != nil {
+		return m.KeyId
+	}
+	return ""
+}
+
+func (m *TssKey) GetParticipants() []string {
+	if m != nil {
+		return m.Participants
+	}
+	return nil
+}
+
+func (m *TssKey) GetFinalizedBlockHeight() int64 {
+	if m != nil {
+		return m.FinalizedBlockHeight
+	}
+	return 0
+}
+
+func (m *TssKey) GetKeygenBlockHeight() int64 {
+	if m != nil {
+		return m.KeygenBlockHeight
+	}
+	return 0
+}
+
+func (m *TssKey) GetProcessId() uint64 {
+	if m != nil {
+		return m.ProcessId
+	}
+	return 0
+}
+
+// Persistent TSS event for queryable lifecycle tracking
 type TssEvent struct {
 	Id           uint64         `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
 	EventType    TssEventType   `protobuf:"varint,2,opt,name=event_type,json=eventType,proto3,enum=utss.v1.TssEventType" json:"event_type,omitempty"`
@@ -272,16 +358,16 @@ type TssEvent struct {
 	ProcessType  string         `protobuf:"bytes,5,opt,name=process_type,json=processType,proto3" json:"process_type,omitempty"`
 	Participants []string       `protobuf:"bytes,6,rep,name=participants,proto3" json:"participants,omitempty"`
 	ExpiryHeight int64          `protobuf:"varint,7,opt,name=expiry_height,json=expiryHeight,proto3" json:"expiry_height,omitempty"`
-	KeyId        string         `protobuf:"bytes,8,opt,name=key_id,json=keyId,proto3" json:"key_id,omitempty"`
-	TssPubkey    string         `protobuf:"bytes,9,opt,name=tss_pubkey,json=tssPubkey,proto3" json:"tss_pubkey,omitempty"`
-	BlockHeight  int64          `protobuf:"varint,10,opt,name=block_height,json=blockHeight,proto3" json:"block_height,omitempty"`
+	BlockHeight  int64          `protobuf:"varint,8,opt,name=block_height,json=blockHeight,proto3" json:"block_height,omitempty"`
+	KeyId        string         `protobuf:"bytes,9,opt,name=key_id,json=keyId,proto3" json:"key_id,omitempty"`
+	TssPubkey    string         `protobuf:"bytes,10,opt,name=tss_pubkey,json=tssPubkey,proto3" json:"tss_pubkey,omitempty"`
 }
 
 func (m *TssEvent) Reset()         { *m = TssEvent{} }
 func (m *TssEvent) String() string { return proto.CompactTextString(m) }
 func (*TssEvent) ProtoMessage()    {}
 func (*TssEvent) Descriptor() ([]byte, []int) {
-	return fileDescriptor_6ecfa9650339f6c3, []int{2}
+	return fileDescriptor_6ecfa9650339f6c3, []int{3}
 }
 func (m *TssEvent) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -359,6 +445,13 @@ func (m *TssEvent) GetExpiryHeight() int64 {
 	return 0
 }
 
+func (m *TssEvent) GetBlockHeight() int64 {
+	if m != nil {
+		return m.BlockHeight
+	}
+	return 0
+}
+
 func (m *TssEvent) GetKeyId() string {
 	if m != nil {
 		return m.KeyId
@@ -373,97 +466,6 @@ func (m *TssEvent) GetTssPubkey() string {
 	return ""
 }
 
-func (m *TssEvent) GetBlockHeight() int64 {
-	if m != nil {
-		return m.BlockHeight
-	}
-	return 0
-}
-
-// Finalized TSS key details
-type TssKey struct {
-	TssPubkey            string   `protobuf:"bytes,1,opt,name=tss_pubkey,json=tssPubkey,proto3" json:"tss_pubkey,omitempty"`
-	KeyId                string   `protobuf:"bytes,2,opt,name=key_id,json=keyId,proto3" json:"key_id,omitempty"`
-	Participants         []string `protobuf:"bytes,3,rep,name=participants,proto3" json:"participants,omitempty"`
-	FinalizedBlockHeight int64    `protobuf:"varint,4,opt,name=finalized_block_height,json=finalizedBlockHeight,proto3" json:"finalized_block_height,omitempty"`
-	KeygenBlockHeight    int64    `protobuf:"varint,5,opt,name=keygen_block_height,json=keygenBlockHeight,proto3" json:"keygen_block_height,omitempty"`
-	ProcessId            uint64   `protobuf:"varint,6,opt,name=process_id,json=processId,proto3" json:"process_id,omitempty"`
-}
-
-func (m *TssKey) Reset()      { *m = TssKey{} }
-func (*TssKey) ProtoMessage() {}
-func (*TssKey) Descriptor() ([]byte, []int) {
-	return fileDescriptor_6ecfa9650339f6c3, []int{3}
-}
-func (m *TssKey) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *TssKey) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_TssKey.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *TssKey) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TssKey.Merge(m, src)
-}
-func (m *TssKey) XXX_Size() int {
-	return m.Size()
-}
-func (m *TssKey) XXX_DiscardUnknown() {
-	xxx_messageInfo_TssKey.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_TssKey proto.InternalMessageInfo
-
-func (m *TssKey) GetTssPubkey() string {
-	if m != nil {
-		return m.TssPubkey
-	}
-	return ""
-}
-
-func (m *TssKey) GetKeyId() string {
-	if m != nil {
-		return m.KeyId
-	}
-	return ""
-}
-
-func (m *TssKey) GetParticipants() []string {
-	if m != nil {
-		return m.Participants
-	}
-	return nil
-}
-
-func (m *TssKey) GetFinalizedBlockHeight() int64 {
-	if m != nil {
-		return m.FinalizedBlockHeight
-	}
-	return 0
-}
-
-func (m *TssKey) GetKeygenBlockHeight() int64 {
-	if m != nil {
-		return m.KeygenBlockHeight
-	}
-	return 0
-}
-
-func (m *TssKey) GetProcessId() uint64 {
-	if m != nil {
-		return m.ProcessId
-	}
-	return 0
-}
-
 func init() {
 	proto.RegisterEnum("utss.v1.TssKeyProcessStatus", TssKeyProcessStatus_name, TssKeyProcessStatus_value)
 	proto.RegisterEnum("utss.v1.TssProcessType", TssProcessType_name, TssProcessType_value)
@@ -471,63 +473,63 @@ func init() {
 	proto.RegisterEnum("utss.v1.TssEventStatus", TssEventStatus_name, TssEventStatus_value)
 	proto.RegisterType((*Params)(nil), "utss.v1.Params")
 	proto.RegisterType((*TssKeyProcess)(nil), "utss.v1.TssKeyProcess")
-	proto.RegisterType((*TssEvent)(nil), "utss.v1.TssEvent")
 	proto.RegisterType((*TssKey)(nil), "utss.v1.TssKey")
+	proto.RegisterType((*TssEvent)(nil), "utss.v1.TssEvent")
 }
 
 func init() { proto.RegisterFile("utss/v1/types.proto", fileDescriptor_6ecfa9650339f6c3) }
 
 var fileDescriptor_6ecfa9650339f6c3 = []byte{
 	// 788 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x6c, 0x54, 0x4f, 0x53, 0xfa, 0x46,
-	0x18, 0x26, 0x41, 0xf3, 0x93, 0x15, 0x9d, 0xb8, 0xa0, 0x44, 0xad, 0x88, 0xf4, 0xc2, 0x30, 0x23,
-	0x19, 0x5a, 0x0f, 0x1d, 0x6e, 0x08, 0xab, 0x66, 0x40, 0xa4, 0x21, 0x3a, 0xd5, 0x4b, 0x1a, 0xc8,
-	0x16, 0x32, 0x48, 0x92, 0x61, 0x03, 0x63, 0x7a, 0xec, 0xb1, 0xa7, 0x1e, 0x7b, 0xf4, 0x23, 0xf4,
-	0x63, 0xf4, 0xe8, 0xb1, 0xc7, 0x8e, 0x4e, 0xa7, 0xfd, 0x18, 0x9d, 0xdd, 0x04, 0x09, 0x7f, 0x2e,
-	0xb0, 0x79, 0xde, 0xe7, 0x7d, 0xe7, 0x79, 0x9f, 0xf7, 0xdd, 0x05, 0xa9, 0x89, 0x47, 0x88, 0x3c,
-	0x2d, 0xcb, 0x9e, 0xef, 0x62, 0x52, 0x72, 0xc7, 0x8e, 0xe7, 0xc0, 0x2f, 0x14, 0x2c, 0x4d, 0xcb,
-	0x47, 0xd9, 0x9e, 0x43, 0x46, 0x0e, 0x91, 0xbb, 0x06, 0xc1, 0xf2, 0xb4, 0xdc, 0xc5, 0x9e, 0x51,
-	0x96, 0x7b, 0x8e, 0x65, 0x07, 0xc4, 0xa3, 0x4c, 0x18, 0x1f, 0x91, 0x3e, 0xad, 0x31, 0x22, 0xfd,
-	0x30, 0x90, 0xee, 0x3b, 0x7d, 0x87, 0x1d, 0x65, 0x7a, 0x0a, 0xd1, 0x3d, 0x63, 0x64, 0xd9, 0x8e,
-	0xcc, 0x7e, 0x03, 0x28, 0xff, 0x1d, 0x10, 0xda, 0xc6, 0xd8, 0x18, 0x11, 0x98, 0x06, 0x9b, 0x86,
-	0x39, 0xb2, 0x6c, 0x89, 0xcb, 0x71, 0x85, 0x84, 0x1a, 0x7c, 0x54, 0xa4, 0xdf, 0x5f, 0x4f, 0x63,
-	0xff, 0xbd, 0x9e, 0x72, 0xbf, 0xfe, 0xfb, 0x47, 0x71, 0x9b, 0x89, 0x75, 0x19, 0x3f, 0xff, 0xca,
-	0x83, 0x1d, 0x8d, 0x90, 0x06, 0xf6, 0xdb, 0x63, 0xa7, 0x87, 0x09, 0x81, 0x17, 0x40, 0x20, 0x9e,
-	0xe1, 0x4d, 0x08, 0x2b, 0xb1, 0xfb, 0xcd, 0x57, 0xa5, 0xb0, 0x8f, 0xd2, 0x02, 0xaf, 0xc3, 0x38,
-	0x6a, 0xc8, 0x85, 0x79, 0x90, 0x74, 0x8d, 0xb1, 0x67, 0xf5, 0x2c, 0xd7, 0xb0, 0x3d, 0x22, 0xf1,
-	0xb9, 0x78, 0x21, 0xa1, 0x2e, 0x60, 0xf0, 0x0c, 0x24, 0xbb, 0xcf, 0x4e, 0x6f, 0xa8, 0x0f, 0xb0,
-	0xd5, 0x1f, 0x78, 0x52, 0x3c, 0xc7, 0x15, 0xe2, 0xea, 0x36, 0xc3, 0x6e, 0x18, 0x04, 0xbf, 0x06,
-	0x3b, 0xf8, 0xc5, 0xb5, 0xc6, 0xfe, 0x8c, 0xb3, 0xc1, 0x38, 0xc9, 0x00, 0x0c, 0x49, 0x15, 0x90,
-	0x74, 0x03, 0x11, 0x3a, 0xf5, 0x5b, 0xda, 0x64, 0x3a, 0x33, 0x51, 0x9d, 0xa1, 0x48, 0xcd, 0x77,
-	0xb1, 0xba, 0xed, 0xce, 0x3f, 0xe0, 0x2e, 0xe0, 0x2d, 0x53, 0x12, 0x72, 0x5c, 0x61, 0x43, 0xe5,
-	0x2d, 0xb3, 0x72, 0x16, 0x75, 0x26, 0xcd, 0x9c, 0xf1, 0x08, 0xd1, 0x87, 0xd8, 0xd7, 0xc3, 0xb4,
-	0xfc, 0x3f, 0x3c, 0xd8, 0xd2, 0x08, 0x41, 0x53, 0x6c, 0x7b, 0x61, 0x3e, 0x37, 0xcb, 0x87, 0x17,
-	0x00, 0x60, 0x1a, 0x08, 0x94, 0xf0, 0x4c, 0xc9, 0x7e, 0x54, 0x09, 0x4b, 0x63, 0x3a, 0x12, 0x78,
-	0x76, 0x84, 0xf2, 0xa7, 0xc7, 0xf1, 0x55, 0xed, 0x2c, 0x63, 0xc9, 0xde, 0x13, 0x00, 0x66, 0x2d,
-	0x5b, 0x26, 0x33, 0x65, 0x43, 0x4d, 0x84, 0x88, 0x62, 0x52, 0x67, 0x57, 0x1c, 0x49, 0x2c, 0x36,
-	0xbe, 0x3c, 0x20, 0x61, 0xcd, 0x80, 0x56, 0xdc, 0xff, 0xb2, 0xc6, 0xfd, 0x7d, 0x20, 0x50, 0x77,
-	0x2c, 0x53, 0xda, 0x0a, 0x56, 0x6c, 0x88, 0x7d, 0xc5, 0xa4, 0x0a, 0xa9, 0x71, 0xee, 0xa4, 0x3b,
-	0xc4, 0xbe, 0x94, 0x60, 0xa1, 0x84, 0x47, 0x48, 0x9b, 0x01, 0x2b, 0xb3, 0x07, 0x2b, 0xb3, 0xcf,
-	0xff, 0xc2, 0x03, 0x21, 0x58, 0xb1, 0xa5, 0x62, 0xdc, 0x72, 0xb1, 0xb9, 0x04, 0x3e, 0x2a, 0x61,
-	0xb9, 0xc5, 0xf8, 0x9a, 0x16, 0x2f, 0xc0, 0xc1, 0x4f, 0x96, 0x6d, 0x3c, 0x5b, 0x3f, 0x63, 0x53,
-	0x5f, 0x50, 0x14, 0x6c, 0x5a, 0xfa, 0x33, 0x7a, 0x19, 0x59, 0xcb, 0x12, 0x48, 0x0d, 0xb1, 0xdf,
-	0xc7, 0xf6, 0x62, 0xca, 0x26, 0x4b, 0xd9, 0x0b, 0x42, 0x51, 0xfe, 0xe2, 0xb8, 0x84, 0xa5, 0x71,
-	0x55, 0x0e, 0xa3, 0x4b, 0x97, 0x8c, 0x2e, 0x5d, 0x71, 0x08, 0x52, 0x6b, 0xae, 0x19, 0x3c, 0x06,
-	0x19, 0xad, 0xd3, 0xd1, 0x1b, 0xe8, 0x51, 0x6f, 0xab, 0x77, 0x35, 0xd4, 0xe9, 0xe8, 0x6d, 0xd4,
-	0xaa, 0x2b, 0xad, 0x6b, 0x31, 0xb6, 0x2e, 0xd8, 0xb9, 0xaf, 0xd1, 0x7f, 0x91, 0x83, 0x47, 0xe0,
-	0x60, 0x39, 0x78, 0x55, 0x55, 0x9a, 0xa8, 0x2e, 0xf2, 0xc5, 0x1f, 0xc1, 0xee, 0xe2, 0x5d, 0x81,
-	0x07, 0x00, 0x52, 0xf6, 0x8c, 0xd9, 0x40, 0x8f, 0xd7, 0xa8, 0x25, 0xc6, 0x60, 0x06, 0xa4, 0xa2,
-	0xb8, 0x8a, 0xae, 0x54, 0xd4, 0xb9, 0x11, 0x39, 0x78, 0x02, 0x0e, 0xa3, 0x81, 0xef, 0xef, 0xef,
-	0xd4, 0xfb, 0x5b, 0xbd, 0x76, 0x53, 0x6d, 0x5d, 0x23, 0x91, 0x2f, 0x36, 0x41, 0x32, 0x7a, 0x07,
-	0xe0, 0x29, 0x38, 0xa6, 0x74, 0xf4, 0x80, 0x5a, 0xda, 0x67, 0x92, 0xd2, 0x52, 0x34, 0xa5, 0xaa,
-	0xa1, 0xfa, 0xbc, 0x97, 0x80, 0x40, 0x45, 0x5f, 0x29, 0xad, 0x6a, 0x53, 0x79, 0x42, 0x75, 0x91,
-	0x2b, 0x3e, 0x30, 0xbd, 0x91, 0xfb, 0x01, 0xd3, 0x40, 0x9c, 0xd3, 0xab, 0x35, 0x4d, 0x79, 0x40,
-	0x73, 0xb5, 0x01, 0x5a, 0xbb, 0xbb, 0x6d, 0x37, 0x11, 0xad, 0xce, 0xc1, 0x7d, 0xb0, 0x37, 0x0f,
-	0xa0, 0x1f, 0xda, 0x8a, 0x4a, 0x7d, 0xb8, 0x6c, 0xfc, 0xf9, 0x9e, 0xe5, 0xde, 0xde, 0xb3, 0xdc,
-	0xdf, 0xef, 0x59, 0xee, 0xb7, 0x8f, 0x6c, 0xec, 0xed, 0x23, 0x1b, 0xfb, 0xeb, 0x23, 0x1b, 0x7b,
-	0x2a, 0xf7, 0x2d, 0x6f, 0x30, 0xe9, 0x96, 0x7a, 0xce, 0x48, 0x76, 0x27, 0x64, 0xd0, 0x1b, 0x18,
-	0x96, 0xcd, 0x4e, 0xe7, 0xec, 0x78, 0x6e, 0x3b, 0x26, 0x96, 0x5f, 0xe4, 0x60, 0x86, 0xf4, 0xf1,
-	0xef, 0x0a, 0xec, 0x49, 0xfe, 0xf6, 0xff, 0x00, 0x00, 0x00, 0xff, 0xff, 0x47, 0xcd, 0x8e, 0xb0,
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x6c, 0x54, 0xc1, 0x6e, 0xe2, 0x56,
+	0x14, 0xc5, 0x26, 0x61, 0x86, 0x1b, 0x26, 0x72, 0x1e, 0x24, 0x30, 0x99, 0x86, 0x30, 0x74, 0x83,
+	0x90, 0x06, 0x8b, 0x36, 0x8b, 0x8a, 0x1d, 0x81, 0x97, 0xc4, 0x82, 0x10, 0x6a, 0x9c, 0xa8, 0xc9,
+	0xc6, 0x35, 0xf8, 0x15, 0x2c, 0x82, 0x6d, 0xf1, 0x0c, 0x8a, 0xbb, 0xec, 0xb2, 0xab, 0x2e, 0xbb,
+	0xcc, 0x27, 0xf4, 0x33, 0xba, 0xcc, 0xb2, 0xcb, 0x2a, 0x51, 0xd5, 0x7e, 0x46, 0xe5, 0x67, 0x03,
+	0x36, 0xb0, 0x81, 0xeb, 0x73, 0xcf, 0xb5, 0xce, 0x3b, 0xf7, 0x3c, 0x43, 0x7a, 0xe6, 0x50, 0x2a,
+	0xce, 0xab, 0xa2, 0xe3, 0xda, 0x84, 0x56, 0xec, 0xa9, 0xe5, 0x58, 0xe8, 0x9d, 0x07, 0x56, 0xe6,
+	0xd5, 0xe3, 0xfc, 0xc0, 0xa2, 0x13, 0x8b, 0x8a, 0x7d, 0x8d, 0x12, 0x71, 0x5e, 0xed, 0x13, 0x47,
+	0xab, 0x8a, 0x03, 0xcb, 0x30, 0x7d, 0xe2, 0x71, 0x36, 0xe8, 0x4f, 0xe8, 0xd0, 0x7b, 0xc7, 0x84,
+	0x0e, 0x83, 0x46, 0x66, 0x68, 0x0d, 0x2d, 0x56, 0x8a, 0x5e, 0x15, 0xa0, 0x07, 0xda, 0xc4, 0x30,
+	0x2d, 0x91, 0xfd, 0xfa, 0x50, 0xf1, 0x3b, 0x48, 0x74, 0xb5, 0xa9, 0x36, 0xa1, 0x28, 0x03, 0xbb,
+	0x9a, 0x3e, 0x31, 0xcc, 0x1c, 0x57, 0xe0, 0x4a, 0x49, 0xd9, 0x7f, 0xa8, 0xe5, 0x7e, 0x7f, 0x3e,
+	0x8d, 0xfd, 0xf7, 0x7c, 0xca, 0xfd, 0xfa, 0xef, 0x1f, 0xe5, 0x3d, 0x26, 0xd6, 0x66, 0xfc, 0xe2,
+	0x33, 0x0f, 0x1f, 0x14, 0x4a, 0x5b, 0xc4, 0xed, 0x4e, 0xad, 0x01, 0xa1, 0x14, 0x9d, 0x41, 0x82,
+	0x3a, 0x9a, 0x33, 0xa3, 0xec, 0x15, 0xfb, 0xdf, 0x7c, 0x55, 0x09, 0xce, 0x51, 0x89, 0xf0, 0x7a,
+	0x8c, 0x23, 0x07, 0x5c, 0x54, 0x84, 0x94, 0xad, 0x4d, 0x1d, 0x63, 0x60, 0xd8, 0x9a, 0xe9, 0xd0,
+	0x1c, 0x5f, 0x88, 0x97, 0x92, 0x72, 0x04, 0x43, 0x9f, 0x21, 0xd5, 0x7f, 0xb4, 0x06, 0x63, 0x75,
+	0x44, 0x8c, 0xe1, 0xc8, 0xc9, 0xc5, 0x0b, 0x5c, 0x29, 0x2e, 0xef, 0x31, 0xec, 0x8a, 0x41, 0xe8,
+	0x6b, 0xf8, 0x40, 0x9e, 0x6c, 0x63, 0xea, 0x2e, 0x38, 0x3b, 0x8c, 0x93, 0xf2, 0xc1, 0x80, 0x54,
+	0x83, 0x94, 0xed, 0x8b, 0x50, 0x3d, 0xbf, 0x73, 0xbb, 0x4c, 0x67, 0x36, 0xac, 0x33, 0x10, 0xa9,
+	0xb8, 0x36, 0x91, 0xf7, 0xec, 0xd5, 0x03, 0xda, 0x07, 0xde, 0xd0, 0x73, 0x89, 0x02, 0x57, 0xda,
+	0x91, 0x79, 0x43, 0xaf, 0x7d, 0x0e, 0x3b, 0x93, 0x61, 0xce, 0x38, 0x94, 0xaa, 0x63, 0xe2, 0xaa,
+	0xc1, 0x58, 0xf1, 0x17, 0x1e, 0x12, 0xfe, 0xd1, 0xd1, 0x09, 0x80, 0xd7, 0xb5, 0x67, 0xfd, 0x31,
+	0x71, 0x03, 0x8b, 0x93, 0x0e, 0xa5, 0x5d, 0x06, 0xa0, 0x43, 0x48, 0x78, 0x83, 0x86, 0x9e, 0xe3,
+	0x7d, 0xf7, 0xc7, 0xc4, 0x95, 0xf4, 0x0d, 0x6f, 0xe2, 0x5b, 0xbc, 0x39, 0x83, 0xa3, 0x9f, 0x0c,
+	0x53, 0x7b, 0x34, 0x7e, 0x26, 0xba, 0x1a, 0x71, 0xc9, 0x77, 0x20, 0xb3, 0xec, 0x9e, 0x87, 0xec,
+	0xaa, 0x40, 0x7a, 0x4c, 0xdc, 0x21, 0x31, 0xa3, 0x23, 0xbb, 0x6c, 0xe4, 0xc0, 0x6f, 0x85, 0xf9,
+	0x27, 0x00, 0x0b, 0xe7, 0x96, 0x2e, 0x24, 0x03, 0x44, 0xd2, 0x6b, 0x1f, 0xc3, 0x66, 0xa4, 0xc2,
+	0x66, 0x14, 0xff, 0xe1, 0xe1, 0xbd, 0x42, 0x29, 0x9e, 0x13, 0xd3, 0x09, 0x4c, 0xe4, 0x16, 0x26,
+	0xa2, 0x33, 0x00, 0xe2, 0x35, 0xfc, 0x75, 0xf0, 0x6c, 0x1d, 0x87, 0xe1, 0x75, 0xb0, 0x31, 0xb6,
+	0x8c, 0x24, 0x59, 0x94, 0x48, 0x5c, 0x06, 0x2d, 0xbe, 0xb9, 0x40, 0x36, 0xb1, 0x96, 0xb1, 0xa8,
+	0xfa, 0x9d, 0x35, 0xf5, 0x5e, 0xbc, 0x36, 0x62, 0x91, 0x8c, 0x6e, 0x7f, 0x7d, 0x13, 0x89, 0x2d,
+	0x9b, 0xd8, 0x88, 0xe0, 0xbb, 0x2d, 0x11, 0x5c, 0x8f, 0xf2, 0xfb, 0xcd, 0x28, 0xaf, 0xc2, 0x90,
+	0x0c, 0x87, 0x21, 0x1a, 0x21, 0x58, 0x8b, 0x50, 0x79, 0x0c, 0xe9, 0x2d, 0xd7, 0x0c, 0x7d, 0x82,
+	0xac, 0xd2, 0xeb, 0xa9, 0x2d, 0x7c, 0xaf, 0x76, 0xe5, 0x9b, 0x06, 0xee, 0xf5, 0xd4, 0x2e, 0xee,
+	0x34, 0xa5, 0xce, 0xa5, 0x10, 0xdb, 0xd6, 0xec, 0xdd, 0x36, 0xbc, 0x7f, 0x81, 0x43, 0xc7, 0x70,
+	0xb4, 0xde, 0xbc, 0xa8, 0x4b, 0x6d, 0xdc, 0x14, 0xf8, 0xf2, 0x8f, 0xb0, 0x1f, 0xbd, 0x2b, 0xe8,
+	0x08, 0x90, 0xc7, 0x5e, 0x30, 0x5b, 0xf8, 0xfe, 0x12, 0x77, 0x84, 0x18, 0xca, 0x42, 0x3a, 0x8c,
+	0xcb, 0xf8, 0x42, 0xc6, 0xbd, 0x2b, 0x81, 0x43, 0x27, 0xf0, 0x31, 0xdc, 0xf8, 0xfe, 0xf6, 0x46,
+	0xbe, 0xbd, 0x56, 0x1b, 0x57, 0xf5, 0xce, 0x25, 0x16, 0xf8, 0x72, 0x1b, 0x52, 0xe1, 0xf5, 0xa3,
+	0x53, 0xf8, 0xe4, 0xd1, 0xf1, 0x1d, 0xee, 0x28, 0xcb, 0x21, 0xa9, 0x23, 0x29, 0x52, 0x5d, 0xc1,
+	0xcd, 0xd5, 0x59, 0x7c, 0x82, 0x27, 0xfa, 0x42, 0xea, 0xd4, 0xdb, 0xd2, 0x03, 0x6e, 0x0a, 0x5c,
+	0xf9, 0x8e, 0xe9, 0x0d, 0x45, 0x03, 0x65, 0x40, 0x58, 0xd1, 0xeb, 0x0d, 0x45, 0xba, 0xc3, 0x2b,
+	0xb5, 0x3e, 0xda, 0xb8, 0xb9, 0xee, 0xb6, 0xb1, 0xf7, 0x76, 0x0e, 0x1d, 0xc2, 0xc1, 0xaa, 0x81,
+	0x7f, 0xe8, 0x4a, 0xb2, 0xe7, 0xc3, 0x79, 0xeb, 0xcf, 0xd7, 0x3c, 0xf7, 0xf2, 0x9a, 0xe7, 0xfe,
+	0x7e, 0xcd, 0x73, 0xbf, 0xbd, 0xe5, 0x63, 0x2f, 0x6f, 0xf9, 0xd8, 0x5f, 0x6f, 0xf9, 0xd8, 0x43,
+	0x75, 0x68, 0x38, 0xa3, 0x59, 0xbf, 0x32, 0xb0, 0x26, 0xa2, 0x3d, 0xa3, 0xa3, 0xc1, 0x48, 0x33,
+	0x4c, 0x56, 0x7d, 0x61, 0xe5, 0x17, 0xd3, 0xd2, 0x89, 0xf8, 0x24, 0xfa, 0x77, 0xc5, 0xfb, 0xf8,
+	0xf7, 0x13, 0xec, 0x93, 0xfc, 0xed, 0xff, 0x01, 0x00, 0x00, 0xff, 0xff, 0x43, 0x82, 0x12, 0x43,
 	0x14, 0x06, 0x00, 0x00,
 }
 
@@ -730,89 +732,6 @@ func (m *TssKeyProcess) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *TssEvent) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalToSizedBuffer(dAtA[:size])
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *TssEvent) MarshalTo(dAtA []byte) (int, error) {
-	size := m.Size()
-	return m.MarshalToSizedBuffer(dAtA[:size])
-}
-
-func (m *TssEvent) MarshalToSizedBuffer(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	_ = i
-	var l int
-	_ = l
-	if m.BlockHeight != 0 {
-		i = encodeVarintTypes(dAtA, i, uint64(m.BlockHeight))
-		i--
-		dAtA[i] = 0x50
-	}
-	if len(m.TssPubkey) > 0 {
-		i -= len(m.TssPubkey)
-		copy(dAtA[i:], m.TssPubkey)
-		i = encodeVarintTypes(dAtA, i, uint64(len(m.TssPubkey)))
-		i--
-		dAtA[i] = 0x4a
-	}
-	if len(m.KeyId) > 0 {
-		i -= len(m.KeyId)
-		copy(dAtA[i:], m.KeyId)
-		i = encodeVarintTypes(dAtA, i, uint64(len(m.KeyId)))
-		i--
-		dAtA[i] = 0x42
-	}
-	if m.ExpiryHeight != 0 {
-		i = encodeVarintTypes(dAtA, i, uint64(m.ExpiryHeight))
-		i--
-		dAtA[i] = 0x38
-	}
-	if len(m.Participants) > 0 {
-		for iNdEx := len(m.Participants) - 1; iNdEx >= 0; iNdEx-- {
-			i -= len(m.Participants[iNdEx])
-			copy(dAtA[i:], m.Participants[iNdEx])
-			i = encodeVarintTypes(dAtA, i, uint64(len(m.Participants[iNdEx])))
-			i--
-			dAtA[i] = 0x32
-		}
-	}
-	if len(m.ProcessType) > 0 {
-		i -= len(m.ProcessType)
-		copy(dAtA[i:], m.ProcessType)
-		i = encodeVarintTypes(dAtA, i, uint64(len(m.ProcessType)))
-		i--
-		dAtA[i] = 0x2a
-	}
-	if m.ProcessId != 0 {
-		i = encodeVarintTypes(dAtA, i, uint64(m.ProcessId))
-		i--
-		dAtA[i] = 0x20
-	}
-	if m.Status != 0 {
-		i = encodeVarintTypes(dAtA, i, uint64(m.Status))
-		i--
-		dAtA[i] = 0x18
-	}
-	if m.EventType != 0 {
-		i = encodeVarintTypes(dAtA, i, uint64(m.EventType))
-		i--
-		dAtA[i] = 0x10
-	}
-	if m.Id != 0 {
-		i = encodeVarintTypes(dAtA, i, uint64(m.Id))
-		i--
-		dAtA[i] = 0x8
-	}
-	return len(dAtA) - i, nil
-}
-
 func (m *TssKey) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -874,6 +793,89 @@ func (m *TssKey) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *TssEvent) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *TssEvent) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TssEvent) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.TssPubkey) > 0 {
+		i -= len(m.TssPubkey)
+		copy(dAtA[i:], m.TssPubkey)
+		i = encodeVarintTypes(dAtA, i, uint64(len(m.TssPubkey)))
+		i--
+		dAtA[i] = 0x52
+	}
+	if len(m.KeyId) > 0 {
+		i -= len(m.KeyId)
+		copy(dAtA[i:], m.KeyId)
+		i = encodeVarintTypes(dAtA, i, uint64(len(m.KeyId)))
+		i--
+		dAtA[i] = 0x4a
+	}
+	if m.BlockHeight != 0 {
+		i = encodeVarintTypes(dAtA, i, uint64(m.BlockHeight))
+		i--
+		dAtA[i] = 0x40
+	}
+	if m.ExpiryHeight != 0 {
+		i = encodeVarintTypes(dAtA, i, uint64(m.ExpiryHeight))
+		i--
+		dAtA[i] = 0x38
+	}
+	if len(m.Participants) > 0 {
+		for iNdEx := len(m.Participants) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Participants[iNdEx])
+			copy(dAtA[i:], m.Participants[iNdEx])
+			i = encodeVarintTypes(dAtA, i, uint64(len(m.Participants[iNdEx])))
+			i--
+			dAtA[i] = 0x32
+		}
+	}
+	if len(m.ProcessType) > 0 {
+		i -= len(m.ProcessType)
+		copy(dAtA[i:], m.ProcessType)
+		i = encodeVarintTypes(dAtA, i, uint64(len(m.ProcessType)))
+		i--
+		dAtA[i] = 0x2a
+	}
+	if m.ProcessId != 0 {
+		i = encodeVarintTypes(dAtA, i, uint64(m.ProcessId))
+		i--
+		dAtA[i] = 0x20
+	}
+	if m.Status != 0 {
+		i = encodeVarintTypes(dAtA, i, uint64(m.Status))
+		i--
+		dAtA[i] = 0x18
+	}
+	if m.EventType != 0 {
+		i = encodeVarintTypes(dAtA, i, uint64(m.EventType))
+		i--
+		dAtA[i] = 0x10
+	}
+	if m.Id != 0 {
+		i = encodeVarintTypes(dAtA, i, uint64(m.Id))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintTypes(dAtA []byte, offset int, v uint64) int {
 	offset -= sovTypes(v)
 	base := offset
@@ -928,6 +930,38 @@ func (m *TssKeyProcess) Size() (n int) {
 	return n
 }
 
+func (m *TssKey) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.TssPubkey)
+	if l > 0 {
+		n += 1 + l + sovTypes(uint64(l))
+	}
+	l = len(m.KeyId)
+	if l > 0 {
+		n += 1 + l + sovTypes(uint64(l))
+	}
+	if len(m.Participants) > 0 {
+		for _, s := range m.Participants {
+			l = len(s)
+			n += 1 + l + sovTypes(uint64(l))
+		}
+	}
+	if m.FinalizedBlockHeight != 0 {
+		n += 1 + sovTypes(uint64(m.FinalizedBlockHeight))
+	}
+	if m.KeygenBlockHeight != 0 {
+		n += 1 + sovTypes(uint64(m.KeygenBlockHeight))
+	}
+	if m.ProcessId != 0 {
+		n += 1 + sovTypes(uint64(m.ProcessId))
+	}
+	return n
+}
+
 func (m *TssEvent) Size() (n int) {
 	if m == nil {
 		return 0
@@ -959,48 +993,16 @@ func (m *TssEvent) Size() (n int) {
 	if m.ExpiryHeight != 0 {
 		n += 1 + sovTypes(uint64(m.ExpiryHeight))
 	}
-	l = len(m.KeyId)
-	if l > 0 {
-		n += 1 + l + sovTypes(uint64(l))
-	}
-	l = len(m.TssPubkey)
-	if l > 0 {
-		n += 1 + l + sovTypes(uint64(l))
-	}
 	if m.BlockHeight != 0 {
 		n += 1 + sovTypes(uint64(m.BlockHeight))
 	}
-	return n
-}
-
-func (m *TssKey) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	l = len(m.TssPubkey)
-	if l > 0 {
-		n += 1 + l + sovTypes(uint64(l))
-	}
 	l = len(m.KeyId)
 	if l > 0 {
 		n += 1 + l + sovTypes(uint64(l))
 	}
-	if len(m.Participants) > 0 {
-		for _, s := range m.Participants {
-			l = len(s)
-			n += 1 + l + sovTypes(uint64(l))
-		}
-	}
-	if m.FinalizedBlockHeight != 0 {
-		n += 1 + sovTypes(uint64(m.FinalizedBlockHeight))
-	}
-	if m.KeygenBlockHeight != 0 {
-		n += 1 + sovTypes(uint64(m.KeygenBlockHeight))
-	}
-	if m.ProcessId != 0 {
-		n += 1 + sovTypes(uint64(m.ProcessId))
+	l = len(m.TssPubkey)
+	if l > 0 {
+		n += 1 + l + sovTypes(uint64(l))
 	}
 	return n
 }
@@ -1270,6 +1272,209 @@ func (m *TssKeyProcess) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
+func (m *TssKey) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTypes
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: TssKey: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: TssKey: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TssPubkey", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.TssPubkey = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field KeyId", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.KeyId = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Participants", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Participants = append(m.Participants, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		case 4:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field FinalizedBlockHeight", wireType)
+			}
+			m.FinalizedBlockHeight = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.FinalizedBlockHeight |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 5:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field KeygenBlockHeight", wireType)
+			}
+			m.KeygenBlockHeight = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.KeygenBlockHeight |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 6:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ProcessId", wireType)
+			}
+			m.ProcessId = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.ProcessId |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTypes(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
 func (m *TssEvent) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -1459,70 +1664,6 @@ func (m *TssEvent) Unmarshal(dAtA []byte) error {
 				}
 			}
 		case 8:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field KeyId", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowTypes
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthTypes
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthTypes
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.KeyId = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 9:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field TssPubkey", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowTypes
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthTypes
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthTypes
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.TssPubkey = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 10:
 			if wireType != 0 {
 				return fmt.Errorf("proto: wrong wireType = %d for field BlockHeight", wireType)
 			}
@@ -1541,89 +1682,7 @@ func (m *TssEvent) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
-		default:
-			iNdEx = preIndex
-			skippy, err := skipTypes(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
-				return ErrInvalidLengthTypes
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *TssKey) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowTypes
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: TssKey: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: TssKey: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field TssPubkey", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowTypes
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthTypes
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthTypes
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.TssPubkey = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 2:
+		case 9:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field KeyId", wireType)
 			}
@@ -1655,9 +1714,9 @@ func (m *TssKey) Unmarshal(dAtA []byte) error {
 			}
 			m.KeyId = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
-		case 3:
+		case 10:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Participants", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field TssPubkey", wireType)
 			}
 			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {
@@ -1685,65 +1744,8 @@ func (m *TssKey) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Participants = append(m.Participants, string(dAtA[iNdEx:postIndex]))
+			m.TssPubkey = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
-		case 4:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field FinalizedBlockHeight", wireType)
-			}
-			m.FinalizedBlockHeight = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowTypes
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.FinalizedBlockHeight |= int64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 5:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field KeygenBlockHeight", wireType)
-			}
-			m.KeygenBlockHeight = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowTypes
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.KeygenBlockHeight |= int64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 6:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field ProcessId", wireType)
-			}
-			m.ProcessId = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowTypes
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.ProcessId |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
 		default:
 			iNdEx = preIndex
 			skippy, err := skipTypes(dAtA[iNdEx:])

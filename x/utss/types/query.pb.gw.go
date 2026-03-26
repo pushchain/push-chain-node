@@ -888,11 +888,11 @@ var (
 
 	pattern_Query_AllKeys_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"utss", "v1", "key"}, "", runtime.AssumeColonVerbOpt(false)))
 
-	pattern_Query_GetTssEvent_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"utss", "v1", "events", "id"}, "", runtime.AssumeColonVerbOpt(false)))
+	pattern_Query_GetTssEvent_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"utss", "v1", "event", "id"}, "", runtime.AssumeColonVerbOpt(false)))
 
-	pattern_Query_ActiveTssEvents_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"utss", "v1", "events", "active"}, "", runtime.AssumeColonVerbOpt(false)))
+	pattern_Query_ActiveTssEvents_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"utss", "v1", "event", "active"}, "", runtime.AssumeColonVerbOpt(false)))
 
-	pattern_Query_AllTssEvents_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"utss", "v1", "events"}, "", runtime.AssumeColonVerbOpt(false)))
+	pattern_Query_AllTssEvents_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"utss", "v1", "event"}, "", runtime.AssumeColonVerbOpt(false)))
 )
 
 var (

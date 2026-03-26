@@ -41,6 +41,10 @@ func (k Keeper) GetUniversalTx(ctx context.Context, key string) (types.Universal
 
 // UpdateUniversalTx updates an existing UniversalTx in the store.
 // It fetches the UniversalTx, applies the update function, and saves it back.
+// Errors are rare and indicate infrastructure-level failures:
+//   - IAVL store read/write failure (disk I/O error, corruption)
+//   - UTX not found (should not happen if CreateUniversalTx succeeded prior)
+//   - updateFn returns an error
 func (k Keeper) UpdateUniversalTx(
 	ctx context.Context,
 	key string,

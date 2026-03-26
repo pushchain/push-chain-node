@@ -9,7 +9,7 @@ import (
 // inbounds, schedules an INBOUND_REVERT outbound so the user's funds can be returned
 // on the source chain. This is called when ValidateForExecution fails after the ballot
 // has already been finalized and the UTX created.
-func (k Keeper) handleFailedInboundValidation(sdkCtx sdk.Context, utx types.UniversalTx, validationErr error) {
+func (k Keeper) handleFailedInboundValidation(sdkCtx sdk.Context, utx types.UniversalTx, validationErr error) error {
 	inbound := utx.InboundTx
 	_, ueModuleAddressStr := k.GetUeModuleAddress(sdkCtx)
 	universalTxKey := utx.Id
@@ -22,10 +22,12 @@ func (k Keeper) handleFailedInboundValidation(sdkCtx sdk.Context, utx types.Univ
 		ErrorMsg:    validationErr.Error(),
 	}
 
-	_ = k.UpdateUniversalTx(sdkCtx, universalTxKey, func(utx *types.UniversalTx) error {
+	if err := k.UpdateUniversalTx(sdkCtx, universalTxKey, func(utx *types.UniversalTx) error {
 		utx.PcTx = append(utx.PcTx, &failedPcTx)
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
 
 	// For non-isCEA inbounds, schedule a revert outbound to return funds on source chain.
 	// isCEA failures never create an INBOUND_REVERT outbound (consistent with execute_inbound_funds_and_payload.go).
@@ -36,21 +38,33 @@ func (k Keeper) handleFailedInboundValidation(sdkCtx sdk.Context, utx types.Univ
 		}
 
 		revertOutbound := &types.OutboundTx{
-			DestinationChain: inbound.SourceChain,
-			Recipient:        revertRecipient,
-			Amount:           inbound.Amount,
+			DestinationChain:  inbound.SourceChain,
+			Recipient:         revertRecipient,
+			Amount:            inbound.Amount,
 			ExternalAssetAddr: inbound.AssetAddr,
-			Sender:           inbound.Sender,
-			TxType:           types.TxType_INBOUND_REVERT,
-			OutboundStatus:   types.Status_PENDING,
-			Id:               types.GetOutboundRevertId(inbound.SourceChain, inbound.TxHash),
+			Sender:            inbound.Sender,
+			TxType:            types.TxType_INBOUND_REVERT,
+			OutboundStatus:    types.Status_PENDING,
+			Id:                types.GetOutboundRevertId(inbound.SourceChain, inbound.TxHash),
 		}
 
-		_ = k.attachOutboundsToUtx(
+		if attachErr := k.attachOutboundsToUtx(
 			sdkCtx,
 			universalTxKey,
 			[]*types.OutboundTx{revertOutbound},
 			validationErr.Error(),
-		)
+		); attachErr != nil {
+			// Store the revert failure reason on the UTX so it's queryable on-chain.
+			// The FAILED PCTx is already recorded above — this adds why the revert wasn't attached.
+			if storeErr := k.UpdateUniversalTx(sdkCtx, universalTxKey, func(utx *types.UniversalTx) error {
+				utx.RevertError = attachErr.Error()
+				return nil
+			}); storeErr != nil {
+				// UpdateUniversalTx only fails on infra issues — return to roll back and retry
+				return storeErr
+			}
+		}
 	}
+
+	return nil
 }

@@ -71,7 +71,9 @@ func (k Keeper) VoteInbound(ctx context.Context, universalValidator sdk.ValAddre
 		if removeErr := k.RemovePendingInbound(ctx, inbound); removeErr != nil {
 			return removeErr
 		}
-		k.handleFailedInboundValidation(sdkCtx, utx, normalizeErr)
+		if handleErr := k.handleFailedInboundValidation(sdkCtx, utx, normalizeErr); handleErr != nil {
+			return handleErr
+		}
 		return nil
 	}
 
@@ -96,7 +98,9 @@ func (k Keeper) VoteInbound(ctx context.Context, universalValidator sdk.ValAddre
 	// If validation fails, record a failed PCTx and schedule revert (for non-isCEA)
 	// instead of failing the vote — so the UTX is always visible on-chain.
 	if validationErr := inbound.ValidateForExecution(); validationErr != nil {
-		k.handleFailedInboundValidation(sdkCtx, utx, validationErr)
+		if handleErr := k.handleFailedInboundValidation(sdkCtx, utx, validationErr); handleErr != nil {
+			return handleErr
+		}
 		return nil
 	}
 

@@ -147,6 +147,7 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 	}
 
 	// --- record deposit attempt (only if amount > 0 or there was an error)
+	// Amount is already validated in ValidateForExecution before reaching here
 	depositAmount := new(big.Int)
 	depositAmount.SetString(utx.InboundTx.Amount, 10)
 	if depositAmount.Sign() > 0 || execErr != nil {

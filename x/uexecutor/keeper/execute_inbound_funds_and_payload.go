@@ -42,6 +42,7 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 	payloadChain := utx.InboundTx.SourceChain // default: inbound source chain; overridden to UEA origin chain for CEA
 
 	// Parse amount to check for zero-amount path
+	// Amount is already validated in ValidateForExecution before reaching here
 	inboundAmount := new(big.Int)
 	inboundAmount.SetString(utx.InboundTx.Amount, 10)
 

@@ -662,7 +662,7 @@ func TestClient_BroadcastTx(t *testing.T) {
 	})
 }
 
-func TestClient_GetActiveTssEvents(t *testing.T) {
+func TestClient_GetPendingTssEvents(t *testing.T) {
 	logger := zerolog.Nop()
 	ctx := context.Background()
 
@@ -672,7 +672,7 @@ func TestClient_GetActiveTssEvents(t *testing.T) {
 			utssClients: []utsstypes.QueryClient{},
 		}
 
-		events, err := client.GetActiveTssEvents(ctx)
+		events, err := client.GetPendingTssEvents(ctx)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "no endpoints configured")
 		assert.Nil(t, events)
@@ -680,7 +680,7 @@ func TestClient_GetActiveTssEvents(t *testing.T) {
 
 	t.Run("successful query with mock", func(t *testing.T) {
 		mockClient := &mockUTSSQueryClient{
-			activeTssEventsResp: &utsstypes.QueryActiveTssEventsResponse{
+			pendingTssEventsResp: &utsstypes.QueryAllPendingTssEventsResponse{
 				Events: []*utsstypes.TssEvent{
 					{Id: 1, ProcessId: 100, ProcessType: "TSS_PROCESS_KEYGEN"},
 					{Id: 2, ProcessId: 200, ProcessType: "TSS_PROCESS_REFRESH"},
@@ -693,7 +693,7 @@ func TestClient_GetActiveTssEvents(t *testing.T) {
 			utssClients: []utsstypes.QueryClient{mockClient},
 		}
 
-		events, err := client.GetActiveTssEvents(ctx)
+		events, err := client.GetPendingTssEvents(ctx)
 		require.NoError(t, err)
 		require.Len(t, events, 2)
 		assert.Equal(t, uint64(100), events[0].ProcessId)
@@ -708,7 +708,7 @@ func TestClient_GetActiveTssEvents(t *testing.T) {
 			},
 		}
 
-		events, err := client.GetActiveTssEvents(ctx)
+		events, err := client.GetPendingTssEvents(ctx)
 		require.Error(t, err)
 		assert.Nil(t, events)
 	})
@@ -846,7 +846,7 @@ func (m *mockUValidatorQueryClient) UniversalValidator(ctx context.Context, req 
 type mockUTSSQueryClient struct {
 	utsstypes.QueryClient
 	currentKeyResp      *utsstypes.QueryCurrentKeyResponse
-	activeTssEventsResp *utsstypes.QueryActiveTssEventsResponse
+	pendingTssEventsResp *utsstypes.QueryAllPendingTssEventsResponse
 	err                 error
 }
 
@@ -857,11 +857,11 @@ func (m *mockUTSSQueryClient) CurrentKey(ctx context.Context, req *utsstypes.Que
 	return m.currentKeyResp, nil
 }
 
-func (m *mockUTSSQueryClient) ActiveTssEvents(ctx context.Context, req *utsstypes.QueryActiveTssEventsRequest, opts ...grpc.CallOption) (*utsstypes.QueryActiveTssEventsResponse, error) {
+func (m *mockUTSSQueryClient) AllPendingTssEvents(ctx context.Context, req *utsstypes.QueryAllPendingTssEventsRequest, opts ...grpc.CallOption) (*utsstypes.QueryAllPendingTssEventsResponse, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
-	return m.activeTssEventsResp, nil
+	return m.pendingTssEventsResp, nil
 }
 
 func (m *mockUTSSQueryClient) KeyById(ctx context.Context, req *utsstypes.QueryKeyByIdRequest, opts ...grpc.CallOption) (*utsstypes.QueryKeyByIdResponse, error) {

@@ -293,13 +293,14 @@ func (c *Client) BroadcastTx(ctx context.Context, txBytes []byte) (*tx.Broadcast
 	)
 }
 
-// GetActiveTssEvents retrieves up to the first 1000 active TSS events from Push Chain.
-func (c *Client) GetActiveTssEvents(ctx context.Context) ([]*utsstypes.TssEvent, error) {
+// GetPendingTssEvents retrieves up to the first 1000 pending TSS events from Push Chain.
+// Sorted by process_id ascending (oldest first).
+func (c *Client) GetPendingTssEvents(ctx context.Context) ([]*utsstypes.TssEvent, error) {
 	return retryWithRoundRobin(
 		len(c.utssClients),
 		&c.rr,
 		func(idx int) ([]*utsstypes.TssEvent, error) {
-			resp, err := c.utssClients[idx].ActiveTssEvents(ctx, &utsstypes.QueryActiveTssEventsRequest{
+			resp, err := c.utssClients[idx].AllPendingTssEvents(ctx, &utsstypes.QueryAllPendingTssEventsRequest{
 				Pagination: &query.PageRequest{Limit: 1000},
 			})
 			if err != nil {
@@ -307,12 +308,13 @@ func (c *Client) GetActiveTssEvents(ctx context.Context) ([]*utsstypes.TssEvent,
 			}
 			return resp.Events, nil
 		},
-		"GetActiveTssEvents",
+		"GetPendingTssEvents",
 		c.logger,
 	)
 }
 
 // GetAllPendingOutbounds retrieves up to the first 1000 pending outbound transactions from Push Chain.
+// Sorted by created_at (block height) ascending — oldest first.
 func (c *Client) GetAllPendingOutbounds(ctx context.Context) ([]*uexecutortypes.PendingOutboundEntry, []*uexecutortypes.OutboundTx, error) {
 	resp, err := retryWithRoundRobin(
 		len(c.uexecutorClients),

@@ -47,14 +47,19 @@ service Query {
     option (google.api.http).get = "/utss/v1/key";
   }
 
-  // Get a single TSS event by ID
+  // Get a single TSS event by auto-increment ID
   rpc GetTssEvent(QueryGetTssEventRequest) returns (QueryGetTssEventResponse) {
     option (google.api.http).get = "/utss/v1/event/{id}";
   }
 
-  // List active TSS events (paginated)
-  rpc ActiveTssEvents(QueryActiveTssEventsRequest) returns (QueryActiveTssEventsResponse) {
-    option (google.api.http).get = "/utss/v1/event/active";
+  // Get a single pending TSS event by process ID
+  rpc GetPendingTssEvent(QueryGetPendingTssEventRequest) returns (QueryGetPendingTssEventResponse) {
+    option (google.api.http).get = "/utss/v1/event/pending/{process_id}";
+  }
+
+  // List all pending TSS events (paginated)
+  rpc AllPendingTssEvents(QueryAllPendingTssEventsRequest) returns (QueryAllPendingTssEventsResponse) {
+    option (google.api.http).get = "/utss/v1/event/pending";
   }
 
   // List all TSS events (paginated)
@@ -117,10 +122,17 @@ message QueryGetTssEventResponse {
   TssEvent event = 1;
 }
 
-message QueryActiveTssEventsRequest {
+message QueryGetPendingTssEventRequest {
+  uint64 process_id = 1;
+}
+message QueryGetPendingTssEventResponse {
+  TssEvent event = 1;
+}
+
+message QueryAllPendingTssEventsRequest {
   cosmos.base.query.v1beta1.PageRequest pagination = 1;
 }
-message QueryActiveTssEventsResponse {
+message QueryAllPendingTssEventsResponse {
   repeated TssEvent events = 1;
   cosmos.base.query.v1beta1.PageResponse pagination = 2;
 }

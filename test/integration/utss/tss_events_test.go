@@ -196,55 +196,65 @@ func TestGetTssEventNotFound(t *testing.T) {
 	require.Error(t, err)
 }
 
-// TestActiveTssEventsQuery verifies that only ACTIVE events are returned.
-func TestActiveTssEventsQuery(t *testing.T) {
+// TestAllPendingTssEventsQuery verifies that only pending (not yet finalized) events are returned.
+func TestAllPendingTssEventsQuery(t *testing.T) {
 	app, ctx, validators := setupTssKeyProcessTest(t, 3)
 
-	// Process A: initiated (stays active)
+	// Process A: initiated — should appear in pending
 	err := app.UtssKeeper.InitiateTssKeyProcess(ctx, utsstypes.TssProcessType_TSS_PROCESS_KEYGEN)
 	require.NoError(t, err)
 	processA, _ := app.UtssKeeper.CurrentTssProcess.Get(ctx)
 
-	// Process B: initiated then finalized (initiated -> completed, finalized -> active)
-	// First finalize process A so we can initiate B
+	querier := keeper.NewQuerier(app.UtssKeeper)
+
+	// Before finalization: 1 pending event (process A initiated)
+	resp, err := querier.AllPendingTssEvents(ctx, &utsstypes.QueryAllPendingTssEventsRequest{
+		Pagination: &query.PageRequest{Limit: 100},
+	})
+	require.NoError(t, err)
+	require.Len(t, resp.Events, 1)
+	require.Equal(t, processA.Id, resp.Events[0].ProcessId)
+
+	// Finalize process A via votes
 	for _, v := range validators {
 		valAddr, _ := sdk.ValAddressFromBech32(v)
 		_ = app.UtssKeeper.VoteTssKeyProcess(ctx, valAddr, "pubA", "keyA", processA.Id)
 	}
 
-	err = app.UtssKeeper.InitiateTssKeyProcess(ctx, utsstypes.TssProcessType_TSS_PROCESS_KEYGEN)
-	require.NoError(t, err)
-	processB, _ := app.UtssKeeper.CurrentTssProcess.Get(ctx)
-	for _, v := range validators {
-		valAddr, _ := sdk.ValAddressFromBech32(v)
-		_ = app.UtssKeeper.VoteTssKeyProcess(ctx, valAddr, "pubB", "keyB", processB.Id)
-	}
-
-	// Process C: initiated then failed (initiated -> expired)
-	err = app.UtssKeeper.InitiateTssKeyProcess(ctx, utsstypes.TssProcessType_TSS_PROCESS_KEYGEN)
-	require.NoError(t, err)
-	processC, _ := app.UtssKeeper.CurrentTssProcess.Get(ctx)
-	err = app.UtssKeeper.FinalizeTssKeyProcess(ctx, processC.Id, utsstypes.TssKeyProcessStatus_TSS_KEY_PROCESS_FAILED)
-	require.NoError(t, err)
-
-	querier := keeper.NewQuerier(app.UtssKeeper)
-	resp, err := querier.ActiveTssEvents(ctx, &utsstypes.QueryActiveTssEventsRequest{
+	// After finalization: 0 pending events (process A removed from pending)
+	resp, err = querier.AllPendingTssEvents(ctx, &utsstypes.QueryAllPendingTssEventsRequest{
 		Pagination: &query.PageRequest{Limit: 100},
 	})
 	require.NoError(t, err)
+	require.Empty(t, resp.Events)
 
-	// Only active events should be returned
-	for _, event := range resp.Events {
-		require.Equal(t, utsstypes.TssEventStatus_TSS_EVENT_ACTIVE, event.Status)
-	}
+	// Process B: initiated then failed
+	err = app.UtssKeeper.InitiateTssKeyProcess(ctx, utsstypes.TssProcessType_TSS_PROCESS_KEYGEN)
+	require.NoError(t, err)
+	processB, _ := app.UtssKeeper.CurrentTssProcess.Get(ctx)
 
-	// Should have B's finalized event as active (A's finalized became completed when B finalized)
-	// Process C's initiated is expired, A's initiated is completed
-	require.NotEmpty(t, resp.Events)
+	// Before failure: 1 pending event (process B)
+	resp, err = querier.AllPendingTssEvents(ctx, &utsstypes.QueryAllPendingTssEventsRequest{
+		Pagination: &query.PageRequest{Limit: 100},
+	})
+	require.NoError(t, err)
+	require.Len(t, resp.Events, 1)
+	require.Equal(t, processB.Id, resp.Events[0].ProcessId)
+
+	// Fail process B
+	err = app.UtssKeeper.FinalizeTssKeyProcess(ctx, processB.Id, utsstypes.TssKeyProcessStatus_TSS_KEY_PROCESS_FAILED)
+	require.NoError(t, err)
+
+	// After failure: 0 pending events
+	resp, err = querier.AllPendingTssEvents(ctx, &utsstypes.QueryAllPendingTssEventsRequest{
+		Pagination: &query.PageRequest{Limit: 100},
+	})
+	require.NoError(t, err)
+	require.Empty(t, resp.Events)
 }
 
-// TestActiveTssEventsOrderedByBlockHeight verifies events come in ascending ID/block height order.
-func TestActiveTssEventsOrderedByBlockHeight(t *testing.T) {
+// TestAllPendingTssEventsOrderedByBlockHeight verifies events come in ascending ID/block height order.
+func TestAllPendingTssEventsOrderedByBlockHeight(t *testing.T) {
 	app, ctx, _ := setupTssKeyProcessTest(t, 3)
 
 	// Create events at different block heights
@@ -256,7 +266,7 @@ func TestActiveTssEventsOrderedByBlockHeight(t *testing.T) {
 	require.NoError(t, err)
 
 	querier := keeper.NewQuerier(app.UtssKeeper)
-	resp, err := querier.ActiveTssEvents(ctx, &utsstypes.QueryActiveTssEventsRequest{
+	resp, err := querier.AllPendingTssEvents(ctx, &utsstypes.QueryAllPendingTssEventsRequest{
 		Pagination: &query.PageRequest{Limit: 100},
 	})
 	require.NoError(t, err)
@@ -267,8 +277,8 @@ func TestActiveTssEventsOrderedByBlockHeight(t *testing.T) {
 	}
 }
 
-// TestActiveTssEventsPagination verifies pagination works for active events.
-func TestActiveTssEventsPagination(t *testing.T) {
+// TestAllPendingTssEventsPagination verifies pagination works for active events.
+func TestAllPendingTssEventsPagination(t *testing.T) {
 	app, ctx, _ := setupTssKeyProcessTest(t, 3)
 
 	// Create 5 active events (process initiations)
@@ -281,14 +291,14 @@ func TestActiveTssEventsPagination(t *testing.T) {
 	querier := keeper.NewQuerier(app.UtssKeeper)
 
 	// Query with limit=2
-	resp1, err := querier.ActiveTssEvents(ctx, &utsstypes.QueryActiveTssEventsRequest{
+	resp1, err := querier.AllPendingTssEvents(ctx, &utsstypes.QueryAllPendingTssEventsRequest{
 		Pagination: &query.PageRequest{Limit: 2},
 	})
 	require.NoError(t, err)
 	require.Len(t, resp1.Events, 2)
 
 	// Query with offset=2, limit=2
-	resp2, err := querier.ActiveTssEvents(ctx, &utsstypes.QueryActiveTssEventsRequest{
+	resp2, err := querier.AllPendingTssEvents(ctx, &utsstypes.QueryAllPendingTssEventsRequest{
 		Pagination: &query.PageRequest{Offset: 2, Limit: 2},
 	})
 	require.NoError(t, err)
@@ -444,7 +454,7 @@ func TestNoActiveEventsReturnsEmpty(t *testing.T) {
 	})
 
 	querier := keeper.NewQuerier(app.UtssKeeper)
-	resp, err := querier.ActiveTssEvents(ctx, &utsstypes.QueryActiveTssEventsRequest{
+	resp, err := querier.AllPendingTssEvents(ctx, &utsstypes.QueryAllPendingTssEventsRequest{
 		Pagination: &query.PageRequest{Limit: 100},
 	})
 	require.NoError(t, err)

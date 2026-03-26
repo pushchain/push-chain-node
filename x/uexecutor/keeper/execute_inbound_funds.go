@@ -46,7 +46,7 @@ func (k Keeper) ExecuteInboundFunds(ctx context.Context, utx types.UniversalTx) 
 		utx.PcTx = append(utx.PcTx, &pcTx)
 		return nil
 	}); updateErr != nil {
-		k.logger.Error("failed to record PCTx in UniversalTx", "key", universalTxKey, "err", updateErr)
+		return updateErr
 	}
 
 	if err != nil {
@@ -66,10 +66,12 @@ func (k Keeper) ExecuteInboundFunds(ctx context.Context, utx types.UniversalTx) 
 			Id:                types.GetOutboundRevertId(inbound.SourceChain, inbound.TxHash),
 		}
 		if attachErr := k.attachOutboundsToUtx(sdkCtx, utx.Id, []*types.OutboundTx{&revertOutbound}, err.Error()); attachErr != nil {
-			sdkCtx.Logger().Error("CRITICAL: failed to attach revert outbound",
-				"utx_id", utx.Id,
-				"error", attachErr,
-			)
+			if storeErr := k.UpdateUniversalTx(sdkCtx, utx.Id, func(u *types.UniversalTx) error {
+				u.RevertError = attachErr.Error()
+				return nil
+			}); storeErr != nil {
+				return storeErr
+			}
 		}
 	}
 

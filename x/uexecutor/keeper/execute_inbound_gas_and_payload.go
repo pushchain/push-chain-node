@@ -127,7 +127,7 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 								utx.PcTx = append(utx.PcTx, &deployPcTx)
 								return nil
 							}); updateErr != nil {
-								k.logger.Error("failed to record deployment PCTx in UniversalTx", "key", universalTxKey, "err", updateErr)
+								return updateErr
 							}
 						}
 					}
@@ -200,10 +200,12 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 			[]*types.OutboundTx{revertOutbound},
 			revertReason,
 		); attachErr != nil {
-			sdkCtx.Logger().Error("CRITICAL: failed to attach revert outbound",
-				"utx_id", universalTxKey,
-				"error", attachErr,
-			)
+			if storeErr := k.UpdateUniversalTx(sdkCtx, universalTxKey, func(u *types.UniversalTx) error {
+				u.RevertError = attachErr.Error()
+				return nil
+			}); storeErr != nil {
+				return storeErr
+			}
 		}
 
 		return nil
@@ -258,7 +260,7 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 			utx.PcTx = append(utx.PcTx, &callPcTx)
 			return nil
 		}); updateErr != nil {
-			k.logger.Error("failed to record PCTx in UniversalTx", "key", universalTxKey, "err", updateErr)
+			return updateErr
 		}
 		return nil
 	}
@@ -281,7 +283,7 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 
 			return nil
 		}); updateErr != nil {
-			k.logger.Error("failed to record PCTx in UniversalTx", "key", universalTxKey, "err", updateErr)
+			return updateErr
 		}
 		return nil
 	}
@@ -309,7 +311,12 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 
 		if receipt != nil {
 			if attachErr := k.AttachOutboundsToExistingUniversalTx(sdkCtx, receipt, utx); attachErr != nil {
-				k.logger.Error("failed to attach outbounds to UniversalTx", "id", utx.Id, "err", attachErr)
+				if storeErr := k.UpdateUniversalTx(sdkCtx, universalTxKey, func(u *types.UniversalTx) error {
+					u.RevertError = attachErr.Error()
+					return nil
+				}); storeErr != nil {
+					return storeErr
+				}
 			}
 		}
 	}

@@ -30,6 +30,10 @@ type Keeper struct {
 	CurrentTssKey collections.Item[types.TssKey]        // currently active finalized key
 	TssKeyHistory collections.Map[string, types.TssKey] // map of key_id -> TssKey
 
+	// TSS Events Storage
+	TssEvents      collections.Map[uint64, types.TssEvent] // Key: event ID -> Value: TssEvent
+	NextTssEventId collections.Sequence                     // auto-increment counter for event IDs
+
 	// keepers
 	uvalidatorKeeper types.UValidatorKeeper
 
@@ -65,6 +69,10 @@ func NewKeeper(
 		// TSS key storage
 		CurrentTssKey: collections.NewItem(sb, types.CurrentTssKeyKeyPrefix, "current_tss_key", codec.CollValue[types.TssKey](cdc)),
 		TssKeyHistory: collections.NewMap(sb, types.TssKeyHistoryKey, "tss_key_history", collections.StringKey, codec.CollValue[types.TssKey](cdc)),
+
+		// TSS events storage
+		TssEvents:      collections.NewMap(sb, types.TssEventsKey, types.TssEventsName, collections.Uint64Key, codec.CollValue[types.TssEvent](cdc)),
+		NextTssEventId: collections.NewSequence(sb, types.NextTssEventIdKey, types.NextTssEventIdName),
 
 		authority:        authority,
 		uvalidatorKeeper: uvalidatorKeeper,

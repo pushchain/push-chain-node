@@ -109,6 +109,9 @@ func (k Keeper) VoteChainMeta(ctx context.Context, universalValidator sdk.ValAdd
 	}
 	var fresh []voteSnapshot
 	for i := range entry.Signers {
+		if entry.StoredAts[i] > now {
+			continue // clock skew guard — skip future-stamped votes
+		}
 		age := now - entry.StoredAts[i]
 		if age <= chainMetaVoteStalenessSeconds {
 			fresh = append(fresh, voteSnapshot{

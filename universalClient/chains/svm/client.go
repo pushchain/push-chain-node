@@ -259,6 +259,7 @@ func (c *Client) initializeComponents() error {
 			c.registryConfig.GatewayAddress,
 			c.nodeHome,
 			c.logger,
+			c.chainConfig,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to create txBuilder: %w", err)

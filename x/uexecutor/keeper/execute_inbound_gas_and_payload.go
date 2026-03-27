@@ -158,7 +158,7 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 		}
 		if execErr != nil {
 			depositPcTx.ErrorMsg = execErr.Error()
-		} else {
+		} else if receipt != nil {
 			depositPcTx.TxHash = receipt.Hash
 			depositPcTx.GasUsed = receipt.GasUsed
 			depositPcTx.Status = "SUCCESS"
@@ -248,7 +248,7 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 		}
 		if contractErr != nil {
 			callPcTx.ErrorMsg = contractErr.Error()
-		} else {
+		} else if contractReceipt != nil {
 			callPcTx.TxHash = contractReceipt.Hash
 			callPcTx.GasUsed = contractReceipt.GasUsed
 			callPcTx.Status = "SUCCESS"
@@ -301,19 +301,17 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 	}
 	if err != nil {
 		payloadPcTx.ErrorMsg = err.Error()
-	} else {
+	} else if receipt != nil {
 		payloadPcTx.TxHash = receipt.Hash
 		payloadPcTx.GasUsed = receipt.GasUsed
 		payloadPcTx.Status = "SUCCESS"
 
-		if receipt != nil {
-			if attachErr := k.AttachOutboundsToExistingUniversalTx(sdkCtx, receipt, utx); attachErr != nil {
-				if storeErr := k.UpdateUniversalTx(sdkCtx, universalTxKey, func(u *types.UniversalTx) error {
-					u.RevertError = attachErr.Error()
-					return nil
-				}); storeErr != nil {
-					return storeErr
-				}
+		if attachErr := k.AttachOutboundsToExistingUniversalTx(sdkCtx, receipt, utx); attachErr != nil {
+			if storeErr := k.UpdateUniversalTx(sdkCtx, universalTxKey, func(u *types.UniversalTx) error {
+				u.RevertError = attachErr.Error()
+				return nil
+			}); storeErr != nil {
+				return storeErr
 			}
 		}
 	}

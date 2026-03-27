@@ -153,7 +153,7 @@ func (k Keeper) ExecuteInboundGas(ctx context.Context, inbound types.Inbound) er
 	// --- Finalize pcTx
 	if execErr != nil {
 		pcTx.ErrorMsg = execErr.Error()
-	} else {
+	} else if receipt != nil {
 		pcTx.TxHash = receipt.Hash
 		pcTx.GasUsed = receipt.GasUsed
 		pcTx.Status = "SUCCESS"

@@ -157,6 +157,9 @@ func (k Keeper) IsChainInboundEnabled(ctx context.Context, chain string) (bool, 
 		}
 		return false, err
 	}
+	if config.Enabled == nil {
+		return false, nil
+	}
 	return config.Enabled.IsInboundEnabled, nil
 }
 
@@ -169,6 +172,9 @@ func (k Keeper) IsChainOutboundEnabled(ctx context.Context, chain string) (bool,
 			return false, nil
 		}
 		return false, err
+	}
+	if config.Enabled == nil {
+		return false, nil
 	}
 	return config.Enabled.IsOutboundEnabled, nil
 }

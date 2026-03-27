@@ -303,8 +303,8 @@ func (ep *EventProcessor) constructInbound(event *store.Event) (*uexecutortypes.
 		}
 	}
 
-	// Check if VerificationData is 0x and replace with TxHash
-	if inboundMsg.UniversalPayload != nil && inboundMsg.UniversalPayload.VType == uexecutortypes.VerificationType_universalTxVerification {
+	// Use event's VerificationData if present, otherwise fall back to txHash
+	if eventData.VerificationData == "" || eventData.VerificationData == "0x" {
 		inboundMsg.VerificationData = txHashHex
 	} else {
 		inboundMsg.VerificationData = eventData.VerificationData

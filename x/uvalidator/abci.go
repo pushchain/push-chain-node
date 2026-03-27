@@ -31,6 +31,8 @@ const ExtraBoostPortion = "0.148"
 func BeginBlocker(ctx sdk.Context, uvalidatorKeeper keeper.Keeper) error {
 	defer telemetry.ModuleMeasureSince(types.ModuleName, time.Now(), telemetry.MetricKeyBeginBlocker)
 
+	ctx.Logger().Debug("uvalidator BeginBlocker started", "block_height", ctx.BlockHeight())
+
 	// determine the total power signing the block
 	var previousTotalPower int64
 	for _, voteInfo := range ctx.VoteInfos() {
@@ -39,14 +41,25 @@ func BeginBlocker(ctx sdk.Context, uvalidatorKeeper keeper.Keeper) error {
 
 	// full amount will be allocated to community pool by distribution module itself
 	if previousTotalPower == 0 {
+		ctx.Logger().Debug("uvalidator BeginBlocker: no voting power, skipping token allocation", "block_height", ctx.BlockHeight())
 		return nil
 	}
 
 	height := ctx.BlockHeight()
 	if height > 1 {
+		ctx.Logger().Info("uvalidator BeginBlocker: allocating tokens",
+			"block_height", height,
+			"total_previous_power", previousTotalPower,
+			"vote_infos_count", len(ctx.VoteInfos()),
+		)
 		if err := AllocateTokens(ctx, previousTotalPower, ctx.VoteInfos(), uvalidatorKeeper); err != nil {
+			ctx.Logger().Error("uvalidator BeginBlocker: token allocation failed",
+				"block_height", height,
+				"error", err.Error(),
+			)
 			return err
 		}
+		ctx.Logger().Info("uvalidator BeginBlocker: token allocation complete", "block_height", height)
 	}
 
 	return nil
@@ -55,15 +68,24 @@ func BeginBlocker(ctx sdk.Context, uvalidatorKeeper keeper.Keeper) error {
 // AllocateTokens performs reward and fee distribution to all validators based
 // on the F1 fee distribution specification.
 func AllocateTokens(ctx context.Context, totalPreviousPower int64, bondedVotes []abci.VoteInfo, k keeper.Keeper) error {
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+
 	// fetch and clear the collected fees for distribution, since this is
 	// called in BeginBlock, collected fees will be from the previous block
 	// (and distributed to the previous proposer)
 	feeCollector := k.AuthKeeper.GetModuleAccount(ctx, authtypes.FeeCollectorName)
 	feesCollectedInt := k.BankKeeper.GetAllBalances(ctx, feeCollector.GetAddress())
 	if feesCollectedInt.IsZero() {
+		k.Logger().Debug("AllocateTokens: no fees collected, skipping", "block_height", sdkCtx.BlockHeight())
 		return nil
 	}
 	feesCollected := sdk.NewDecCoinsFromCoins(feesCollectedInt...)
+
+	k.Logger().Debug("AllocateTokens: fees collected",
+		"block_height", sdkCtx.BlockHeight(),
+		"fees", feesCollectedInt.String(),
+		"bonded_votes", len(bondedVotes),
+	)
 
 	// transfer collected fees to the uvalidator module account
 	err := k.BankKeeper.SendCoinsFromModuleToModule(ctx, authtypes.FeeCollectorName, types.ModuleName, feesCollectedInt)
@@ -92,8 +114,14 @@ func AllocateTokens(ctx context.Context, totalPreviousPower int64, bondedVotes [
 		effectiveTotalPower = effectiveTotalPower.Add(power)
 	}
 
+	k.Logger().Debug("AllocateTokens: effective total power computed",
+		"block_height", sdkCtx.BlockHeight(),
+		"effective_total_power", effectiveTotalPower.String(),
+	)
+
 	// Allocate 0.148x to the UVs proportionally using effective power
 	allocated := sdk.NewDecCoins()
+	uvCount := 0
 	for _, vote := range bondedVotes {
 		validator, err := k.StakingKeeper.ValidatorByConsAddr(ctx, vote.Validator.Address)
 		if err != nil {
@@ -109,12 +137,20 @@ func AllocateTokens(ctx context.Context, totalPreviousPower int64, bondedVotes [
 			continue
 		}
 
+		uvCount++
+
 		// Use only the extra portion for UV allocation
 		power := math.LegacyNewDec(vote.Validator.Power)
 		power = power.Mul(math.LegacyMustNewDecFromStr(ExtraBoostPortion))
 
 		powerFraction := power.QuoTruncate(effectiveTotalPower)
 		reward := feesCollected.MulDecTruncate(powerFraction)
+
+		k.Logger().Debug("AllocateTokens: allocating UV boost reward",
+			"validator", validator.GetOperator(),
+			"power", vote.Validator.Power,
+			"reward", reward.String(),
+		)
 
 		err = k.DistributionKeeper.AllocateTokensToValidator(ctx, validator, reward)
 		if err != nil {
@@ -134,6 +170,13 @@ func AllocateTokens(ctx context.Context, totalPreviousPower int64, bondedVotes [
 	remainingDec := sdk.NewDecCoinsFromCoins(remainingCoins...)
 	remainingDec = remainingDec.Add(extraChange...)
 	remainingFinal, _ := remainingDec.TruncateDecimal()
+
+	k.Logger().Info("AllocateTokens: reward distribution summary",
+		"block_height", sdkCtx.BlockHeight(),
+		"uv_count", uvCount,
+		"uv_boost_allocated", extraCoins.String(),
+		"remaining_to_fee_collector", remainingFinal.String(),
+	)
 
 	// Send the integer portion of UV boost rewards to the distribution module
 	// to back the AllocateTokensToValidator accounting entries made above.

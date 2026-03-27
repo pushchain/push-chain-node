@@ -16,6 +16,8 @@ func (k Keeper) SetGasPrice(ctx context.Context, chainID string, gasPrice types.
 // Called when a validator is removed from the universal validator set to prevent stale votes
 // from influencing the median calculations.
 func (k Keeper) PruneValidatorVotes(ctx context.Context, validatorAddr string) {
+	k.Logger().Debug("pruning validator votes from chain metas", "validator", validatorAddr)
+
 	_ = k.ChainMetas.Walk(ctx, nil, func(chainId string, entry types.ChainMeta) (bool, error) {
 		idx := -1
 		for i, s := range entry.Signers {
@@ -31,8 +33,17 @@ func (k Keeper) PruneValidatorVotes(ctx context.Context, validatorAddr string) {
 			entry.StoredAts = append(entry.StoredAts[:idx], entry.StoredAts[idx+1:]...)
 			entry.MedianIndex = uint64(computeMedianIndex(entry.Prices))
 			_ = k.ChainMetas.Set(ctx, chainId, entry)
+			k.Logger().Debug("pruned validator vote from chain meta",
+				"validator", validatorAddr,
+				"chain_id", chainId,
+				"remaining_signers", len(entry.Signers),
+			)
 		} else if idx >= 0 && len(entry.Signers) == 1 {
 			_ = k.ChainMetas.Remove(ctx, chainId)
+			k.Logger().Debug("removed chain meta entry after last signer pruned",
+				"validator", validatorAddr,
+				"chain_id", chainId,
+			)
 		}
 		return false, nil
 	})

@@ -17,6 +17,13 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 	ueModuleAccAddress, ueModuleAddressStr := k.GetUeModuleAddress(ctx)
 	universalTxKey := types.GetInboundUniversalTxKey(*utx.InboundTx)
 
+	k.Logger().Info("execute inbound gas and payload",
+		"utx_key", universalTxKey,
+		"source_chain", utx.InboundTx.SourceChain,
+		"amount", utx.InboundTx.Amount,
+		"is_cea", utx.InboundTx.IsCEA,
+	)
+
 	chainNamespace, chainId, err := types.ParseCAIP2(utx.InboundTx.SourceChain)
 	if err != nil {
 		return fmt.Errorf("invalid SourceChain: %w", err)
@@ -108,6 +115,11 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 					ueaAddr = ueaAddrRes
 
 					if !isDeployed {
+						k.Logger().Info("UEA not deployed, deploying now",
+							"utx_key", universalTxKey,
+							"source_chain", utx.InboundTx.SourceChain,
+							"sender", utx.InboundTx.Sender,
+						)
 						deployReceipt, dErr := k.DeployUEAV2(ctx, ueModuleAccAddress, &universalAccountId)
 						if dErr != nil {
 							execErr = fmt.Errorf("DeployUEAV2 failed: %w", dErr)
@@ -286,6 +298,7 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 	}
 
 	// --- Step 7: execute payload
+	k.Logger().Debug("executing payload via UEA (gas+payload)", "utx_key", universalTxKey, "uea", ueaAddr.Hex())
 	receipt, err = k.ExecutePayloadV2(
 		ctx,
 		ueModuleAddr,
@@ -300,8 +313,19 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 		Status:      "FAILED",
 	}
 	if err != nil {
+		k.Logger().Warn("payload execution failed (gas+payload)",
+			"utx_key", universalTxKey,
+			"uea", ueaAddr.Hex(),
+			"error", err.Error(),
+		)
 		payloadPcTx.ErrorMsg = err.Error()
 	} else if receipt != nil {
+		k.Logger().Info("payload executed successfully (gas+payload)",
+			"utx_key", universalTxKey,
+			"uea", ueaAddr.Hex(),
+			"tx_hash", receipt.Hash,
+			"gas_used", receipt.GasUsed,
+		)
 		payloadPcTx.TxHash = receipt.Hash
 		payloadPcTx.GasUsed = receipt.GasUsed
 		payloadPcTx.Status = "SUCCESS"

@@ -18,6 +18,12 @@ func (k Keeper) MigrateUEA(ctx context.Context, evmFrom common.Address, universa
 	// Get Caip2Identifier for the universal account
 	caip2Identifier := universalAccountId.GetCAIP2()
 
+	k.Logger().Info("migrate UEA",
+		"from", evmFrom.Hex(),
+		"chain", caip2Identifier,
+		"owner", universalAccountId.Owner,
+	)
+
 	// Step 1: Parse and validate payload and signature
 	_, err := types.NewAbiMigrationPayload(migrationPayload)
 	if err != nil {
@@ -37,6 +43,7 @@ func (k Keeper) MigrateUEA(ctx context.Context, evmFrom common.Address, universa
 
 	// TODO: Decide later if migration should be disabled if inbound is disabled
 	if !chainConfig.Enabled.IsInboundEnabled {
+		k.Logger().Warn("migrate UEA rejected: chain not enabled", "chain", caip2Identifier)
 		return fmt.Errorf("chain %s is not enabled", caip2Identifier)
 	}
 
@@ -50,8 +57,15 @@ func (k Keeper) MigrateUEA(ctx context.Context, evmFrom common.Address, universa
 	}
 
 	if !isDeployed {
+		k.Logger().Warn("migrate UEA rejected: UEA not deployed", "chain", caip2Identifier, "owner", universalAccountId.Owner)
 		return fmt.Errorf("UEA is not deployed")
 	}
+
+	k.Logger().Debug("migrating UEA",
+		"uea", ueaAddr.Hex(),
+		"chain", caip2Identifier,
+		"from", evmFrom.Hex(),
+	)
 
 	// Step 3: Migrate UEA through UEA
 	receipt, err := k.CallUEAMigrateUEA(sdkCtx, evmFrom, ueaAddr, migrationPayload, signatureVal)
@@ -59,7 +73,12 @@ func (k Keeper) MigrateUEA(ctx context.Context, evmFrom common.Address, universa
 		return err
 	}
 
-	k.Logger().Debug("MigrateUEA completed", "ret_len", len(receipt.Ret))
+	k.Logger().Info("UEA migrated",
+		"chain", caip2Identifier,
+		"uea", ueaAddr.Hex(),
+		"tx_hash", receipt.Hash,
+		"gas_used", receipt.GasUsed,
+	)
 
 	return nil
 }

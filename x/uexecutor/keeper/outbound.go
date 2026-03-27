@@ -11,6 +11,11 @@ import (
 )
 
 func (k Keeper) UpdateOutbound(ctx context.Context, utxId string, outbound types.OutboundTx) error {
+	k.Logger().Debug("updating outbound state",
+		"utx_id", utxId,
+		"outbound_id", outbound.Id,
+		"status", outbound.OutboundStatus.String(),
+	)
 	return k.UpdateUniversalTx(ctx, utxId, func(utx *types.UniversalTx) error {
 		if utx.OutboundTx == nil {
 			return fmt.Errorf("outbound tx list is not initialized for utx %s", utxId)
@@ -76,6 +81,14 @@ func (k Keeper) FinalizeOutbound(ctx context.Context, utxId string, outbound typ
 
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
+	k.Logger().Info("finalizing outbound",
+		"utx_id", utxId,
+		"outbound_id", outbound.Id,
+		"success", obs.Success,
+		"dest_chain", outbound.DestinationChain,
+		"tx_type", outbound.TxType.String(),
+	)
+
 	if !obs.Success {
 		return k.handleFailedOutbound(sdkCtx, utxId, outbound, obs)
 	}
@@ -121,9 +134,19 @@ func (k Keeper) handleFailedOutbound(ctx sdk.Context, utxId string, outbound typ
 		pcTx.GasUsed = receipt.GasUsed
 		pcTx.Status = "SUCCESS"
 		outbound.PcRevertExecution = &pcTx
+		k.Logger().Info("outbound failed: funds re-minted for revert",
+			"utx_id", utxId,
+			"outbound_id", outbound.Id,
+			"tx_hash", receipt.Hash,
+		)
 	}
 
 	outbound.OutboundStatus = types.Status_REVERTED
+	k.Logger().Info("outbound reverted",
+		"utx_id", utxId,
+		"outbound_id", outbound.Id,
+		"dest_chain", outbound.DestinationChain,
+	)
 
 	// Refund excess gas regardless of tx type — gas was consumed on the external
 	// chain whether the execution succeeded or failed.
@@ -134,6 +157,11 @@ func (k Keeper) handleFailedOutbound(ctx sdk.Context, utxId string, outbound typ
 
 // handleSuccessfulOutbound refunds unused gas fee when gasFee > gasFeeUsed.
 func (k Keeper) handleSuccessfulOutbound(ctx sdk.Context, utxId string, outbound types.OutboundTx, obs *types.OutboundObservation) error {
+	k.Logger().Info("outbound completed successfully",
+		"utx_id", utxId,
+		"outbound_id", outbound.Id,
+		"dest_chain", outbound.DestinationChain,
+	)
 	k.applyGasRefund(ctx, &outbound, obs)
 	return k.UpdateOutbound(ctx, utxId, outbound)
 }

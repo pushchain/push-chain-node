@@ -16,6 +16,8 @@ func (k Keeper) UpdateUniversalValidator(
 ) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
+	k.Logger().Info("updating universal validator network info", "validator", coreValidatorAddr)
+
 	// Parse core validator address and validate format
 	valAddr, err := sdk.ValAddressFromBech32(coreValidatorAddr)
 	if err != nil {
@@ -34,6 +36,7 @@ func (k Keeper) UpdateUniversalValidator(
 		return err
 	}
 	if !exists {
+		k.Logger().Warn("cannot update: universal validator not found", "validator", coreValidatorAddr)
 		return fmt.Errorf("validator %s does not exist", coreValidatorAddr)
 	}
 
@@ -50,6 +53,8 @@ func (k Keeper) UpdateUniversalValidator(
 	if err := k.UniversalValidatorSet.Set(ctx, valAddr, existingVal); err != nil {
 		return fmt.Errorf("failed to update universal validator: %w", err)
 	}
+
+	k.Logger().Info("universal validator network info updated", "validator", coreValidatorAddr)
 
 	return nil
 }

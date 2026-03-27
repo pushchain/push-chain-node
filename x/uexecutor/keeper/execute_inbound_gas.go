@@ -16,6 +16,13 @@ func (k Keeper) ExecuteInboundGas(ctx context.Context, inbound types.Inbound) er
 	ueModuleAccAddress, ueModuleAddressStr := k.GetUeModuleAddress(ctx)
 	universalTxKey := types.GetInboundUniversalTxKey(inbound)
 
+	k.Logger().Info("execute inbound gas: gas abstraction swap",
+		"utx_key", universalTxKey,
+		"source_chain", inbound.SourceChain,
+		"amount", inbound.Amount,
+		"sender", inbound.Sender,
+	)
+
 	// Default pcTx, will be filled along the way
 	pcTx := types.PCTx{
 		Sender:      ueModuleAddressStr,
@@ -152,8 +159,18 @@ func (k Keeper) ExecuteInboundGas(ctx context.Context, inbound types.Inbound) er
 
 	// --- Finalize pcTx
 	if execErr != nil {
+		k.Logger().Warn("execute inbound gas: swap failed",
+			"utx_key", universalTxKey,
+			"error", execErr.Error(),
+			"should_revert", shouldRevert,
+		)
 		pcTx.ErrorMsg = execErr.Error()
 	} else if receipt != nil {
+		k.Logger().Info("execute inbound gas: swap succeeded",
+			"utx_key", universalTxKey,
+			"tx_hash", receipt.Hash,
+			"gas_used", receipt.GasUsed,
+		)
 		pcTx.TxHash = receipt.Hash
 		pcTx.GasUsed = receipt.GasUsed
 		pcTx.Status = "SUCCESS"

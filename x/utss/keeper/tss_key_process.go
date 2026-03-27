@@ -66,8 +66,16 @@ func (k Keeper) GetCurrentTssParticipants(ctx context.Context) ([]string, error)
 		return nil, err
 	}
 	if sdkCtx.BlockHeight() >= currentProcess.ExpiryHeight {
+		k.Logger().Debug("tss process expired, returning empty participants",
+			"process_id", currentProcess.Id,
+			"expiry_height", currentProcess.ExpiryHeight,
+		)
 		return []string{}, nil
 	}
+	k.Logger().Debug("current tss participants retrieved",
+		"process_id", currentProcess.Id,
+		"participant_count", len(currentProcess.Participants),
+	)
 	return currentProcess.Participants, nil
 }
 

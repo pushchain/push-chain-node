@@ -37,6 +37,12 @@ func (k Keeper) VoteTssKeyProcess(
 		return fmt.Errorf("tss key with key_id %s already exists", keyId)
 	}
 
+	k.logger.Info("tss vote received",
+		"process_id", processId,
+		"key_id", keyId,
+		"validator", universalValidator.String(),
+	)
+
 	// Step 2: Vote on the ballot (using a cache context so we don’t mutate state on failure)
 	// The entire vote + finalization is wrapped in a single CacheContext so that
 	// if any post-finalization step fails, the vote itself is also rolled back.
@@ -48,6 +54,10 @@ func (k Keeper) VoteTssKeyProcess(
 
 	// Step 3: If not finalized yet, commit only the vote and return
 	if !isFinalized {
+		k.logger.Debug("tss vote recorded, awaiting quorum",
+			"process_id", processId,
+			"key_id", keyId,
+		)
 		commit()
 		return nil
 	}
@@ -109,6 +119,10 @@ func (k Keeper) VoteTssKeyProcess(
 					if err := k.uvalidatorKeeper.UpdateValidatorStatus(tmpCtx, valAddr, uvalidatortypes.UVStatus_UV_STATUS_ACTIVE); err != nil {
 						return fmt.Errorf("failed to activate universal validator %s: %w", coreValidatorAddress, err)
 					}
+					k.logger.Info("validator activated after tss finalization",
+						"validator", coreValidatorAddress,
+						"process_id", processId,
+					)
 				}
 			// update pending_leave validator to inactive
 			case uvalidatortypes.UVStatus_UV_STATUS_PENDING_LEAVE:
@@ -117,6 +131,10 @@ func (k Keeper) VoteTssKeyProcess(
 					if err := k.uvalidatorKeeper.UpdateValidatorStatus(tmpCtx, valAddr, uvalidatortypes.UVStatus_UV_STATUS_INACTIVE); err != nil {
 						return fmt.Errorf("failed to inactivate universal validator %s: %w", coreValidatorAddress, err)
 					}
+					k.logger.Info("validator deactivated after tss finalization",
+						"validator", coreValidatorAddress,
+						"process_id", processId,
+					)
 				}
 			}
 		}

@@ -13,6 +13,14 @@ func (k Keeper) ExecuteInboundFunds(ctx context.Context, utx types.UniversalTx) 
 
 	inbound := utx.InboundTx
 
+	k.Logger().Info("execute inbound funds: depositing PRC20",
+		"utx_key", utx.Id,
+		"source_chain", inbound.SourceChain,
+		"recipient", inbound.Recipient,
+		"amount", inbound.Amount,
+		"is_cea", inbound.IsCEA,
+	)
+
 	receipt, err := k.depositPRC20(
 		sdkCtx,
 		inbound.SourceChain,
@@ -20,6 +28,20 @@ func (k Keeper) ExecuteInboundFunds(ctx context.Context, utx types.UniversalTx) 
 		common.HexToAddress(inbound.Recipient), // recipient is inbound recipient
 		inbound.Amount,
 	)
+
+	if err != nil {
+		k.Logger().Warn("execute inbound funds: deposit failed",
+			"utx_key", utx.Id,
+			"source_chain", inbound.SourceChain,
+			"error", err.Error(),
+		)
+	} else {
+		k.Logger().Info("execute inbound funds: deposit succeeded",
+			"utx_key", utx.Id,
+			"tx_hash", receipt.Hash,
+			"gas_used", receipt.GasUsed,
+		)
+	}
 
 	_, ueModuleAddressStr := k.GetUeModuleAddress(ctx)
 	universalTxKey := types.GetInboundUniversalTxKey(*inbound)

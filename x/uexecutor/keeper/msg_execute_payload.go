@@ -20,6 +20,12 @@ func (k Keeper) ExecutePayload(ctx context.Context, evmFrom common.Address, univ
 	// Get Caip2Identifier for the universal account
 	caip2Identifier := universalAccountId.GetCAIP2()
 
+	k.Logger().Info("execute payload",
+		"from", evmFrom.Hex(),
+		"chain", caip2Identifier,
+		"owner", universalAccountId.Owner,
+	)
+
 	// Step 1: Parse and validate payload and verificationData
 	payload, err := types.NewAbiUniversalPayload(universalPayload)
 	if err != nil {
@@ -37,6 +43,7 @@ func (k Keeper) ExecutePayload(ctx context.Context, evmFrom common.Address, univ
 	}
 
 	if !chainConfig.Enabled.IsInboundEnabled {
+		k.Logger().Warn("execute payload rejected: chain inbound disabled", "chain", caip2Identifier)
 		return fmt.Errorf("inbound is disabled for chain %s", caip2Identifier)
 	}
 
@@ -50,14 +57,28 @@ func (k Keeper) ExecutePayload(ctx context.Context, evmFrom common.Address, univ
 	}
 
 	if !isDeployed {
+		k.Logger().Warn("execute payload rejected: UEA not deployed", "chain", caip2Identifier, "owner", universalAccountId.Owner)
 		return fmt.Errorf("UEA is not deployed")
 	}
+
+	k.Logger().Debug("executing payload via UEA",
+		"uea", ueaAddr.Hex(),
+		"chain", caip2Identifier,
+		"from", evmFrom.Hex(),
+	)
 
 	// Step 3: Execute payload through UEA
 	receipt, err := k.CallUEAExecutePayload(sdkCtx, evmFrom, ueaAddr, universalPayload, verificationDataVal)
 	if err != nil {
 		return err
 	}
+
+	k.Logger().Info("payload executed via direct msg",
+		"chain", caip2Identifier,
+		"uea", ueaAddr.Hex(),
+		"tx_hash", receipt.Hash,
+		"gas_used", receipt.GasUsed,
+	)
 
 	// Step 4
 	pcTx := types.PCTx{

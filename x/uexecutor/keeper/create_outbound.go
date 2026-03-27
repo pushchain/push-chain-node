@@ -22,6 +22,8 @@ func (k Keeper) BuildOutboundsFromReceipt(
 	outbounds := []*types.OutboundTx{}
 	universalGatewayPC := strings.ToLower(uregistrytypes.SYSTEM_CONTRACTS["UNIVERSAL_GATEWAY_PC"].Address)
 
+	k.Logger().Debug("building outbounds from receipt", "utx_id", utxId, "tx_hash", receipt.Hash, "log_count", len(receipt.Logs))
+
 	for _, lg := range receipt.Logs {
 		if lg.Removed {
 			continue
@@ -50,6 +52,7 @@ func (k Keeper) BuildOutboundsFromReceipt(
 			return nil, fmt.Errorf("failed to check outbound enabled for chain %s: %w", event.ChainId, err)
 		}
 		if !outboundEnabled {
+			k.Logger().Warn("outbound disabled for chain", "chain_id", event.ChainId, "utx_id", utxId)
 			return nil, fmt.Errorf("outbound is disabled for chain %s", event.ChainId)
 		}
 
@@ -87,9 +90,17 @@ func (k Keeper) BuildOutboundsFromReceipt(
 			Id:             strings.TrimPrefix(event.TxID, "0x"),
 		}
 
+		k.Logger().Debug("outbound built from receipt",
+			"utx_id", utxId,
+			"outbound_id", outbound.Id,
+			"dest_chain", outbound.DestinationChain,
+			"amount", outbound.Amount,
+			"tx_type", outbound.TxType.String(),
+		)
 		outbounds = append(outbounds, outbound)
 	}
 
+	k.Logger().Debug("outbounds built from receipt", "utx_id", utxId, "count", len(outbounds))
 	return outbounds, nil
 }
 
@@ -112,15 +123,17 @@ func (k Keeper) CreateUniversalTxFromPCTx(
 	}
 
 	utx := types.UniversalTx{
-		Id:              universalTxKey,
-		InboundTx:       nil,                  // no inbound
-		PcTx:            []*types.PCTx{&pcTx}, // origin is PC
-		OutboundTx:      nil,
+		Id:         universalTxKey,
+		InboundTx:  nil,                  // no inbound
+		PcTx:       []*types.PCTx{&pcTx}, // origin is PC
+		OutboundTx: nil,
 	}
 
 	if err := k.CreateUniversalTx(ctx, universalTxKey, utx); err != nil {
 		return nil, err
 	}
+
+	k.Logger().Info("utx created from pc tx", "utx_key", universalTxKey, "pc_tx_hash", pcTx.TxHash)
 
 	return &utx, nil
 }
@@ -248,6 +261,11 @@ func (k Keeper) AttachRescueOutboundFromReceipt(
 			}
 		}
 
+		k.Logger().Info("rescue outbound detected",
+			"original_utx_id", originalUtxId,
+			"pc_tx_hash", receipt.Hash,
+		)
+
 		// Guard against duplicate rescue outbounds: reject if an active rescue
 		// (PENDING or OBSERVED) already exists. A REVERTED rescue may be retried.
 		for _, ob := range originalUtx.OutboundTx {
@@ -255,6 +273,10 @@ func (k Keeper) AttachRescueOutboundFromReceipt(
 				continue
 			}
 			if ob.OutboundStatus == types.Status_PENDING || ob.OutboundStatus == types.Status_OBSERVED {
+				k.Logger().Warn("rescue outbound rejected: active rescue already exists",
+					"original_utx_id", originalUtxId,
+					"existing_outbound_id", ob.Id,
+				)
 				return fmt.Errorf("rescue: UTX %s already has an active rescue outbound (%s)", originalUtxId, ob.Id)
 			}
 		}

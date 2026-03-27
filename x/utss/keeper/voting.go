@@ -54,6 +54,14 @@ func (k Keeper) VoteOnTssBallot(
 		return false, false, fmt.Errorf("no participants in process %d", processId)
 	}
 
+	k.Logger().Debug("casting tss ballot vote",
+		"process_id", processId,
+		"key_id", keyId,
+		"validator", universalValidator.String(),
+		"votes_needed", votesNeeded,
+		"expiry_after_blocks", expiryAfterBlocks,
+	)
+
 	// Step 2: Call VoteOnBallot for tss
 	_, isFinalized, isNew, err = k.uvalidatorKeeper.VoteOnBallot(
 		ctx,
@@ -67,6 +75,19 @@ func (k Keeper) VoteOnTssBallot(
 	)
 	if err != nil {
 		return false, false, err
+	}
+
+	if isNew {
+		k.Logger().Debug("new tss ballot created",
+			"process_id", processId,
+			"key_id", keyId,
+		)
+	}
+	if isFinalized {
+		k.Logger().Debug("tss ballot finalized",
+			"process_id", processId,
+			"key_id", keyId,
+		)
 	}
 
 	return isFinalized, isNew, nil

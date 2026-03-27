@@ -17,6 +17,13 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 	_, ueModuleAddressStr := k.GetUeModuleAddress(ctx)
 	universalTxKey := types.GetInboundUniversalTxKey(*utx.InboundTx)
 
+	k.Logger().Info("execute inbound funds and payload",
+		"utx_key", universalTxKey,
+		"source_chain", utx.InboundTx.SourceChain,
+		"amount", utx.InboundTx.Amount,
+		"is_cea", utx.InboundTx.IsCEA,
+	)
+
 	shouldRevert := false
 	var revertReason string
 
@@ -106,6 +113,11 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 			ueaAddr = ueaAddrRes
 
 			if !isDeployed {
+				k.Logger().Info("UEA not deployed, deploying now",
+					"utx_key", universalTxKey,
+					"source_chain", utx.InboundTx.SourceChain,
+					"sender", utx.InboundTx.Sender,
+				)
 				deployReceipt, dErr := k.DeployUEAV2(ctx, ueModuleAccAddress, &universalAccountId)
 				if dErr != nil {
 					execErr = fmt.Errorf("DeployUEAV2 failed: %w", dErr)
@@ -284,6 +296,7 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 	}
 
 	// --- Step 4: execute payload via UEA
+	k.Logger().Debug("executing payload via UEA", "utx_key", universalTxKey, "uea", ueaAddr.Hex())
 	var payloadErr error
 	receipt, payloadErr = k.ExecutePayloadV2(ctx, ueModuleAddr, ueaAddr, utx.InboundTx.UniversalPayload, utx.InboundTx.VerificationData)
 
@@ -293,8 +306,19 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 		Status:      "FAILED",
 	}
 	if payloadErr != nil {
+		k.Logger().Warn("payload execution failed",
+			"utx_key", universalTxKey,
+			"uea", ueaAddr.Hex(),
+			"error", payloadErr.Error(),
+		)
 		payloadPcTx.ErrorMsg = payloadErr.Error()
 	} else if receipt != nil {
+		k.Logger().Info("payload executed successfully",
+			"utx_key", universalTxKey,
+			"uea", ueaAddr.Hex(),
+			"tx_hash", receipt.Hash,
+			"gas_used", receipt.GasUsed,
+		)
 		payloadPcTx.TxHash = receipt.Hash
 		payloadPcTx.GasUsed = receipt.GasUsed
 		payloadPcTx.Status = "SUCCESS"

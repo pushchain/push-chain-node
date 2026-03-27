@@ -35,6 +35,12 @@ func (k Keeper) depositPRC20(
 		return nil, fmt.Errorf("invalid amount: %s", amountStr)
 	}
 
+	k.Logger().Debug("EVM call: depositPRC20Token",
+		"prc20", prc20AddressHex.Hex(),
+		"recipient", recipient.Hex(),
+		"amount", amountStr,
+	)
+
 	// call PRC20 deposit
 	return k.CallPRC20Deposit(ctx, prc20AddressHex, recipient, amount)
 }

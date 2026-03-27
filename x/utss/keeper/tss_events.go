@@ -31,7 +31,16 @@ func (k Keeper) updateTssEventStatusByProcessId(ctx context.Context, processId u
 	}
 
 	foundEvent.Status = newStatus
-	return k.TssEvents.Set(ctx, foundId, foundEvent)
+	if err := k.TssEvents.Set(ctx, foundId, foundEvent); err != nil {
+		return err
+	}
+	k.Logger().Debug("tss event status updated",
+		"event_id", foundId,
+		"process_id", processId,
+		"event_type", eventType.String(),
+		"new_status", newStatus.String(),
+	)
+	return nil
 }
 
 // completePreviousActiveFinalizedEvent finds any active TSS_EVENT_KEY_FINALIZED event
@@ -60,6 +69,10 @@ func (k Keeper) completePreviousActiveFinalizedEvent(ctx context.Context) error 
 		if err := k.TssEvents.Set(ctx, item.id, item.event); err != nil {
 			return err
 		}
+		k.Logger().Debug("previous finalized tss event marked completed",
+			"event_id", item.id,
+			"process_id", item.event.ProcessId,
+		)
 	}
 
 	return nil

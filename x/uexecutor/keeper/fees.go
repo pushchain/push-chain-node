@@ -20,6 +20,12 @@ func (k Keeper) DeductAndBurnFees(ctx context.Context, from sdk.AccAddress, gasC
 	amt := sdkmath.NewIntFromBigInt(gasCost)
 	coin := sdk.NewCoin(pchaintypes.BaseDenom, amt)
 
+	k.Logger().Debug("deducting and burning fees",
+		"from", from.String(),
+		"gas_cost", gasCost.String(),
+		"denom", pchaintypes.BaseDenom,
+	)
+
 	err := k.bankKeeper.SendCoinsFromAccountToModule(ctx, from, types.ModuleName, sdk.NewCoins(coin))
 	if err != nil {
 		return err
@@ -66,6 +72,13 @@ func (k Keeper) CalculateGasCost(
 	// Step 4: Calculate final gas cost: effectiveGasPrice * gasUsed
 	gasUsedBig := new(big.Int).SetUint64(gasUsed)
 	gasCost := new(big.Int).Mul(effectiveGasPrice, gasUsedBig)
+
+	k.Logger().Debug("gas cost calculated",
+		"base_fee", baseFee.String(),
+		"effective_gas_price", effectiveGasPrice.String(),
+		"gas_used", gasUsed,
+		"gas_cost", gasCost.String(),
+	)
 
 	return gasCost, nil
 }

@@ -16,6 +16,12 @@ func (k Keeper) AddVoteToBallot(
 	address string,
 	voteResult types.VoteResult,
 ) (types.Ballot, error) {
+	k.Logger().Debug("adding vote to ballot",
+		"ballot_id", ballot.Id,
+		"voter", address,
+		"vote_result", voteResult.String(),
+	)
+
 	ballot, err := ballot.AddVote(address, voteResult)
 	if err != nil {
 		return ballot, err
@@ -23,10 +29,19 @@ func (k Keeper) AddVoteToBallot(
 	if err := k.SetBallot(ctx, ballot); err != nil {
 		return ballot, errors.Wrap(err, "failed to persist ballot after adding vote")
 	}
+
+	k.Logger().Debug("vote added to ballot",
+		"ballot_id", ballot.Id,
+		"voter", address,
+		"vote_result", voteResult.String(),
+	)
+
 	return ballot, nil
 }
 
 func (k Keeper) IsBondedUniversalValidator(ctx context.Context, universalValidator string) (bool, error) {
+	k.Logger().Debug("checking bonded status of universal validator", "validator", universalValidator)
+
 	accAddr, err := sdk.AccAddressFromBech32(universalValidator)
 	if err != nil {
 		return false, fmt.Errorf("invalid signer address: %w", err)
@@ -40,6 +55,7 @@ func (k Keeper) IsBondedUniversalValidator(ctx context.Context, universalValidat
 		return false, fmt.Errorf("failed to check universal validator set: %w", err)
 	}
 	if !exists {
+		k.Logger().Debug("validator not found in universal validator set", "validator", universalValidator)
 		return false, fmt.Errorf("validator %s not present in the registered universal validators set", valAddr.String())
 	}
 
@@ -51,14 +67,18 @@ func (k Keeper) IsBondedUniversalValidator(ctx context.Context, universalValidat
 
 	// Check that the validator is in bonded status
 	if !validator.IsBonded() {
+		k.Logger().Debug("universal validator is not bonded", "validator", universalValidator)
 		return false, nil // exists but not bonded
 	}
 
+	k.Logger().Debug("universal validator is bonded", "validator", universalValidator)
 	return true, nil
 }
 
 func (k Keeper) IsTombstonedUniversalValidator(ctx context.Context, universalValidator string) (bool, error) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
+
+	k.Logger().Debug("checking tombstoned status of universal validator", "validator", universalValidator)
 
 	accAddr, err := sdk.AccAddressFromBech32(universalValidator)
 	if err != nil {
@@ -73,6 +93,7 @@ func (k Keeper) IsTombstonedUniversalValidator(ctx context.Context, universalVal
 		return false, fmt.Errorf("failed to check universal validator set: %w", err)
 	}
 	if !exists {
+		k.Logger().Debug("validator not found in universal validator set", "validator", universalValidator)
 		return false, fmt.Errorf("validator %s not present in the registered universal validators set", valAddr.String())
 	}
 
@@ -88,7 +109,12 @@ func (k Keeper) IsTombstonedUniversalValidator(ctx context.Context, universalVal
 		return false, fmt.Errorf("failed to get consensus address: %w", err)
 	}
 
-	return k.SlashingKeeper.IsTombstoned(sdkCtx, consAddress), nil
+	isTombstoned := k.SlashingKeeper.IsTombstoned(sdkCtx, consAddress)
+	k.Logger().Debug("universal validator tombstone status",
+		"validator", universalValidator,
+		"is_tombstoned", isTombstoned,
+	)
+	return isTombstoned, nil
 }
 
 func (k Keeper) VoteOnBallot(
@@ -105,16 +131,31 @@ func (k Keeper) VoteOnBallot(
 	isFinalized bool,
 	isNew bool,
 	err error) {
+
+	k.Logger().Debug("vote on ballot",
+		"ballot_id", id,
+		"ballot_type", ballotType.String(),
+		"voter", voter,
+		"vote_result", voteResult.String(),
+		"votes_needed", votesNeeded,
+	)
+
 	ballot, isNew, err = k.GetOrCreateBallot(ctx, id, ballotType, voters, votesNeeded, expiryAfterBlocks)
 	if err != nil {
 		return ballot, false, false, errors.Wrap(err, "Error while voting on the ballot")
 	}
 
 	if ballot.Status != types.BallotStatus_BALLOT_STATUS_PENDING {
+		k.Logger().Warn("ballot is not in pending state, cannot vote",
+			"ballot_id", id,
+			"ballot_status", ballot.Status.String(),
+			"voter", voter,
+		)
 		return ballot, false, false, fmt.Errorf("ballot %s is already %s", id, ballot.Status.String())
 	}
 
 	if isNew {
+		k.Logger().Debug("created new ballot", "ballot_id", id, "ballot_type", ballotType.String())
 		err := k.ActiveBallotIDs.Set(ctx, id)
 		if err != nil {
 			return ballot, false, false, errors.Wrap(err, "Error while voting on the ballot")
@@ -131,6 +172,10 @@ func (k Keeper) VoteOnBallot(
 		return ballot, false, false, err
 	}
 	if isFinalizing {
+		k.Logger().Debug("ballot finalized",
+			"ballot_id", id,
+			"ballot_status", ballot.Status.String(),
+		)
 		if err := k.ActiveBallotIDs.Remove(ctx, id); err != nil {
 			return ballot, false, isNew, errors.Wrap(err, "failed removing from active ballots")
 		}
@@ -147,6 +192,12 @@ func (k Keeper) CheckIfFinalizingVote(ctx context.Context, b types.Ballot) (type
 	if !isFinalizing {
 		return b, false, nil
 	}
+
+	k.Logger().Debug("ballot reached finalization threshold",
+		"ballot_id", ballot.Id,
+		"ballot_status", ballot.Status.String(),
+	)
+
 	if err := k.SetBallot(ctx, ballot); err != nil {
 		return ballot, false, errors.Wrap(err, "failed updating finalized ballot")
 	}

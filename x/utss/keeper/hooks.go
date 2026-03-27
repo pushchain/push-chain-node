@@ -49,6 +49,7 @@ func (h Hooks) handleEligibleValidatorSetChange(ctx sdk.Context) {
 	}
 
 	count := len(eligibleUVs)
+	h.k.Logger().Debug("TSS Hook: eligible validator count evaluated", "count", count)
 	if count < 2 {
 		if count == 1 {
 			h.k.Logger().Info("TSS Hook: only 1 eligible validator — TSS not possible")

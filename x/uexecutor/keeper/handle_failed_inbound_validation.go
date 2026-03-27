@@ -14,6 +14,13 @@ func (k Keeper) handleFailedInboundValidation(sdkCtx sdk.Context, utx types.Univ
 	_, ueModuleAddressStr := k.GetUeModuleAddress(sdkCtx)
 	universalTxKey := utx.Id
 
+	k.Logger().Warn("inbound validation failed",
+		"utx_key", universalTxKey,
+		"source_chain", inbound.SourceChain,
+		"is_cea", inbound.IsCEA,
+		"error", validationErr.Error(),
+	)
+
 	// Record the failed PCTx
 	failedPcTx := types.PCTx{
 		Sender:      ueModuleAddressStr,
@@ -32,6 +39,11 @@ func (k Keeper) handleFailedInboundValidation(sdkCtx sdk.Context, utx types.Univ
 	// For non-isCEA inbounds, schedule a revert outbound to return funds on source chain.
 	// isCEA failures never create an INBOUND_REVERT outbound (consistent with execute_inbound_funds_and_payload.go).
 	if !inbound.IsCEA {
+		k.Logger().Info("scheduling inbound revert outbound",
+			"utx_key", universalTxKey,
+			"source_chain", inbound.SourceChain,
+			"amount", inbound.Amount,
+		)
 		revertRecipient := inbound.Sender
 		if inbound.RevertInstructions != nil && inbound.RevertInstructions.FundRecipient != "" {
 			revertRecipient = inbound.RevertInstructions.FundRecipient

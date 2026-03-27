@@ -22,6 +22,7 @@ func (k Keeper) CreateUniversalTx(ctx context.Context, key string, utx types.Uni
 		return fmt.Errorf("universal tx with key %s already exists", key)
 	}
 
+	k.Logger().Debug("universal tx stored", "utx_key", key)
 	return k.UniversalTx.Set(ctx, key, utx)
 }
 

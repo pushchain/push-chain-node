@@ -2,95 +2,40 @@ package keeper
 
 import (
 	"context"
-	"errors"
 	"sort"
-
-	"cosmossdk.io/collections"
-	sdkerrors "cosmossdk.io/errors"
-	"cosmossdk.io/math"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
-func (k Keeper) GetGasPrice(ctx context.Context, chainID string) (types.GasPrice, bool, error) {
-	gp, err := k.GasPrices.Get(ctx, chainID)
-	if err != nil {
-		if errors.Is(err, collections.ErrNotFound) {
-			return types.GasPrice{}, false, nil
-		}
-		return types.GasPrice{}, false, err
-	}
-	return gp, true, nil
-}
-
+// SetGasPrice — deprecated. Kept for legacy migration/test compatibility.
 func (k Keeper) SetGasPrice(ctx context.Context, chainID string, gasPrice types.GasPrice) error {
 	return k.GasPrices.Set(ctx, chainID, gasPrice)
 }
 
-func (k Keeper) VoteGasPrice(ctx context.Context, universalValidator sdk.ValAddress, observedChainId string, price, blockNumber uint64) error {
-	sdkCtx := sdk.UnwrapSDKContext(ctx)
-
-	gasPriceEntry, found, err := k.GetGasPrice(ctx, observedChainId)
-	if err != nil {
-		return sdkerrors.Wrap(err, "failed to fetch gas price entry")
-	}
-
-	if !found {
-		// First vote for this chain
-		newEntry := types.GasPrice{
-			ObservedChainId: observedChainId,
-			Signers:         []string{universalValidator.String()},
-			Prices:          []uint64{price},
-			BlockNums:       []uint64{blockNumber},
-			MedianIndex:     0, // Only one value initially
+// PruneValidatorVotes removes a validator's votes from all ChainMetas entries.
+// Called when a validator is removed from the universal validator set to prevent stale votes
+// from influencing the median calculations.
+func (k Keeper) PruneValidatorVotes(ctx context.Context, validatorAddr string) {
+	_ = k.ChainMetas.Walk(ctx, nil, func(chainId string, entry types.ChainMeta) (bool, error) {
+		idx := -1
+		for i, s := range entry.Signers {
+			if s == validatorAddr {
+				idx = i
+				break
+			}
 		}
-
-		if err := k.SetGasPrice(ctx, observedChainId, newEntry); err != nil {
-			return sdkerrors.Wrap(err, "failed to set initial gas price entry")
+		if idx >= 0 && len(entry.Signers) > 1 {
+			entry.Signers = append(entry.Signers[:idx], entry.Signers[idx+1:]...)
+			entry.Prices = append(entry.Prices[:idx], entry.Prices[idx+1:]...)
+			entry.ChainHeights = append(entry.ChainHeights[:idx], entry.ChainHeights[idx+1:]...)
+			entry.StoredAts = append(entry.StoredAts[:idx], entry.StoredAts[idx+1:]...)
+			entry.MedianIndex = uint64(computeMedianIndex(entry.Prices))
+			_ = k.ChainMetas.Set(ctx, chainId, entry)
+		} else if idx >= 0 && len(entry.Signers) == 1 {
+			_ = k.ChainMetas.Remove(ctx, chainId)
 		}
-
-		// EVM call
-		gasPriceBigInt := math.NewUint(price).BigInt()
-		if _, err := k.CallUniversalCoreSetGasPrice(sdkCtx, observedChainId, gasPriceBigInt); err != nil {
-			return sdkerrors.Wrap(err, "failed to call EVM setGasPrice")
-		}
-
-		return nil
-	}
-
-	// Update Entry
-	var updated bool
-	for i, s := range gasPriceEntry.Signers {
-		if s == universalValidator.String() {
-			gasPriceEntry.Prices[i] = price
-			gasPriceEntry.BlockNums[i] = blockNumber
-			updated = true
-			break
-		}
-	}
-
-	if !updated {
-		gasPriceEntry.Signers = append(gasPriceEntry.Signers, universalValidator.String())
-		gasPriceEntry.Prices = append(gasPriceEntry.Prices, price)
-		gasPriceEntry.BlockNums = append(gasPriceEntry.BlockNums, blockNumber)
-	}
-
-	// Recompute Median
-	medianIdx := computeMedianIndex(gasPriceEntry.Prices)
-	gasPriceEntry.MedianIndex = uint64(medianIdx)
-
-	// Call EVM to set gas price
-	if err := k.SetGasPrice(ctx, observedChainId, gasPriceEntry); err != nil {
-		return sdkerrors.Wrap(err, "failed to set updated gas price entry")
-	}
-
-	medianPrice := math.NewUint(gasPriceEntry.Prices[medianIdx]).BigInt()
-	if _, err := k.CallUniversalCoreSetGasPrice(sdkCtx, observedChainId, medianPrice); err != nil {
-		return sdkerrors.Wrap(err, "failed to call EVM setGasPrice")
-	}
-
-	return nil
+		return false, nil
+	})
 }
 
 // computeMedianIndex returns index of the median element
@@ -106,4 +51,3 @@ func computeMedianIndex(values []uint64) int {
 	sort.SliceStable(arr, func(i, j int) bool { return arr[i].Val < arr[j].Val })
 	return arr[len(arr)/2].Idx
 }
-

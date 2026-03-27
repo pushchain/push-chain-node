@@ -45,7 +45,7 @@ type Keeper struct {
 	// Module account manual nonce
 	ModuleAccountNonce collections.Item[uint64]
 
-	// GasPrices collection stores aggregated gas price data for each chain
+	// GasPrices — deprecated, replaced by ChainMetas. Kept for genesis backward compat.
 	GasPrices collections.Map[string, types.GasPrice]
 
 	// ChainMetas collection stores aggregated chain metadata (gas price + block height) for each chain
@@ -332,4 +332,3 @@ func (k Keeper) IncrementModuleAccountNonce(ctx sdk.Context) (uint64, error) {
 func (k Keeper) SetModuleAccountNonce(ctx sdk.Context, nonce uint64) error {
 	return k.ModuleAccountNonce.Set(ctx, nonce)
 }
-

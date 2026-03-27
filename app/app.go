@@ -771,6 +771,7 @@ func NewChainApp(
 	app.UvalidatorKeeper.SetHooks(
 		uvalidatorkeeper.NewMultiUValidatorHooks(
 			app.UtssKeeper.Hooks(),
+			uexecutorkeeper.NewUValidatorHooks(app.UexecutorKeeper),
 		),
 	)
 

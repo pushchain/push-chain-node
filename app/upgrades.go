@@ -29,6 +29,7 @@ import (
 	tssvotegasless "github.com/pushchain/push-chain-node/app/upgrades/tss-vote-gasless"
 	pendingoutboundsindex "github.com/pushchain/push-chain-node/app/upgrades/pending-outbounds-index"
 	universaltxv1 "github.com/pushchain/push-chain-node/app/upgrades/universal-tx-v1"
+	v120donut "github.com/pushchain/push-chain-node/app/upgrades/v1.2.0-donut"
 )
 
 // Upgrades list of chain upgrades
@@ -55,6 +56,7 @@ var Upgrades = []upgrades.Upgrade{
 	ceapayloadverificationfix.NewUpgrade(),
 	tsseventsstore.NewUpgrade(),
 	pendingoutboundsindex.NewUpgrade(),
+	v120donut.NewUpgrade(),
 }
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers

@@ -37,6 +37,5 @@ const (
 
 // GetTokenConfigsStorageKey returns the storage key for token config storage in the format "chain:address".
 func GetTokenConfigsStorageKey(chain, address string) string {
-	// Normalize to lowercase and strip whitespace
-	return strings.ToLower(fmt.Sprintf("%s:%s", chain, strings.TrimSpace(address)))
+	return fmt.Sprintf("%s:%s", chain, strings.TrimSpace(address))
 }

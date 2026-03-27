@@ -23,11 +23,9 @@ import (
 	supplyburn "github.com/pushchain/push-chain-node/app/upgrades/supply-burn"
 	supplyslash "github.com/pushchain/push-chain-node/app/upgrades/supply-slash"
 	tsscore "github.com/pushchain/push-chain-node/app/upgrades/tss-core"
-	tsseventsstore "github.com/pushchain/push-chain-node/app/upgrades/tss-events-store"
 	tsscoreevmparamsfix "github.com/pushchain/push-chain-node/app/upgrades/tss-core-evm-params-fix"
 	tsscorefix "github.com/pushchain/push-chain-node/app/upgrades/tss-core-fix"
 	tssvotegasless "github.com/pushchain/push-chain-node/app/upgrades/tss-vote-gasless"
-	pendingoutboundsindex "github.com/pushchain/push-chain-node/app/upgrades/pending-outbounds-index"
 	universaltxv1 "github.com/pushchain/push-chain-node/app/upgrades/universal-tx-v1"
 	v120donut "github.com/pushchain/push-chain-node/app/upgrades/v1.2.0-donut"
 )
@@ -54,8 +52,6 @@ var Upgrades = []upgrades.Upgrade{
 	chainmetavotegasless.NewUpgrade(),
 	ceagasandpayload.NewUpgrade(),
 	ceapayloadverificationfix.NewUpgrade(),
-	tsseventsstore.NewUpgrade(),
-	pendingoutboundsindex.NewUpgrade(),
 	v120donut.NewUpgrade(),
 }
 

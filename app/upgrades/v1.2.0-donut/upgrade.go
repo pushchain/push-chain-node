@@ -54,7 +54,14 @@ func CreateUpgradeHandler(
 		}
 
 		// ---------------------------------------------------------------
-		// 3. Run module migrations (consensus version bumps)
+		// 3. Register usigverifier V2 precompile in EVM params
+		// ---------------------------------------------------------------
+		if err := registerPrecompileV2(sdkCtx, ak, logger); err != nil {
+			return nil, fmt.Errorf("registerPrecompileV2: %w", err)
+		}
+
+		// ---------------------------------------------------------------
+		// 4. Run module migrations (consensus version bumps)
 		//    - uexecutor: 5 → 6 (PendingOutbounds collection)
 		//    - utss: 1 → 2 (TssEvents collections)
 		// ---------------------------------------------------------------
@@ -218,5 +225,30 @@ func backfillTssEvents(ctx context.Context, ak *upgrades.AppKeepers, logger log.
 	}
 
 	logger.Info("TssEvents backfill complete")
+	return nil
+}
+
+// registerPrecompileV2 adds the usigverifier V2 address to EVM ActiveStaticPrecompiles
+// so the EVM recognizes it as a callable precompile.
+func registerPrecompileV2(sdkCtx sdk.Context, ak *upgrades.AppKeepers, logger log.Logger) error {
+	const usigVerifierV2Addr = "0xEC00000000000000000000000000000000000001"
+
+	evmParams := ak.EVMKeeper.GetParams(sdkCtx)
+
+	// Check if already registered
+	for _, addr := range evmParams.ActiveStaticPrecompiles {
+		if addr == usigVerifierV2Addr {
+			logger.Info("usigverifier V2 precompile already registered in EVM params")
+			return nil
+		}
+	}
+
+	evmParams.ActiveStaticPrecompiles = append(evmParams.ActiveStaticPrecompiles, usigVerifierV2Addr)
+
+	if err := ak.EVMKeeper.SetParams(sdkCtx, evmParams); err != nil {
+		return fmt.Errorf("failed to set EVM params with new precompile: %w", err)
+	}
+
+	logger.Info("Registered usigverifier V2 precompile in EVM params", "address", usigVerifierV2Addr)
 	return nil
 }

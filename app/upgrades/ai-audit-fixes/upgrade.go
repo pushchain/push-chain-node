@@ -40,34 +40,38 @@ func CreateUpgradeHandler(
 		logger.Info("Starting upgrade handler")
 
 		// ---------------------------------------------------------------
-		// 1. Backfill PendingOutbounds index from existing UniversalTx
-		// ---------------------------------------------------------------
-		if err := backfillPendingOutbounds(ctx, ak, logger); err != nil {
-			return nil, fmt.Errorf("backfillPendingOutbounds: %w", err)
-		}
-
-		// ---------------------------------------------------------------
-		// 2. Backfill TssEvents from ProcessHistory + TssKeyHistory
-		// ---------------------------------------------------------------
-		if err := backfillTssEvents(ctx, ak, logger); err != nil {
-			return nil, fmt.Errorf("backfillTssEvents: %w", err)
-		}
-
-		// ---------------------------------------------------------------
-		// 3. Register usigverifier V2 precompile in EVM params
-		// ---------------------------------------------------------------
-		if err := registerPrecompileV2(sdkCtx, ak, logger); err != nil {
-			return nil, fmt.Errorf("registerPrecompileV2: %w", err)
-		}
-
-		// ---------------------------------------------------------------
-		// 4. Run module migrations (consensus version bumps)
+		// 1. Run module migrations FIRST (consensus version bumps)
+		//    Must run before backfills so that the new proto schema
+		//    (e.g. revert_error field on UniversalTx) is applied
+		//    before we iterate existing entries.
 		//    - uexecutor: 5 → 6 (PendingOutbounds collection)
 		//    - utss: 1 → 2 (TssEvents collections)
 		// ---------------------------------------------------------------
 		versionMap, err := mm.RunMigrations(ctx, configurator, fromVM)
 		if err != nil {
 			return nil, fmt.Errorf("RunMigrations: %w", err)
+		}
+
+		// ---------------------------------------------------------------
+		// 2. Backfill PendingOutbounds index from existing UniversalTx
+		//    (safe now — migrations have run, proto schema is current)
+		// ---------------------------------------------------------------
+		if err := backfillPendingOutbounds(ctx, ak, logger); err != nil {
+			return nil, fmt.Errorf("backfillPendingOutbounds: %w", err)
+		}
+
+		// ---------------------------------------------------------------
+		// 3. Backfill TssEvents from ProcessHistory + TssKeyHistory
+		// ---------------------------------------------------------------
+		if err := backfillTssEvents(ctx, ak, logger); err != nil {
+			return nil, fmt.Errorf("backfillTssEvents: %w", err)
+		}
+
+		// ---------------------------------------------------------------
+		// 4. Register usigverifier V2 precompile in EVM params
+		// ---------------------------------------------------------------
+		if err := registerPrecompileV2(sdkCtx, ak, logger); err != nil {
+			return nil, fmt.Errorf("registerPrecompileV2: %w", err)
 		}
 
 		logger.Info("Upgrade complete", "upgrade", UpgradeName)

@@ -126,7 +126,10 @@ func AllocateTokens(ctx context.Context, totalPreviousPower int64, bondedVotes [
 
 	// Calculate and return remaining (including any truncation change)
 	extraCoins, extraChange := allocated.TruncateDecimal()
-	remainingCoins, _ := feesCollectedInt.SafeSub(extraCoins...)
+	remainingCoins, hasNeg := feesCollectedInt.SafeSub(extraCoins...)
+	if hasNeg {
+		remainingCoins = sdk.NewCoins() // clamp to zero - truncation rounding edge case
+	}
 
 	remainingDec := sdk.NewDecCoinsFromCoins(remainingCoins...)
 	remainingDec = remainingDec.Add(extraChange...)

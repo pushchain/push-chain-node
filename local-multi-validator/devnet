@@ -183,13 +183,13 @@ check_grants() {
     local granter_addr=$(docker exec "core-validator-$i" pchaind keys show "validator-$i" -a --keyring-backend test 2>/dev/null || echo "")
 
     if [ -n "$hotkey_addr" ] && [ -n "$granter_addr" ]; then
-        local count=$(docker exec core-validator-1 pchaind query authz grants "$granter_addr" "$hotkey_addr" --node tcp://localhost:26657 --output json 2>/dev/null | jq -r '[.grants[]? | .authorization.value.msg | select(. == "/uexecutor.v1.MsgVoteInbound" or . == "/uexecutor.v1.MsgVoteChainMeta" or . == "/uexecutor.v1.MsgVoteOutbound" or . == "/utss.v1.MsgVoteTssKeyProcess")] | length' 2>/dev/null || echo "0")
+        local count=$(docker exec core-validator-1 pchaind query authz grants "$granter_addr" "$hotkey_addr" --node tcp://localhost:26657 --output json 2>/dev/null | jq -r '[.grants[]? | .authorization.value.msg | select(. == "/uexecutor.v1.MsgVoteInbound" or . == "/uexecutor.v1.MsgVoteChainMeta" or . == "/uexecutor.v1.MsgVoteOutbound")] | length' 2>/dev/null || echo "0")
         if [ "$count" = "0" ] || [ -z "$count" ]; then
             echo "no|[no]"
-        elif [ "$count" -lt "4" ] 2>/dev/null; then
-            echo "no|[no] ${count}/4"
+        elif [ "$count" -lt "3" ] 2>/dev/null; then
+            echo "no|[no] ${count}/3"
         else
-            echo "yes|[ok] ${count}/4"
+            echo "yes|[ok] ${count}/3"
         fi
     else
         echo "no|[no]"
@@ -921,8 +921,7 @@ cmd_setup_uvalidators() {
         for msg_type in \
             /uexecutor.v1.MsgVoteInbound \
             /uexecutor.v1.MsgVoteChainMeta \
-            /uexecutor.v1.MsgVoteOutbound \
-            /utss.v1.MsgVoteTssKeyProcess
+            /uexecutor.v1.MsgVoteOutbound
         do
             local msg_name=$(basename "$msg_type")
             echo -ne "  ${YELLOW}Granting ${msg_name}:${NC} "
@@ -940,11 +939,11 @@ cmd_setup_uvalidators() {
 
         # Verify all required grants are visible on the canonical RPC endpoint.
         local grant_count
-        grant_count=$(docker exec core-validator-1 pchaind query authz grants "$VALIDATOR_ADDR" "$HOTKEY_ADDR" --node tcp://core-validator-1:26657 --output json 2>/dev/null | jq -r '[.grants[]? | .authorization.value.msg | select(. == "/uexecutor.v1.MsgVoteInbound" or . == "/uexecutor.v1.MsgVoteChainMeta" or . == "/uexecutor.v1.MsgVoteOutbound" or . == "/utss.v1.MsgVoteTssKeyProcess")] | length' 2>/dev/null || echo "0")
-        if [ "$grant_count" -lt 4 ]; then
-            echo -e "  ${YELLOW}Warning: only ${grant_count}/4 required grants visible for validator-$i${NC}"
+        grant_count=$(docker exec core-validator-1 pchaind query authz grants "$VALIDATOR_ADDR" "$HOTKEY_ADDR" --node tcp://core-validator-1:26657 --output json 2>/dev/null | jq -r '[.grants[]? | .authorization.value.msg | select(. == "/uexecutor.v1.MsgVoteInbound" or . == "/uexecutor.v1.MsgVoteChainMeta" or . == "/uexecutor.v1.MsgVoteOutbound")] | length' 2>/dev/null || echo "0")
+        if [ "$grant_count" -lt 3 ]; then
+            echo -e "  ${YELLOW}Warning: only ${grant_count}/3 required grants visible for validator-$i${NC}"
         else
-            echo -e "  ${GREEN}Verified 4/4 required grants${NC}"
+            echo -e "  ${GREEN}Verified 3/3 required grants${NC}"
         fi
 
         echo -e "  ${GREEN}Validator $i setup complete${NC}"

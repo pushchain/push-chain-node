@@ -35,6 +35,7 @@ fi
 : "${GATEWAY_BRANCH:=e2e-push-node}"
 : "${PUSH_CHAIN_SDK_REPO:=https://github.com/pushchain/push-chain-sdk.git}"
 : "${PUSH_CHAIN_SDK_BRANCH:=outbound_changes}"
+: "${PREFER_SIBLING_REPO_DIRS:=true}"
 
 : "${E2E_PARENT_DIR:=../}"
 : "${CORE_CONTRACTS_DIR:=$E2E_PARENT_DIR/push-chain-core-contracts}"
@@ -89,6 +90,49 @@ log_info() { printf "%b\n" "${cyan}==>${nc} $*"; }
 log_ok() { printf "%b\n" "${green}✓${nc} $*"; }
 log_warn() { printf "%b\n" "${yellow}!${nc} $*"; }
 log_err() { printf "%b\n" "${red}x${nc} $*"; }
+
+normalize_path() {
+  local path="$1"
+  if [[ -d "$path" ]]; then
+    (cd -P "$path" && pwd)
+    return
+  fi
+
+  local parent base
+  parent="$(dirname "$path")"
+  base="$(basename "$path")"
+
+  if [[ -d "$parent" ]]; then
+    printf "%s/%s" "$(cd -P "$parent" && pwd)" "$base"
+  else
+    printf "%s" "$path"
+  fi
+}
+
+prefer_sibling_repo_dirs() {
+  if [[ "$(echo "$PREFER_SIBLING_REPO_DIRS" | tr '[:upper:]' '[:lower:]')" != "true" ]]; then
+    CORE_CONTRACTS_DIR="$(normalize_path "$CORE_CONTRACTS_DIR")"
+    GATEWAY_DIR="$(normalize_path "$GATEWAY_DIR")"
+    return
+  fi
+
+  local sibling_core sibling_gateway
+  sibling_core="$(normalize_path "$PUSH_CHAIN_DIR/../push-chain-core-contracts")"
+  sibling_gateway="$(normalize_path "$PUSH_CHAIN_DIR/../push-chain-gateway-contracts")"
+
+  CORE_CONTRACTS_DIR="$(normalize_path "$CORE_CONTRACTS_DIR")"
+  GATEWAY_DIR="$(normalize_path "$GATEWAY_DIR")"
+
+  if [[ -d "$sibling_core" ]]; then
+    CORE_CONTRACTS_DIR="$sibling_core"
+  fi
+
+  if [[ -d "$sibling_gateway" ]]; then
+    GATEWAY_DIR="$sibling_gateway"
+  fi
+}
+
+prefer_sibling_repo_dirs
 
 ensure_testing_env_var_in_env_file() {
   mkdir -p "$(dirname "$ENV_FILE")"
@@ -937,10 +981,9 @@ step_update_env_fund_to_address() {
   else
     echo "FUND_TO_ADDRESS=$COSMOS_ADDRESS" >> "$ENV_FILE"
   fi
-  # Refresh .env after updating FUND_TO_ADDRESS
-  set -a
-  source "$SCRIPT_DIR/.env"
-  set +a
+  # Keep runtime env stable: avoid re-sourcing .env here because that can
+  # reset already-normalized absolute paths (CORE_CONTRACTS_DIR/GATEWAY_DIR/etc).
+  FUND_TO_ADDRESS="$COSMOS_ADDRESS"
   log_ok "Updated FUND_TO_ADDRESS in .env to $COSMOS_ADDRESS"
 }
 
@@ -997,6 +1040,7 @@ step_setup_core_contracts() {
   [[ -n "${PRIVATE_KEY:-}" ]] || { log_err "Set PRIVATE_KEY in e2e-tests/.env"; exit 1; }
 
   ensure_deploy_file
+  log_info "Using core contracts repo dir: $CORE_CONTRACTS_DIR"
   clone_or_update_repo "$CORE_CONTRACTS_REPO" "$CORE_CONTRACTS_BRANCH" "$CORE_CONTRACTS_DIR"
 
   log_info "Running forge build in core contracts"
@@ -1331,6 +1375,8 @@ step_setup_gateway() {
 
   local gateway_repo_dir="$GATEWAY_DIR"
   local sibling_gateway_dir="$PUSH_CHAIN_DIR/../push-chain-gateway-contracts"
+
+  log_info "Using gateway repo dir: $gateway_repo_dir"
 
   # Some local setups accidentally resolve GATEWAY_DIR under push-chain/ itself.
   # Prefer a repo path that actually contains the localSetup gateway scripts.
@@ -1883,45 +1929,6 @@ step_deploy_counter_and_sync_sdk() {
   log_ok "Synced SDK COUNTER_ADDRESS_PAYABLE in $sdk_counter_addr_file"
 }
 
-step_ensure_tss_key_ready() {
-  require_cmd docker
-
-  if ! docker ps --format '{{.Names}}' | grep -qx 'core-validator-1'; then
-    log_warn "core-validator-1 is not running; skipping TSS key readiness check"
-    return 0
-  fi
-
-  log_info "Checking current UTSS key readiness"
-  if docker exec core-validator-1 pchaind query utss current-key --node tcp://localhost:26657 --output json >/dev/null 2>&1; then
-    log_ok "UTSS current key already exists"
-    return 0
-  fi
-
-  log_warn "UTSS current key missing (no_key). Initiating TSS keygen..."
-  (
-    cd "$LOCAL_DEVNET_DIR"
-    ./devnet tss-keygen
-  )
-
-  local i
-  for i in {1..36}; do
-    if docker exec core-validator-1 pchaind query utss current-key --node tcp://localhost:26657 --output json >/dev/null 2>&1; then
-      log_ok "UTSS current key is ready"
-      return 0
-    fi
-    sleep 5
-  done
-
-  log_err "UTSS current key was not finalized after keygen"
-  if docker ps --format '{{.Names}}' | grep -qx 'universal-validator-1'; then
-    log_warn "Dumping recent universal-validator-1 logs for diagnosis"
-    docker logs --tail 300 universal-validator-1 2>&1 || true
-  fi
-
-  log_err "TSS keygen did not complete. If logs show wrapper/go-dkls keygen panic, fix UV dkls setup before running Route-3 tests."
-  exit 1
-}
-
 step_bootstrap_cea_for_sdk_signer() {
   require_cmd node
 
@@ -2044,7 +2051,6 @@ cmd_all() {
   if is_local_testing_env; then
     step_setup_environment
   fi
-  step_ensure_tss_key_ready
   step_recover_genesis_key
   step_fund_account
   step_setup_core_contracts
@@ -2057,7 +2063,6 @@ cmd_all() {
   step_update_eth_token_config
   step_setup_gateway
   step_add_uregistry_configs
-  step_bootstrap_cea_for_sdk_signer
   step_deploy_counter_and_sync_sdk
 }
 
@@ -2080,7 +2085,6 @@ Commands:
   write-core-env         Create core-contracts .env from deploy_addresses.json
   update-token-config    Update eth_sepolia_eth.json contract_address using deployed token
   setup-gateway          Clone/setup gateway repo and run forge localSetup (with --resume retry)
-  ensure-tss-key         Ensure UTSS current key exists (runs keygen and waits until finalized)
   bootstrap-cea-sdk      Ensure CEA is deployed for SDK signer on BSC testnet fork (Route 2 bootstrap)
   deploy-counter-sdk     Deploy CounterPayable on Push localnet and sync SDK COUNTER_ADDRESS_PAYABLE
   setup-sdk              Clone/setup push-chain-sdk, generate SDK .env from e2e .env, and install dependencies
@@ -2135,7 +2139,6 @@ main() {
     write-core-env) step_write_core_env ;;
     update-token-config) step_update_deployed_token_configs ;;
     setup-gateway) step_setup_gateway ;;
-    ensure-tss-key) step_ensure_tss_key_ready ;;
     bootstrap-cea-sdk) step_bootstrap_cea_for_sdk_signer ;;
     deploy-counter-sdk) step_deploy_counter_and_sync_sdk ;;
     setup-sdk) step_setup_push_chain_sdk ;;

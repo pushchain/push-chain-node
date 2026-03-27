@@ -46,12 +46,14 @@ type Config struct {
 
 // ChainSpecificConfig holds per-chain configuration.
 type ChainSpecificConfig struct {
-	RPCURLs                     []string `json:"rpc_urls,omitempty"`
-	CleanupIntervalSeconds      *int     `json:"cleanup_interval_seconds,omitempty"`
-	RetentionPeriodSeconds      *int     `json:"retention_period_seconds,omitempty"`
-	EventPollingIntervalSeconds *int     `json:"event_polling_interval_seconds,omitempty"`
-	EventStartFrom              *int64   `json:"event_start_from,omitempty"`
-	GasPriceIntervalSeconds     *int     `json:"gas_price_interval_seconds,omitempty"`
+	RPCURLs                     []string          `json:"rpc_urls,omitempty"`
+	CleanupIntervalSeconds      *int              `json:"cleanup_interval_seconds,omitempty"`
+	RetentionPeriodSeconds      *int              `json:"retention_period_seconds,omitempty"`
+	EventPollingIntervalSeconds *int              `json:"event_polling_interval_seconds,omitempty"`
+	EventStartFrom              *int64            `json:"event_start_from,omitempty"`
+	GasPriceIntervalSeconds     *int              `json:"gas_price_interval_seconds,omitempty"`
+	ProtocolALT                 string            `json:"protocol_alt,omitempty"`            // Protocol ALT address (base58) for V0 transactions
+	TokenALTs                   map[string]string `json:"token_alts,omitempty"`              // mint address → token ALT address (base58)
 }
 
 // GetChainCleanupSettings returns cleanup settings for a specific chain.

@@ -65,7 +65,14 @@
       "retention_period_seconds": 172800,
       "event_polling_interval_seconds": 5,
       "gas_price_interval_seconds": 30,
-      "event_start_from": 403697270
+      "event_start_from": 403697270,
+      "protocol_alt": "6AdUqeKQMapkoMXP3wJ7FrjYfVreqaD7bq3HZyZEn8kN",
+      "token_alts": {
+        "G2ZLaRhpohW23KTEX3fBjZXtNTFFwemqCaWWnWVTj4TB": "BBx5byj5YABPyiEv2DmT7yNM8A51tAaQFHfCQgxuKBeV",
+        "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU": "An9R3Bm5DA1s4hW784fSwtKiUdYS8E3HLTAeJtHDEr7",
+        "49FaRFR7TJrjujGCqxVRKhyUgTpi5wQjqAurwd7fMMk1": "92YQrMwzg2um9r2XscRt94xe5b4vY6H3asMsgFqen4y9",
+        "EiXDnrAg9ea2Q6vEPV7E5TpTU1vh41jcuZqKjU5Dc4ZF": "7QeSTLdxwf8PWawyWU2P9UK7KB6uu48Cefspz9wsCvsv"
+      }
     },
     "push_42101-1": {
       "cleanup_interval_seconds": 1800,

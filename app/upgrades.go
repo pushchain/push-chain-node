@@ -27,7 +27,7 @@ import (
 	tsscorefix "github.com/pushchain/push-chain-node/app/upgrades/tss-core-fix"
 	tssvotegasless "github.com/pushchain/push-chain-node/app/upgrades/tss-vote-gasless"
 	universaltxv1 "github.com/pushchain/push-chain-node/app/upgrades/universal-tx-v1"
-	v120donut "github.com/pushchain/push-chain-node/app/upgrades/v1.2.0-donut"
+	aiauditfixes "github.com/pushchain/push-chain-node/app/upgrades/ai-audit-fixes"
 )
 
 // Upgrades list of chain upgrades
@@ -52,7 +52,7 @@ var Upgrades = []upgrades.Upgrade{
 	chainmetavotegasless.NewUpgrade(),
 	ceagasandpayload.NewUpgrade(),
 	ceapayloadverificationfix.NewUpgrade(),
-	v120donut.NewUpgrade(),
+	aiauditfixes.NewUpgrade(),
 }
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers

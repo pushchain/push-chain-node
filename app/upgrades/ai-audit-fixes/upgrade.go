@@ -1,4 +1,4 @@
-package v120donut
+package aiauditfixes
 
 import (
 	"context"
@@ -16,7 +16,7 @@ import (
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 )
 
-const UpgradeName = "v1.2.0-donut"
+const UpgradeName = "ai-audit-fixes"
 
 func NewUpgrade() upgrades.Upgrade {
 	return upgrades.Upgrade{

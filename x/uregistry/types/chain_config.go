@@ -62,5 +62,8 @@ func (p ChainConfig) ValidateBasic() error {
 		}
 	}
 
+	if p.BlockConfirmation == nil {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "block_confirmation is required")
+	}
 	return p.BlockConfirmation.ValidateBasic()
 }

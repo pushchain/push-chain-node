@@ -22,6 +22,9 @@ func (k Keeper) depositPRC20(
 		return nil, err
 	}
 
+	if tokenConfig.NativeRepresentation == nil {
+		return nil, fmt.Errorf("token config for %s:%s has no native representation", sourceChain, assetAddr)
+	}
 	prc20Address := tokenConfig.NativeRepresentation.ContractAddress
 	prc20AddressHex := common.HexToAddress(prc20Address)
 

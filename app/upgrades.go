@@ -6,9 +6,10 @@ import (
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 
 	"github.com/pushchain/push-chain-node/app/upgrades"
-	chainmeta "github.com/pushchain/push-chain-node/app/upgrades/chain-meta"
+	aiauditfixes2 "github.com/pushchain/push-chain-node/app/upgrades/ai-audit-fixes-2"
 	ceagasandpayload "github.com/pushchain/push-chain-node/app/upgrades/cea-gas-and-payload"
 	ceapayloadverificationfix "github.com/pushchain/push-chain-node/app/upgrades/cea-payload-verification-fix"
+	chainmeta "github.com/pushchain/push-chain-node/app/upgrades/chain-meta"
 	chainmetavotegasless "github.com/pushchain/push-chain-node/app/upgrades/chain-meta-vote-gasless"
 	ethhashfix "github.com/pushchain/push-chain-node/app/upgrades/eth-hash-fix"
 	evmrpcfix "github.com/pushchain/push-chain-node/app/upgrades/evm-rpc-fix"
@@ -27,7 +28,6 @@ import (
 	tsscorefix "github.com/pushchain/push-chain-node/app/upgrades/tss-core-fix"
 	tssvotegasless "github.com/pushchain/push-chain-node/app/upgrades/tss-vote-gasless"
 	universaltxv1 "github.com/pushchain/push-chain-node/app/upgrades/universal-tx-v1"
-	aiauditfixes "github.com/pushchain/push-chain-node/app/upgrades/ai-audit-fixes"
 )
 
 // Upgrades list of chain upgrades
@@ -52,7 +52,7 @@ var Upgrades = []upgrades.Upgrade{
 	chainmetavotegasless.NewUpgrade(),
 	ceagasandpayload.NewUpgrade(),
 	ceapayloadverificationfix.NewUpgrade(),
-	aiauditfixes.NewUpgrade(),
+	aiauditfixes2.NewUpgrade(),
 }
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers

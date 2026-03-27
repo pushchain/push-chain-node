@@ -1,4 +1,4 @@
-package aiauditfixes
+package aiauditfixes2
 
 import (
 	"context"
@@ -16,7 +16,7 @@ import (
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 )
 
-const UpgradeName = "ai-audit-fixes"
+const UpgradeName = "ai-audit-fixes-2"
 
 func NewUpgrade() upgrades.Upgrade {
 	return upgrades.Upgrade{

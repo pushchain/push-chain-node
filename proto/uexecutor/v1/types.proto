@@ -188,7 +188,7 @@ message UniversalTx {
   Inbound inbound_tx = 2;    // Full inbound tx data
   repeated PCTx pc_tx = 3;               // Execution details on Push Chain
   repeated OutboundTx outbound_tx = 4;    // Outbound tx triggered by this tx
-  string revert_error = 5;               // Non-empty if revert outbound attachment failed
+  string revert_error = 6;               // Non-empty if revert outbound attachment failed (field 5 reserved — ghost enum data from removed UniversalTxStatus)
 }
 
 // LEGACY TYPES

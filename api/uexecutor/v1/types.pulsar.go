@@ -8177,7 +8177,7 @@ func (x *fastReflection_UniversalTx) ProtoMethods() *protoiface.Methods {
 			copy(dAtA[i:], x.RevertError)
 			i = runtime.EncodeVarint(dAtA, i, uint64(len(x.RevertError)))
 			i--
-			dAtA[i] = 0x2a
+			dAtA[i] = 0x32
 		}
 		if len(x.OutboundTx) > 0 {
 			for iNdEx := len(x.OutboundTx) - 1; iNdEx >= 0; iNdEx-- {
@@ -8417,7 +8417,7 @@ func (x *fastReflection_UniversalTx) ProtoMethods() *protoiface.Methods {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
 				}
 				iNdEx = postIndex
-			case 5:
+			case 6:
 				if wireType != 2 {
 					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field RevertError", wireType)
 				}
@@ -11955,7 +11955,7 @@ type UniversalTx struct {
 	InboundTx   *Inbound      `protobuf:"bytes,2,opt,name=inbound_tx,json=inboundTx,proto3" json:"inbound_tx,omitempty"`       // Full inbound tx data
 	PcTx        []*PCTx       `protobuf:"bytes,3,rep,name=pc_tx,json=pcTx,proto3" json:"pc_tx,omitempty"`                      // Execution details on Push Chain
 	OutboundTx  []*OutboundTx `protobuf:"bytes,4,rep,name=outbound_tx,json=outboundTx,proto3" json:"outbound_tx,omitempty"`    // Outbound tx triggered by this tx
-	RevertError string        `protobuf:"bytes,5,opt,name=revert_error,json=revertError,proto3" json:"revert_error,omitempty"` // Non-empty if revert outbound attachment failed
+	RevertError string        `protobuf:"bytes,6,opt,name=revert_error,json=revertError,proto3" json:"revert_error,omitempty"` // Non-empty if revert outbound attachment failed (field 5 reserved — ghost enum data from removed UniversalTxStatus)
 }
 
 func (x *UniversalTx) Reset() {
@@ -12441,7 +12441,7 @@ var file_uexecutor_v1_types_proto_rawDesc = []byte{
 	0x0b, 0x32, 0x18, 0x2e, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x2e, 0x76, 0x31,
 	0x2e, 0x4f, 0x75, 0x74, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x54, 0x78, 0x52, 0x0a, 0x6f, 0x75, 0x74,
 	0x62, 0x6f, 0x75, 0x6e, 0x64, 0x54, 0x78, 0x12, 0x21, 0x0a, 0x0c, 0x72, 0x65, 0x76, 0x65, 0x72,
-	0x74, 0x5f, 0x65, 0x72, 0x72, 0x6f, 0x72, 0x18, 0x05, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0b, 0x72,
+	0x74, 0x5f, 0x65, 0x72, 0x72, 0x6f, 0x72, 0x18, 0x06, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0b, 0x72,
 	0x65, 0x76, 0x65, 0x72, 0x74, 0x45, 0x72, 0x72, 0x6f, 0x72, 0x3a, 0x23, 0x98, 0xa0, 0x1f, 0x00,
 	0xe8, 0xa0, 0x1f, 0x01, 0x8a, 0xe7, 0xb0, 0x2a, 0x16, 0x75, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74,
 	0x6f, 0x72, 0x2f, 0x75, 0x6e, 0x69, 0x76, 0x65, 0x72, 0x73, 0x61, 0x6c, 0x5f, 0x74, 0x78, 0x22,

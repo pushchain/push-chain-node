@@ -59,6 +59,7 @@ func (dfd DeductFeeDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bo
 	// Check if this is a gasless transaction
 	if txpolicy.IsGaslessTx(tx) {
 		// Skip fee deduction for Gasless messages
+		ctx.Logger().Debug("deduct fee decorator: gasless tx detected, skipping fee deduction")
 		return next(ctx, tx, simulate)
 	}
 
@@ -66,11 +67,27 @@ func (dfd DeductFeeDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bo
 	if !simulate {
 		fee, priority, err = dfd.txFeeChecker(ctx, tx)
 		if err != nil {
+			ctx.Logger().Debug("deduct fee decorator: tx fee check failed",
+				"fee", feeTx.GetFee().String(),
+				"gas", feeTx.GetGas(),
+				"error", err,
+			)
 			return ctx, err
 		}
 	}
 
+	ctx.Logger().Debug("deduct fee decorator: deducting fees",
+		"fee", fee.String(),
+		"gas", feeTx.GetGas(),
+		"simulate", simulate,
+		"priority", priority,
+	)
+
 	if err := dfd.checkDeductFee(ctx, tx, fee); err != nil {
+		ctx.Logger().Debug("deduct fee decorator: fee deduction failed",
+			"fee", fee.String(),
+			"error", err,
+		)
 		return ctx, err
 	}
 
@@ -101,8 +118,18 @@ func (dfd DeductFeeDecorator) checkDeductFee(ctx sdk.Context, sdkTx sdk.Tx, fee 
 		if dfd.feegrantKeeper == nil {
 			return sdkerrors.ErrInvalidRequest.Wrap("fee grants are not enabled")
 		} else if !bytes.Equal(feeGranterAddr, feePayer) {
+			ctx.Logger().Debug("deduct fee decorator: using fee grant",
+				"fee_granter", feeGranterAddr.String(),
+				"fee_payer", sdk.AccAddress(feePayer).String(),
+				"fee", fee.String(),
+			)
 			err := dfd.feegrantKeeper.UseGrantedFees(ctx, feeGranterAddr, feePayer, fee, sdkTx.GetMsgs())
 			if err != nil {
+				ctx.Logger().Debug("deduct fee decorator: fee grant use failed",
+					"fee_granter", feeGranterAddr.String(),
+					"fee_payer", sdk.AccAddress(feePayer).String(),
+					"error", err,
+				)
 				return errorsmod.Wrapf(err, "%s does not allow to pay fees for %s", feeGranter, feePayer)
 			}
 		}
@@ -117,10 +144,23 @@ func (dfd DeductFeeDecorator) checkDeductFee(ctx sdk.Context, sdkTx sdk.Tx, fee 
 
 	// deduct the fees
 	if !fee.IsZero() {
+		ctx.Logger().Debug("deduct fee decorator: sending fees to fee collector",
+			"from", sdk.AccAddress(deductFeesFrom).String(),
+			"fee", fee.String(),
+		)
 		err := DeductFees(dfd.bankKeeper, ctx, deductFeesFromAcc, fee)
 		if err != nil {
+			ctx.Logger().Debug("deduct fee decorator: failed to send fees to fee collector",
+				"from", sdk.AccAddress(deductFeesFrom).String(),
+				"fee", fee.String(),
+				"error", err,
+			)
 			return err
 		}
+	} else {
+		ctx.Logger().Debug("deduct fee decorator: zero fee, skipping bank transfer",
+			"from", sdk.AccAddress(deductFeesFrom).String(),
+		)
 	}
 
 	events := sdk.Events{

@@ -21,6 +21,8 @@ func (k Keeper) AddUniversalValidator(
 ) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
+	k.Logger().Info("adding universal validator", "validator", coreValidatorAddr)
+
 	// Parse core validator address and validate format
 	valAddr, err := sdk.ValAddressFromBech32(coreValidatorAddr)
 	if err != nil {
@@ -35,6 +37,7 @@ func (k Keeper) AddUniversalValidator(
 
 	// Must be bonded to join
 	if !validator.IsBonded() {
+		k.Logger().Warn("validator is not bonded, cannot add as universal validator", "validator", coreValidatorAddr)
 		return fmt.Errorf("validator %s is not bonded", coreValidatorAddr)
 	}
 
@@ -56,6 +59,12 @@ func (k Keeper) AddUniversalValidator(
 			oldStatus := existingVal.LifecycleInfo.CurrentStatus
 			newStatus := types.UVStatus_UV_STATUS_PENDING_JOIN
 
+			k.Logger().Info("reactivating inactive universal validator",
+				"validator", coreValidatorAddr,
+				"old_status", oldStatus.String(),
+				"new_status", newStatus.String(),
+			)
+
 			// Reactivate: INACTIVE → PENDING_JOIN
 			existingVal.LifecycleInfo.CurrentStatus = types.UVStatus_UV_STATUS_PENDING_JOIN
 			existingVal.LifecycleInfo.History = append(existingVal.LifecycleInfo.History, &types.LifecycleEvent{
@@ -76,6 +85,10 @@ func (k Keeper) AddUniversalValidator(
 			return nil
 
 		default:
+			k.Logger().Warn("validator already registered, cannot add again",
+				"validator", coreValidatorAddr,
+				"current_status", existingVal.LifecycleInfo.CurrentStatus.String(),
+			)
 			// Already active or pending — reject
 			return fmt.Errorf("validator %s already registered with status %s",
 				coreValidatorAddr, existingVal.LifecycleInfo.CurrentStatus)
@@ -84,6 +97,12 @@ func (k Keeper) AddUniversalValidator(
 
 	// New registration: start as PENDING_JOIN
 	initialStatus := types.UVStatus_UV_STATUS_PENDING_JOIN
+
+	k.Logger().Info("registering new universal validator",
+		"validator", coreValidatorAddr,
+		"initial_status", initialStatus.String(),
+		"block_height", sdkCtx.BlockHeight(),
+	)
 
 	uv := types.UniversalValidator{
 		IdentifyInfo: &types.IdentityInfo{
@@ -105,6 +124,11 @@ func (k Keeper) AddUniversalValidator(
 	if err := k.UniversalValidatorSet.Set(ctx, valAddr, uv); err != nil {
 		return fmt.Errorf("failed to store universal validator: %w", err)
 	}
+
+	k.Logger().Info("universal validator registered successfully",
+		"validator", coreValidatorAddr,
+		"status", initialStatus.String(),
+	)
 
 	// ---- Trigger hooks ----
 	if k.hooks != nil {

@@ -35,6 +35,13 @@ func (h EVMHooks) PostTxProcessing(
 		return nil
 	}
 
+	h.k.Logger().Debug("evm hook post-tx processing",
+		"tx_hash", receipt.TxHash.Hex(),
+		"sender", sender.Hex(),
+		"log_count", len(receipt.Logs),
+		"gas_used", receipt.GasUsed,
+	)
+
 	protoReceipt := &evmtypes.MsgEthereumTxResponse{
 		Hash:    receipt.TxHash.Hex(),
 		GasUsed: receipt.GasUsed,

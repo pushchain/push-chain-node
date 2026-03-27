@@ -27,6 +27,7 @@ import (
 	tsscorefix "github.com/pushchain/push-chain-node/app/upgrades/tss-core-fix"
 	tssvotegasless "github.com/pushchain/push-chain-node/app/upgrades/tss-vote-gasless"
 	universaltxv1 "github.com/pushchain/push-chain-node/app/upgrades/universal-tx-v1"
+	v120donut "github.com/pushchain/push-chain-node/app/upgrades/v1.2.0-donut"
 )
 
 // Upgrades list of chain upgrades
@@ -51,6 +52,7 @@ var Upgrades = []upgrades.Upgrade{
 	chainmetavotegasless.NewUpgrade(),
 	ceagasandpayload.NewUpgrade(),
 	ceapayloadverificationfix.NewUpgrade(),
+	v120donut.NewUpgrade(),
 }
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers
@@ -76,6 +78,7 @@ func (app *ChainApp) RegisterUpgradeHandlers() {
 		UTxVerifierKeeper: &app.UtxverifierKeeper,
 		URegistryKeeper:   &app.UregistryKeeper,
 		UValidatorKeeper:  &app.UvalidatorKeeper,
+		UTssKeeper:        &app.UtssKeeper,
 	}
 
 	// register all upgrade handlers

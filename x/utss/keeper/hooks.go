@@ -29,19 +29,27 @@ func (h Hooks) AfterValidatorRemoved(ctx sdk.Context, valAddr sdk.ValAddress) {
 }
 
 func (h Hooks) AfterValidatorStatusChanged(ctx sdk.Context, valAddr sdk.ValAddress, oldStatus, newStatus uvalidatortypes.UVStatus) {
-	h.k.Logger().Info("TSS Hook: Universal validator status changed", "address", oldStatus, newStatus)
+	h.k.Logger().Info("TSS Hook: Universal validator status changed",
+		"address", valAddr.String(),
+		"old_status", oldStatus.String(),
+		"new_status", newStatus.String(),
+	)
 }
 
 // handleEligibleValidatorSetChange evaluates the current validator set
 // and initiates the appropriate TSS process (KEYGEN when first reaching 2+, QUORUM_CHANGE otherwise).
 func (h Hooks) handleEligibleValidatorSetChange(ctx sdk.Context) {
-	allUVs, err := h.k.uvalidatorKeeper.GetAllUniversalValidators(ctx)
+	// Fetch only eligible validators (ACTIVE + PENDING_JOIN) — inactive and
+	// pending-leave validators cannot participate in TSS and must not inflate
+	// the count that gates TSS initiation.
+	eligibleUVs, err := h.k.uvalidatorKeeper.GetEligibleVoters(ctx)
 	if err != nil {
-		h.k.Logger().Error("TSS Hook: failed to fetch UVs list", "error", err)
+		h.k.Logger().Error("TSS Hook: failed to fetch eligible UVs list", "error", err)
 		return
 	}
 
-	count := len(allUVs)
+	count := len(eligibleUVs)
+	h.k.Logger().Debug("TSS Hook: eligible validator count evaluated", "count", count)
 	if count < 2 {
 		if count == 1 {
 			h.k.Logger().Info("TSS Hook: only 1 eligible validator — TSS not possible")

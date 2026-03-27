@@ -25,7 +25,13 @@ func NewMsgServerImpl(keeper Keeper) types.MsgServer {
 // UpdateParams handles MsgUpdateParams for updating module parameters.
 // Only authorized governance account can execute this.
 func (ms msgServer) UpdateParams(ctx context.Context, msg *types.MsgUpdateParams) (*types.MsgUpdateParamsResponse, error) {
+	ms.k.Logger().Info("msg: UpdateParams", "authority", msg.Authority)
+
 	if ms.k.authority != msg.Authority {
+		ms.k.Logger().Warn("msg: UpdateParams unauthorized",
+			"expected_authority", ms.k.authority,
+			"got_authority", msg.Authority,
+		)
 		return nil, errors.Wrapf(govtypes.ErrInvalidSigner, "invalid authority; expected %s, got %s", ms.k.authority, msg.Authority)
 	}
 
@@ -39,6 +45,8 @@ func (ms msgServer) UpdateParams(ctx context.Context, msg *types.MsgUpdateParams
 
 // AddUniversalValidator implements types.MsgServer.
 func (ms msgServer) AddUniversalValidator(ctx context.Context, msg *types.MsgAddUniversalValidator) (*types.MsgAddUniversalValidatorResponse, error) {
+	ms.k.Logger().Info("msg: AddUniversalValidator", "signer", msg.Signer, "validator", msg.CoreValidatorAddress)
+
 	// Retrieve the current Params
 	params, err := ms.k.Params.Get(ctx)
 	if err != nil {
@@ -46,6 +54,10 @@ func (ms msgServer) AddUniversalValidator(ctx context.Context, msg *types.MsgAdd
 	}
 
 	if params.Admin != msg.Signer {
+		ms.k.Logger().Warn("msg: AddUniversalValidator unauthorized",
+			"expected_admin", params.Admin,
+			"got_signer", msg.Signer,
+		)
 		return nil, errors.Wrapf(sdkErrors.ErrUnauthorized, "invalid authority; expected %s, got %s", params.Admin, msg.Signer)
 	}
 
@@ -59,6 +71,8 @@ func (ms msgServer) AddUniversalValidator(ctx context.Context, msg *types.MsgAdd
 
 // RemoveUniversalValidator implements types.MsgServer.
 func (ms msgServer) RemoveUniversalValidator(ctx context.Context, msg *types.MsgRemoveUniversalValidator) (*types.MsgRemoveUniversalValidatorResponse, error) {
+	ms.k.Logger().Info("msg: RemoveUniversalValidator", "signer", msg.Signer, "validator", msg.CoreValidatorAddress)
+
 	// Retrieve the current Params
 	params, err := ms.k.Params.Get(ctx)
 	if err != nil {
@@ -66,6 +80,10 @@ func (ms msgServer) RemoveUniversalValidator(ctx context.Context, msg *types.Msg
 	}
 
 	if params.Admin != msg.Signer {
+		ms.k.Logger().Warn("msg: RemoveUniversalValidator unauthorized",
+			"expected_admin", params.Admin,
+			"got_signer", msg.Signer,
+		)
 		return nil, errors.Wrapf(sdkErrors.ErrUnauthorized, "invalid authority; expected %s, got %s", params.Admin, msg.Signer)
 	}
 
@@ -79,6 +97,8 @@ func (ms msgServer) RemoveUniversalValidator(ctx context.Context, msg *types.Msg
 
 // UpdateUniversalValidator implements types.MsgServer.
 func (ms msgServer) UpdateUniversalValidator(ctx context.Context, msg *types.MsgUpdateUniversalValidator) (*types.MsgUpdateUniversalValidatorResponse, error) {
+	ms.k.Logger().Info("msg: UpdateUniversalValidator", "signer", msg.Signer)
+
 	// Parse signer account
 	signerAcc, err := sdk.AccAddressFromBech32(msg.Signer)
 	if err != nil {
@@ -103,6 +123,12 @@ func (ms msgServer) UpdateUniversalValidator(ctx context.Context, msg *types.Msg
 
 // UpdateUniversalValidatorStatus implements types.MsgServer.
 func (ms msgServer) UpdateUniversalValidatorStatus(ctx context.Context, msg *types.MsgUpdateUniversalValidatorStatus) (*types.MsgUpdateUniversalValidatorStatusResponse, error) {
+	ms.k.Logger().Info("msg: UpdateUniversalValidatorStatus",
+		"signer", msg.Signer,
+		"validator", msg.CoreValidatorAddress,
+		"new_status", msg.NewStatus.String(),
+	)
+
 	// Retrieve the current Params
 	params, err := ms.k.Params.Get(ctx)
 	if err != nil {
@@ -110,6 +136,10 @@ func (ms msgServer) UpdateUniversalValidatorStatus(ctx context.Context, msg *typ
 	}
 
 	if params.Admin != msg.Signer {
+		ms.k.Logger().Warn("msg: UpdateUniversalValidatorStatus unauthorized",
+			"expected_admin", params.Admin,
+			"got_signer", msg.Signer,
+		)
 		return nil, errors.Wrapf(sdkErrors.ErrUnauthorized, "invalid authority; expected %s, got %s", params.Admin, msg.Signer)
 	}
 

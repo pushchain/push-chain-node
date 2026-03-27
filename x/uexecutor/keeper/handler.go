@@ -22,6 +22,9 @@ func (k Keeper) depositPRC20(
 		return nil, err
 	}
 
+	if tokenConfig.NativeRepresentation == nil {
+		return nil, fmt.Errorf("token config for %s:%s has no native representation", sourceChain, assetAddr)
+	}
 	prc20Address := tokenConfig.NativeRepresentation.ContractAddress
 	prc20AddressHex := common.HexToAddress(prc20Address)
 
@@ -31,6 +34,12 @@ func (k Keeper) depositPRC20(
 	if !ok {
 		return nil, fmt.Errorf("invalid amount: %s", amountStr)
 	}
+
+	k.Logger().Debug("EVM call: depositPRC20Token",
+		"prc20", prc20AddressHex.Hex(),
+		"recipient", recipient.Hex(),
+		"amount", amountStr,
+	)
 
 	// call PRC20 deposit
 	return k.CallPRC20Deposit(ctx, prc20AddressHex, recipient, amount)

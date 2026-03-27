@@ -78,6 +78,14 @@ func (k Keeper) StoreVerifiedPayloadHash(
 		return fmt.Errorf("failed to compute payload hash: %w", err)
 	}
 
+	k.Logger().Debug("payload hash computed",
+		"utx_key", utx.Id,
+		"uea", ueaAddr.Hex(),
+		"chain", chain,
+		"sender", sender,
+		"payload_hash", payloadHash.Hex(),
+	)
+
 	// Construct VerifiedTxMetadata
 	verified := utxverifiertypes.VerifiedTxMetadata{
 		Minted: false,
@@ -96,6 +104,12 @@ func (k Keeper) StoreVerifiedPayloadHash(
 	if err != nil {
 		return fmt.Errorf("failed to store verified tx: %w", err)
 	}
+
+	k.Logger().Debug("verified payload hash stored",
+		"utx_key", utx.Id,
+		"chain", chain,
+		"tx_hash", utx.InboundTx.TxHash,
+	)
 
 	return nil
 }

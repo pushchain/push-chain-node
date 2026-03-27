@@ -43,6 +43,19 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					Use:       "all-chain-metas",
 					Short:     "Query chain metadata for all chains",
 				},
+				{
+					RpcMethod: "GetPendingOutbound",
+					Use:       "pending-outbound [outbound-id]",
+					Short:     "Query a single pending outbound by ID",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{
+						{ProtoField: "outbound_id"},
+					},
+				},
+				{
+					RpcMethod: "AllPendingOutbounds",
+					Use:       "all-pending-outbounds",
+					Short:     "Query all pending outbounds (paginated)",
+				},
 			},
 			SubCommands: map[string]*autocliv1.ServiceCommandDescriptor{
 				"v2": {

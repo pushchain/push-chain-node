@@ -16,6 +16,13 @@ func (k Keeper) VoteOutbound(
 	outboundId string,
 	observedTx types.OutboundObservation,
 ) error {
+	k.Logger().Info("vote outbound received",
+		"validator", universalValidator.String(),
+		"utx_id", utxId,
+		"outbound_id", outboundId,
+		"obs_success", observedTx.Success,
+	)
+
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
 	// Step 1: Fetch UniversalTx
@@ -46,6 +53,10 @@ func (k Keeper) VoteOutbound(
 
 	// Prevent double-finalization
 	if outbound.OutboundStatus != types.Status_PENDING {
+		k.Logger().Warn("vote outbound rejected: outbound already finalized",
+			"outbound_id", outboundId,
+			"status", outbound.OutboundStatus.String(),
+		)
 		return fmt.Errorf("outbound with key %s is already finalized", outboundId)
 	}
 
@@ -68,6 +79,11 @@ func (k Keeper) VoteOutbound(
 
 	// Step 4: Exit if not finalized yet
 	if !isFinalized {
+		k.Logger().Debug("vote outbound recorded, ballot not yet finalized",
+			"validator", universalValidator.String(),
+			"utx_id", utxId,
+			"outbound_id", outboundId,
+		)
 		return nil
 	}
 
@@ -75,13 +91,39 @@ func (k Keeper) VoteOutbound(
 	outbound.OutboundStatus = types.Status_OBSERVED
 	outbound.ObservedTx = &observedTx
 
+	k.Logger().Info("outbound observed",
+		"utx_id", utxId,
+		"outbound_id", outboundId,
+		"success", observedTx.Success,
+		"dest_chain", outbound.DestinationChain,
+	)
+
 	// Persist the state inside UniversalTx
 	if err := k.UpdateOutbound(ctx, utxId, outbound); err != nil {
 		return err
 	}
 
-	// Step 6: Finalize outbound (refund if failed) - Don't return error
-	_ = k.FinalizeOutbound(ctx, utxId, outbound)
+	// Remove from pending outbounds index now that status is OBSERVED
+	if err := k.PendingOutbounds.Remove(ctx, outboundId); err != nil {
+		return fmt.Errorf("failed to remove pending outbound index for %s: %w", outboundId, err)
+	}
+
+	// Step 6: Finalize outbound (refund if failed).
+	// If re-mint fails, handleFailedOutbound marks it ABORTED internally and returns nil.
+	// Business logic errors are stored in RevertError on the UTX; only infra errors are returned.
+	if err := k.FinalizeOutbound(ctx, utxId, outbound); err != nil {
+		k.Logger().Error("outbound finalization error stored on utx",
+			"utx_id", utxId,
+			"outbound_id", outboundId,
+			"error", err.Error(),
+		)
+		if storeErr := k.UpdateUniversalTx(ctx, utxId, func(u *types.UniversalTx) error {
+			u.RevertError = err.Error()
+			return nil
+		}); storeErr != nil {
+			return storeErr
+		}
+	}
 
 	return nil
 }

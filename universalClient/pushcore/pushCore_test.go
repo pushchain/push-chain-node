@@ -348,67 +348,6 @@ func TestClient_GetCurrentKey(t *testing.T) {
 	})
 }
 
-func TestClient_GetTxsByEvents(t *testing.T) {
-	logger := zerolog.Nop()
-
-	t.Run("no endpoints configured", func(t *testing.T) {
-		client := &Client{
-			logger:    logger,
-			txClients: []tx.ServiceClient{},
-		}
-
-		txs, err := client.GetTxsByEvents(context.Background(), "test.event", 0, 0, 0)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "no endpoints configured")
-		assert.Nil(t, txs)
-	})
-
-	t.Run("successful query with mock", func(t *testing.T) {
-		mockClient := &mockTxServiceClient{
-			getTxsEventResp: &tx.GetTxsEventResponse{
-				Txs: []*tx.Tx{
-					{Body: &tx.TxBody{}},
-				},
-				TxResponses: []*sdktypes.TxResponse{
-					{
-						Height: 100,
-						TxHash: "0x123",
-					},
-				},
-			},
-		}
-
-		client := &Client{
-			logger:    logger,
-			txClients: []tx.ServiceClient{mockClient},
-		}
-
-		txs, err := client.GetTxsByEvents(context.Background(), "test.event", 0, 0, 0)
-		require.NoError(t, err)
-		require.Len(t, txs, 1)
-		assert.Equal(t, "0x123", txs[0].TxHash)
-		assert.Equal(t, int64(100), txs[0].Height)
-	})
-
-	t.Run("with height filters", func(t *testing.T) {
-		mockClient := &mockTxServiceClient{
-			getTxsEventResp: &tx.GetTxsEventResponse{
-				Txs:         []*tx.Tx{},
-				TxResponses: []*sdktypes.TxResponse{},
-			},
-		}
-
-		client := &Client{
-			logger:    logger,
-			txClients: []tx.ServiceClient{mockClient},
-		}
-
-		txs, err := client.GetTxsByEvents(context.Background(), "test.event", 100, 200, 50)
-		require.NoError(t, err)
-		assert.NotNil(t, txs)
-	})
-}
-
 func TestClient_GetGasPrice(t *testing.T) {
 	logger := zerolog.Nop()
 	ctx := context.Background()
@@ -723,23 +662,113 @@ func TestClient_BroadcastTx(t *testing.T) {
 	})
 }
 
-func TestClient_GetTxsByEvents_MismatchedLengths(t *testing.T) {
+func TestClient_GetPendingTssEvents(t *testing.T) {
 	logger := zerolog.Nop()
-	mockClient := &mockTxServiceClient{
-		getTxsEventResp: &tx.GetTxsEventResponse{
-			Txs:         []*tx.Tx{},
-			TxResponses: []*sdktypes.TxResponse{{TxHash: "0x1"}},
-		},
-	}
+	ctx := context.Background()
 
-	client := &Client{
-		logger:    logger,
-		txClients: []tx.ServiceClient{mockClient},
-	}
+	t.Run("no endpoints configured", func(t *testing.T) {
+		client := &Client{
+			logger:      logger,
+			utssClients: []utsstypes.QueryClient{},
+		}
 
-	_, err := client.GetTxsByEvents(context.Background(), "test.event", 0, 0, 0)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "mismatched Txs")
+		events, err := client.GetPendingTssEvents(ctx)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no endpoints configured")
+		assert.Nil(t, events)
+	})
+
+	t.Run("successful query with mock", func(t *testing.T) {
+		mockClient := &mockUTSSQueryClient{
+			pendingTssEventsResp: &utsstypes.QueryAllPendingTssEventsResponse{
+				Events: []*utsstypes.TssEvent{
+					{Id: 1, ProcessId: 100, ProcessType: "TSS_PROCESS_KEYGEN"},
+					{Id: 2, ProcessId: 200, ProcessType: "TSS_PROCESS_REFRESH"},
+				},
+			},
+		}
+
+		client := &Client{
+			logger:      logger,
+			utssClients: []utsstypes.QueryClient{mockClient},
+		}
+
+		events, err := client.GetPendingTssEvents(ctx)
+		require.NoError(t, err)
+		require.Len(t, events, 2)
+		assert.Equal(t, uint64(100), events[0].ProcessId)
+		assert.Equal(t, uint64(200), events[1].ProcessId)
+	})
+
+	t.Run("all endpoints fail", func(t *testing.T) {
+		client := &Client{
+			logger: logger,
+			utssClients: []utsstypes.QueryClient{
+				&mockUTSSQueryClient{err: assert.AnError},
+			},
+		}
+
+		events, err := client.GetPendingTssEvents(ctx)
+		require.Error(t, err)
+		assert.Nil(t, events)
+	})
+}
+
+func TestClient_GetAllPendingOutbounds(t *testing.T) {
+	logger := zerolog.Nop()
+	ctx := context.Background()
+
+	t.Run("no endpoints configured", func(t *testing.T) {
+		client := &Client{
+			logger:           logger,
+			uexecutorClients: []uexecutortypes.QueryClient{},
+		}
+
+		entries, outbounds, err := client.GetAllPendingOutbounds(ctx)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no endpoints configured")
+		assert.Nil(t, entries)
+		assert.Nil(t, outbounds)
+	})
+
+	t.Run("successful query with mock", func(t *testing.T) {
+		mockClient := &mockUExecutorQueryClient{
+			allPendingOutboundsResp: &uexecutortypes.QueryAllPendingOutboundsResponse{
+				Entries: []*uexecutortypes.PendingOutboundEntry{
+					{OutboundId: "ob-1", UniversalTxId: "utx-1", CreatedAt: 100},
+				},
+				Outbounds: []*uexecutortypes.OutboundTx{
+					{Id: "ob-1", DestinationChain: "eip155:1", Amount: "1000"},
+				},
+			},
+		}
+
+		client := &Client{
+			logger:           logger,
+			uexecutorClients: []uexecutortypes.QueryClient{mockClient},
+		}
+
+		entries, outbounds, err := client.GetAllPendingOutbounds(ctx)
+		require.NoError(t, err)
+		require.Len(t, entries, 1)
+		require.Len(t, outbounds, 1)
+		assert.Equal(t, "ob-1", entries[0].OutboundId)
+		assert.Equal(t, "eip155:1", outbounds[0].DestinationChain)
+	})
+
+	t.Run("all endpoints fail", func(t *testing.T) {
+		client := &Client{
+			logger: logger,
+			uexecutorClients: []uexecutortypes.QueryClient{
+				&mockUExecutorQueryClient{err: assert.AnError},
+			},
+		}
+
+		entries, outbounds, err := client.GetAllPendingOutbounds(ctx)
+		require.Error(t, err)
+		assert.Nil(t, entries)
+		assert.Nil(t, outbounds)
+	})
 }
 
 func TestClient_GetGasPrice_NilResponse(t *testing.T) {
@@ -816,8 +845,9 @@ func (m *mockUValidatorQueryClient) UniversalValidator(ctx context.Context, req 
 
 type mockUTSSQueryClient struct {
 	utsstypes.QueryClient
-	currentKeyResp *utsstypes.QueryCurrentKeyResponse
-	err            error
+	currentKeyResp      *utsstypes.QueryCurrentKeyResponse
+	pendingTssEventsResp *utsstypes.QueryAllPendingTssEventsResponse
+	err                 error
 }
 
 func (m *mockUTSSQueryClient) CurrentKey(ctx context.Context, req *utsstypes.QueryCurrentKeyRequest, opts ...grpc.CallOption) (*utsstypes.QueryCurrentKeyResponse, error) {
@@ -827,22 +857,21 @@ func (m *mockUTSSQueryClient) CurrentKey(ctx context.Context, req *utsstypes.Que
 	return m.currentKeyResp, nil
 }
 
+func (m *mockUTSSQueryClient) AllPendingTssEvents(ctx context.Context, req *utsstypes.QueryAllPendingTssEventsRequest, opts ...grpc.CallOption) (*utsstypes.QueryAllPendingTssEventsResponse, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.pendingTssEventsResp, nil
+}
+
 func (m *mockUTSSQueryClient) KeyById(ctx context.Context, req *utsstypes.QueryKeyByIdRequest, opts ...grpc.CallOption) (*utsstypes.QueryKeyByIdResponse, error) {
 	return nil, nil
 }
 
 type mockTxServiceClient struct {
 	tx.ServiceClient
-	getTxsEventResp *tx.GetTxsEventResponse
-	broadcastResp   *tx.BroadcastTxResponse
-	err             error
-}
-
-func (m *mockTxServiceClient) GetTxsEvent(ctx context.Context, req *tx.GetTxsEventRequest, opts ...grpc.CallOption) (*tx.GetTxsEventResponse, error) {
-	if m.err != nil {
-		return nil, m.err
-	}
-	return m.getTxsEventResp, nil
+	broadcastResp *tx.BroadcastTxResponse
+	err           error
 }
 
 func (m *mockTxServiceClient) BroadcastTx(ctx context.Context, req *tx.BroadcastTxRequest, opts ...grpc.CallOption) (*tx.BroadcastTxResponse, error) {
@@ -858,8 +887,9 @@ func (m *mockTxServiceClient) GetTx(ctx context.Context, req *tx.GetTxRequest, o
 
 type mockUExecutorQueryClient struct {
 	uexecutortypes.QueryClient
-	gasPriceResp *uexecutortypes.QueryGasPriceResponse
-	err          error
+	gasPriceResp            *uexecutortypes.QueryGasPriceResponse
+	allPendingOutboundsResp *uexecutortypes.QueryAllPendingOutboundsResponse
+	err                     error
 }
 
 func (m *mockUExecutorQueryClient) GasPrice(ctx context.Context, req *uexecutortypes.QueryGasPriceRequest, opts ...grpc.CallOption) (*uexecutortypes.QueryGasPriceResponse, error) {
@@ -883,6 +913,13 @@ func (m *mockUExecutorQueryClient) GetUniversalTx(ctx context.Context, req *uexe
 
 func (m *mockUExecutorQueryClient) AllUniversalTx(ctx context.Context, req *uexecutortypes.QueryAllUniversalTxRequest, opts ...grpc.CallOption) (*uexecutortypes.QueryAllUniversalTxResponse, error) {
 	return nil, nil
+}
+
+func (m *mockUExecutorQueryClient) AllPendingOutbounds(ctx context.Context, req *uexecutortypes.QueryAllPendingOutboundsRequest, opts ...grpc.CallOption) (*uexecutortypes.QueryAllPendingOutboundsResponse, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.allPendingOutboundsResp, nil
 }
 
 func (m *mockUExecutorQueryClient) AllGasPrices(ctx context.Context, req *uexecutortypes.QueryAllGasPricesRequest, opts ...grpc.CallOption) (*uexecutortypes.QueryAllGasPricesResponse, error) {

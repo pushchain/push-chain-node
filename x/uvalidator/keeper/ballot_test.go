@@ -1,6 +1,7 @@
 package keeper_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/pushchain/push-chain-node/x/uvalidator/types"
@@ -238,4 +239,165 @@ func TestCreateBallot_ExpiresMultipleOld(t *testing.T) {
 	got2, err := f.k.GetBallot(f.ctx, b2.Id)
 	require.NoError(err)
 	require.Equal(types.BallotStatus_BALLOT_STATUS_EXPIRED, got2.Status)
+}
+
+func TestExpireBallotsBeforeHeight_MultipleExpiredAndPending(t *testing.T) {
+	f := SetupTest(t)
+	require := require.New(t)
+
+	// Create 5 active ballots: 3 with short expiry (1 block), 2 with long expiry (100 blocks)
+	// Context starts at height 0, so ballots get created at height 0.
+	shortExpiry := int64(1) // BlockHeightExpiry = 0 + 1 = 1
+	longExpiry := int64(100) // BlockHeightExpiry = 0 + 100 = 100
+
+	for i := 0; i < 3; i++ {
+		_, err := f.k.CreateBallot(f.ctx, fmt.Sprintf("short-%d", i),
+			types.BallotObservationType_BALLOT_OBSERVATION_TYPE_INBOUND_TX,
+			[]string{"v1"}, 1, shortExpiry)
+		require.NoError(err)
+	}
+	for i := 0; i < 2; i++ {
+		_, err := f.k.CreateBallot(f.ctx, fmt.Sprintf("long-%d", i),
+			types.BallotObservationType_BALLOT_OBSERVATION_TYPE_INBOUND_TX,
+			[]string{"v1"}, 1, longExpiry)
+		require.NoError(err)
+	}
+
+	// Expire at height 5 — short-expiry ballots (expiry=1) should expire, long ones (expiry=100) should not
+	err := f.k.ExpireBallotsBeforeHeight(f.ctx, 5)
+	require.NoError(err)
+
+	// Assert all 3 short-expiry ballots are expired
+	for i := 0; i < 3; i++ {
+		id := fmt.Sprintf("short-%d", i)
+		got, err := f.k.GetBallot(f.ctx, id)
+		require.NoError(err)
+		require.Equal(types.BallotStatus_BALLOT_STATUS_EXPIRED, got.Status, "ballot %s should be expired", id)
+
+		has, err := f.k.ExpiredBallotIDs.Has(f.ctx, id)
+		require.NoError(err)
+		require.True(has, "ballot %s should be in ExpiredBallotIDs", id)
+
+		has, err = f.k.ActiveBallotIDs.Has(f.ctx, id)
+		require.NoError(err)
+		require.False(has, "ballot %s should not be in ActiveBallotIDs", id)
+	}
+
+	// Assert 2 long-expiry ballots are still pending
+	for i := 0; i < 2; i++ {
+		id := fmt.Sprintf("long-%d", i)
+		got, err := f.k.GetBallot(f.ctx, id)
+		require.NoError(err)
+		require.Equal(types.BallotStatus_BALLOT_STATUS_PENDING, got.Status, "ballot %s should still be pending", id)
+
+		has, err := f.k.ActiveBallotIDs.Has(f.ctx, id)
+		require.NoError(err)
+		require.True(has, "ballot %s should still be in ActiveBallotIDs", id)
+	}
+}
+
+func TestExpireBallotsBeforeHeight_NoneSkipped(t *testing.T) {
+	f := SetupTest(t)
+	require := require.New(t)
+
+	n := 10
+	// Create N active ballots all with expiry at height 1
+	for i := 0; i < n; i++ {
+		_, err := f.k.CreateBallot(f.ctx, fmt.Sprintf("ballot-%d", i),
+			types.BallotObservationType_BALLOT_OBSERVATION_TYPE_INBOUND_TX,
+			[]string{"v1"}, 1, 1)
+		require.NoError(err)
+	}
+
+	// Expire all at height 5
+	err := f.k.ExpireBallotsBeforeHeight(f.ctx, 5)
+	require.NoError(err)
+
+	// Assert ALL N ballots are expired — none skipped
+	for i := 0; i < n; i++ {
+		id := fmt.Sprintf("ballot-%d", i)
+		got, err := f.k.GetBallot(f.ctx, id)
+		require.NoError(err)
+		require.Equal(types.BallotStatus_BALLOT_STATUS_EXPIRED, got.Status, "ballot %s should be expired", id)
+
+		has, err := f.k.ExpiredBallotIDs.Has(f.ctx, id)
+		require.NoError(err)
+		require.True(has, "ballot %s should be in ExpiredBallotIDs", id)
+
+		has, err = f.k.ActiveBallotIDs.Has(f.ctx, id)
+		require.NoError(err)
+		require.False(has, "ballot %s should not be in ActiveBallotIDs", id)
+	}
+}
+
+func TestExpireBallotsBeforeHeight_BoundaryHeight(t *testing.T) {
+	f := SetupTest(t)
+	require := require.New(t)
+
+	// Create a ballot with expiry at height 10 (created at 0, expiryAfterBlocks=10)
+	_, err := f.k.CreateBallot(f.ctx, "at-boundary",
+		types.BallotObservationType_BALLOT_OBSERVATION_TYPE_INBOUND_TX,
+		[]string{"v1"}, 1, 10)
+	require.NoError(err)
+
+	// Ballot with expiry at height 9 (created at 0, expiryAfterBlocks=9)
+	_, err = f.k.CreateBallot(f.ctx, "below-boundary",
+		types.BallotObservationType_BALLOT_OBSERVATION_TYPE_INBOUND_TX,
+		[]string{"v1"}, 1, 9)
+	require.NoError(err)
+
+	// Call with currentHeight == 10 (the expiry height of "at-boundary")
+	// With <= semantics (L-07 fix), ballot at exactly the expiry height SHOULD be expired
+	err = f.k.ExpireBallotsBeforeHeight(f.ctx, 10)
+	require.NoError(err)
+
+	// "at-boundary" has BlockHeightExpiry == 10, currentHeight == 10 → expired (<=)
+	got, err := f.k.GetBallot(f.ctx, "at-boundary")
+	require.NoError(err)
+	require.Equal(types.BallotStatus_BALLOT_STATUS_EXPIRED, got.Status,
+		"ballot at exactly the expiry height should be expired with <= semantics")
+
+	// "below-boundary" has BlockHeightExpiry == 9, currentHeight == 10 → expired
+	got2, err := f.k.GetBallot(f.ctx, "below-boundary")
+	require.NoError(err)
+	require.Equal(types.BallotStatus_BALLOT_STATUS_EXPIRED, got2.Status,
+		"ballot below the expiry height should be expired")
+}
+
+func TestExpireBallotsBeforeHeight_NoOp(t *testing.T) {
+	f := SetupTest(t)
+	require := require.New(t)
+
+	// Create 3 active ballots with long expiry (100 blocks)
+	for i := 0; i < 3; i++ {
+		_, err := f.k.CreateBallot(f.ctx, fmt.Sprintf("noop-%d", i),
+			types.BallotObservationType_BALLOT_OBSERVATION_TYPE_INBOUND_TX,
+			[]string{"v1"}, 1, 100)
+		require.NoError(err)
+	}
+
+	// Call with a low currentHeight — none should expire
+	err := f.k.ExpireBallotsBeforeHeight(f.ctx, 5)
+	require.NoError(err)
+
+	// Assert no ballots were expired
+	for i := 0; i < 3; i++ {
+		id := fmt.Sprintf("noop-%d", i)
+		got, err := f.k.GetBallot(f.ctx, id)
+		require.NoError(err)
+		require.Equal(types.BallotStatus_BALLOT_STATUS_PENDING, got.Status, "ballot %s should still be pending", id)
+
+		has, err := f.k.ActiveBallotIDs.Has(f.ctx, id)
+		require.NoError(err)
+		require.True(has, "ballot %s should still be in ActiveBallotIDs", id)
+	}
+}
+
+func TestExpireBallotsBeforeHeight_EmptySet(t *testing.T) {
+	f := SetupTest(t)
+	require := require.New(t)
+
+	// Call with no active ballots — should not error
+	err := f.k.ExpireBallotsBeforeHeight(f.ctx, 100)
+	require.NoError(err)
 }

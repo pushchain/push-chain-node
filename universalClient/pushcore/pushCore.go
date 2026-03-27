@@ -42,13 +42,6 @@ type Client struct {
 	rr                uint32                        // Round-robin counter for endpoint selection
 }
 
-// TxResult represents a transaction result with its associated events and metadata.
-type TxResult struct {
-	TxHash     string            // Transaction hash
-	Height     int64             // Block height where the transaction was included
-	TxResponse *tx.GetTxResponse // Full transaction response from the chain
-}
-
 // New creates a new Client by dialing the provided gRPC URLs.
 // It attempts to connect to all endpoints and skips any that fail to dial.
 // At least one endpoint must succeed, otherwise an error is returned.
@@ -217,63 +210,6 @@ func (c *Client) GetCurrentKey(ctx context.Context) (*utsstypes.TssKey, error) {
 	)
 }
 
-// GetTxsByEvents queries transactions matching the given event query.
-// The query should follow Cosmos SDK event query format, e.g., "tss_process_initiated.process_id EXISTS".
-func (c *Client) GetTxsByEvents(ctx context.Context, eventQuery string, minHeight, maxHeight uint64, limit uint64) ([]*TxResult, error) {
-	events := []string{eventQuery}
-	if minHeight > 0 {
-		events = append(events, fmt.Sprintf("tx.height>=%d", minHeight))
-	}
-	if maxHeight > 0 {
-		events = append(events, fmt.Sprintf("tx.height<=%d", maxHeight))
-	}
-
-	pageLimit := limit
-	if pageLimit == 0 {
-		pageLimit = 100
-	}
-
-	queryString := strings.Join(events, " AND ")
-
-	return retryWithRoundRobin(
-		len(c.txClients),
-		&c.rr,
-		func(idx int) ([]*TxResult, error) {
-			req := &tx.GetTxsEventRequest{
-				Query: queryString,
-				Pagination: &query.PageRequest{
-					Limit: pageLimit,
-				},
-				OrderBy: tx.OrderBy_ORDER_BY_ASC,
-			}
-
-			resp, err := c.txClients[idx].GetTxsEvent(ctx, req)
-			if err != nil {
-				return nil, err
-			}
-
-			if len(resp.Txs) != len(resp.TxResponses) {
-				return nil, fmt.Errorf("pushcore: mismatched Txs (%d) and TxResponses (%d) lengths", len(resp.Txs), len(resp.TxResponses))
-			}
-
-			results := make([]*TxResult, 0, len(resp.TxResponses))
-			for i, txResp := range resp.TxResponses {
-				results = append(results, &TxResult{
-					TxHash: txResp.TxHash,
-					Height: txResp.Height,
-					TxResponse: &tx.GetTxResponse{
-						Tx:         resp.Txs[i],
-						TxResponse: txResp,
-					},
-				})
-			}
-			return results, nil
-		},
-		"GetTxsByEvents",
-		c.logger,
-	)
-}
-
 // GetGasPrice retrieves the median gas price for a specific chain from the on-chain oracle.
 func (c *Client) GetGasPrice(ctx context.Context, chainID string) (*big.Int, error) {
 	if chainID == "" {
@@ -355,6 +291,46 @@ func (c *Client) BroadcastTx(ctx context.Context, txBytes []byte) (*tx.Broadcast
 		"BroadcastTx",
 		c.logger,
 	)
+}
+
+// GetPendingTssEvents retrieves up to the first 1000 pending TSS events from Push Chain.
+// Sorted by process_id ascending (oldest first).
+func (c *Client) GetPendingTssEvents(ctx context.Context) ([]*utsstypes.TssEvent, error) {
+	return retryWithRoundRobin(
+		len(c.utssClients),
+		&c.rr,
+		func(idx int) ([]*utsstypes.TssEvent, error) {
+			resp, err := c.utssClients[idx].AllPendingTssEvents(ctx, &utsstypes.QueryAllPendingTssEventsRequest{
+				Pagination: &query.PageRequest{Limit: 1000},
+			})
+			if err != nil {
+				return nil, err
+			}
+			return resp.Events, nil
+		},
+		"GetPendingTssEvents",
+		c.logger,
+	)
+}
+
+// GetAllPendingOutbounds retrieves up to the first 1000 pending outbound transactions from Push Chain.
+// Sorted by created_at (block height) ascending — oldest first.
+func (c *Client) GetAllPendingOutbounds(ctx context.Context) ([]*uexecutortypes.PendingOutboundEntry, []*uexecutortypes.OutboundTx, error) {
+	resp, err := retryWithRoundRobin(
+		len(c.uexecutorClients),
+		&c.rr,
+		func(idx int) (*uexecutortypes.QueryAllPendingOutboundsResponse, error) {
+			return c.uexecutorClients[idx].AllPendingOutbounds(ctx, &uexecutortypes.QueryAllPendingOutboundsRequest{
+				Pagination: &query.PageRequest{Limit: 1000},
+			})
+		},
+		"GetAllPendingOutbounds",
+		c.logger,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	return resp.Entries, resp.Outbounds, nil
 }
 
 // createGRPCConnection creates a gRPC connection with appropriate transport security.

@@ -2,6 +2,8 @@ package types
 
 import (
 	"encoding/json"
+	"fmt"
+	"strings"
 )
 
 // DefaultParams returns default module parameters.
@@ -24,6 +26,8 @@ func (p Params) String() string {
 
 // Validate does the sanity check on the params.
 func (p Params) Validate() error {
-	// TODO:
+	if strings.TrimSpace(p.Admin) == "" {
+		return fmt.Errorf("admin address cannot be empty")
+	}
 	return nil
 }

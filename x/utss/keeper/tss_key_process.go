@@ -26,6 +26,17 @@ func (k Keeper) FinalizeTssKeyProcess(ctx context.Context, processID uint64, sta
 		if err := k.CurrentTssProcess.Remove(ctx); err != nil {
 			k.Logger().Error("failed to clear current process", "err", err)
 		}
+		// Remove from pending index — process is no longer active
+		if err := k.PendingTssEvents.Remove(ctx, processID); err != nil {
+			k.Logger().Error("failed to remove pending tss event", "process_id", processID, "err", err)
+		}
+	}
+
+	// Update TSS event status on process failure
+	if status == types.TssKeyProcessStatus_TSS_KEY_PROCESS_FAILED {
+		if err := k.updateTssEventStatusByProcessId(ctx, processID, types.TssEventType_TSS_EVENT_PROCESS_INITIATED, types.TssEventStatus_TSS_EVENT_EXPIRED); err != nil {
+			k.Logger().Error("failed to update tss event status on process failure", "process_id", processID, "err", err)
+		}
 	}
 
 	k.Logger().Info("TSS process finalized", "id", processID, "status", status.String())
@@ -55,8 +66,16 @@ func (k Keeper) GetCurrentTssParticipants(ctx context.Context) ([]string, error)
 		return nil, err
 	}
 	if sdkCtx.BlockHeight() >= currentProcess.ExpiryHeight {
+		k.Logger().Debug("tss process expired, returning empty participants",
+			"process_id", currentProcess.Id,
+			"expiry_height", currentProcess.ExpiryHeight,
+		)
 		return []string{}, nil
 	}
+	k.Logger().Debug("current tss participants retrieved",
+		"process_id", currentProcess.Id,
+		"participant_count", len(currentProcess.Participants),
+	)
 	return currentProcess.Participants, nil
 }
 

@@ -50,6 +50,16 @@ service Query {
   rpc AllChainMetas(QueryAllChainMetasRequest) returns (QueryAllChainMetasResponse) {
     option (google.api.http).get = "/uexecutor/v1/chain_metas";
   }
+
+  // Get a single pending outbound by ID
+  rpc GetPendingOutbound(QueryGetPendingOutboundRequest) returns (QueryGetPendingOutboundResponse) {
+    option (google.api.http).get = "/uexecutor/v1/pending_outbound/{outbound_id}";
+  }
+
+  // Get all pending outbounds (paginated)
+  rpc AllPendingOutbounds(QueryAllPendingOutboundsRequest) returns (QueryAllPendingOutboundsResponse) {
+    option (google.api.http).get = "/uexecutor/v1/pending_outbounds";
+  }
 }
 
 // ==========================
@@ -129,4 +139,30 @@ message QueryAllUniversalTxRequest {
 message QueryAllUniversalTxResponse {
   repeated UniversalTx universal_txs = 1;
   cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// Pending outbound index entry
+message PendingOutboundEntry {
+  string outbound_id     = 1;
+  string universal_tx_id = 2;
+  int64  created_at      = 3;
+}
+
+message QueryGetPendingOutboundRequest {
+  string outbound_id = 1;
+}
+
+message QueryGetPendingOutboundResponse {
+  PendingOutboundEntry entry    = 1;
+  OutboundTx           outbound = 2;
+}
+
+message QueryAllPendingOutboundsRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+message QueryAllPendingOutboundsResponse {
+  repeated PendingOutboundEntry entries   = 1;
+  repeated OutboundTx           outbounds = 2;
+  cosmos.base.query.v1beta1.PageResponse pagination = 3;
 }

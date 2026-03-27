@@ -31,6 +31,7 @@ func NewAccountInitDecorator(ak AccountKeeper, signModeHandler *txsigning.Handle
 func (aid AccountInitDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, next sdk.AnteHandler) (sdk.Context, error) {
 	if !txpolicy.IsGaslessTx(tx) {
 		// Skip account initialization for non-gasless transactions
+		ctx.Logger().Debug("account init decorator: non-gasless tx, skipping account init")
 		return next(ctx, tx, simulate)
 	}
 
@@ -41,23 +42,41 @@ func (aid AccountInitDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate 
 
 	signers, err := sigTx.GetSigners()
 	if err != nil || len(signers) != 1 {
+		ctx.Logger().Debug("account init decorator: could not get unique signer, passing to next handler",
+			"num_signers", len(signers),
+			"error", err,
+		)
 		return next(ctx, tx, simulate)
 	}
 
 	newAccAddr := signers[0]
 	if !aid.ak.HasAccount(ctx, newAccAddr) {
+		ctx.Logger().Debug("account init decorator: new account detected on gasless tx, verifying signature",
+			"address", sdk.AccAddress(newAccAddr).String(),
+			"simulate", simulate,
+		)
 		// if account does not exist on chain, bypass rest of ante chain (especially gas and signature verification) here.
 		// Perform signature verification on account number e and sequence number e instead.
 		if err := aid.verifySignatureForNewAccount(ctx, tx, simulate); err != nil {
+			ctx.Logger().Debug("account init decorator: signature verification failed for new account",
+				"address", sdk.AccAddress(newAccAddr).String(),
+				"error", err,
+			)
 			return ctx, err
 		}
 
 		acc := aid.ak.NewAccountWithAddress(ctx, newAccAddr)
 		acc.SetSequence(1)
 		aid.ak.SetAccount(ctx, acc)
+		ctx.Logger().Info("account init decorator: new account created via gasless tx",
+			"address", sdk.AccAddress(newAccAddr).String(),
+		)
 		return ctx, nil
 	}
 
+	ctx.Logger().Debug("account init decorator: existing account on gasless tx, passing to next handler",
+		"address", sdk.AccAddress(newAccAddr).String(),
+	)
 	return next(ctx, tx, simulate)
 }
 
@@ -115,6 +134,12 @@ func (aid AccountInitDecorator) verifySignatureForNewAccount(ctx sdk.Context, tx
 				return fmt.Errorf("expected tx to implement V2AdaptableTx, got %T", tx)
 			}
 			txData := adaptableTx.GetSigningTxData()
+			ctx.Logger().Debug("account init decorator: verifying signature for new account",
+				"address", newAccAddr.String(),
+				"chain_id", chainID,
+				"acc_num", accNum,
+				"sequence", accSequence,
+			)
 			err = authsigning.VerifySignature(ctx, pubKey, signerData, sig.Data, aid.signModeHandler, txData)
 			if err != nil {
 				var errMsg string
@@ -125,9 +150,20 @@ func (aid AccountInitDecorator) verifySignatureForNewAccount(ctx sdk.Context, tx
 				} else {
 					errMsg = fmt.Sprintf("signature verification failed; please verify account number (%d) and chain-id (%s): (%s)", accNum, chainID, err.Error())
 				}
+				ctx.Logger().Debug("account init decorator: signature invalid for new account",
+					"address", newAccAddr.String(),
+					"chain_id", chainID,
+				)
 				return errorsmod.Wrap(sdkerrors.ErrUnauthorized, errMsg)
 
 			}
+		} else {
+			ctx.Logger().Debug("account init decorator: skipping signature verification",
+				"address", newAccAddr.String(),
+				"simulate", simulate,
+				"is_recheck_tx", ctx.IsReCheckTx(),
+				"is_sigverify_tx", ctx.IsSigverifyTx(),
+			)
 		}
 	}
 	return nil

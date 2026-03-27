@@ -11,6 +11,11 @@ import (
 )
 
 func (k Keeper) UpdateOutbound(ctx context.Context, utxId string, outbound types.OutboundTx) error {
+	k.Logger().Debug("updating outbound state",
+		"utx_id", utxId,
+		"outbound_id", outbound.Id,
+		"status", outbound.OutboundStatus.String(),
+	)
 	return k.UpdateUniversalTx(ctx, utxId, func(utx *types.UniversalTx) error {
 		if utx.OutboundTx == nil {
 			return fmt.Errorf("outbound tx list is not initialized for utx %s", utxId)
@@ -37,6 +42,32 @@ func (k Keeper) UpdateOutbound(ctx context.Context, utxId string, outbound types
 	})
 }
 
+// AbortOutbound marks an outbound as ABORTED with a reason.
+// This signals that automatic processing has failed and manual intervention is needed.
+func (k Keeper) AbortOutbound(ctx context.Context, utxId string, outbound types.OutboundTx, reason string) error {
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+
+	outbound.OutboundStatus = types.Status_ABORTED
+	outbound.AbortReason = reason
+
+	if err := k.UpdateOutbound(ctx, utxId, outbound); err != nil {
+		return err
+	}
+
+	// Defensively remove from pending index (may already be removed by caller)
+	_ = k.PendingOutbounds.Remove(ctx, outbound.Id)
+
+	// Emit event for monitoring/alerting
+	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+		"outbound_aborted",
+		sdk.NewAttribute("utx_id", utxId),
+		sdk.NewAttribute("outbound_id", outbound.Id),
+		sdk.NewAttribute("abort_reason", reason),
+	))
+
+	return nil
+}
+
 func (k Keeper) FinalizeOutbound(ctx context.Context, utxId string, outbound types.OutboundTx) error {
 	// If not observed yet, do nothing
 	if outbound.OutboundStatus != types.Status_OBSERVED {
@@ -49,6 +80,14 @@ func (k Keeper) FinalizeOutbound(ctx context.Context, utxId string, outbound typ
 	}
 
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
+
+	k.Logger().Info("finalizing outbound",
+		"utx_id", utxId,
+		"outbound_id", outbound.Id,
+		"success", obs.Success,
+		"dest_chain", outbound.DestinationChain,
+		"tx_type", outbound.TxType.String(),
+	)
 
 	if !obs.Success {
 		return k.handleFailedOutbound(sdkCtx, utxId, outbound, obs)
@@ -83,18 +122,36 @@ func (k Keeper) handleFailedOutbound(ctx sdk.Context, utxId string, outbound typ
 			Sender:      outbound.Sender,
 			BlockHeight: uint64(ctx.BlockHeight()),
 		}
+		// Capture tx hash from receipt even on EVM revert for debugging.
+		if receipt != nil {
+			pcTx.TxHash = receipt.Hash
+			pcTx.GasUsed = receipt.GasUsed
+		}
 		if err != nil {
 			pcTx.Status = "FAILED"
 			pcTx.ErrorMsg = err.Error()
-		} else {
-			pcTx.TxHash = receipt.Hash
-			pcTx.GasUsed = receipt.GasUsed
-			pcTx.Status = "SUCCESS"
+			outbound.PcRevertExecution = &pcTx
+			// Re-mint failed — mark as ABORTED for manual intervention
+			return k.AbortOutbound(ctx, utxId, outbound,
+				fmt.Sprintf("failed to re-mint tokens for revert: %s", err.Error()))
 		}
+		pcTx.TxHash = receipt.Hash
+		pcTx.GasUsed = receipt.GasUsed
+		pcTx.Status = "SUCCESS"
 		outbound.PcRevertExecution = &pcTx
+		k.Logger().Info("outbound failed: funds re-minted for revert",
+			"utx_id", utxId,
+			"outbound_id", outbound.Id,
+			"tx_hash", receipt.Hash,
+		)
 	}
 
 	outbound.OutboundStatus = types.Status_REVERTED
+	k.Logger().Info("outbound reverted",
+		"utx_id", utxId,
+		"outbound_id", outbound.Id,
+		"dest_chain", outbound.DestinationChain,
+	)
 
 	// Refund excess gas regardless of tx type — gas was consumed on the external
 	// chain whether the execution succeeded or failed.
@@ -105,6 +162,11 @@ func (k Keeper) handleFailedOutbound(ctx sdk.Context, utxId string, outbound typ
 
 // handleSuccessfulOutbound refunds unused gas fee when gasFee > gasFeeUsed.
 func (k Keeper) handleSuccessfulOutbound(ctx sdk.Context, utxId string, outbound types.OutboundTx, obs *types.OutboundObservation) error {
+	k.Logger().Info("outbound completed successfully",
+		"utx_id", utxId,
+		"outbound_id", outbound.Id,
+		"dest_chain", outbound.DestinationChain,
+	)
 	k.applyGasRefund(ctx, &outbound, obs)
 	return k.UpdateOutbound(ctx, utxId, outbound)
 }

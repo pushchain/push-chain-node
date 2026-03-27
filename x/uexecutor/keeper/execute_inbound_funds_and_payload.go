@@ -17,13 +17,24 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 	_, ueModuleAddressStr := k.GetUeModuleAddress(ctx)
 	universalTxKey := types.GetInboundUniversalTxKey(*utx.InboundTx)
 
+	k.Logger().Info("execute inbound funds and payload",
+		"utx_key", universalTxKey,
+		"source_chain", utx.InboundTx.SourceChain,
+		"amount", utx.InboundTx.Amount,
+		"is_cea", utx.InboundTx.IsCEA,
+	)
+
 	shouldRevert := false
 	var revertReason string
 
 	// Build universalAccountId
+	chainNamespace, chainId, err := types.ParseCAIP2(utx.InboundTx.SourceChain)
+	if err != nil {
+		return fmt.Errorf("invalid SourceChain: %w", err)
+	}
 	universalAccountId := types.UniversalAccountId{
-		ChainNamespace: strings.Split(utx.InboundTx.SourceChain, ":")[0],
-		ChainId:        strings.Split(utx.InboundTx.SourceChain, ":")[1],
+		ChainNamespace: chainNamespace,
+		ChainId:        chainId,
 		Owner:          utx.InboundTx.Sender,
 	}
 
@@ -38,6 +49,7 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 	payloadChain := utx.InboundTx.SourceChain // default: inbound source chain; overridden to UEA origin chain for CEA
 
 	// Parse amount to check for zero-amount path
+	// Amount is already validated in ValidateForExecution before reaching here
 	inboundAmount := new(big.Int)
 	inboundAmount.SetString(utx.InboundTx.Amount, 10)
 
@@ -101,6 +113,11 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 			ueaAddr = ueaAddrRes
 
 			if !isDeployed {
+				k.Logger().Info("UEA not deployed, deploying now",
+					"utx_key", universalTxKey,
+					"source_chain", utx.InboundTx.SourceChain,
+					"sender", utx.InboundTx.Sender,
+				)
 				deployReceipt, dErr := k.DeployUEAV2(ctx, ueModuleAccAddress, &universalAccountId)
 				if dErr != nil {
 					execErr = fmt.Errorf("DeployUEAV2 failed: %w", dErr)
@@ -116,10 +133,12 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 						GasUsed:     deployReceipt.GasUsed,
 						Status:      "SUCCESS",
 					}
-					_ = k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
+					if updateErr := k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
 						utx.PcTx = append(utx.PcTx, &deployPcTx)
 						return nil
-					})
+					}); updateErr != nil {
+						return updateErr
+					}
 				}
 			}
 
@@ -147,11 +166,14 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 			BlockHeight: uint64(sdkCtx.BlockHeight()),
 			Status:      "FAILED",
 		}
+		// Capture tx hash from receipt even on EVM revert for debugging.
+		if receipt != nil {
+			depositPcTx.TxHash = receipt.Hash
+			depositPcTx.GasUsed = receipt.GasUsed
+		}
 		if execErr != nil {
 			depositPcTx.ErrorMsg = execErr.Error()
 		} else {
-			depositPcTx.TxHash = receipt.Hash
-			depositPcTx.GasUsed = receipt.GasUsed
 			depositPcTx.Status = "SUCCESS"
 		}
 		updateErr := k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
@@ -169,7 +191,7 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 			revertOutbound := &types.OutboundTx{
 				DestinationChain: utx.InboundTx.SourceChain,
 				Recipient: func() string {
-					if utx.InboundTx.RevertInstructions != nil {
+					if utx.InboundTx.RevertInstructions != nil && utx.InboundTx.RevertInstructions.FundRecipient != "" {
 						return utx.InboundTx.RevertInstructions.FundRecipient
 					}
 					return utx.InboundTx.Sender
@@ -181,12 +203,19 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 				OutboundStatus:    types.Status_PENDING,
 				Id:                types.GetOutboundRevertId(utx.InboundTx.SourceChain, utx.InboundTx.TxHash),
 			}
-			_ = k.attachOutboundsToUtx(
+			if attachErr := k.attachOutboundsToUtx(
 				sdkCtx,
 				universalTxKey,
 				[]*types.OutboundTx{revertOutbound},
 				revertReason,
-			)
+			); attachErr != nil {
+				if storeErr := k.UpdateUniversalTx(sdkCtx, universalTxKey, func(u *types.UniversalTx) error {
+					u.RevertError = attachErr.Error()
+					return nil
+				}); storeErr != nil {
+					return storeErr
+				}
+			}
 		}
 		return nil
 	}
@@ -240,10 +269,12 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 			callPcTx.GasUsed = contractReceipt.GasUsed
 			callPcTx.Status = "SUCCESS"
 		}
-		_ = k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
+		if updateErr := k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
 			utx.PcTx = append(utx.PcTx, &callPcTx)
 			return nil
-		})
+		}); updateErr != nil {
+			return updateErr
+		}
 		return nil
 	}
 
@@ -258,14 +289,17 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 			Status:      "FAILED",
 			ErrorMsg:    fmt.Sprintf("payload hash failed: %v", payloadHashErr),
 		}
-		_ = k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
+		if updateErr := k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
 			utx.PcTx = append(utx.PcTx, &errorPcTx)
 			return nil
-		})
+		}); updateErr != nil {
+			return updateErr
+		}
 		return nil
 	}
 
 	// --- Step 4: execute payload via UEA
+	k.Logger().Debug("executing payload via UEA", "utx_key", universalTxKey, "uea", ueaAddr.Hex())
 	var payloadErr error
 	receipt, payloadErr = k.ExecutePayloadV2(ctx, ueModuleAddr, ueaAddr, utx.InboundTx.UniversalPayload, utx.InboundTx.VerificationData)
 
@@ -274,15 +308,34 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 		BlockHeight: uint64(sdkCtx.BlockHeight()),
 		Status:      "FAILED",
 	}
-	if payloadErr != nil {
-		payloadPcTx.ErrorMsg = payloadErr.Error()
-	} else {
+	// Capture tx hash from receipt even on EVM revert for debugging.
+	if receipt != nil {
 		payloadPcTx.TxHash = receipt.Hash
 		payloadPcTx.GasUsed = receipt.GasUsed
+	}
+	if payloadErr != nil {
+		k.Logger().Warn("payload execution failed",
+			"utx_key", universalTxKey,
+			"uea", ueaAddr.Hex(),
+			"error", payloadErr.Error(),
+		)
+		payloadPcTx.ErrorMsg = payloadErr.Error()
+	} else if receipt != nil {
+		k.Logger().Info("payload executed successfully",
+			"utx_key", universalTxKey,
+			"uea", ueaAddr.Hex(),
+			"tx_hash", receipt.Hash,
+			"gas_used", receipt.GasUsed,
+		)
 		payloadPcTx.Status = "SUCCESS"
 
-		if receipt != nil {
-			_ = k.AttachOutboundsToExistingUniversalTx(sdkCtx, receipt, utx)
+		if attachErr := k.AttachOutboundsToExistingUniversalTx(sdkCtx, receipt, utx); attachErr != nil {
+			if storeErr := k.UpdateUniversalTx(sdkCtx, universalTxKey, func(u *types.UniversalTx) error {
+				u.RevertError = attachErr.Error()
+				return nil
+			}); storeErr != nil {
+				return storeErr
+			}
 		}
 	}
 

@@ -14,9 +14,7 @@ import (
 	"cosmossdk.io/collections"
 	storetypes "cosmossdk.io/core/store"
 	"cosmossdk.io/log"
-	sdkmath "cosmossdk.io/math"
 
-	globaltypes "github.com/pushchain/push-chain-node/types"
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
@@ -47,11 +45,15 @@ type Keeper struct {
 	// Module account manual nonce
 	ModuleAccountNonce collections.Item[uint64]
 
-	// GasPrices collection stores aggregated gas price data for each chain
+	// GasPrices — deprecated, replaced by ChainMetas. Kept for genesis backward compat.
 	GasPrices collections.Map[string, types.GasPrice]
 
 	// ChainMetas collection stores aggregated chain metadata (gas price + block height) for each chain
 	ChainMetas collections.Map[string, types.ChainMeta]
+
+	// PendingOutbounds is a secondary index of outbounds with PENDING status.
+	// Key: outbound ID -> Value: PendingOutboundEntry
+	PendingOutbounds collections.Map[string, types.PendingOutboundEntry]
 }
 
 // NewKeeper creates a new Keeper instance
@@ -129,6 +131,14 @@ func NewKeeper(
 			collections.StringKey,
 			codec.CollValue[types.ChainMeta](cdc),
 		),
+
+		PendingOutbounds: collections.NewMap(
+			sb,
+			types.PendingOutboundsKey,
+			types.PendingOutboundsName,
+			collections.StringKey,
+			codec.CollValue[types.PendingOutboundEntry](cdc),
+		),
 	}
 
 	return k
@@ -145,10 +155,59 @@ func (k *Keeper) InitGenesis(ctx context.Context, data *types.GenesisState) erro
 		return err
 	}
 
-	// deploy factory proxy at 0xEA address
-	deployFactoryEA(ctx, k.evmKeeper)
+	// Only deploy factory contracts on fresh genesis, not on import from export.
+	// Re-deploying on import would overwrite existing EVM state or cause nonce collisions.
+	if !data.Exported {
+		deployFactoryEA(ctx, k.evmKeeper)
+	}
 
-	return k.Params.Set(ctx, data.Params)
+	if err := k.Params.Set(ctx, data.Params); err != nil {
+		return err
+	}
+
+	// Restore PendingInbounds
+	for _, key := range data.PendingInbounds {
+		if err := k.PendingInbounds.Set(ctx, key); err != nil {
+			return err
+		}
+	}
+
+	// Restore UniversalTx
+	for _, entry := range data.UniversalTxs {
+		if err := k.UniversalTx.Set(ctx, entry.Key, entry.Value); err != nil {
+			return err
+		}
+	}
+
+	// Restore ModuleAccountNonce
+	if data.ModuleAccountNonce > 0 {
+		if err := k.ModuleAccountNonce.Set(ctx, data.ModuleAccountNonce); err != nil {
+			return err
+		}
+	}
+
+	// Restore GasPrices
+	for _, entry := range data.GasPrices {
+		if err := k.GasPrices.Set(ctx, entry.Key, entry.Value); err != nil {
+			return err
+		}
+	}
+
+	// Restore ChainMetas
+	for _, entry := range data.ChainMetas {
+		if err := k.ChainMetas.Set(ctx, entry.Key, entry.Value); err != nil {
+			return err
+		}
+	}
+
+	// Restore PendingOutbounds
+	for _, entry := range data.PendingOutbounds {
+		if err := k.PendingOutbounds.Set(ctx, entry.OutboundId, entry); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // ExportGenesis exports the module's state to a genesis state.
@@ -158,8 +217,74 @@ func (k *Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 		panic(err)
 	}
 
+	// Export PendingInbounds
+	var pendingInbounds []string
+	err = k.PendingInbounds.Walk(ctx, nil, func(key string) (bool, error) {
+		pendingInbounds = append(pendingInbounds, key)
+		return false, nil
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	// Export UniversalTx
+	var universalTxs []types.UniversalTxEntry
+	err = k.UniversalTx.Walk(ctx, nil, func(key string, value types.UniversalTx) (bool, error) {
+		universalTxs = append(universalTxs, types.UniversalTxEntry{Key: key, Value: value})
+		return false, nil
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	// Export ModuleAccountNonce
+	moduleAccountNonce, err := k.ModuleAccountNonce.Get(ctx)
+	if err != nil {
+		if !errors.Is(err, collections.ErrNotFound) {
+			panic(err)
+		}
+		moduleAccountNonce = 0
+	}
+
+	// Export GasPrices
+	var gasPrices []types.GasPriceEntry
+	err = k.GasPrices.Walk(ctx, nil, func(key string, value types.GasPrice) (bool, error) {
+		gasPrices = append(gasPrices, types.GasPriceEntry{Key: key, Value: value})
+		return false, nil
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	// Export ChainMetas
+	var chainMetas []types.ChainMetaEntry
+	err = k.ChainMetas.Walk(ctx, nil, func(key string, value types.ChainMeta) (bool, error) {
+		chainMetas = append(chainMetas, types.ChainMetaEntry{Key: key, Value: value})
+		return false, nil
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	// Export PendingOutbounds
+	var pendingOutbounds []types.PendingOutboundEntry
+	err = k.PendingOutbounds.Walk(ctx, nil, func(key string, value types.PendingOutboundEntry) (bool, error) {
+		pendingOutbounds = append(pendingOutbounds, value)
+		return false, nil
+	})
+	if err != nil {
+		panic(err)
+	}
+
 	return &types.GenesisState{
-		Params: params,
+		Params:             params,
+		PendingInbounds:    pendingInbounds,
+		UniversalTxs:       universalTxs,
+		ModuleAccountNonce: moduleAccountNonce,
+		GasPrices:          gasPrices,
+		ChainMetas:         chainMetas,
+		PendingOutbounds:   pendingOutbounds,
+		Exported:           true,
 	}
 }
 
@@ -206,22 +331,4 @@ func (k Keeper) IncrementModuleAccountNonce(ctx sdk.Context) (uint64, error) {
 // SetModuleAccountNonce allows explicitly setting the nonce (optional, for migration or testing).
 func (k Keeper) SetModuleAccountNonce(ctx sdk.Context, nonce uint64) error {
 	return k.ModuleAccountNonce.Set(ctx, nonce)
-}
-
-// TODO: temporary
-// don't use in any fn
-func (k Keeper) MintPCTokensDirectly(ctx sdk.Context, recipient sdk.AccAddress, amount sdkmath.Int) error {
-	coins := sdk.NewCoins(sdk.NewCoin(globaltypes.BaseDenom, amount))
-
-	// Mint coins to module account
-	if err := k.bankKeeper.MintCoins(ctx, types.ModuleName, coins); err != nil {
-		return err
-	}
-
-	// Send coins from module to recipient
-	if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, recipient, coins); err != nil {
-		return err
-	}
-
-	return nil
 }

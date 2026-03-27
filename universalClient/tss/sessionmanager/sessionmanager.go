@@ -23,6 +23,7 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
+	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
 // SendFunc is a function type for sending messages to participants.
@@ -586,29 +587,56 @@ func (sm *SessionManager) createSession(ctx context.Context, event *store.Event,
 // For keygen/keyrefresh: participants must match exactly with eligible participants (same elements).
 // For sign: participants must be a valid >2/3 subset of eligible participants.
 func (sm *SessionManager) validateParticipants(participants []string, event *store.Event) error {
-	// Get eligible validators for this protocol
+	buildEligible := func(vals []*types.UniversalValidator) (map[string]bool, []string) {
+		eligibleSet := make(map[string]bool)
+		eligibleList := make([]string, 0, len(vals))
+		for _, v := range vals {
+			if v.IdentifyInfo != nil {
+				addr := v.IdentifyInfo.CoreValidatorAddress
+				eligibleSet[addr] = true
+				eligibleList = append(eligibleList, addr)
+			}
+		}
+		return eligibleSet, eligibleList
+	}
+
+	findIneligible := func(eligibleSet map[string]bool) []string {
+		ineligible := make([]string, 0)
+		for _, partyID := range participants {
+			if !eligibleSet[partyID] {
+				ineligible = append(ineligible, partyID)
+			}
+		}
+		return ineligible
+	}
+
+	// Get eligible validators for this protocol from local cache first.
 	eligible := sm.coordinator.GetEligibleUV(string(event.Type))
 	if len(eligible) == 0 {
 		return errors.New("no eligible validators for protocol")
 	}
 
-	// Build set and list of eligible partyIDs
-	eligibleSet := make(map[string]bool)
-	eligibleList := make([]string, 0, len(eligible))
-	for _, v := range eligible {
-		if v.IdentifyInfo != nil {
-			addr := v.IdentifyInfo.CoreValidatorAddress
-			eligibleSet[addr] = true
-			eligibleList = append(eligibleList, addr)
+	eligibleSet, eligibleList := buildEligible(eligible)
+	ineligible := findIneligible(eligibleSet)
+
+	// Setup and cache updates are asynchronous across nodes; retry once with fresh cache
+	// before rejecting participants as ineligible.
+	if len(ineligible) > 0 {
+		sm.coordinator.RefreshValidators(context.Background())
+		eligible = sm.coordinator.GetEligibleUV(string(event.Type))
+		if len(eligible) == 0 {
+			return errors.New("no eligible validators for protocol after refresh")
+		}
+
+		eligibleSet, eligibleList = buildEligible(eligible)
+		ineligible = findIneligible(eligibleSet)
+		if len(ineligible) > 0 {
+			return errors.Errorf("participant %s is not eligible for protocol %s", ineligible[0], event.Type)
 		}
 	}
 
-	// Validate all participants are eligible
 	participantSet := make(map[string]bool)
 	for _, partyID := range participants {
-		if !eligibleSet[partyID] {
-			return errors.Errorf("participant %s is not eligible for protocol %s", partyID, event.Type)
-		}
 		participantSet[partyID] = true
 	}
 
@@ -798,7 +826,6 @@ func (sm *SessionManager) verifySigningRequest(ctx context.Context, event *store
 
 	return nil
 }
-
 
 // getTSSAddress gets the TSS ECDSA address from the current TSS public key
 // The TSS address is always the same ECDSA address derived from the TSS public key

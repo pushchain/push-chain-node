@@ -183,17 +183,110 @@ check_grants() {
     local granter_addr=$(docker exec "core-validator-$i" pchaind keys show "validator-$i" -a --keyring-backend test 2>/dev/null || echo "")
 
     if [ -n "$hotkey_addr" ] && [ -n "$granter_addr" ]; then
-        local count=$(docker exec core-validator-1 pchaind query authz grants "$granter_addr" "$hotkey_addr" --node tcp://localhost:26657 --output json 2>/dev/null | jq -r '[.grants[]? | .authorization.value.msg | select(. == "/uexecutor.v1.MsgVoteInbound" or . == "/uexecutor.v1.MsgVoteChainMeta" or . == "/uexecutor.v1.MsgVoteOutbound")] | length' 2>/dev/null || echo "0")
+        local count=$(docker exec core-validator-1 pchaind query authz grants "$granter_addr" "$hotkey_addr" --node tcp://localhost:26657 --output json 2>/dev/null | jq -r '[.grants[]? | .authorization.value.msg | select(. == "/uexecutor.v1.MsgVoteInbound" or . == "/uexecutor.v1.MsgVoteChainMeta" or . == "/uexecutor.v1.MsgVoteOutbound" or . == "/utss.v1.MsgVoteTssKeyProcess")] | length' 2>/dev/null || echo "0")
         if [ "$count" = "0" ] || [ -z "$count" ]; then
             echo "no|[no]"
-        elif [ "$count" -lt "3" ] 2>/dev/null; then
-            echo "no|[no] ${count}/3"
+        elif [ "$count" -lt "4" ] 2>/dev/null; then
+            echo "no|[no] ${count}/4"
         else
-            echo "yes|[ok] ${count}/3"
+            echo "yes|[ok] ${count}/4"
         fi
     else
         echo "no|[no]"
     fi
+}
+
+wait_for_chain_tx_success() {
+    local tx_hash="$1"
+    local max_wait="${2:-30}"
+    local waited=0
+    local start_height
+    start_height=$(curl -sf "http://localhost:26657/status" 2>/dev/null | jq -r '.result.sync_info.latest_block_height // ""' 2>/dev/null || echo "")
+
+    while [ "$waited" -lt "$max_wait" ]; do
+        local tx_json
+        tx_json=$(docker exec core-validator-1 curl -sf "http://localhost:1317/cosmos/tx/v1beta1/txs/$tx_hash" 2>/dev/null || true)
+
+        local has_tx_response
+        has_tx_response=$(echo "$tx_json" | jq -r 'has("tx_response")' 2>/dev/null || echo "false")
+
+        if [ "$has_tx_response" = "true" ]; then
+            local tx_code
+            tx_code=$(echo "$tx_json" | jq -r '.tx_response.code // "0"' 2>/dev/null || echo "0")
+
+            if [ "$tx_code" = "0" ]; then
+                return 0
+            fi
+
+            local raw_log
+            raw_log=$(echo "$tx_json" | jq -r '.tx_response.raw_log // .message // ""' 2>/dev/null || true)
+            print_error "TX $tx_hash failed with code $tx_code: ${raw_log:-unknown error}"
+            return 1
+        fi
+
+        local query_code
+        query_code=$(echo "$tx_json" | jq -r '.code // empty' 2>/dev/null || true)
+        if [ -n "$query_code" ] && [ "$query_code" != "5" ]; then
+            local query_msg
+            query_msg=$(echo "$tx_json" | jq -r '.message // ""' 2>/dev/null || true)
+            print_warning "TX query for $tx_hash returned code $query_code: ${query_msg:-unknown response}"
+        fi
+
+        sleep 1
+        waited=$((waited + 1))
+    done
+
+    local end_height
+    end_height=$(curl -sf "http://localhost:26657/status" 2>/dev/null | jq -r '.result.sync_info.latest_block_height // ""' 2>/dev/null || echo "")
+    if [ -n "$start_height" ] && [ -n "$end_height" ] && [ "$start_height" = "$end_height" ]; then
+        print_error "Timed out waiting for tx $tx_hash (chain height is stalled at $end_height)"
+    else
+        print_error "Timed out waiting for tx $tx_hash"
+    fi
+    return 1
+}
+
+wait_for_block_progress() {
+    local max_wait="${1:-10}"
+    local waited=0
+    local start_height
+    start_height=$(curl -sf "http://localhost:26657/status" 2>/dev/null | jq -r '.result.sync_info.latest_block_height // ""' 2>/dev/null || echo "")
+
+    while [ "$waited" -lt "$max_wait" ]; do
+        local current_height
+        current_height=$(curl -sf "http://localhost:26657/status" 2>/dev/null | jq -r '.result.sync_info.latest_block_height // ""' 2>/dev/null || echo "")
+        if [ -n "$start_height" ] && [ -n "$current_height" ] && [ "$current_height" != "$start_height" ]; then
+            return 0
+        fi
+
+        sleep 1
+        waited=$((waited + 1))
+    done
+
+    return 1
+}
+
+get_current_tss_key_id() {
+    docker exec core-validator-1 pchaind query utss current-key --node tcp://localhost:26657 --output json 2>/dev/null | jq -r '.key.key_id // .current_key.key_id // empty' 2>/dev/null || true
+}
+
+get_utss_admin_address() {
+    docker exec core-validator-1 pchaind query utss params --node tcp://localhost:26657 --output json 2>/dev/null | jq -r '.params.admin // empty' 2>/dev/null || true
+}
+
+get_key_name_for_address() {
+    local address="$1"
+    docker exec core-validator-1 pchaind keys list --keyring-backend test --output json 2>/dev/null | jq -r --arg addr "$address" '.[] | select(.address == $addr) | .name' 2>/dev/null | head -n1
+}
+
+resolve_utss_admin_signer() {
+    local admin_addr
+    admin_addr=$(get_utss_admin_address)
+    if [ -z "$admin_addr" ]; then
+        return 1
+    fi
+
+    get_key_name_for_address "$admin_addr"
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -674,26 +767,169 @@ cmd_rebuild() {
 # ═══════════════════════════════════════════════════════════════════════════════
 cmd_tss_keygen() {
     print_header "TSS Key Generation"
-    print_status "Initiating TSS keygen process..."
+    print_status "Validating UV topology before keygen..."
 
-    docker exec core-validator-1 pchaind tx utss initiate-tss-key-process \
-        --process-type tss-process-keygen \
-        --from genesis-acc-1 \
-        --chain-id localchain_9000-1 \
-        --keyring-backend test \
-        --fees 1000000000000000upc \
-        --yes
+    local uv_json
+    uv_json=$(docker exec core-validator-1 pchaind query uvalidator all-universal-validators --node tcp://localhost:26657 --output json 2>/dev/null || echo "{}")
+    local uv_count
+    uv_count=$(echo "$uv_json" | jq -r '.universal_validator | length // 0' 2>/dev/null || echo "0")
+    if [ "$uv_count" -lt 2 ]; then
+        print_error "Need at least 2 registered universal validators for DKLS keygen (found: $uv_count)"
+        return 1
+    fi
 
-    print_success "TSS keygen initiated!"
+    local invalid_peer_count
+    invalid_peer_count=$(echo "$uv_json" | jq -r '[.universal_validator[]? | select((.network_info.peer_id // "") | startswith("12D3") | not)] | length' 2>/dev/null || echo "0")
+    if [ "$invalid_peer_count" -gt 0 ]; then
+        print_error "Found $invalid_peer_count universal validators with non-libp2p peer IDs"
+        echo "$uv_json" | jq -r '.universal_validator[]? | "  - " + (.identify_info.core_validator_address // "unknown") + " => " + (.network_info.peer_id // "")' 2>/dev/null || true
+        print_error "Run './devnet setup-uvalidators' to repair peer IDs before keygen"
+        return 1
+    fi
+
+    local existing_key
+    existing_key=$(get_current_tss_key_id)
+    if [ -n "$existing_key" ]; then
+        print_success "TSS key already present: $existing_key"
+        return 0
+    fi
+
+    local max_attempts=5
+    local max_wait_per_attempt=180
+    local attempt
+    local admin_addr
+    admin_addr=$(get_utss_admin_address)
+    if [ -z "$admin_addr" ]; then
+        print_error "Unable to read UTSS params.admin from chain"
+        return 1
+    fi
+
+    local tx_signer
+    tx_signer=$(resolve_utss_admin_signer)
+    if [ -z "$tx_signer" ]; then
+        print_error "No local key matches UTSS admin address: $admin_addr"
+        print_status "Available local keys in core-validator-1:"
+        docker exec core-validator-1 pchaind keys list --keyring-backend test --output json 2>/dev/null | jq -r '.[] | "  - " + .name + " => " + .address' 2>/dev/null || true
+        return 1
+    fi
+
+    print_status "UTSS admin signer resolved: $tx_signer ($admin_addr)"
+
+    for ((attempt = 1; attempt <= max_attempts; attempt++)); do
+        if ! wait_for_block_progress 8; then
+            print_error "Chain is not producing blocks; cannot run TSS keygen"
+            return 1
+        fi
+
+        print_status "Initiating TSS keygen process (attempt ${attempt}/${max_attempts}, signer: ${tx_signer})..."
+
+        local keygen_result
+        keygen_result=$(docker exec core-validator-1 pchaind tx utss initiate-tss-key-process \
+            --process-type tss-process-keygen \
+            --from "$tx_signer" \
+            --chain-id localchain_9000-1 \
+            --keyring-backend test \
+            --fees 1000000000000000upc \
+            --yes \
+            --output json 2>&1 || true)
+
+        local submit_code
+        submit_code=$(echo "$keygen_result" | jq -r '.code // "0"' 2>/dev/null || echo "0")
+        local submit_log
+        submit_log=$(echo "$keygen_result" | jq -r '.raw_log // .message // ""' 2>/dev/null || true)
+        local tx_hash
+        tx_hash=$(echo "$keygen_result" | jq -r '.txhash // ""' 2>/dev/null)
+
+        if [ "$submit_code" != "0" ]; then
+            if [ -n "$submit_log" ] && echo "$submit_log" | grep -qi "account sequence mismatch"; then
+                print_warning "Keygen tx had sequence mismatch for signer $tx_signer on attempt ${attempt}/${max_attempts}; waiting for block progress and retrying"
+                wait_for_block_progress 8 || sleep 2
+                continue
+            fi
+
+            if [ -n "$submit_log" ] && echo "$submit_log" | grep -qi "invalid authority"; then
+                print_error "UTSS rejected signer authority: ${submit_log}"
+                print_error "Resolved signer: $tx_signer ($admin_addr)"
+                return 1
+            fi
+
+            if [ -n "$submit_log" ] && echo "$submit_log" | grep -qiE "insufficient funds|insufficient fee"; then
+                print_error "Keygen signer $tx_signer cannot pay fees: ${submit_log}"
+                return 1
+            fi
+
+            if [ -n "$submit_log" ] && echo "$submit_log" | grep -qiE "unauthorized|not found"; then
+                print_warning "Keygen submission returned authorization/keyring error: ${submit_log}"
+                continue
+            fi
+
+            if [ -n "$submit_log" ] && echo "$submit_log" | grep -qiE "already|in progress|pending"; then
+                print_status "Keygen process appears active already: $submit_log"
+            else
+                print_warning "Keygen submission returned code $submit_code on attempt ${attempt}/${max_attempts}: ${submit_log:-unknown error}"
+                sleep 2
+                continue
+            fi
+        else
+            if [ -n "$tx_hash" ]; then
+                if ! wait_for_chain_tx_success "$tx_hash" 45; then
+                    if ! wait_for_block_progress 8; then
+                        print_error "Chain stalled while waiting for keygen tx confirmation"
+                        return 1
+                    fi
+                    print_warning "Keygen tx did not confirm successfully on attempt ${attempt}/${max_attempts}, checking on-chain key state"
+                fi
+            else
+                print_warning "Keygen submission returned no tx hash on attempt ${attempt}/${max_attempts}"
+            fi
+        fi
+
+        print_status "Waiting for TSS key to materialize on-chain..."
+        local waited=0
+        while [ "$waited" -lt "$max_wait_per_attempt" ]; do
+            local key_id
+            key_id=$(get_current_tss_key_id)
+            if [ -n "$key_id" ]; then
+                print_success "TSS key is ready: $key_id"
+                return 0
+            fi
+            sleep 2
+            waited=$((waited + 2))
+        done
+
+        if [ "$attempt" -lt "$max_attempts" ]; then
+            print_warning "TSS key not available after ${max_wait_per_attempt}s on attempt ${attempt}/${max_attempts}"
+            sleep 5
+        fi
+    done
+
+    print_error "TSS key not available after ${max_attempts} attempts"
+    print_status "Recent universal-validator logs for diagnosis:"
+    for i in 1 2 3 4; do
+        if docker ps --format '{{.Names}}' | grep -qx "universal-validator-$i"; then
+            echo "---- universal-validator-$i ----"
+            docker logs --tail 40 "universal-validator-$i" 2>&1 || true
+        fi
+    done
+    return 1
 }
 
 cmd_tss_refresh() {
     print_header "TSS Key Refresh"
     print_status "Initiating TSS key refresh process..."
 
+    local admin_addr
+    admin_addr=$(get_utss_admin_address)
+    local tx_signer
+    tx_signer=$(resolve_utss_admin_signer)
+    if [ -z "$tx_signer" ] || [ -z "$admin_addr" ]; then
+        print_error "Unable to resolve UTSS admin signer for refresh"
+        return 1
+    fi
+
     docker exec core-validator-1 pchaind tx utss initiate-tss-key-process \
         --process-type tss-process-refresh \
-        --from genesis-acc-1 \
+        --from "$tx_signer" \
         --chain-id localchain_9000-1 \
         --keyring-backend test \
         --fees 1000000000000000upc \
@@ -706,9 +942,18 @@ cmd_tss_quorum() {
     print_header "TSS Quorum Change"
     print_status "Initiating TSS quorum change process..."
 
+    local admin_addr
+    admin_addr=$(get_utss_admin_address)
+    local tx_signer
+    tx_signer=$(resolve_utss_admin_signer)
+    if [ -z "$tx_signer" ] || [ -z "$admin_addr" ]; then
+        print_error "Unable to resolve UTSS admin signer for quorum change"
+        return 1
+    fi
+
     docker exec core-validator-1 pchaind tx utss initiate-tss-key-process \
         --process-type tss-process-quorum-change \
-        --from genesis-acc-1 \
+        --from "$tx_signer" \
         --chain-id localchain_9000-1 \
         --keyring-backend test \
         --fees 1000000000000000upc \
@@ -839,6 +1084,8 @@ cmd_setup_uvalidators() {
     echo -e "${YELLOW}Registering universal validators and granting AuthZ permissions...${NC}"
     echo
 
+    local setup_failures=0
+
     for i in 1 2 3 4; do
         echo -e "${BLUE}─────────────────────────────────────────────────────────────────────${NC}"
         echo -e "${BOLD}Setting up Universal Validator $i${NC}"
@@ -856,35 +1103,96 @@ cmd_setup_uvalidators() {
         echo -e "    Account: ${CYAN}$VALIDATOR_ADDR${NC}"
         echo -e "    Valoper: ${CYAN}$VALOPER_ADDR${NC}"
 
-        # Get network info from universal validator's TSS port
+        # Get TSS libp2p network info (not CometBFT node ID).
         echo -ne "  ${YELLOW}Getting network info:${NC} "
-        local rpc_port=$(get_rpc_port $i)
-        local NODE_ID=$(curl -s "http://localhost:${rpc_port}/status" | jq -r '.result.node_info.id' 2>/dev/null)
+        local PEER_ID
+        case "$i" in
+            1) PEER_ID="12D3KooWK99VoVxNE7XzyBwXEzW7xhK7Gpv85r9F3V3fyKSUKPH5" ;;
+            2) PEER_ID="12D3KooWJWoaqZhDaoEFshF7Rh1bpY9ohihFhzcW6d69Lr2NASuq" ;;
+            3) PEER_ID="12D3KooWRndVhVZPCiQwHBBBdg769GyrPUW13zxwqQyf9r3ANaba" ;;
+            4) PEER_ID="12D3KooWPT98FXMfDQYavZm66EeVjTqP9Nnehn1gyaydqV8L8BQw" ;;
+            *) PEER_ID="" ;;
+        esac
+        local TSS_PORT
+        TSS_PORT=$(get_tss_port "$i")
+        local MULTI_ADDR="/dns4/universal-validator-$i/tcp/$TSS_PORT"
 
-        if [ -z "$NODE_ID" ] || [ "$NODE_ID" = "null" ]; then
-            echo -e "${RED}Failed to get node ID${NC}"
+        if [ -z "$PEER_ID" ] || [[ ! "$PEER_ID" =~ ^12D3 ]]; then
+            echo -e "${RED}Failed to compute TSS peer ID${NC}"
+            setup_failures=$((setup_failures + 1))
             continue
         fi
-        local MULTI_ADDR="/ip4/core-validator-$i/tcp/26656"
         echo -e "${GREEN}Done${NC}"
-        echo -e "    Node ID: ${CYAN}$NODE_ID${NC}"
+        echo -e "    Peer ID: ${CYAN}$PEER_ID${NC}"
+        echo -e "    MultiAddr: ${CYAN}$MULTI_ADDR${NC}"
+
+        # Ensure core validator exists in staking before UV registration.
+        local bond_status="NOT_FOUND"
+        local bond_wait=0
+        local bond_wait_max=90
+        while [ "$bond_wait" -lt "$bond_wait_max" ]; do
+            bond_status=$(docker exec core-validator-1 pchaind query staking validator "$VALOPER_ADDR" --node tcp://localhost:26657 --output json 2>/dev/null | jq -r '.validator.status // "NOT_FOUND"' 2>/dev/null || echo "NOT_FOUND")
+            if [ "$bond_status" = "BOND_STATUS_BONDED" ]; then
+                break
+            fi
+            sleep 2
+            bond_wait=$((bond_wait + 2))
+        done
+        if [ "$bond_status" != "BOND_STATUS_BONDED" ]; then
+            echo -e "${RED}Core validator is not bonded after ${bond_wait_max}s (status: $bond_status)${NC}"
+            setup_failures=$((setup_failures + 1))
+            continue
+        fi
+
+        local network_json
+        network_json="{\"peer_id\": \"$PEER_ID\", \"multi_addrs\": [\"$MULTI_ADDR\"]}"
 
         # Register as universal validator
         echo -ne "  ${YELLOW}Registering as universal validator:${NC} "
         local register_result=$(docker exec core-validator-1 pchaind tx uvalidator add-universal-validator \
             --core-validator-address "$VALOPER_ADDR" \
-            --network "{\"peer_id\": \"$NODE_ID\", \"multi_addrs\": [\"$MULTI_ADDR\"]}" \
+            --network "$network_json" \
             --from genesis-acc-1 \
             --chain-id localchain_9000-1 \
+            --node tcp://localhost:26657 \
             --keyring-backend test \
             --fees 1000000000000000upc \
             --yes \
-            --output json 2>&1)
+            --output json 2>&1 || true)
 
-        if echo "$register_result" | grep -q '"txhash"'; then
+        local register_tx
+        register_tx=$(echo "$register_result" | jq -r '.txhash // ""' 2>/dev/null)
+        local registered=false
+        if [ -n "$register_tx" ] && wait_for_chain_tx_success "$register_tx" 30; then
             echo -e "${GREEN}Done${NC}"
-        else
-            echo -e "${YELLOW}May already be registered${NC}"
+            registered=true
+        fi
+
+        # If add failed (often already-exists), update network info from validator account.
+        if [ "$registered" = "false" ]; then
+            local update_result
+            update_result=$(docker exec core-validator-$i pchaind tx uvalidator update-universal-validator \
+                --network "$network_json" \
+                --from validator-$i \
+                --chain-id localchain_9000-1 \
+                --node tcp://core-validator-1:26657 \
+                --keyring-backend test \
+                --fees 1000000000000000upc \
+                --yes \
+                --output json 2>&1 || true)
+
+            local update_tx
+            update_tx=$(echo "$update_result" | jq -r '.txhash // ""' 2>/dev/null)
+            if [ -n "$update_tx" ] && wait_for_chain_tx_success "$update_tx" 30; then
+                echo -e "${GREEN}Updated existing registration${NC}"
+                registered=true
+            fi
+        fi
+
+        if [ "$registered" = "false" ]; then
+            echo -e "${RED}Registration/update failed for validator-$i${NC}"
+            setup_failures=$((setup_failures + 1))
+            continue
         fi
 
         sleep 3
@@ -921,7 +1229,8 @@ cmd_setup_uvalidators() {
         for msg_type in \
             /uexecutor.v1.MsgVoteInbound \
             /uexecutor.v1.MsgVoteChainMeta \
-            /uexecutor.v1.MsgVoteOutbound
+            /uexecutor.v1.MsgVoteOutbound \
+            /utss.v1.MsgVoteTssKeyProcess
         do
             local msg_name=$(basename "$msg_type")
             echo -ne "  ${YELLOW}Granting ${msg_name}:${NC} "
@@ -939,16 +1248,22 @@ cmd_setup_uvalidators() {
 
         # Verify all required grants are visible on the canonical RPC endpoint.
         local grant_count
-        grant_count=$(docker exec core-validator-1 pchaind query authz grants "$VALIDATOR_ADDR" "$HOTKEY_ADDR" --node tcp://core-validator-1:26657 --output json 2>/dev/null | jq -r '[.grants[]? | .authorization.value.msg | select(. == "/uexecutor.v1.MsgVoteInbound" or . == "/uexecutor.v1.MsgVoteChainMeta" or . == "/uexecutor.v1.MsgVoteOutbound")] | length' 2>/dev/null || echo "0")
-        if [ "$grant_count" -lt 3 ]; then
-            echo -e "  ${YELLOW}Warning: only ${grant_count}/3 required grants visible for validator-$i${NC}"
+        grant_count=$(docker exec core-validator-1 pchaind query authz grants "$VALIDATOR_ADDR" "$HOTKEY_ADDR" --node tcp://core-validator-1:26657 --output json 2>/dev/null | jq -r '[.grants[]? | .authorization.value.msg | select(. == "/uexecutor.v1.MsgVoteInbound" or . == "/uexecutor.v1.MsgVoteChainMeta" or . == "/uexecutor.v1.MsgVoteOutbound" or . == "/utss.v1.MsgVoteTssKeyProcess")] | length' 2>/dev/null || echo "0")
+        if [ "$grant_count" -lt 4 ]; then
+            echo -e "  ${RED}Only ${grant_count}/4 required grants visible for validator-$i${NC}"
+            setup_failures=$((setup_failures + 1))
         else
-            echo -e "  ${GREEN}Verified 3/3 required grants${NC}"
+            echo -e "  ${GREEN}Verified 4/4 required grants${NC}"
         fi
 
         echo -e "  ${GREEN}Validator $i setup complete${NC}"
         echo
     done
+
+    if [ "$setup_failures" -gt 0 ]; then
+        print_error "Universal validator setup completed with $setup_failures failure(s)"
+        return 1
+    fi
 
     print_success "Universal validators setup complete!"
     echo

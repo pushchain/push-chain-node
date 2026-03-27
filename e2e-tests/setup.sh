@@ -665,6 +665,16 @@ step_devnet() {
   log_ok "Devnet is up"
 }
 
+step_ensure_tss_key_ready() {
+  require_cmd bash
+  log_info "Ensuring TSS key is ready"
+  (
+    cd "$LOCAL_DEVNET_DIR"
+    ./devnet tss-keygen
+  )
+  log_ok "TSS key is ready"
+}
+
 step_setup_environment() {
   if ! is_local_testing_env; then
     log_info "TESTING_ENV is not LOCAL, skipping setup-environment"
@@ -2048,6 +2058,7 @@ cmd_all() {
   step_update_env_fund_to_address
   step_stop_running_nodes
   step_devnet
+  step_ensure_tss_key_ready
   if is_local_testing_env; then
     step_setup_environment
   fi

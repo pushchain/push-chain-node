@@ -338,14 +338,17 @@ fi
 
 echo "🔐 Waiting for AuthZ grants to be created by core validator..."
 echo "📝 Core validators create AuthZ grants after UV registration completes"
-echo "📋 Required grants: MsgVoteInbound, MsgVoteChainMeta, MsgVoteOutbound"
+echo "📋 Required grants: MsgVoteInbound, MsgVoteChainMeta, MsgVoteOutbound, MsgVoteTssKeyProcess"
 
 # Get the hotkey address
 HOTKEY_ADDR=$($BINARY keys show "$HOTKEY_NAME" --address --keyring-backend test --home "$HOME_DIR" 2>/dev/null || echo "")
 
 # Required message types (must match PushSigner validation requirements)
-REQUIRED_MSG_TYPES='["/uexecutor.v1.MsgVoteInbound","/uexecutor.v1.MsgVoteChainMeta","/uexecutor.v1.MsgVoteOutbound"]'
-REQUIRED_GRANTS=3
+REQUIRED_MSG_TYPES='["/uexecutor.v1.MsgVoteInbound","/uexecutor.v1.MsgVoteChainMeta","/uexecutor.v1.MsgVoteOutbound","/utss.v1.MsgVoteTssKeyProcess"]'
+REQUIRED_GRANTS=4
+
+# Allow additional time for grant propagation during startup races.
+AUTHZ_GRANTS_WAIT_SECONDS=${AUTHZ_GRANTS_WAIT_SECONDS:-120}
 
 # Query core-validator-1 for grants (genesis validator creates ALL grants immediately)
 GRANTS_QUERY_HOST="core-validator-1"
@@ -354,14 +357,14 @@ if [ -n "$HOTKEY_ADDR" ]; then
   echo "🔍 Checking for AuthZ grants for hotkey: $HOTKEY_ADDR"
   echo "📡 Querying grants from: $GRANTS_QUERY_HOST:1317"
 
-  # Wait for all required AuthZ grants (should be fast - genesis validator creates all grants)
-  max_wait=20
+  # Wait for all required AuthZ grants (genesis validator creates all grants, but propagation can lag)
+  max_wait=$AUTHZ_GRANTS_WAIT_SECONDS
   wait_time=0
   MATCHED_GRANTS=0
   while [ $wait_time -lt $max_wait ]; do
     # Query grants and count only required message types
     MATCHED_GRANTS=$(curl -s "http://$GRANTS_QUERY_HOST:1317/cosmos/authz/v1beta1/grants/grantee/$HOTKEY_ADDR" 2>/dev/null | \
-      jq -r --argjson required "$REQUIRED_MSG_TYPES" '[.grants[]? | select(.authorization.value.msg as $m | $required | index($m))] | length' 2>/dev/null || echo "0")
+      jq -r --argjson required "$REQUIRED_MSG_TYPES" '[.grants[]? | (.authorization.msg // .authorization.value.msg // "") as $m | select($required | index($m))] | length' 2>/dev/null || echo "0")
 
     if [ "$MATCHED_GRANTS" -ge "$REQUIRED_GRANTS" ] 2>/dev/null; then
       echo "✅ Found all $MATCHED_GRANTS/$REQUIRED_GRANTS required AuthZ grants!"
@@ -377,11 +380,12 @@ if [ -n "$HOTKEY_ADDR" ]; then
   done
 
   if [ "$MATCHED_GRANTS" -lt "$REQUIRED_GRANTS" ] 2>/dev/null; then
-    echo "⚠️  Only found $MATCHED_GRANTS/$REQUIRED_GRANTS required grants after ${max_wait}s"
-    echo "   The universal validator may fail startup validation if grants are missing."
+    echo "⚠️ Only found $MATCHED_GRANTS/$REQUIRED_GRANTS required grants after ${max_wait}s"
+    echo "   Continuing startup; grants may still arrive shortly."
   fi
 else
-  echo "⚠️  Could not get hotkey address, skipping AuthZ check"
+  echo "❌ Could not get hotkey address, cannot verify AuthZ grants"
+  exit 1
 fi
 
 # ---------------------------
@@ -407,7 +411,7 @@ if [ -n "$EXPECTED_PEER_ID" ]; then
   reg_wait=0
   while [ $reg_wait -lt $max_reg_wait ]; do
     # Query all universal validators via REST API and look for our peer_id
-    FOUND=$(curl -s "http://core-validator-1:1317/push/uvalidator/v1/all_universal_validators" 2>/dev/null | \
+    FOUND=$(curl -s "http://core-validator-1:1317/uvalidator/v1/universal_validators" 2>/dev/null | \
       jq -r --arg pid "$EXPECTED_PEER_ID" \
       '.universal_validator[]? | select(.network_info.peer_id == $pid) | .network_info.peer_id' 2>/dev/null || echo "")
 
@@ -424,10 +428,13 @@ if [ -n "$EXPECTED_PEER_ID" ]; then
   done
 
   if [ -z "$FOUND" ]; then
-    echo "⚠️ Validator not found on-chain after ${max_reg_wait}s, continuing anyway..."
+    echo "❌ Validator not found on-chain after ${max_reg_wait}s"
+    echo "   Failing startup so container restarts until registration is correct."
+    exit 1
   fi
 else
-  echo "⚠️ Unknown UNIVERSAL_ID, skipping registration check"
+  echo "❌ Unknown UNIVERSAL_ID, cannot validate on-chain registration"
+  exit 1
 fi
 
 # ---------------------------

@@ -63,6 +63,64 @@ FUNDING_MNEMONIC=$(jq -r ".[$FUNDING_INDEX].mnemonic" "$GENESIS_ACCOUNTS_FILE")
 FUNDING_KEY="genesis-acc-$VALIDATOR_ID"
 FUNDING_AMOUNT="200000000000000000000000"  # 200k * 10^18 (enough for staking + fees)
 
+wait_for_deliver_tx_success() {
+  local tx_hash="$1"
+  local node="$2"
+  local max_wait="${3:-30}"
+  local waited=0
+
+  while [ "$waited" -lt "$max_wait" ]; do
+    local tx_json
+    tx_json=$($BINARY query tx "$tx_hash" --node="$node" --output json 2>/dev/null || true)
+    local tx_code
+    tx_code=$(echo "$tx_json" | jq -r '.code // empty' 2>/dev/null || true)
+
+    if [ -n "$tx_code" ]; then
+      if [ "$tx_code" = "0" ]; then
+        return 0
+      fi
+
+      local raw_log
+      raw_log=$(echo "$tx_json" | jq -r '.raw_log // ""' 2>/dev/null || true)
+      echo "❌ TX $tx_hash failed with code $tx_code: ${raw_log:-unknown error}"
+      return 1
+    fi
+
+    sleep 1
+    waited=$((waited + 1))
+  done
+
+  echo "❌ Timed out waiting for TX $tx_hash to be included"
+  return 1
+}
+
+is_universal_validator_registered() {
+  local valoper_addr="$1"
+  local peer_id="$2"
+  local node="$3"
+  local uv_json
+
+  uv_json=$($BINARY query uvalidator all-universal-validators --node="$node" --output json 2>/dev/null || echo "{}")
+
+  if [ -n "$valoper_addr" ] && echo "$uv_json" | jq -e --arg addr "$valoper_addr" '.universal_validator[]? | select(.identify_info.core_validator_address == $addr)' >/dev/null 2>&1; then
+    return 0
+  fi
+
+  if [ -n "$peer_id" ] && echo "$uv_json" | jq -e --arg pid "$peer_id" '.universal_validator[]? | select(.network_info.peer_id == $pid)' >/dev/null 2>&1; then
+    return 0
+  fi
+
+  return 1
+}
+
+is_validator_bonded() {
+  local valoper_addr="$1"
+  local node="$2"
+  local status
+  status=$($BINARY query staking validator "$valoper_addr" --node="$node" --output json 2>/dev/null | jq -r '.validator.status // "NOT_FOUND"' 2>/dev/null || echo "NOT_FOUND")
+  [ "$status" = "BOND_STATUS_BONDED" ]
+}
+
 # ---------------------------
 # === WAIT FOR GENESIS VALIDATOR ===
 # ---------------------------
@@ -97,125 +155,179 @@ if [ -f "$HOME_DIR/data/priv_validator_state.json" ]; then
   # Check if the state file has valid content (not just initial state)
   HEIGHT=$(cat "$HOME_DIR/data/priv_validator_state.json" | jq -r '.height // "0"' 2>/dev/null || echo "0")
   if [ "$HEIGHT" != "0" ] && [ "$HEIGHT" != "\"0\"" ]; then
-    echo "✅ Node already initialized with block height $HEIGHT, starting node..."
+    REUSE_EXISTING_STATE=true
 
-    # Start node in background so we can check UV registration
-    $BINARY start \
-      --home "$HOME_DIR" \
-      --pruning=nothing \
-      --minimum-gas-prices="1000000000${DENOM}" \
-      --rpc.laddr="tcp://0.0.0.0:${RPC_PORT}" \
-      --json-rpc.address="0.0.0.0:8545" \
-      --json-rpc.ws-address="0.0.0.0:8546" \
-      --json-rpc.api=eth,txpool,personal,net,debug,web3 \
-      --chain-id="$CHAIN_ID" &
+    # Always refresh persistent peer so stale node IDs from previous runs don't isolate the validator.
+    if [ -f "$HOME_DIR/config/config.toml" ]; then
+      GENESIS_NODE_ID=$(curl -s "$GENESIS_RPC/status" | jq -r '.result.node_info.id // ""')
+      if [ -n "$GENESIS_NODE_ID" ] && [ "$GENESIS_NODE_ID" != "null" ]; then
+        PERSISTENT_PEER="$GENESIS_NODE_ID@$GENESIS_PEER"
+        echo "🔗 Refreshing persistent peer to: $PERSISTENT_PEER"
+        sed -i -e "s/^persistent_peers *=.*/persistent_peers = \"$PERSISTENT_PEER\"/" "$HOME_DIR/config/config.toml"
+      fi
+    else
+      REUSE_EXISTING_STATE=false
+      echo "⚠️ Missing config.toml in existing state; forcing re-init"
+    fi
 
-    NODE_PID=$!
-
-    # Wait for node to be ready
-    echo "⏳ Waiting for node to be ready..."
-    sleep 10
-
-    # Check if UV registration is needed (for validators 2, 3, and 4)
-    if [ "$VALIDATOR_ID" = "2" ] || [ "$VALIDATOR_ID" = "3" ] || [ "$VALIDATOR_ID" = "4" ]; then
-      echo "🔍 Checking universal validator registration status..."
-
-      GENESIS_RPC="http://core-validator-1:26657"
-
-      # Pre-computed peer_ids
-      case $VALIDATOR_ID in
-        2)
-          PEER_ID="12D3KooWJWoaqZhDaoEFshF7Rh1bpY9ohihFhzcW6d69Lr2NASuq"
-          TSS_PORT=39001
-          ;;
-        3)
-          PEER_ID="12D3KooWRndVhVZPCiQwHBBBdg769GyrPUW13zxwqQyf9r3ANaba"
-          TSS_PORT=39002
-          ;;
-        4)
-          PEER_ID="12D3KooWPT98FXMfDQYavZm66EeVjTqP9Nnehn1gyaydqV8L8BQw"
-          TSS_PORT=39003
-          ;;
-      esac
-
-      # Check if already registered by querying for our peer_id
-      UV_CHECK=$($BINARY query uvalidator all-universal-validators --node="$GENESIS_RPC" --output json 2>/dev/null || echo "{}")
-
-      if echo "$UV_CHECK" | grep -q "$PEER_ID"; then
-        echo "✅ Universal-validator-$VALIDATOR_ID already registered"
+    # Reuse existing data only if validator is actually bonded on-chain.
+    if [ "$REUSE_EXISTING_STATE" = "true" ]; then
+      VALOPER_ADDR=$($BINARY keys show validator-$VALIDATOR_ID --bech val -a --keyring-backend "$KEYRING" --home "$HOME_DIR" 2>/dev/null || echo "")
+      if [ -z "$VALOPER_ADDR" ]; then
+        REUSE_EXISTING_STATE=false
+        echo "⚠️ Could not read valoper address from existing keyring; forcing re-init"
       else
-        echo "📝 Universal-validator-$VALIDATOR_ID not registered, registering now..."
-
-        # Get valoper address
-        VALOPER_ADDR=$($BINARY keys show validator-$VALIDATOR_ID --bech val -a --keyring-backend "$KEYRING" --home "$HOME_DIR" 2>/dev/null)
-
-        if [ -n "$VALOPER_ADDR" ]; then
-          MULTI_ADDR="/dns4/universal-validator-$VALIDATOR_ID/tcp/$TSS_PORT"
-          NETWORK_JSON="{\"peer_id\": \"$PEER_ID\", \"multi_addrs\": [\"$MULTI_ADDR\"]}"
-
-          # Import genesis account for signing
-          GENESIS_ACCOUNTS_FILE="/tmp/push-accounts/genesis_accounts.json"
-          if [ -f "$GENESIS_ACCOUNTS_FILE" ]; then
-            GENESIS_ACC_MNEMONIC=$(jq -r '.[0].mnemonic' "$GENESIS_ACCOUNTS_FILE")
-            echo "$GENESIS_ACC_MNEMONIC" | $BINARY keys add genesis-acc-1 --recover --keyring-backend "$KEYRING" --home "$HOME_DIR" 2>/dev/null || true
-          fi
-
-          # Retry loop for registration (handles sequence mismatch race condition)
-          MAX_RETRIES=5
-          RETRY_COUNT=0
-          REGISTERED=false
-
-          while [ "$RETRY_COUNT" -lt "$MAX_RETRIES" ] && [ "$REGISTERED" = "false" ]; do
-            RETRY_COUNT=$((RETRY_COUNT + 1))
-
-            # Stagger validators to reduce race conditions (validator 2 waits 2s, validator 3 waits 4s)
-            if [ "$RETRY_COUNT" -eq 1 ]; then
-              STAGGER_DELAY=$((VALIDATOR_ID * 2))
-              echo "⏳ Waiting ${STAGGER_DELAY}s to stagger registration..."
-              sleep $STAGGER_DELAY
-            fi
-
-            echo "📤 Registering universal-validator-$VALIDATOR_ID (attempt $RETRY_COUNT/$MAX_RETRIES)..."
-            RESULT=$($BINARY tx uvalidator add-universal-validator \
-              --core-validator-address "$VALOPER_ADDR" \
-              --network "$NETWORK_JSON" \
-              --from genesis-acc-1 \
-              --chain-id "$CHAIN_ID" \
-              --keyring-backend "$KEYRING" \
-              --home "$HOME_DIR" \
-              --node="$GENESIS_RPC" \
-              --fees 1000000000000000upc \
-              --yes \
-              --output json 2>&1 || echo "{}")
-
-            if echo "$RESULT" | grep -q '"txhash"'; then
-              TX_HASH=$(echo "$RESULT" | jq -r '.txhash' 2>/dev/null)
-              echo "✅ Universal-validator-$VALIDATOR_ID registered! TX: $TX_HASH"
-              REGISTERED=true
-            elif echo "$RESULT" | grep -q "sequence mismatch"; then
-              echo "⚠️ Sequence mismatch, retrying in 3s..."
-              sleep 3
-            elif echo "$RESULT" | grep -q "already registered\|already exists"; then
-              echo "✅ Universal-validator-$VALIDATOR_ID already registered"
-              REGISTERED=true
-            else
-              echo "⚠️ Registration attempt failed: $(echo "$RESULT" | head -1)"
-              sleep 2
-            fi
-          done
-
-          if [ "$REGISTERED" = "false" ]; then
-            echo "❌ Registration TX failed after $MAX_RETRIES attempts"
-          fi
-        else
-          echo "⚠️ Could not get valoper address"
+        VALIDATOR_STATUS=$($BINARY query staking validator "$VALOPER_ADDR" --node="$GENESIS_RPC" --output json 2>/dev/null | jq -r '.validator.status // "NOT_FOUND"' || echo "NOT_FOUND")
+        if [ "$VALIDATOR_STATUS" != "BOND_STATUS_BONDED" ]; then
+          REUSE_EXISTING_STATE=false
+          echo "⚠️ Existing validator status is $VALIDATOR_STATUS; forcing re-init"
         fi
       fi
     fi
 
-    echo "🔄 Node running as validator..."
-    wait $NODE_PID
-    exit 0
+    if [ "$REUSE_EXISTING_STATE" = "true" ]; then
+      echo "✅ Node already initialized with block height $HEIGHT, starting node..."
+
+      # Start node in background so we can verify sync and UV registration.
+      $BINARY start \
+        --home "$HOME_DIR" \
+        --pruning=nothing \
+        --minimum-gas-prices="1000000000${DENOM}" \
+        --rpc.laddr="tcp://0.0.0.0:${RPC_PORT}" \
+        --json-rpc.address="0.0.0.0:8545" \
+        --json-rpc.ws-address="0.0.0.0:8546" \
+        --json-rpc.api=eth,txpool,personal,net,debug,web3 \
+        --chain-id="$CHAIN_ID" &
+
+      NODE_PID=$!
+
+      echo "⏳ Waiting for node to sync..."
+      max_sync_attempts=90
+      sync_attempt=0
+      while [ $sync_attempt -lt $max_sync_attempts ]; do
+        if curl -s "http://localhost:${RPC_PORT}/status" > /dev/null 2>&1; then
+          CATCHING_UP=$(curl -s "http://localhost:${RPC_PORT}/status" | jq -r '.result.sync_info.catching_up' 2>/dev/null || echo "true")
+          if [ "$CATCHING_UP" = "false" ]; then
+            echo "✅ Existing node state is synced"
+            break
+          fi
+        fi
+        sleep 2
+        sync_attempt=$((sync_attempt + 1))
+      done
+
+      if [ $sync_attempt -eq $max_sync_attempts ]; then
+        echo "❌ Existing node did not sync in time; forcing restart on clean init"
+        kill $NODE_PID
+        exit 1
+      fi
+
+      # Check if UV registration is needed (for validators 2, 3, and 4)
+      if [ "$VALIDATOR_ID" = "2" ] || [ "$VALIDATOR_ID" = "3" ] || [ "$VALIDATOR_ID" = "4" ]; then
+        echo "🔍 Checking universal validator registration status..."
+
+        GENESIS_RPC="http://core-validator-1:26657"
+
+        # Pre-computed peer_ids
+        case $VALIDATOR_ID in
+          2)
+            PEER_ID="12D3KooWJWoaqZhDaoEFshF7Rh1bpY9ohihFhzcW6d69Lr2NASuq"
+            TSS_PORT=39001
+            ;;
+          3)
+            PEER_ID="12D3KooWRndVhVZPCiQwHBBBdg769GyrPUW13zxwqQyf9r3ANaba"
+            TSS_PORT=39002
+            ;;
+          4)
+            PEER_ID="12D3KooWPT98FXMfDQYavZm66EeVjTqP9Nnehn1gyaydqV8L8BQw"
+            TSS_PORT=39003
+            ;;
+        esac
+
+        # Get valoper address
+        VALOPER_ADDR=$($BINARY keys show validator-$VALIDATOR_ID --bech val -a --keyring-backend "$KEYRING" --home "$HOME_DIR" 2>/dev/null || true)
+
+        if [ -z "$VALOPER_ADDR" ]; then
+          echo "⚠️ Could not get valoper address for validator-$VALIDATOR_ID; skipping UV registration check"
+        elif is_universal_validator_registered "$VALOPER_ADDR" "$PEER_ID" "$GENESIS_RPC"; then
+          echo "✅ Universal-validator-$VALIDATOR_ID already registered"
+        else
+          echo "📝 Universal-validator-$VALIDATOR_ID not registered, registering now..."
+
+            MULTI_ADDR="/dns4/universal-validator-$VALIDATOR_ID/tcp/$TSS_PORT"
+            NETWORK_JSON="{\"peer_id\": \"$PEER_ID\", \"multi_addrs\": [\"$MULTI_ADDR\"]}"
+
+            # Import genesis account for signing
+            GENESIS_ACCOUNTS_FILE="/tmp/push-accounts/genesis_accounts.json"
+            if [ -f "$GENESIS_ACCOUNTS_FILE" ]; then
+              GENESIS_ACC_MNEMONIC=$(jq -r '.[0].mnemonic' "$GENESIS_ACCOUNTS_FILE")
+              echo "$GENESIS_ACC_MNEMONIC" | $BINARY keys add genesis-acc-1 --recover --keyring-backend "$KEYRING" --home "$HOME_DIR" 2>/dev/null || true
+            fi
+
+            # Retry loop for registration (handles sequence mismatch race condition)
+            MAX_RETRIES=5
+            RETRY_COUNT=0
+            REGISTERED=false
+
+            while [ "$RETRY_COUNT" -lt "$MAX_RETRIES" ] && [ "$REGISTERED" = "false" ]; do
+              RETRY_COUNT=$((RETRY_COUNT + 1))
+
+              # Stagger validators to reduce race conditions (validator 2 waits 2s, validator 3 waits 4s)
+              if [ "$RETRY_COUNT" -eq 1 ]; then
+                STAGGER_DELAY=$((VALIDATOR_ID * 2))
+                echo "⏳ Waiting ${STAGGER_DELAY}s to stagger registration..."
+                sleep $STAGGER_DELAY
+              fi
+
+              echo "📤 Registering universal-validator-$VALIDATOR_ID (attempt $RETRY_COUNT/$MAX_RETRIES)..."
+              RESULT=$($BINARY tx uvalidator add-universal-validator \
+                --core-validator-address "$VALOPER_ADDR" \
+                --network "$NETWORK_JSON" \
+                --from genesis-acc-1 \
+                --chain-id "$CHAIN_ID" \
+                --keyring-backend "$KEYRING" \
+                --home "$HOME_DIR" \
+                --node="$GENESIS_RPC" \
+                --fees 1000000000000000upc \
+                --yes \
+                --output json 2>&1 || echo "{}")
+
+              TX_HASH=$(echo "$RESULT" | jq -r '.txhash // ""' 2>/dev/null)
+
+              if [ -n "$TX_HASH" ] && wait_for_deliver_tx_success "$TX_HASH" "$GENESIS_RPC" 30; then
+                echo "✅ Universal-validator-$VALIDATOR_ID registered! TX: $TX_HASH"
+                REGISTERED=true
+              elif is_universal_validator_registered "$VALOPER_ADDR" "$PEER_ID" "$GENESIS_RPC"; then
+                echo "✅ Universal-validator-$VALIDATOR_ID confirmed registered on-chain"
+                REGISTERED=true
+              elif echo "$RESULT" | grep -q "sequence mismatch"; then
+                echo "⚠️ Sequence mismatch, retrying in 3s..."
+                sleep 3
+              elif echo "$RESULT" | grep -q "already registered\|already exists"; then
+                echo "✅ Universal-validator-$VALIDATOR_ID already registered"
+                REGISTERED=true
+              else
+                echo "⚠️ Registration attempt failed: $(echo "$RESULT" | head -1)"
+                sleep 2
+              fi
+            done
+
+            if [ "$REGISTERED" = "false" ]; then
+              if is_universal_validator_registered "$VALOPER_ADDR" "$PEER_ID" "$GENESIS_RPC"; then
+                echo "✅ Universal-validator-$VALIDATOR_ID registered (post-retry check)"
+              else
+                echo "⚠️ Registration TX failed after $MAX_RETRIES attempts; continuing so validator stays in consensus"
+              fi
+            fi
+        fi
+      fi
+
+      echo "🔄 Node running as validator..."
+      wait $NODE_PID
+      exit 0
+    fi
+
+    echo "⚠️ Existing state is not reusable; reinitializing validator-$VALIDATOR_ID"
   fi
 fi
 
@@ -391,13 +503,13 @@ echo "Validator operator address: $VALOPER_ADDR"
 # Check if already bonded
 VALIDATOR_STATUS=$($BINARY query staking validator "$VALOPER_ADDR" \
   --node="$GENESIS_RPC" \
-  --output json 2>/dev/null | jq -r '.status' || echo "NOT_FOUND")
+  --output json 2>/dev/null | jq -r '.validator.status // "NOT_FOUND"' || echo "NOT_FOUND")
 
 if [ "$VALIDATOR_STATUS" = "BOND_STATUS_BONDED" ]; then
   echo "✅ Validator-$VALIDATOR_ID is already bonded!"
   VALIDATOR_TOKENS=$($BINARY query staking validator "$VALOPER_ADDR" \
     --node="$GENESIS_RPC" \
-    --output json 2>/dev/null | jq -r '.tokens' || echo "0")
+    --output json 2>/dev/null | jq -r '.validator.tokens // "0"' || echo "0")
   echo "   Bonded tokens: $VALIDATOR_TOKENS"
 else
   echo "📤 Submitting create-validator transaction..."
@@ -444,6 +556,14 @@ EOF
 
   while [ "$CREATE_RETRY" -lt "$MAX_CREATE_RETRIES" ] && [ "$CREATED" = "false" ]; do
     CREATE_RETRY=$((CREATE_RETRY + 1))
+
+    # If the validator is already bonded from a previous attempt, stop retrying.
+    if is_validator_bonded "$VALOPER_ADDR" "$GENESIS_RPC"; then
+      echo "✅ Validator-$VALIDATOR_ID is already bonded"
+      CREATED=true
+      break
+    fi
+
     echo "📤 Creating validator (attempt $CREATE_RETRY/$MAX_CREATE_RETRIES)..."
 
     CREATE_RESULT=$($BINARY tx staking create-validator "$VALIDATOR_JSON" \
@@ -458,12 +578,25 @@ EOF
       --yes \
       --output json 2>&1)
 
-    # Check if it looks like a successful TX (has txhash and no Usage message)
+    # Treat create-validator as success only after deliver tx succeeds.
     if echo "$CREATE_RESULT" | grep -q '"txhash"' && ! echo "$CREATE_RESULT" | grep -q "Usage:"; then
       TX_HASH=$(echo "$CREATE_RESULT" | jq -r '.txhash // ""' 2>/dev/null)
-      echo "✅ Create-validator TX submitted: $TX_HASH"
-      CREATED=true
+      if [ -n "$TX_HASH" ] && wait_for_deliver_tx_success "$TX_HASH" "$GENESIS_RPC" 30; then
+        echo "✅ Create-validator TX confirmed: $TX_HASH"
+        CREATED=true
+      elif is_validator_bonded "$VALOPER_ADDR" "$GENESIS_RPC"; then
+        echo "✅ Validator-$VALIDATOR_ID became bonded after tx submission"
+        CREATED=true
+      else
+        echo "⚠️ Create-validator TX was not successful in deliver phase"
+        sleep 3
+      fi
     else
+      if is_validator_bonded "$VALOPER_ADDR" "$GENESIS_RPC"; then
+        echo "✅ Validator-$VALIDATOR_ID is bonded despite non-standard CLI output"
+        CREATED=true
+        continue
+      fi
       echo "⚠️ Create-validator attempt failed, retrying in 3s..."
       echo "   Result: $(echo "$CREATE_RESULT" | head -c 200)"
       sleep 3
@@ -472,6 +605,8 @@ EOF
 
   if [ "$CREATED" = "false" ]; then
     echo "❌ Create-validator failed after $MAX_CREATE_RETRIES attempts"
+    kill $NODE_PID
+    exit 1
   fi
 
   # Re-enable exit-on-error
@@ -483,20 +618,26 @@ EOF
   # Verify bonding
   VALIDATOR_STATUS=$($BINARY query staking validator "$VALOPER_ADDR" \
     --node="$GENESIS_RPC" \
-    --output json 2>/dev/null | jq -r '.status' || echo "NOT_FOUND")
+    --output json 2>/dev/null | jq -r '.validator.status // "NOT_FOUND"' || echo "NOT_FOUND")
 
   if [ "$VALIDATOR_STATUS" = "BOND_STATUS_BONDED" ]; then
     echo "✅ Validator-$VALIDATOR_ID is now bonded!"
     VALIDATOR_TOKENS=$($BINARY query staking validator "$VALOPER_ADDR" \
       --node="$GENESIS_RPC" \
-      --output json 2>/dev/null | jq -r '.tokens' || echo "0")
+      --output json 2>/dev/null | jq -r '.validator.tokens // "0"' || echo "0")
     echo "   Bonded tokens: $VALIDATOR_TOKENS"
   elif [ "$VALIDATOR_STATUS" = "BOND_STATUS_UNBONDING" ]; then
     echo "⚠️  Validator-$VALIDATOR_ID is unbonding"
+    kill $NODE_PID
+    exit 1
   elif [ "$VALIDATOR_STATUS" = "BOND_STATUS_UNBONDED" ]; then
     echo "⚠️  Validator-$VALIDATOR_ID is unbonded"
+    kill $NODE_PID
+    exit 1
   else
     echo "⚠️  Validator status: $VALIDATOR_STATUS"
+    kill $NODE_PID
+    exit 1
   fi
 fi
 
@@ -580,12 +721,13 @@ if [ -n "$VALOPER_ADDR" ]; then
         --yes \
         --output json 2>&1 || echo "{}")
 
-      # Check TX result
-      TX_CODE=$(echo "$RESULT" | jq -r '.code // "null"' 2>/dev/null)
       TX_HASH=$(echo "$RESULT" | jq -r '.txhash // ""' 2>/dev/null)
 
-      if [ "$TX_CODE" = "0" ] && [ -n "$TX_HASH" ]; then
+      if [ -n "$TX_HASH" ] && wait_for_deliver_tx_success "$TX_HASH" "$GENESIS_RPC" 30; then
         echo "✅ Universal-validator-$VALIDATOR_ID registered! TX: $TX_HASH"
+        REGISTERED=true
+      elif is_universal_validator_registered "$VALOPER_ADDR" "$PEER_ID" "$GENESIS_RPC"; then
+        echo "✅ Universal-validator-$VALIDATOR_ID confirmed registered on-chain"
         REGISTERED=true
       elif echo "$RESULT" | grep -q "sequence mismatch"; then
         echo "⚠️ Sequence mismatch, retrying in 3s..."
@@ -595,13 +737,17 @@ if [ -n "$VALOPER_ADDR" ]; then
         REGISTERED=true
       else
         RAW_LOG=$(echo "$RESULT" | jq -r '.raw_log // ""' 2>/dev/null)
-        echo "⚠️ Registration attempt failed (code: $TX_CODE): ${RAW_LOG:-$(echo "$RESULT" | head -1)}"
+        echo "⚠️ Registration attempt failed: ${RAW_LOG:-$(echo "$RESULT" | head -1)}"
         sleep 2
       fi
     done
 
     if [ "$REGISTERED" = "false" ]; then
-      echo "❌ Registration failed after $MAX_RETRIES attempts"
+      if is_universal_validator_registered "$VALOPER_ADDR" "$PEER_ID" "$GENESIS_RPC"; then
+        echo "✅ Universal-validator-$VALIDATOR_ID registered (post-retry check)"
+      else
+        echo "⚠️ Registration failed after $MAX_RETRIES attempts; continuing so validator stays in consensus"
+      fi
     fi
   fi
 else

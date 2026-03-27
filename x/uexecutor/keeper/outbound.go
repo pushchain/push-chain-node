@@ -122,6 +122,11 @@ func (k Keeper) handleFailedOutbound(ctx sdk.Context, utxId string, outbound typ
 			Sender:      outbound.Sender,
 			BlockHeight: uint64(ctx.BlockHeight()),
 		}
+		// Capture tx hash from receipt even on EVM revert for debugging.
+		if receipt != nil {
+			pcTx.TxHash = receipt.Hash
+			pcTx.GasUsed = receipt.GasUsed
+		}
 		if err != nil {
 			pcTx.Status = "FAILED"
 			pcTx.ErrorMsg = err.Error()

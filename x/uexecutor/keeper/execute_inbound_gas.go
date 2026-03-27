@@ -158,6 +158,11 @@ func (k Keeper) ExecuteInboundGas(ctx context.Context, inbound types.Inbound) er
 	}
 
 	// --- Finalize pcTx
+	// Capture tx hash from receipt even on EVM revert for debugging.
+	if receipt != nil {
+		pcTx.TxHash = receipt.Hash
+		pcTx.GasUsed = receipt.GasUsed
+	}
 	if execErr != nil {
 		k.Logger().Warn("execute inbound gas: swap failed",
 			"utx_key", universalTxKey,
@@ -165,16 +170,13 @@ func (k Keeper) ExecuteInboundGas(ctx context.Context, inbound types.Inbound) er
 			"should_revert", shouldRevert,
 		)
 		pcTx.ErrorMsg = execErr.Error()
-	} else if receipt != nil {
+	} else {
 		k.Logger().Info("execute inbound gas: swap succeeded",
 			"utx_key", universalTxKey,
 			"tx_hash", receipt.Hash,
 			"gas_used", receipt.GasUsed,
 		)
-		pcTx.TxHash = receipt.Hash
-		pcTx.GasUsed = receipt.GasUsed
 		pcTx.Status = "SUCCESS"
-		pcTx.ErrorMsg = ""
 	}
 
 	// --- Update UniversalTx always

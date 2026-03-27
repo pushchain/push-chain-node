@@ -47,20 +47,22 @@ func (k Keeper) ExecuteInboundFunds(ctx context.Context, utx types.UniversalTx) 
 	universalTxKey := types.GetInboundUniversalTxKey(*inbound)
 	if updateErr := k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
 		pcTx := types.PCTx{
-			TxHash:      "", // no hash if depositPRC20 failed
 			Sender:      ueModuleAddressStr,
-			GasUsed:     0,
 			BlockHeight: uint64(sdkCtx.BlockHeight()),
+		}
+
+		// Capture tx hash from receipt even on EVM revert -- the reverted tx
+		// still has a valid hash for debugging via eth_getTransactionByHash.
+		if receipt != nil {
+			pcTx.TxHash = receipt.Hash
+			pcTx.GasUsed = receipt.GasUsed
 		}
 
 		if err != nil {
 			pcTx.Status = "FAILED"
 			pcTx.ErrorMsg = err.Error()
-		} else if receipt != nil {
-			pcTx.TxHash = receipt.Hash
-			pcTx.GasUsed = receipt.GasUsed
+		} else {
 			pcTx.Status = "SUCCESS"
-			pcTx.ErrorMsg = ""
 		}
 
 		utx.PcTx = append(utx.PcTx, &pcTx)

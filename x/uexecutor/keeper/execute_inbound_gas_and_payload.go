@@ -168,11 +168,14 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 			BlockHeight: uint64(sdkCtx.BlockHeight()),
 			Status:      "FAILED",
 		}
-		if execErr != nil {
-			depositPcTx.ErrorMsg = execErr.Error()
-		} else if receipt != nil {
+		// Capture tx hash from receipt even on EVM revert for debugging.
+		if receipt != nil {
 			depositPcTx.TxHash = receipt.Hash
 			depositPcTx.GasUsed = receipt.GasUsed
+		}
+		if execErr != nil {
+			depositPcTx.ErrorMsg = execErr.Error()
+		} else {
 			depositPcTx.Status = "SUCCESS"
 		}
 
@@ -312,6 +315,11 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 		BlockHeight: uint64(sdkCtx.BlockHeight()),
 		Status:      "FAILED",
 	}
+	// Capture tx hash from receipt even on EVM revert for debugging.
+	if receipt != nil {
+		payloadPcTx.TxHash = receipt.Hash
+		payloadPcTx.GasUsed = receipt.GasUsed
+	}
 	if err != nil {
 		k.Logger().Warn("payload execution failed (gas+payload)",
 			"utx_key", universalTxKey,
@@ -326,8 +334,6 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 			"tx_hash", receipt.Hash,
 			"gas_used", receipt.GasUsed,
 		)
-		payloadPcTx.TxHash = receipt.Hash
-		payloadPcTx.GasUsed = receipt.GasUsed
 		payloadPcTx.Status = "SUCCESS"
 
 		if attachErr := k.AttachOutboundsToExistingUniversalTx(sdkCtx, receipt, utx); attachErr != nil {

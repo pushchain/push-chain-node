@@ -1,13 +1,11 @@
 {
-  "generatedAt": "2026-03-27T07:03:55Z",
+  "generatedAt": "2026-03-26T17:11:26Z",
   "contracts": {
     "WPC": "0xB2cf4B3aec93F4A8F92b292d2F605591dB3e3011",
     "Factory": "0x057931Df99f61caB5e5DbDb6224D7003E64F659e",
     "SwapRouter": "0x140b9f84fCbccB4129AC6F32b1243ea808d18261",
     "QuoterV2": "0x7fd62fe2Aba9af8bF4d08a6cce49beA8c8Ca6d97",
-    "PositionManager": "0x4dCe46Eb5909aC32B6C0ad086e74008Fdb292CB5",
-    "UEA_PROXY_IMPLEMENTATION": "0x2C297101b7d3e0911296b9A64d106684a161b4C9",
-    "COUNTER_ADDRESS_PAYABLE": "0x88449CaC4DFd2FA0FFbC90Fd1Ea9F2a6FDc690F7"
+    "PositionManager": "0x4dCe46Eb5909aC32B6C0ad086e74008Fdb292CB5"
   },
   "tokens": [
     {

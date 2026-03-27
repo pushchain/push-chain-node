@@ -183,11 +183,13 @@ check_grants() {
     local granter_addr=$(docker exec "core-validator-$i" pchaind keys show "validator-$i" -a --keyring-backend test 2>/dev/null || echo "")
 
     if [ -n "$hotkey_addr" ] && [ -n "$granter_addr" ]; then
-        local count=$(docker exec core-validator-1 pchaind query authz grants "$granter_addr" "$hotkey_addr" --node tcp://localhost:26657 --output json 2>/dev/null | jq -r '.grants | length' 2>/dev/null || echo "0")
+        local count=$(docker exec core-validator-1 pchaind query authz grants "$granter_addr" "$hotkey_addr" --node tcp://localhost:26657 --output json 2>/dev/null | jq -r '[.grants[]? | .authorization.value.msg | select(. == "/uexecutor.v1.MsgVoteInbound" or . == "/uexecutor.v1.MsgVoteChainMeta" or . == "/uexecutor.v1.MsgVoteOutbound" or . == "/utss.v1.MsgVoteTssKeyProcess")] | length' 2>/dev/null || echo "0")
         if [ "$count" = "0" ] || [ -z "$count" ]; then
             echo "no|[no]"
+        elif [ "$count" -lt "4" ] 2>/dev/null; then
+            echo "no|[no] ${count}/4"
         else
-            echo "yes|[ok] ${count}"
+            echo "yes|[ok] ${count}/4"
         fi
     else
         echo "no|[no]"
@@ -887,42 +889,63 @@ cmd_setup_uvalidators() {
 
         sleep 3
 
-        # Setup hotkey (use pre-generated hotkey-$i from setup-universal.sh)
+        # Resolve hotkey. Prefer container keyring, fallback to shared generated accounts.
         echo -ne "  ${YELLOW}Setting up hotkey:${NC} "
         local hotkey_name="hotkey-$i"
-        local HOTKEY_ADDR=$(docker exec universal-validator-$i puniversald keys show "$hotkey_name" -a --keyring-backend test --home /root/.puniversal 2>/dev/null || echo "")
+        local HOTKEY_ADDR
+        HOTKEY_ADDR=$(docker exec universal-validator-$i puniversald keys show "$hotkey_name" -a --keyring-backend test --home /root/.puniversal 2>/dev/null || echo "")
 
-        if [ -z "$HOTKEY_ADDR" ]; then
-            echo -e "${RED}Hotkey not found - validator may not be initialized${NC}"
-            continue
-        else
-            echo -e "${GREEN}Using hotkey-$i${NC}"
+        if [ -z "$HOTKEY_ADDR" ] && docker exec core-validator-1 test -f /tmp/push-accounts/hotkeys.json >/dev/null 2>&1; then
+            HOTKEY_ADDR=$(docker exec core-validator-1 sh -lc "jq -r '.[${i}-1].address' /tmp/push-accounts/hotkeys.json" 2>/dev/null || echo "")
+            if [ -n "$HOTKEY_ADDR" ] && [ "$HOTKEY_ADDR" != "null" ]; then
+                echo -e "${YELLOW}Using fallback shared hotkey-$i${NC}"
+            fi
         fi
+
+        if [ -z "$HOTKEY_ADDR" ] || [ "$HOTKEY_ADDR" = "null" ]; then
+            echo -e "${RED}Hotkey not found for validator-$i${NC}"
+            continue
+        fi
+
+        if [ -z "${HOTKEY_ADDR##push1*}" ]; then
+            :
+        else
+            echo -e "${RED}Invalid hotkey address for validator-$i: $HOTKEY_ADDR${NC}"
+            continue
+        fi
+
+        echo -e "${GREEN}Using hotkey-$i${NC}"
         echo -e "    Hotkey: ${CYAN}$HOTKEY_ADDR${NC}"
 
-        # Grant MsgVoteInbound
-        echo -ne "  ${YELLOW}Granting MsgVoteInbound:${NC} "
-        docker exec core-validator-$i pchaind tx authz grant "$HOTKEY_ADDR" generic \
-            --msg-type=/uexecutor.v1.MsgVoteInbound \
-            --from validator-$i \
-            --chain-id localchain_9000-1 \
-            --keyring-backend test \
-            --fees 200000000000000upc \
-            --yes >/dev/null 2>&1 && echo -e "${GREEN}Done${NC}" || echo -e "${YELLOW}May already exist${NC}"
+        # Grant required AuthZ messages (must match PushSigner expectations)
+        for msg_type in \
+            /uexecutor.v1.MsgVoteInbound \
+            /uexecutor.v1.MsgVoteChainMeta \
+            /uexecutor.v1.MsgVoteOutbound \
+            /utss.v1.MsgVoteTssKeyProcess
+        do
+            local msg_name=$(basename "$msg_type")
+            echo -ne "  ${YELLOW}Granting ${msg_name}:${NC} "
+            docker exec core-validator-$i pchaind tx authz grant "$HOTKEY_ADDR" generic \
+                --msg-type="$msg_type" \
+                --from validator-$i \
+                --chain-id localchain_9000-1 \
+                --node tcp://core-validator-1:26657 \
+                --keyring-backend test \
+                --fees 200000000000000upc \
+                --yes >/dev/null 2>&1 && echo -e "${GREEN}Done${NC}" || echo -e "${YELLOW}May already exist${NC}"
 
-        sleep 2
+            sleep 1
+        done
 
-        # Grant MsgVoteGasPrice
-        echo -ne "  ${YELLOW}Granting MsgVoteGasPrice:${NC} "
-        docker exec core-validator-$i pchaind tx authz grant "$HOTKEY_ADDR" generic \
-            --msg-type=/uexecutor.v1.MsgVoteGasPrice \
-            --from validator-$i \
-            --chain-id localchain_9000-1 \
-            --keyring-backend test \
-            --fees 200000000000000upc \
-            --yes >/dev/null 2>&1 && echo -e "${GREEN}Done${NC}" || echo -e "${YELLOW}May already exist${NC}"
-
-        sleep 2
+        # Verify all required grants are visible on the canonical RPC endpoint.
+        local grant_count
+        grant_count=$(docker exec core-validator-1 pchaind query authz grants "$VALIDATOR_ADDR" "$HOTKEY_ADDR" --node tcp://core-validator-1:26657 --output json 2>/dev/null | jq -r '[.grants[]? | .authorization.value.msg | select(. == "/uexecutor.v1.MsgVoteInbound" or . == "/uexecutor.v1.MsgVoteChainMeta" or . == "/uexecutor.v1.MsgVoteOutbound" or . == "/utss.v1.MsgVoteTssKeyProcess")] | length' 2>/dev/null || echo "0")
+        if [ "$grant_count" -lt 4 ]; then
+            echo -e "  ${YELLOW}Warning: only ${grant_count}/4 required grants visible for validator-$i${NC}"
+        else
+            echo -e "  ${GREEN}Verified 4/4 required grants${NC}"
+        fi
 
         echo -e "  ${GREEN}Validator $i setup complete${NC}"
         echo

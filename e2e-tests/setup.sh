@@ -377,6 +377,78 @@ sdk_test_files() {
   done
 }
 
+sdk_sync_localnet_constants() {
+  require_cmd jq perl
+
+  local chain_constants_file="$PUSH_CHAIN_SDK_DIR/$PUSH_CHAIN_SDK_CHAIN_CONSTANTS_PATH"
+  local sdk_utils_file="$PUSH_CHAIN_SDK_DIR/packages/core/src/lib/utils.ts"
+  local orchestrator_file="$PUSH_CHAIN_SDK_DIR/packages/core/src/lib/orchestrator/orchestrator.ts"
+
+  if [[ ! -f "$chain_constants_file" ]]; then
+    log_err "SDK chain constants file not found: $chain_constants_file"
+    exit 1
+  fi
+
+  ensure_deploy_file
+
+  local peth peth_arb peth_base pbnb psol usdt_eth usdt_bnb
+  peth="$(address_from_deploy_token "pETH")"
+  peth_arb="$(address_from_deploy_token "pETH.arb")"
+  peth_base="$(address_from_deploy_token "pETH.base")"
+  pbnb="$(address_from_deploy_token "pBNB")"
+  psol="$(address_from_deploy_token "pSOL")"
+  usdt_eth="$(address_from_deploy_token "USDT.eth")"
+  usdt_bnb="$(address_from_deploy_token "USDT.bnb")"
+
+  [[ -n "$peth" ]] || peth="0xTBD"
+  [[ -n "$peth_arb" ]] || peth_arb="0xTBD"
+  [[ -n "$peth_base" ]] || peth_base="0xTBD"
+  [[ -n "$pbnb" ]] || pbnb="0xTBD"
+  [[ -n "$psol" ]] || psol="0xTBD"
+  [[ -n "$usdt_eth" ]] || usdt_eth="0xTBD"
+  [[ -n "$usdt_bnb" ]] || usdt_bnb="$usdt_eth"
+
+  PETH_ADDR="$peth" \
+  PETH_ARB_ADDR="$peth_arb" \
+  PETH_BASE_ADDR="$peth_base" \
+  PBNB_ADDR="$pbnb" \
+  PSOL_ADDR="$psol" \
+  USDT_ETH_ADDR="$usdt_eth" \
+  USDT_BNB_ADDR="$usdt_bnb" \
+  perl -0pi -e '
+    s#(\[PUSH_NETWORK\.LOCALNET\]:\s*\{[\s\S]*?pETH:\s*)'\''[^'\''\n]*'\''#$1'\''$ENV{PETH_ADDR}'\''#s;
+    s#(\[PUSH_NETWORK\.LOCALNET\]:\s*\{[\s\S]*?pETH_ARB:\s*)'\''[^'\''\n]*'\''#$1'\''$ENV{PETH_ARB_ADDR}'\''#s;
+    s#(\[PUSH_NETWORK\.LOCALNET\]:\s*\{[\s\S]*?pETH_BASE:\s*)'\''[^'\''\n]*'\''#$1'\''$ENV{PETH_BASE_ADDR}'\''#s;
+    s#(\[PUSH_NETWORK\.LOCALNET\]:\s*\{[\s\S]*?pETH_BNB:\s*)'\''[^'\''\n]*'\''#$1'\''$ENV{PBNB_ADDR}'\''#s;
+    s#(\[PUSH_NETWORK\.LOCALNET\]:\s*\{[\s\S]*?pSOL:\s*)'\''[^'\''\n]*'\''#$1'\''$ENV{PSOL_ADDR}'\''#s;
+    s#(\[PUSH_NETWORK\.LOCALNET\]:\s*\{[\s\S]*?USDT_ETH:\s*)'\''[^'\''\n]*'\''#$1'\''$ENV{USDT_ETH_ADDR}'\''#s;
+    s#(\[PUSH_NETWORK\.LOCALNET\]:\s*\{[\s\S]*?USDT_BNB:\s*)'\''[^'\''\n]*'\''#$1'\''$ENV{USDT_BNB_ADDR}'\''#s;
+  ' "$chain_constants_file"
+
+  if [[ -f "$orchestrator_file" ]]; then
+    perl -0pi -e "s/return '\\Q0x00000000000000000000000000000000000000C0\\E';/return '0x00000000000000000000000000000000000000C1';/g" "$orchestrator_file"
+  fi
+
+  # Force SDK test chains to local anvil/surfpool endpoints for LOCAL testing.
+  perl -0pi -e '
+    s#(\[CHAIN\.ETHEREUM_SEPOLIA\]:\s*\{[\s\S]*?defaultRPC:\s*)\[[\s\S]*?\],(\s*confirmations:)#$1['\''http://localhost:9545'\''],$2#s;
+    s#(\[CHAIN\.ETHEREUM_SEPOLIA\]:\s*\{[\s\S]*?explorerUrl:\s*)'\''[^'\''\n]*'\''#$1'\''http://localhost:9545'\''#s;
+    s#(\[CHAIN\.ARBITRUM_SEPOLIA\]:\s*\{[\s\S]*?defaultRPC:\s*)\[[\s\S]*?\],(\s*confirmations:)#$1['\''http://localhost:9546'\''],$2#s;
+    s#(\[CHAIN\.ARBITRUM_SEPOLIA\]:\s*\{[\s\S]*?explorerUrl:\s*)'\''[^'\''\n]*'\''#$1'\''http://localhost:9546'\''#s;
+    s#(\[CHAIN\.BASE_SEPOLIA\]:\s*\{[\s\S]*?defaultRPC:\s*)\[[\s\S]*?\],(\s*confirmations:)#$1['\''http://localhost:9547'\''],$2#s;
+    s#(\[CHAIN\.BASE_SEPOLIA\]:\s*\{[\s\S]*?explorerUrl:\s*)'\''[^'\''\n]*'\''#$1'\''http://localhost:9547'\''#s;
+    s#(\[CHAIN\.BNB_TESTNET\]:\s*\{[\s\S]*?defaultRPC:\s*)\[[\s\S]*?\],(\s*confirmations:)#$1['\''http://localhost:9548'\''],$2#s;
+    s#(\[CHAIN\.BNB_TESTNET\]:\s*\{[\s\S]*?explorerUrl:\s*)'\''[^'\''\n]*'\''#$1'\''http://localhost:9548'\''#s;
+    s#(\[CHAIN\.SOLANA_DEVNET\]:\s*\{[\s\S]*?defaultRPC:\s*)\[[\s\S]*?\],(\s*confirmations:)#$1['\''http://localhost:8899'\''],$2#s;
+  ' "$chain_constants_file"
+
+  if [[ -f "$sdk_utils_file" ]]; then
+    perl -0pi -e "s/\[PUSH_NETWORK\\.LOCALNET\]:\s*\[\s*CHAIN\\.PUSH_TESTNET_DONUT,/\[PUSH_NETWORK.LOCALNET\]: [CHAIN.PUSH_LOCALNET,/g" "$sdk_utils_file"
+  fi
+
+  log_ok "Synced SDK LOCALNET synthetic token constants from deploy addresses"
+}
+
 sdk_prepare_test_files_for_localnet() {
   require_cmd perl
 
@@ -396,6 +468,12 @@ sdk_prepare_test_files_for_localnet() {
     perl -0pi -e 's/\bPUSH_NETWORK\.TESTNET_DONUT\b/PUSH_NETWORK.LOCALNET/g; s/\bPUSH_NETWORK\.TESTNET\b/PUSH_NETWORK.LOCALNET/g; s/\bCHAIN\.PUSH_TESTNET_DONUT\b/CHAIN.PUSH_LOCALNET/g' "$test_file"
     log_ok "Prepared LOCALNET network replacement in $(basename "$test_file")"
   done < <(sdk_test_files)
+
+  while IFS= read -r outbound_file; do
+    [[ -n "$outbound_file" ]] || continue
+    perl -0pi -e 's/\bPUSH_NETWORK\.TESTNET_DONUT\b/PUSH_NETWORK.LOCALNET/g; s/\bPUSH_NETWORK\.TESTNET\b/PUSH_NETWORK.LOCALNET/g; s/\bCHAIN\.PUSH_TESTNET_DONUT\b/CHAIN.PUSH_LOCALNET/g' "$outbound_file"
+    log_ok "Prepared LOCALNET network replacement in $(basename "$outbound_file")"
+  done < <(find "$PUSH_CHAIN_SDK_DIR/packages/core/__e2e__/evm/outbound" -type f -name '*.spec.ts' | sort)
 }
 
 step_setup_push_chain_sdk() {
@@ -437,6 +515,8 @@ step_setup_push_chain_sdk() {
     log_err "SDK chain constants file not found: $chain_constants_file"
     exit 1
   fi
+
+  sdk_sync_localnet_constants
 
   log_info "Fetching UEA_PROXY_IMPLEMENTATION from local chain"
   uea_impl_raw="$(cast call 0x00000000000000000000000000000000000000ea 'UEA_PROXY_IMPLEMENTATION()(address)' --rpc-url "$PUSH_RPC_URL" 2>/dev/null || true)"
@@ -591,13 +671,17 @@ step_setup_environment() {
     local port="$2"
     local chain_id="$3"
     local fork_url="$4"
-    local anvil_pattern="anvil --port $port"
 
-    if pgrep -f "$anvil_pattern" >/dev/null 2>&1; then
-      log_info "Stopping existing anvil $label on port $port"
-      pkill -f "$anvil_pattern" >/dev/null 2>&1 || true
-      sleep 1
-    fi
+    # Kill any process that is currently bound to the target port.
+    # This avoids stale fork nodes when the command-line pattern changes.
+    local pid
+    while IFS= read -r pid; do
+      [[ -n "$pid" ]] || continue
+      log_info "Stopping process $pid on port $port before starting anvil $label"
+      kill "$pid" >/dev/null 2>&1 || true
+    done < <(lsof -ti tcp:"$port" 2>/dev/null || true)
+
+    sleep 1
 
     log_info "Starting anvil $label on port $port (chain-id: $chain_id)"
     nohup anvil --host 0.0.0.0 --port "$port" --chain-id "$chain_id" --fork-url "$fork_url" --block-time 1 \
@@ -659,7 +743,8 @@ step_setup_environment() {
   start_anvil_fork "sepolia" "9545" "11155111" "https://ethereum-sepolia-rpc.publicnode.com"
   start_anvil_fork "arbitrum" "9546" "421614" "https://arbitrum-sepolia.gateway.tenderly.co"
   start_anvil_fork "base" "9547" "84532" "https://sepolia.base.org"
-  start_anvil_fork "bsc" "9548" "97" "https://bsc-testnet-rpc.publicnode.com"
+  # Use the configured BSC endpoint for anvil forking.
+  start_anvil_fork "bsc" "9548" "97" "https://bnb-testnet.g.alchemy.com/v2/peQmTO8MjpoK5Czw4HwRp"
   start_surfpool
   patch_local_testnet_donut_chain_configs
 
@@ -1244,11 +1329,23 @@ step_setup_gateway() {
   require_cmd git forge
   [[ -n "${PRIVATE_KEY:-}" ]] || { log_err "Set PRIVATE_KEY in e2e-tests/.env"; exit 1; }
 
-  clone_or_update_repo "$GATEWAY_REPO" "$GATEWAY_BRANCH" "$GATEWAY_DIR"
+  local gateway_repo_dir="$GATEWAY_DIR"
+  local sibling_gateway_dir="$PUSH_CHAIN_DIR/../push-chain-gateway-contracts"
+
+  # Some local setups accidentally resolve GATEWAY_DIR under push-chain/ itself.
+  # Prefer a repo path that actually contains the localSetup gateway scripts.
+  if [[ -d "$sibling_gateway_dir/contracts/evm-gateway" ]]; then
+    if [[ ! -d "$gateway_repo_dir/contracts/evm-gateway" || ( ! -f "$gateway_repo_dir/contracts/evm-gateway/script/localSetup/setup.s.sol" && ! -f "$gateway_repo_dir/contracts/evm-gateway/scripts/localSetup/setup.s.sol" && ! -f "$gateway_repo_dir/contracts/evm-gateway/localSetup/setup.s.sol" ) ]]; then
+      log_warn "Switching gateway repo dir to sibling path: $sibling_gateway_dir"
+      gateway_repo_dir="$sibling_gateway_dir"
+    fi
+  fi
+
+  clone_or_update_repo "$GATEWAY_REPO" "$GATEWAY_BRANCH" "$gateway_repo_dir"
 
   log_info "Preparing gateway repo submodules"
   (
-    cd "$GATEWAY_DIR"
+    cd "$gateway_repo_dir"
     if [[ -d "contracts/svm-gateway/mock-pyth" ]]; then
       git rm --cached contracts/svm-gateway/mock-pyth || true
       rm -rf contracts/svm-gateway/mock-pyth
@@ -1256,11 +1353,23 @@ step_setup_gateway() {
     git submodule update --init --recursive
   )
 
-  local gw_dir="$GATEWAY_DIR/contracts/evm-gateway"
+  local gw_dir="$gateway_repo_dir/contracts/evm-gateway"
+  local gw_setup_script=""
   local gw_log="$LOG_DIR/gateway_setup_$(date +%Y%m%d_%H%M%S).log"
   local failed=0
   local resume_attempt=1
   local resume_max_attempts="${GATEWAY_RESUME_MAX_ATTEMPTS:-0}"  # 0 = unlimited
+
+  if [[ -f "$gw_dir/script/localSetup/setup.s.sol" ]]; then
+    gw_setup_script="script/localSetup/setup.s.sol"
+  elif [[ -f "$gw_dir/scripts/localSetup/setup.s.sol" ]]; then
+    gw_setup_script="scripts/localSetup/setup.s.sol"
+  elif [[ -f "$gw_dir/localSetup/setup.s.sol" ]]; then
+    gw_setup_script="localSetup/setup.s.sol"
+  else
+    log_err "Gateway setup script not found under $gw_dir/(script|scripts)/localSetup/setup.s.sol or $gw_dir/localSetup/setup.s.sol"
+    exit 1
+  fi
 
   log_info "Building gateway evm contracts"
   (cd "$gw_dir" && forge build)
@@ -1268,7 +1377,7 @@ step_setup_gateway() {
   log_info "Running gateway local setup script"
   (
     cd "$gw_dir"
-    forge script scripts/localSetup/setup.s.sol \
+    forge script "$gw_setup_script" \
       --broadcast \
       --rpc-url "$PUSH_RPC_URL" \
       --private-key "$PRIVATE_KEY" \
@@ -1281,7 +1390,7 @@ step_setup_gateway() {
       log_info "Gateway resume attempt: $resume_attempt"
       if (
         cd "$gw_dir"
-        forge script scripts/localSetup/setup.s.sol \
+        forge script "$gw_setup_script" \
           --broadcast \
           --rpc-url "$PUSH_RPC_URL" \
           --private-key "$PRIVATE_KEY" \
@@ -1298,6 +1407,113 @@ step_setup_gateway() {
 
       resume_attempt=$((resume_attempt + 1))
       sleep 2
+    done
+  fi
+
+  # Ensure canonical local precompile proxy wiring used by SDK tests:
+  #   C1 = UniversalGatewayPC proxy, B0 = VaultPC proxy, C0 = UniversalCore.
+  # Some gateway repo branches configure B0 only; this post-step self-heals C1.
+  local C0="0x00000000000000000000000000000000000000C0"
+  local C1="0x00000000000000000000000000000000000000C1"
+  local B0="0x00000000000000000000000000000000000000B0"
+  local C1_PROXY_ADMIN="0xf2000000000000000000000000000000000000c1"
+  local OWNER_ADDR="0x778D3206374f8AC265728E18E3fE2Ae6b93E4ce4"
+
+  log_info "Verifying C1 UniversalGatewayPC wiring"
+  if ! cast call "$C1" 'UNIVERSAL_CORE()(address)' --rpc-url "$PUSH_RPC_URL" >/dev/null 2>&1; then
+    log_warn "C1.UNIVERSAL_CORE() reverted. Repairing C1 proxy implementation + initialize"
+
+    # Reuse implementation currently behind B0 proxy (same UniversalGatewayPC bytecode family).
+    local impl_slot impl_word impl_addr
+    impl_slot="0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc"
+    impl_word="$(cast storage "$B0" "$impl_slot" --rpc-url "$PUSH_RPC_URL" 2>/dev/null || true)"
+    impl_addr="0x$(echo "$impl_word" | sed -E 's/^0x//; s/^.{24}//' | tr -d '\n')"
+    if ! validate_eth_address "$impl_addr"; then
+      log_err "Failed to resolve UniversalGatewayPC implementation from B0 proxy slot"
+      exit 1
+    fi
+
+    cast send "$C1_PROXY_ADMIN" 'upgradeAndCall(address,address,bytes)' \
+      "$C1" "$impl_addr" "0x" \
+      --rpc-url "$PUSH_RPC_URL" \
+      --private-key "$PRIVATE_KEY" >/dev/null
+
+    cast send "$C1" 'initialize(address,address,address,address)' \
+      "$OWNER_ADDR" "$OWNER_ADDR" "$C0" "$B0" \
+      --rpc-url "$PUSH_RPC_URL" \
+      --private-key "$PRIVATE_KEY" >/dev/null || true
+
+    cast send "$C0" 'setUniversalGatewayPC(address)' "$C1" \
+      --rpc-url "$PUSH_RPC_URL" \
+      --private-key "$PRIVATE_KEY" >/dev/null || true
+  fi
+
+  local c1_uc c0_ug c1_uc_lc c0_ug_lc c0_lc c1_lc
+  c1_uc="$(cast call "$C1" 'UNIVERSAL_CORE()(address)' --rpc-url "$PUSH_RPC_URL" 2>/dev/null || true)"
+  c0_ug="$(cast call "$C0" 'universalGatewayPC()(address)' --rpc-url "$PUSH_RPC_URL" 2>/dev/null || true)"
+
+  # If C1 is initialized but C0 is not linked yet, repair linkage explicitly.
+  if [[ -n "$c1_uc" && -n "$c0_ug" ]]; then
+    local c1_uc_tmp c0_ug_tmp c0_lc_tmp c1_lc_tmp
+    c1_uc_tmp="$(echo "$c1_uc" | tr '[:upper:]' '[:lower:]')"
+    c0_ug_tmp="$(echo "$c0_ug" | tr '[:upper:]' '[:lower:]')"
+    c0_lc_tmp="$(echo "$C0" | tr '[:upper:]' '[:lower:]')"
+    c1_lc_tmp="$(echo "$C1" | tr '[:upper:]' '[:lower:]')"
+
+    if [[ "$c1_uc_tmp" == "$c0_lc_tmp" && "$c0_ug_tmp" != "$c1_lc_tmp" ]]; then
+      log_warn "C0.universalGatewayPC is not linked to C1. Repairing linkage"
+      cast send "$C0" 'setUniversalGatewayPC(address)' "$C1" \
+        --rpc-url "$PUSH_RPC_URL" \
+        --private-key "$PRIVATE_KEY" >/dev/null || true
+
+      c0_ug="$(cast call "$C0" 'universalGatewayPC()(address)' --rpc-url "$PUSH_RPC_URL" 2>/dev/null || true)"
+    fi
+  fi
+
+  c1_uc_lc="$(echo "$c1_uc" | tr '[:upper:]' '[:lower:]')"
+  c0_ug_lc="$(echo "$c0_ug" | tr '[:upper:]' '[:lower:]')"
+  c0_lc="$(echo "$C0" | tr '[:upper:]' '[:lower:]')"
+  c1_lc="$(echo "$C1" | tr '[:upper:]' '[:lower:]')"
+  if [[ "$c1_uc_lc" != "$c0_lc" || "$c0_ug_lc" != "$c1_lc" ]]; then
+    log_err "Gateway wiring invalid after setup: C1.UNIVERSAL_CORE=$c1_uc, C0.universalGatewayPC=$c0_ug"
+    exit 1
+  fi
+
+  local manager_role has_manager
+  manager_role="$(cast keccak 'MANAGER_ROLE')"
+  has_manager="$(cast call "$C0" 'hasRole(bytes32,address)(bool)' "$manager_role" "$OWNER_ADDR" --rpc-url "$PUSH_RPC_URL" 2>/dev/null || echo "false")"
+
+  if [[ "$has_manager" != "true" ]]; then
+    cast send "$C0" 'grantRole(bytes32,address)' "$manager_role" "$OWNER_ADDR" \
+      --rpc-url "$PUSH_RPC_URL" \
+      --private-key "$PRIVATE_KEY" >/dev/null || true
+  fi
+
+  # Seed gas-token mapping for each deployed gas token PRC20 (p* symbols).
+  if [[ -s "$DEPLOY_ADDRESSES_FILE" ]]; then
+    while IFS=$'\t' read -r symbol token_addr; do
+      [[ -n "$symbol" && -n "$token_addr" ]] || continue
+      local chain_ns
+      chain_ns="$(cast call "$token_addr" 'SOURCE_CHAIN_NAMESPACE()(string)' --rpc-url "$PUSH_RPC_URL" 2>/dev/null || echo "")"
+      [[ -n "$chain_ns" ]] || continue
+
+      cast send "$C0" 'setGasTokenPRC20(string,address)' "$chain_ns" "$token_addr" \
+        --rpc-url "$PUSH_RPC_URL" \
+        --private-key "$PRIVATE_KEY" >/dev/null || true
+    done < <(jq -r '.tokens[]? | select((.symbol // "") | startswith("p")) | [.symbol, .address] | @tsv' "$DEPLOY_ADDRESSES_FILE")
+  fi
+
+  # Ensure non-zero base gas limits so sendUniversalTxOutbound(req.gasLimit=0)
+  # can resolve a valid fee quote through UniversalCore.
+  local base_gas
+  base_gas="$(cast call "$C0" 'BASE_GAS_LIMIT()(uint256)' --rpc-url "$PUSH_RPC_URL" 2>/dev/null || echo "")"
+  if [[ -z "$base_gas" || "$base_gas" == "0" ]]; then
+    log_warn "UniversalCore BASE_GAS_LIMIT is 0. Applying local defaults for outbound chains"
+
+    for ns in "eip155:11155111" "eip155:421614" "eip155:84532" "eip155:97" "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"; do
+      cast send "$C0" 'setBaseGasLimitByChain(string,uint256)' "$ns" 21000 \
+        --rpc-url "$PUSH_RPC_URL" \
+        --private-key "$PRIVATE_KEY" >/dev/null || true
     done
   fi
 
@@ -1622,6 +1838,200 @@ step_configure_universal_core() {
   done
 }
 
+step_deploy_counter_and_sync_sdk() {
+  require_cmd cast perl
+  [[ -n "${PRIVATE_KEY:-}" ]] || { log_err "Set PRIVATE_KEY in e2e-tests/.env"; exit 1; }
+
+  local sdk_counter_addr_file="$PUSH_CHAIN_SDK_DIR/packages/core/src/lib/push-chain/helpers/addresses.ts"
+  local counter_creation_code="0x6080604052348015600e575f5ffd5b506102068061001c5f395ff3fe608060405260043610610042575f3560e01c806312065fe01461004d5780639b0e94af14610077578063d09de08a146100a1578063d826f88f146100ab57610049565b3661004957005b5f5ffd5b348015610058575f5ffd5b506100616100c1565b60405161006e9190610157565b60405180910390f35b348015610082575f5ffd5b5061008b6100c8565b6040516100989190610157565b60405180910390f35b6100a96100cd565b005b3480156100b6575f5ffd5b506100bf610137565b005b5f47905090565b5f5481565b60015f5f8282546100de919061019d565b925050819055503373ffffffffffffffffffffffffffffffffffffffff165f547fb6aa5bfdc1ab753194658fada8fa1725a667cdea7df54bd400f8bced617dfd4c3460405161012d9190610157565b60405180910390a3565b5f5f81905550565b5f819050919050565b6101518161013f565b82525050565b5f60208201905061016a5f830184610148565b92915050565b7f4e487b71000000000000000000000000000000000000000000000000000000005f52601160045260245ffd5b5f6101a78261013f565b91506101b28361013f565b92508282019050808211156101ca576101c9610170565b5b9291505056fea26469706673582212204acec08331d08192e4797fc12653c602c2ca1574d44468713f91a095fdefe6d564736f6c634300081e0033"
+
+  if [[ ! -f "$sdk_counter_addr_file" ]]; then
+    log_err "SDK counter addresses file not found: $sdk_counter_addr_file"
+    exit 1
+  fi
+
+  log_info "Deploying CounterPayable contract on Push localnet"
+  local deploy_out counter_addr
+  deploy_out="$(cast send --rpc-url "$PUSH_RPC_URL" --private-key "$PRIVATE_KEY" --create "$counter_creation_code" 2>&1)" || {
+    log_err "Counter deployment failed"
+    echo "$deploy_out"
+    exit 1
+  }
+
+  counter_addr="$(echo "$deploy_out" | awk '/contractAddress/ {print $2; exit}')"
+  if ! validate_eth_address "$counter_addr"; then
+    log_err "Could not parse deployed counter contract address from cast output"
+    echo "$deploy_out"
+    exit 1
+  fi
+
+  ensure_deploy_file
+  record_contract "COUNTER_ADDRESS_PAYABLE" "$counter_addr"
+
+  COUNTER_ADDR="$counter_addr" perl -0pi -e '
+    if (/COUNTER_ADDRESS_PAYABLE/s) {
+      s/0x[a-fA-F0-9]{40}/$ENV{COUNTER_ADDR}/;
+    }
+  ' "$sdk_counter_addr_file"
+
+  if ! grep -q "$counter_addr" "$sdk_counter_addr_file"; then
+    log_err "Failed to sync COUNTER_ADDRESS_PAYABLE in $sdk_counter_addr_file"
+    exit 1
+  fi
+
+  log_ok "Deployed CounterPayable: $counter_addr"
+  log_ok "Synced SDK COUNTER_ADDRESS_PAYABLE in $sdk_counter_addr_file"
+}
+
+step_ensure_tss_key_ready() {
+  require_cmd docker
+
+  if ! docker ps --format '{{.Names}}' | grep -qx 'core-validator-1'; then
+    log_warn "core-validator-1 is not running; skipping TSS key readiness check"
+    return 0
+  fi
+
+  log_info "Checking current UTSS key readiness"
+  if docker exec core-validator-1 pchaind query utss current-key --node tcp://localhost:26657 --output json >/dev/null 2>&1; then
+    log_ok "UTSS current key already exists"
+    return 0
+  fi
+
+  log_warn "UTSS current key missing (no_key). Initiating TSS keygen..."
+  (
+    cd "$LOCAL_DEVNET_DIR"
+    ./devnet tss-keygen
+  )
+
+  local i
+  for i in {1..36}; do
+    if docker exec core-validator-1 pchaind query utss current-key --node tcp://localhost:26657 --output json >/dev/null 2>&1; then
+      log_ok "UTSS current key is ready"
+      return 0
+    fi
+    sleep 5
+  done
+
+  log_err "UTSS current key was not finalized after keygen"
+  if docker ps --format '{{.Names}}' | grep -qx 'universal-validator-1'; then
+    log_warn "Dumping recent universal-validator-1 logs for diagnosis"
+    docker logs --tail 300 universal-validator-1 2>&1 || true
+  fi
+
+  log_err "TSS keygen did not complete. If logs show wrapper/go-dkls keygen panic, fix UV dkls setup before running Route-3 tests."
+  exit 1
+}
+
+step_bootstrap_cea_for_sdk_signer() {
+  require_cmd node
+
+  local sdk_env_file="$PUSH_CHAIN_SDK_DIR/packages/core/.env"
+  if [[ ! -f "$sdk_env_file" ]]; then
+    log_warn "SDK env file not found at $sdk_env_file; running setup-sdk first"
+    step_setup_push_chain_sdk
+  fi
+
+  if [[ ! -d "$PUSH_CHAIN_SDK_DIR" ]]; then
+    log_err "SDK repo not found at $PUSH_CHAIN_SDK_DIR"
+    exit 1
+  fi
+
+  log_info "Bootstrapping CEA deployment for SDK signer on BSC testnet fork"
+  if ! (
+    cd "$PUSH_CHAIN_SDK_DIR"
+    node -r @swc-node/register <<'NODE'
+const path = require('path');
+require('dotenv').config({ path: path.resolve(process.cwd(), 'packages/core/.env') });
+
+const { PushChain } = require('./packages/core/src');
+const { createWalletClient, http, parseEther } = require('viem');
+const { privateKeyToAccount } = require('viem/accounts');
+const { CHAIN_INFO } = require('./packages/core/src/lib/constants/chain');
+const { CHAIN, PUSH_NETWORK } = require('./packages/core/src/lib/constants/enums');
+const { getCEAAddress } = require('./packages/core/src/lib/orchestrator/cea-utils');
+
+async function main() {
+  const evmPrivateKey = process.env.EVM_PRIVATE_KEY;
+  const pushPrivateKey = process.env.PUSH_PRIVATE_KEY;
+  if (!evmPrivateKey) {
+    throw new Error('EVM_PRIVATE_KEY is missing in packages/core/.env');
+  }
+  if (!pushPrivateKey) {
+    throw new Error('PUSH_PRIVATE_KEY is missing in packages/core/.env');
+  }
+
+  // Derive the target UEA account from the EVM key (the same identity used by cea-to-uea tests).
+  const evmAccount = privateKeyToAccount(evmPrivateKey);
+  const evmWalletClient = createWalletClient({
+    account: evmAccount,
+    transport: http(CHAIN_INFO[CHAIN.ETHEREUM_SEPOLIA].defaultRPC[0]),
+  });
+
+  const evmUniversalSigner = await PushChain.utils.signer.toUniversalFromKeypair(evmWalletClient, {
+    chain: CHAIN.ETHEREUM_SEPOLIA,
+    library: PushChain.CONSTANTS.LIBRARY.ETHEREUM_VIEM,
+  });
+  const evmClient = await PushChain.initialize(evmUniversalSigner, {
+    network: PUSH_NETWORK.LOCALNET,
+    printTraces: false,
+  });
+  const targetUea = evmClient.universal.account;
+
+  // Use a native Push signer to bootstrap the CEA deployment/funding for that target UEA.
+  const pushAccount = privateKeyToAccount(pushPrivateKey);
+  const pushWalletClient = createWalletClient({
+    account: pushAccount,
+    transport: http(CHAIN_INFO[CHAIN.PUSH_LOCALNET].defaultRPC[0]),
+  });
+
+  const pushUniversalSigner = await PushChain.utils.signer.toUniversalFromKeypair(pushWalletClient, {
+    chain: CHAIN.PUSH_LOCALNET,
+    library: PushChain.CONSTANTS.LIBRARY.ETHEREUM_VIEM,
+  });
+  const pushClient = await PushChain.initialize(pushUniversalSigner, {
+    network: PUSH_NETWORK.LOCALNET,
+    printTraces: false,
+  });
+
+  let ceaResult = await getCEAAddress(targetUea, CHAIN.BNB_TESTNET);
+  console.log(`CEA bootstrap pre-check: targetUEA=${targetUea} cea=${ceaResult.cea} deployed=${ceaResult.isDeployed}`);
+
+  if (!ceaResult.isDeployed) {
+    const tx = await pushClient.universal.sendTransaction({
+      to: { address: ceaResult.cea, chain: CHAIN.BNB_TESTNET },
+      value: parseEther('0.00005'),
+    });
+    const receipt = await tx.wait();
+    console.log(`CEA bootstrap tx: hash=${tx.hash} status=${receipt.status} external=${receipt.externalTxHash || 'n/a'}`);
+
+    ceaResult = await getCEAAddress(targetUea, CHAIN.BNB_TESTNET);
+    console.log(`CEA bootstrap post-check: deployed=${ceaResult.isDeployed}`);
+  }
+
+  if (!ceaResult.isDeployed) {
+    throw new Error('CEA is still not deployed after bootstrap transaction');
+  }
+}
+
+main().catch((err) => {
+  const msg = err && err.message ? err.message : String(err);
+  console.error(msg);
+  process.exit(1);
+});
+NODE
+  ); then
+    log_err "CEA bootstrap step failed"
+
+    if docker ps --format '{{.Names}}' | grep -qx 'universal-validator-1'; then
+      log_warn "Dumping recent universal-validator-1 logs for diagnosis"
+      docker logs --tail 200 universal-validator-1 2>&1 || true
+    fi
+    exit 1
+  fi
+
+  log_ok "CEA bootstrap complete"
+}
+
 cmd_all() {
   if is_local_testing_env; then
     step_setup_environment
@@ -1634,6 +2044,7 @@ cmd_all() {
   if is_local_testing_env; then
     step_setup_environment
   fi
+  step_ensure_tss_key_ready
   step_recover_genesis_key
   step_fund_account
   step_setup_core_contracts
@@ -1646,6 +2057,8 @@ cmd_all() {
   step_update_eth_token_config
   step_setup_gateway
   step_add_uregistry_configs
+  step_bootstrap_cea_for_sdk_signer
+  step_deploy_counter_and_sync_sdk
 }
 
 cmd_show_help() {
@@ -1667,6 +2080,9 @@ Commands:
   write-core-env         Create core-contracts .env from deploy_addresses.json
   update-token-config    Update eth_sepolia_eth.json contract_address using deployed token
   setup-gateway          Clone/setup gateway repo and run forge localSetup (with --resume retry)
+  ensure-tss-key         Ensure UTSS current key exists (runs keygen and waits until finalized)
+  bootstrap-cea-sdk      Ensure CEA is deployed for SDK signer on BSC testnet fork (Route 2 bootstrap)
+  deploy-counter-sdk     Deploy CounterPayable on Push localnet and sync SDK COUNTER_ADDRESS_PAYABLE
   setup-sdk              Clone/setup push-chain-sdk, generate SDK .env from e2e .env, and install dependencies
   sdk-test-all           Replace PUSH_NETWORK TESTNET variants with LOCALNET and run all configured SDK E2E tests
   sdk-test-pctx-last-transaction  Run pctx-last-transaction.spec.ts
@@ -1719,6 +2135,9 @@ main() {
     write-core-env) step_write_core_env ;;
     update-token-config) step_update_deployed_token_configs ;;
     setup-gateway) step_setup_gateway ;;
+    ensure-tss-key) step_ensure_tss_key_ready ;;
+    bootstrap-cea-sdk) step_bootstrap_cea_for_sdk_signer ;;
+    deploy-counter-sdk) step_deploy_counter_and_sync_sdk ;;
     setup-sdk) step_setup_push_chain_sdk ;;
     sdk-test-all) step_run_sdk_tests_all ;;
     sdk-test-pctx-last-transaction) step_run_sdk_test_file "pctx-last-transaction.spec.ts" ;;

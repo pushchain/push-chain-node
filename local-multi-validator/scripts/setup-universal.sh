@@ -9,6 +9,14 @@ UNIVERSAL_ID=${UNIVERSAL_ID:-"1"}
 CORE_VALIDATOR_GRPC=${CORE_VALIDATOR_GRPC:-"core-validator-1:9090"}
 QUERY_PORT=${QUERY_PORT:-8080}
 
+# In LOCAL devnet, use a single canonical gRPC endpoint for startup validation
+# to avoid transient per-node state skew during UV boot.
+if [ "${TESTING_ENV:-}" = "LOCAL" ] && [ -n "${LOCAL_CANONICAL_CORE_GRPC:-}" ]; then
+  CORE_VALIDATOR_GRPC="$LOCAL_CANONICAL_CORE_GRPC"
+elif [ "${TESTING_ENV:-}" = "LOCAL" ]; then
+  CORE_VALIDATOR_GRPC="core-validator-1:9090"
+fi
+
 # Paths
 BINARY="/usr/bin/puniversald"
 HOME_DIR="/root/.puniversal"
@@ -235,6 +243,20 @@ set_chain_event_start_from "eip155:421614" "Arbitrum Sepolia" "${ARBITRUM_EVENT_
 set_chain_event_start_from "eip155:97" "BSC testnet" "${BSC_EVENT_START_FROM:-}"
 set_chain_event_start_from "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1" "Solana devnet" "${SOLANA_EVENT_START_FROM:-}"
 
+# Always align Push localchain scanning start with current height in local environments.
+# Default config uses a high static start block for public networks, which would skip
+# all events on fresh local devnets if left unchanged.
+LOCALCHAIN_CHAIN_ID="localchain_9000-1"
+LOCALCHAIN_START_FROM=$BLOCK_HEIGHT
+if [ "$LOCALCHAIN_START_FROM" -gt 20 ]; then
+  LOCALCHAIN_START_FROM=$((LOCALCHAIN_START_FROM - 20))
+fi
+echo "📍 Setting Push localchain event_start_from: $LOCALCHAIN_START_FROM"
+jq --arg chain "$LOCALCHAIN_CHAIN_ID" --argjson height "$LOCALCHAIN_START_FROM" \
+  '.chain_configs[$chain].event_start_from = $height' \
+  "$HOME_DIR/config/pushuv_config.json" > "$HOME_DIR/config/pushuv_config.json.tmp" && \
+  mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
+
 # ---------------------------
 # === SET CORE VALOPER ADDRESS ===
 # ---------------------------
@@ -316,12 +338,13 @@ fi
 
 echo "🔐 Waiting for AuthZ grants to be created by core validator..."
 echo "📝 Core validators create AuthZ grants after UV registration completes"
-echo "📋 Required grants: MsgVoteInbound, MsgVoteGasPrice, MsgVoteOutbound, MsgVoteTssKeyProcess"
+echo "📋 Required grants: MsgVoteInbound, MsgVoteChainMeta, MsgVoteOutbound, MsgVoteTssKeyProcess"
 
 # Get the hotkey address
 HOTKEY_ADDR=$($BINARY keys show "$HOTKEY_NAME" --address --keyring-backend test --home "$HOME_DIR" 2>/dev/null || echo "")
 
-# Required number of grants (4 message types)
+# Required message types (must match PushSigner validation requirements)
+REQUIRED_MSG_TYPES='["/uexecutor.v1.MsgVoteInbound","/uexecutor.v1.MsgVoteChainMeta","/uexecutor.v1.MsgVoteOutbound","/utss.v1.MsgVoteTssKeyProcess"]'
 REQUIRED_GRANTS=4
 
 # Query core-validator-1 for grants (genesis validator creates ALL grants immediately)
@@ -331,29 +354,30 @@ if [ -n "$HOTKEY_ADDR" ]; then
   echo "🔍 Checking for AuthZ grants for hotkey: $HOTKEY_ADDR"
   echo "📡 Querying grants from: $GRANTS_QUERY_HOST:1317"
 
-  # Wait for all 4 AuthZ grants (should be fast - genesis validator creates all grants)
+  # Wait for all required AuthZ grants (should be fast - genesis validator creates all grants)
   max_wait=20
   wait_time=0
-  GRANTS_COUNT=0
+  MATCHED_GRANTS=0
   while [ $wait_time -lt $max_wait ]; do
-    # Query grants from genesis validator
-    GRANTS_COUNT=$(curl -s "http://$GRANTS_QUERY_HOST:1317/cosmos/authz/v1beta1/grants/grantee/$HOTKEY_ADDR" 2>/dev/null | jq -r '.grants | length' 2>/dev/null || echo "0")
+    # Query grants and count only required message types
+    MATCHED_GRANTS=$(curl -s "http://$GRANTS_QUERY_HOST:1317/cosmos/authz/v1beta1/grants/grantee/$HOTKEY_ADDR" 2>/dev/null | \
+      jq -r --argjson required "$REQUIRED_MSG_TYPES" '[.grants[]? | select(.authorization.value.msg as $m | $required | index($m))] | length' 2>/dev/null || echo "0")
 
-    if [ "$GRANTS_COUNT" -ge "$REQUIRED_GRANTS" ] 2>/dev/null; then
-      echo "✅ Found all $GRANTS_COUNT/$REQUIRED_GRANTS required AuthZ grants!"
+    if [ "$MATCHED_GRANTS" -ge "$REQUIRED_GRANTS" ] 2>/dev/null; then
+      echo "✅ Found all $MATCHED_GRANTS/$REQUIRED_GRANTS required AuthZ grants!"
       break
     fi
 
     # Show progress every 5 seconds
     if [ $((wait_time % 5)) -eq 0 ]; then
-      echo "⏳ Waiting for AuthZ grants... ($GRANTS_COUNT/$REQUIRED_GRANTS) (${wait_time}s / ${max_wait}s)"
+      echo "⏳ Waiting for AuthZ grants... ($MATCHED_GRANTS/$REQUIRED_GRANTS) (${wait_time}s / ${max_wait}s)"
     fi
     sleep 1
     wait_time=$((wait_time + 1))
   done
 
-  if [ "$GRANTS_COUNT" -lt "$REQUIRED_GRANTS" ] 2>/dev/null; then
-    echo "⚠️  Only found $GRANTS_COUNT/$REQUIRED_GRANTS grants after ${max_wait}s"
+  if [ "$MATCHED_GRANTS" -lt "$REQUIRED_GRANTS" ] 2>/dev/null; then
+    echo "⚠️  Only found $MATCHED_GRANTS/$REQUIRED_GRANTS required grants after ${max_wait}s"
     echo "   The universal validator may fail startup validation if grants are missing."
   fi
 else

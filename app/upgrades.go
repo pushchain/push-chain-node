@@ -6,6 +6,7 @@ import (
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 
 	"github.com/pushchain/push-chain-node/app/upgrades"
+	aiauditfixes "github.com/pushchain/push-chain-node/app/upgrades/ai-audit-fixes"
 	aiauditfixes2 "github.com/pushchain/push-chain-node/app/upgrades/ai-audit-fixes-2"
 	ceagasandpayload "github.com/pushchain/push-chain-node/app/upgrades/cea-gas-and-payload"
 	ceapayloadverificationfix "github.com/pushchain/push-chain-node/app/upgrades/cea-payload-verification-fix"
@@ -52,6 +53,7 @@ var Upgrades = []upgrades.Upgrade{
 	chainmetavotegasless.NewUpgrade(),
 	ceagasandpayload.NewUpgrade(),
 	ceapayloadverificationfix.NewUpgrade(),
+	aiauditfixes.NewUpgrade(),
 	aiauditfixes2.NewUpgrade(),
 }
 

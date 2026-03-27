@@ -574,6 +574,296 @@ func TestQueryAllActiveBallots(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// query_server.AllExpiredBallotIDs
+// ---------------------------------------------------------------------------
+
+func TestQueryAllExpiredBallotIDs(t *testing.T) {
+	t.Run("returns IDs of expired ballots", func(t *testing.T) {
+		chainApp, ctx, validators := setupQueryTest(t, 3)
+		querier := uvalidatorkeepermod.NewQuerier(chainApp.UvalidatorKeeper)
+
+		voters := make([]string, len(validators))
+		for i, v := range validators {
+			voters[i] = v.OperatorAddress
+		}
+
+		ballot, err := chainApp.UvalidatorKeeper.CreateBallot(
+			ctx,
+			"expired-ballot-1",
+			uvalidatortypes.BallotObservationType_BALLOT_OBSERVATION_TYPE_INBOUND_TX,
+			voters,
+			2,
+			100,
+		)
+		require.NoError(t, err)
+
+		err = chainApp.UvalidatorKeeper.MarkBallotExpired(ctx, ballot.Id)
+		require.NoError(t, err)
+
+		resp, err := querier.AllExpiredBallotIDs(ctx, &uvalidatortypes.QueryExpiredBallotIDsRequest{})
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.Len(t, resp.Ids, 1)
+		require.Equal(t, ballot.Id, resp.Ids[0])
+	})
+
+	t.Run("returns empty when no expired ballots", func(t *testing.T) {
+		chainApp, ctx, _, _ := utils.SetAppWithMultipleValidators(t, 1)
+		querier := uvalidatorkeepermod.NewQuerier(chainApp.UvalidatorKeeper)
+
+		resp, err := querier.AllExpiredBallotIDs(ctx, &uvalidatortypes.QueryExpiredBallotIDsRequest{})
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.Empty(t, resp.Ids)
+	})
+
+	t.Run("active ballot does not appear in expired IDs", func(t *testing.T) {
+		chainApp, ctx, validators := setupQueryTest(t, 3)
+		querier := uvalidatorkeepermod.NewQuerier(chainApp.UvalidatorKeeper)
+
+		voters := make([]string, len(validators))
+		for i, v := range validators {
+			voters[i] = v.OperatorAddress
+		}
+
+		ballot, err := chainApp.UvalidatorKeeper.CreateBallot(
+			ctx,
+			"still-active-ballot",
+			uvalidatortypes.BallotObservationType_BALLOT_OBSERVATION_TYPE_INBOUND_TX,
+			voters,
+			2,
+			100,
+		)
+		require.NoError(t, err)
+
+		resp, err := querier.AllExpiredBallotIDs(ctx, &uvalidatortypes.QueryExpiredBallotIDsRequest{})
+		require.NoError(t, err)
+		require.NotContains(t, resp.Ids, ballot.Id)
+	})
+}
+
+// ---------------------------------------------------------------------------
+// query_server.AllExpiredBallots
+// ---------------------------------------------------------------------------
+
+func TestQueryAllExpiredBallots(t *testing.T) {
+	t.Run("returns full ballot objects for expired ballots", func(t *testing.T) {
+		chainApp, ctx, validators := setupQueryTest(t, 3)
+		querier := uvalidatorkeepermod.NewQuerier(chainApp.UvalidatorKeeper)
+
+		voters := make([]string, len(validators))
+		for i, v := range validators {
+			voters[i] = v.OperatorAddress
+		}
+
+		ballot, err := chainApp.UvalidatorKeeper.CreateBallot(
+			ctx,
+			"expired-full-1",
+			uvalidatortypes.BallotObservationType_BALLOT_OBSERVATION_TYPE_INBOUND_TX,
+			voters,
+			2,
+			100,
+		)
+		require.NoError(t, err)
+
+		err = chainApp.UvalidatorKeeper.MarkBallotExpired(ctx, ballot.Id)
+		require.NoError(t, err)
+
+		resp, err := querier.AllExpiredBallots(ctx, &uvalidatortypes.QueryExpiredBallotsRequest{})
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.Len(t, resp.Ballots, 1)
+		require.Equal(t, ballot.Id, resp.Ballots[0].Id)
+		require.Equal(t, uvalidatortypes.BallotStatus_BALLOT_STATUS_EXPIRED, resp.Ballots[0].Status)
+	})
+
+	t.Run("returns empty list when no expired ballots", func(t *testing.T) {
+		chainApp, ctx, _, _ := utils.SetAppWithMultipleValidators(t, 1)
+		querier := uvalidatorkeepermod.NewQuerier(chainApp.UvalidatorKeeper)
+
+		resp, err := querier.AllExpiredBallots(ctx, &uvalidatortypes.QueryExpiredBallotsRequest{})
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.Empty(t, resp.Ballots)
+	})
+
+	t.Run("multiple expired ballots are all returned", func(t *testing.T) {
+		chainApp, ctx, validators := setupQueryTest(t, 3)
+		querier := uvalidatorkeepermod.NewQuerier(chainApp.UvalidatorKeeper)
+
+		voters := make([]string, len(validators))
+		for i, v := range validators {
+			voters[i] = v.OperatorAddress
+		}
+
+		const numExpired = 2
+		for i := 0; i < numExpired; i++ {
+			b, err := chainApp.UvalidatorKeeper.CreateBallot(
+				ctx,
+				fmt.Sprintf("multi-expired-%d", i),
+				uvalidatortypes.BallotObservationType_BALLOT_OBSERVATION_TYPE_OUTBOUND_TX,
+				voters,
+				2,
+				100,
+			)
+			require.NoError(t, err)
+			require.NoError(t, chainApp.UvalidatorKeeper.MarkBallotExpired(ctx, b.Id))
+		}
+
+		resp, err := querier.AllExpiredBallots(ctx, &uvalidatortypes.QueryExpiredBallotsRequest{})
+		require.NoError(t, err)
+		require.Len(t, resp.Ballots, numExpired)
+
+		for _, b := range resp.Ballots {
+			require.Equal(t, uvalidatortypes.BallotStatus_BALLOT_STATUS_EXPIRED, b.Status)
+		}
+	})
+}
+
+// ---------------------------------------------------------------------------
+// query_server.AllFinalizedBallotIDs
+// ---------------------------------------------------------------------------
+
+func TestQueryAllFinalizedBallotIDs(t *testing.T) {
+	t.Run("returns IDs of finalized ballots", func(t *testing.T) {
+		chainApp, ctx, validators := setupQueryTest(t, 3)
+		querier := uvalidatorkeepermod.NewQuerier(chainApp.UvalidatorKeeper)
+
+		voters := make([]string, len(validators))
+		for i, v := range validators {
+			voters[i] = v.OperatorAddress
+		}
+
+		ballot, err := chainApp.UvalidatorKeeper.CreateBallot(
+			ctx,
+			"finalized-ballot-1",
+			uvalidatortypes.BallotObservationType_BALLOT_OBSERVATION_TYPE_TSS_KEY,
+			voters,
+			2,
+			100,
+		)
+		require.NoError(t, err)
+
+		err = chainApp.UvalidatorKeeper.MarkBallotFinalized(ctx, ballot.Id, uvalidatortypes.BallotStatus_BALLOT_STATUS_PASSED)
+		require.NoError(t, err)
+
+		resp, err := querier.AllFinalizedBallotIDs(ctx, &uvalidatortypes.QueryFinalizedBallotIDsRequest{})
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.Len(t, resp.Ids, 1)
+		require.Equal(t, ballot.Id, resp.Ids[0])
+	})
+
+	t.Run("returns empty when no finalized ballots", func(t *testing.T) {
+		chainApp, ctx, _, _ := utils.SetAppWithMultipleValidators(t, 1)
+		querier := uvalidatorkeepermod.NewQuerier(chainApp.UvalidatorKeeper)
+
+		resp, err := querier.AllFinalizedBallotIDs(ctx, &uvalidatortypes.QueryFinalizedBallotIDsRequest{})
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.Empty(t, resp.Ids)
+	})
+
+	t.Run("active ballot does not appear in finalized IDs", func(t *testing.T) {
+		chainApp, ctx, validators := setupQueryTest(t, 3)
+		querier := uvalidatorkeepermod.NewQuerier(chainApp.UvalidatorKeeper)
+
+		voters := make([]string, len(validators))
+		for i, v := range validators {
+			voters[i] = v.OperatorAddress
+		}
+
+		ballot, err := chainApp.UvalidatorKeeper.CreateBallot(
+			ctx,
+			"not-yet-finalized",
+			uvalidatortypes.BallotObservationType_BALLOT_OBSERVATION_TYPE_INBOUND_TX,
+			voters,
+			2,
+			100,
+		)
+		require.NoError(t, err)
+
+		resp, err := querier.AllFinalizedBallotIDs(ctx, &uvalidatortypes.QueryFinalizedBallotIDsRequest{})
+		require.NoError(t, err)
+		require.NotContains(t, resp.Ids, ballot.Id)
+	})
+}
+
+// ---------------------------------------------------------------------------
+// query_server.AllFinalizedBallots
+// ---------------------------------------------------------------------------
+
+func TestQueryAllFinalizedBallots(t *testing.T) {
+	t.Run("returns full ballot objects for finalized ballots", func(t *testing.T) {
+		chainApp, ctx, validators := setupQueryTest(t, 3)
+		querier := uvalidatorkeepermod.NewQuerier(chainApp.UvalidatorKeeper)
+
+		voters := make([]string, len(validators))
+		for i, v := range validators {
+			voters[i] = v.OperatorAddress
+		}
+
+		ballot, err := chainApp.UvalidatorKeeper.CreateBallot(
+			ctx,
+			"finalized-full-1",
+			uvalidatortypes.BallotObservationType_BALLOT_OBSERVATION_TYPE_TSS_KEY,
+			voters,
+			2,
+			100,
+		)
+		require.NoError(t, err)
+
+		err = chainApp.UvalidatorKeeper.MarkBallotFinalized(ctx, ballot.Id, uvalidatortypes.BallotStatus_BALLOT_STATUS_PASSED)
+		require.NoError(t, err)
+
+		resp, err := querier.AllFinalizedBallots(ctx, &uvalidatortypes.QueryFinalizedBallotsRequest{})
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.Len(t, resp.Ballots, 1)
+		require.Equal(t, ballot.Id, resp.Ballots[0].Id)
+		require.Equal(t, uvalidatortypes.BallotStatus_BALLOT_STATUS_PASSED, resp.Ballots[0].Status)
+	})
+
+	t.Run("returns empty list when no finalized ballots", func(t *testing.T) {
+		chainApp, ctx, _, _ := utils.SetAppWithMultipleValidators(t, 1)
+		querier := uvalidatorkeepermod.NewQuerier(chainApp.UvalidatorKeeper)
+
+		resp, err := querier.AllFinalizedBallots(ctx, &uvalidatortypes.QueryFinalizedBallotsRequest{})
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.Empty(t, resp.Ballots)
+	})
+
+	t.Run("finalized ballot with REJECTED status is returned", func(t *testing.T) {
+		chainApp, ctx, validators := setupQueryTest(t, 3)
+		querier := uvalidatorkeepermod.NewQuerier(chainApp.UvalidatorKeeper)
+
+		voters := make([]string, len(validators))
+		for i, v := range validators {
+			voters[i] = v.OperatorAddress
+		}
+
+		ballot, err := chainApp.UvalidatorKeeper.CreateBallot(
+			ctx,
+			"finalized-rejected-1",
+			uvalidatortypes.BallotObservationType_BALLOT_OBSERVATION_TYPE_INBOUND_TX,
+			voters,
+			2,
+			100,
+		)
+		require.NoError(t, err)
+
+		err = chainApp.UvalidatorKeeper.MarkBallotFinalized(ctx, ballot.Id, uvalidatortypes.BallotStatus_BALLOT_STATUS_REJECTED)
+		require.NoError(t, err)
+
+		resp, err := querier.AllFinalizedBallots(ctx, &uvalidatortypes.QueryFinalizedBallotsRequest{})
+		require.NoError(t, err)
+		require.Len(t, resp.Ballots, 1)
+		require.Equal(t, uvalidatortypes.BallotStatus_BALLOT_STATUS_REJECTED, resp.Ballots[0].Status)
+	})
+}
+
+// ---------------------------------------------------------------------------
 // msg_server dispatch — UpdateParams authorization check
 // ---------------------------------------------------------------------------
 

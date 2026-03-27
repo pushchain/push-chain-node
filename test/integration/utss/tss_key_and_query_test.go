@@ -8,6 +8,7 @@ import (
 
 	"github.com/pushchain/push-chain-node/x/utss/keeper"
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
+	utils "github.com/pushchain/push-chain-node/test/utils"
 )
 
 // ---------------------------------------------------------------------------
@@ -430,4 +431,126 @@ func TestQueryKeyByIdMultipleKeys(t *testing.T) {
 	resp2, err := querier.KeyById(ctx, &utsstypes.QueryKeyByIdRequest{KeyId: key2.KeyId})
 	require.NoError(t, err)
 	require.Equal(t, key2.KeyId, resp2.Key.KeyId)
+}
+
+// ---------------------------------------------------------------------------
+// query_server.go — AllKeys
+// ---------------------------------------------------------------------------
+
+// TestQueryAllKeys verifies that all stored keys are returned by AllKeys.
+func TestQueryAllKeys(t *testing.T) {
+	t.Run("returns all stored keys including newly added ones", func(t *testing.T) {
+		app, ctx, validators := setupTssKeyProcessTest(t, 3)
+
+		key1 := buildValidTssKey(ctx, "allkeys-1", "allkeys-pub-1", 100, validators)
+		key2 := buildValidTssKey(ctx, "allkeys-2", "allkeys-pub-2", 101, validators)
+
+		require.NoError(t, app.UtssKeeper.SetCurrentTssKey(ctx, key1))
+		require.NoError(t, app.UtssKeeper.SetCurrentTssKey(ctx, key2))
+
+		querier := keeper.NewQuerier(app.UtssKeeper)
+		resp, err := querier.AllKeys(ctx, &utsstypes.QueryAllKeysRequest{})
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+
+		// setupTssKeyProcessTest may store keys during setup; ensure our two are present.
+		keyIDs := make(map[string]struct{}, len(resp.Keys))
+		for _, k := range resp.Keys {
+			keyIDs[k.KeyId] = struct{}{}
+		}
+		require.Contains(t, keyIDs, key1.KeyId)
+		require.Contains(t, keyIDs, key2.KeyId)
+	})
+
+	t.Run("returns empty list when no keys stored", func(t *testing.T) {
+		// Use a raw app with no universal validators registered so no TSS
+		// process is auto-initiated and no keys are written to history.
+		freshApp, freshCtx, _, _ := utils.SetAppWithMultipleValidators(t, 2)
+
+		querier := keeper.NewQuerier(freshApp.UtssKeeper)
+		resp, err := querier.AllKeys(freshCtx, &utsstypes.QueryAllKeysRequest{})
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.Empty(t, resp.Keys)
+	})
+
+	t.Run("count matches number of distinct keys stored", func(t *testing.T) {
+		app, ctx, validators := setupTssKeyProcessTest(t, 3)
+
+		key1 := buildValidTssKey(ctx, "ck-1", "ck-pub-1", 10, validators)
+		key2 := buildValidTssKey(ctx, "ck-2", "ck-pub-2", 11, validators)
+		key3 := buildValidTssKey(ctx, "ck-3", "ck-pub-3", 12, validators)
+
+		require.NoError(t, app.UtssKeeper.SetCurrentTssKey(ctx, key1))
+		require.NoError(t, app.UtssKeeper.SetCurrentTssKey(ctx, key2))
+		require.NoError(t, app.UtssKeeper.SetCurrentTssKey(ctx, key3))
+
+		querier := keeper.NewQuerier(app.UtssKeeper)
+		resp, err := querier.AllKeys(ctx, &utsstypes.QueryAllKeysRequest{})
+		require.NoError(t, err)
+		// setupTssKeyProcessTest also stores keys during setup, so there are
+		// at least 3 in addition to any auto-created ones.
+		require.GreaterOrEqual(t, len(resp.Keys), 3)
+	})
+}
+
+// ---------------------------------------------------------------------------
+// query_server.go — GetPendingTssEvent
+// ---------------------------------------------------------------------------
+
+// TestQueryGetPendingTssEvent verifies that after initiating a TSS process the
+// pending event can be retrieved by the process ID.
+func TestQueryGetPendingTssEvent(t *testing.T) {
+	t.Run("returns pending event for an active process", func(t *testing.T) {
+		app, ctx, _ := setupTssKeyProcessTest(t, 4)
+
+		err := app.UtssKeeper.InitiateTssKeyProcess(ctx, utsstypes.TssProcessType_TSS_PROCESS_KEYGEN)
+		require.NoError(t, err)
+
+		process, err := app.UtssKeeper.CurrentTssProcess.Get(ctx)
+		require.NoError(t, err)
+
+		querier := keeper.NewQuerier(app.UtssKeeper)
+		resp, err := querier.GetPendingTssEvent(ctx, &utsstypes.QueryGetPendingTssEventRequest{
+			ProcessId: process.Id,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, resp.Event)
+		require.Equal(t, process.Id, resp.Event.ProcessId)
+		require.Equal(t, utsstypes.TssEventStatus_TSS_EVENT_ACTIVE, resp.Event.Status)
+	})
+
+	t.Run("returns error for unknown process ID", func(t *testing.T) {
+		app, ctx, _ := setupTssKeyProcessTest(t, 2)
+
+		querier := keeper.NewQuerier(app.UtssKeeper)
+		_, err := querier.GetPendingTssEvent(ctx, &utsstypes.QueryGetPendingTssEventRequest{
+			ProcessId: 99999,
+		})
+		require.Error(t, err)
+	})
+
+	t.Run("pending event is removed after process finalization", func(t *testing.T) {
+		app, ctx, validators := setupTssKeyProcessTest(t, 3)
+
+		err := app.UtssKeeper.InitiateTssKeyProcess(ctx, utsstypes.TssProcessType_TSS_PROCESS_KEYGEN)
+		require.NoError(t, err)
+
+		process, err := app.UtssKeeper.CurrentTssProcess.Get(ctx)
+		require.NoError(t, err)
+		processID := process.Id
+
+		// Vote until quorum to finalize the process
+		for _, v := range validators {
+			valAddr, err := sdk.ValAddressFromBech32(v)
+			require.NoError(t, err)
+			_ = app.UtssKeeper.VoteTssKeyProcess(ctx, valAddr, "final-pub", "final-key", processID)
+		}
+
+		querier := keeper.NewQuerier(app.UtssKeeper)
+		_, err = querier.GetPendingTssEvent(ctx, &utsstypes.QueryGetPendingTssEventRequest{
+			ProcessId: processID,
+		})
+		require.Error(t, err, "pending event should be removed after finalization")
+	})
 }

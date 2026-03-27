@@ -49,7 +49,12 @@ func (k Keeper) CalculateGasCost(
 	gasUsed uint64,
 ) (*big.Int, error) {
 	baseFeeBig := baseFee.BigInt()
-	// @dev: baseFeeBig returns 1e18 for 1upc base fee
+	// @dev: LegacyDec stores values with 18-decimal precision internally, so 1 upc = 1e18
+	// in the LegacyDec representation. Since 1 upc is the smallest denomination (like wei
+	// in Ethereum), the base fee is always a whole number of upc -- no fractional upc exists.
+	// This division unwraps the LegacyDec encoding back to the actual upc amount.
+	// Note: baseFee.BigInt() returns a reference to the internal big.Int; the in-place Div
+	// mutates it, which is safe here since baseFee is a local value-type copy.
 	baseFeeBig.Div(baseFeeBig, big.NewInt(1e18))
 
 	// Step 1: Validate maxFeePerGas >= baseFee

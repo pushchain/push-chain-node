@@ -251,13 +251,13 @@ func TestCalculateThreshold(t *testing.T) {
 		n        int
 		expected int
 	}{
-		{0, 1},  // edge: 0 or fewer → 1
+		{0, 1}, // edge: 0 or fewer → 1
 		{1, 1},
-		{3, 3},  // (2*3)/3+1 = 3
-		{4, 3},  // (2*4)/3+1 = 3
-		{5, 4},  // (2*5)/3+1 = 4
-		{6, 5},  // (2*6)/3+1 = 5
-		{9, 7},  // (2*9)/3+1 = 7
+		{3, 3}, // (2*3)/3+1 = 3
+		{4, 3}, // (2*4)/3+1 = 3
+		{5, 4}, // (2*5)/3+1 = 4
+		{6, 5}, // (2*6)/3+1 = 5
+		{9, 7}, // (2*9)/3+1 = 7
 	}
 	for _, tt := range tests {
 		assert.Equal(t, tt.expected, CalculateThreshold(tt.n), "n=%d", tt.n)
@@ -339,14 +339,14 @@ func TestGetInFlightSignCountPerChain(t *testing.T) {
 	polyData := []byte(`{"destination_chain":"polygon"}`)
 
 	// IN_PROGRESS and SIGNED both count as in-flight.
-	db.Create(&store.Event{EventID: "e1", Type: "SIGN", Status: eventstore.StatusInProgress, EventData: ethData})
-	db.Create(&store.Event{EventID: "e2", Type: "SIGN", Status: eventstore.StatusInProgress, EventData: ethData})
-	db.Create(&store.Event{EventID: "e3", Type: "SIGN", Status: eventstore.StatusSigned, EventData: polyData})
+	db.Create(&store.Event{EventID: "e1", Type: "SIGN", Status: store.StatusInProgress, EventData: ethData})
+	db.Create(&store.Event{EventID: "e2", Type: "SIGN", Status: store.StatusInProgress, EventData: ethData})
+	db.Create(&store.Event{EventID: "e3", Type: "SIGN", Status: store.StatusSigned, EventData: polyData})
 
 	// These must NOT be counted.
-	db.Create(&store.Event{EventID: "e4", Type: "SIGN", Status: eventstore.StatusConfirmed, EventData: ethData})    // not yet in-flight
-	db.Create(&store.Event{EventID: "e5", Type: "SIGN", Status: eventstore.StatusBroadcasted, EventData: ethData}) // pending nonce RPC covers it
-	db.Create(&store.Event{EventID: "e6", Type: "KEYGEN", Status: eventstore.StatusInProgress})                    // not a SIGN event
+	db.Create(&store.Event{EventID: "e4", Type: "SIGN", Status: store.StatusConfirmed, EventData: ethData})   // not yet in-flight
+	db.Create(&store.Event{EventID: "e5", Type: "SIGN", Status: store.StatusBroadcasted, EventData: ethData}) // pending nonce RPC covers it
+	db.Create(&store.Event{EventID: "e6", Type: "KEYGEN", Status: store.StatusInProgress})                    // not a SIGN event
 
 	perChain, err := coord.getInFlightSignCountPerChain()
 	require.NoError(t, err)

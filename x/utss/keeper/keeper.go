@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"errors"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 
@@ -29,6 +30,11 @@ type Keeper struct {
 	// TSS Key Storage
 	CurrentTssKey collections.Item[types.TssKey]        // currently active finalized key
 	TssKeyHistory collections.Map[string, types.TssKey] // map of key_id -> TssKey
+
+	// TSS Events Storage
+	TssEvents        collections.Map[uint64, types.TssEvent] // Key: event ID -> Value: TssEvent
+	NextTssEventId   collections.Sequence                     // auto-increment counter for event IDs
+	PendingTssEvents collections.Map[uint64, uint64] // Key: process_id -> Value: event_id (ACTIVE only)
 
 	// keepers
 	uvalidatorKeeper types.UValidatorKeeper
@@ -66,6 +72,11 @@ func NewKeeper(
 		CurrentTssKey: collections.NewItem(sb, types.CurrentTssKeyKeyPrefix, "current_tss_key", codec.CollValue[types.TssKey](cdc)),
 		TssKeyHistory: collections.NewMap(sb, types.TssKeyHistoryKey, "tss_key_history", collections.StringKey, codec.CollValue[types.TssKey](cdc)),
 
+		// TSS events storage
+		TssEvents:        collections.NewMap(sb, types.TssEventsKey, types.TssEventsName, collections.Uint64Key, codec.CollValue[types.TssEvent](cdc)),
+		NextTssEventId:   collections.NewSequence(sb, types.NextTssEventIdKey, types.NextTssEventIdName),
+		PendingTssEvents: collections.NewMap(sb, types.PendingTssEventsKey, types.PendingTssEventsName, collections.Uint64Key, collections.Uint64Value),
+
 		authority:        authority,
 		uvalidatorKeeper: uvalidatorKeeper,
 	}
@@ -84,7 +95,60 @@ func (k *Keeper) InitGenesis(ctx context.Context, data *types.GenesisState) erro
 		return err
 	}
 
-	return k.Params.Set(ctx, data.Params)
+	if err := k.Params.Set(ctx, data.Params); err != nil {
+		return err
+	}
+
+	// Restore CurrentTssProcess (optional)
+	if data.CurrentTssProcess != nil {
+		if err := k.CurrentTssProcess.Set(ctx, *data.CurrentTssProcess); err != nil {
+			return err
+		}
+	}
+
+	// Restore ProcessHistory
+	for _, entry := range data.ProcessHistory {
+		if err := k.ProcessHistory.Set(ctx, entry.Key, entry.Value); err != nil {
+			return err
+		}
+	}
+
+	// Restore CurrentTssKey (optional)
+	if data.CurrentTssKey != nil {
+		if err := k.CurrentTssKey.Set(ctx, *data.CurrentTssKey); err != nil {
+			return err
+		}
+	}
+
+	// Restore TssKeyHistory
+	for _, entry := range data.TssKeyHistory {
+		if err := k.TssKeyHistory.Set(ctx, entry.Key, entry.Value); err != nil {
+			return err
+		}
+	}
+
+	// Restore NextProcessId
+	if data.NextProcessId > 0 {
+		if err := k.NextProcessId.Set(ctx, data.NextProcessId); err != nil {
+			return err
+		}
+	}
+
+	// Restore TssEvents
+	for _, event := range data.TssEvents {
+		if err := k.TssEvents.Set(ctx, event.Id, event); err != nil {
+			return err
+		}
+	}
+
+	// Restore NextTssEventId
+	if data.NextTssEventId > 0 {
+		if err := k.NextTssEventId.Set(ctx, data.NextTssEventId); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // ExportGenesis exports the module's state to a genesis state.
@@ -94,8 +158,75 @@ func (k *Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 		panic(err)
 	}
 
+	// Export CurrentTssProcess (optional, may not exist)
+	var currentTssProcess *types.TssKeyProcess
+	process, err := k.CurrentTssProcess.Get(ctx)
+	if err == nil {
+		currentTssProcess = &process
+	} else if !errors.Is(err, collections.ErrNotFound) {
+		panic(err)
+	}
+
+	// Export ProcessHistory
+	var processHistory []types.TssKeyProcessEntry
+	err = k.ProcessHistory.Walk(ctx, nil, func(key uint64, value types.TssKeyProcess) (bool, error) {
+		processHistory = append(processHistory, types.TssKeyProcessEntry{Key: key, Value: value})
+		return false, nil
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	// Export CurrentTssKey (optional)
+	var currentTssKey *types.TssKey
+	tssKey, err := k.CurrentTssKey.Get(ctx)
+	if err == nil {
+		currentTssKey = &tssKey
+	} else if !errors.Is(err, collections.ErrNotFound) {
+		panic(err)
+	}
+
+	// Export TssKeyHistory
+	var tssKeyHistory []types.TssKeyEntry
+	err = k.TssKeyHistory.Walk(ctx, nil, func(key string, value types.TssKey) (bool, error) {
+		tssKeyHistory = append(tssKeyHistory, types.TssKeyEntry{Key: key, Value: value})
+		return false, nil
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	// Export NextProcessId
+	nextProcessId, err := k.NextProcessId.Peek(ctx)
+	if err != nil {
+		panic(err)
+	}
+
+	// Export TssEvents
+	var tssEvents []types.TssEvent
+	err = k.TssEvents.Walk(ctx, nil, func(id uint64, event types.TssEvent) (bool, error) {
+		tssEvents = append(tssEvents, event)
+		return false, nil
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	// Export NextTssEventId
+	nextTssEventId, err := k.NextTssEventId.Peek(ctx)
+	if err != nil {
+		panic(err)
+	}
+
 	return &types.GenesisState{
-		Params: params,
+		Params:            params,
+		CurrentTssProcess: currentTssProcess,
+		ProcessHistory:    processHistory,
+		CurrentTssKey:     currentTssKey,
+		TssKeyHistory:     tssKeyHistory,
+		NextProcessId:     nextProcessId,
+		TssEvents:         tssEvents,
+		NextTssEventId:    nextTssEventId,
 	}
 }
 

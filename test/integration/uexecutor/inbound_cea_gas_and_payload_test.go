@@ -313,7 +313,7 @@ func TestInboundCEAGasAndPayload(t *testing.T) {
 		require.Empty(t, utx.OutboundTx, "no revert outbound should be created for isCEA inbounds")
 	})
 
-	t.Run("vote fails at ValidateBasic when isCEA is true but recipient is empty for GAS_AND_PAYLOAD", func(t *testing.T) {
+	t.Run("vote succeeds but UTX has failed PCTx when isCEA is true but recipient is empty for GAS_AND_PAYLOAD", func(t *testing.T) {
 		chainApp, ctx, vals, _, coreVals, _ := setupInboundCEAGasAndPayloadTest(t, 4)
 		usdcAddress := utils.GetDefaultAddresses().ExternalUSDCAddr
 
@@ -333,7 +333,7 @@ func TestInboundCEAGasAndPayload(t *testing.T) {
 			SourceChain:      "eip155:11155111",
 			TxHash:           "0xceagas04",
 			Sender:           utils.GetDefaultAddresses().DefaultTestAddr,
-			Recipient:        "", // empty recipient — fails ValidateBasic when isCEA=true
+			Recipient:        "", // empty recipient — caught by ValidateForExecution, not ValidateBasic
 			Amount:           "1000000",
 			AssetAddr:        usdcAddress.String(),
 			LogIndex:         "1",
@@ -343,16 +343,28 @@ func TestInboundCEAGasAndPayload(t *testing.T) {
 			IsCEA:            true,
 		}
 
-		valAddr, err := sdk.ValAddressFromBech32(coreVals[0].OperatorAddress)
-		require.NoError(t, err)
-		coreValAcc := sdk.AccAddress(valAddr).String()
+		// Vote from all validators to finalize the ballot
+		for i := 0; i < 3; i++ {
+			valAddr, err := sdk.ValAddressFromBech32(coreVals[i].OperatorAddress)
+			require.NoError(t, err)
+			coreValAcc := sdk.AccAddress(valAddr).String()
+			err = utils.ExecVoteInbound(t, ctx, chainApp, vals[i], coreValAcc, invalidInbound)
+			require.NoError(t, err, "vote should succeed — validation failure is recorded on UTX, not as a vote error")
+		}
 
-		err = utils.ExecVoteInbound(t, ctx, chainApp, vals[0], coreValAcc, invalidInbound)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "recipient cannot be empty when isCEA is true")
+		// UTX should exist with a failed PCTx
+		utxKey := uexecutortypes.GetInboundUniversalTxKey(*invalidInbound)
+		utx, found, err := chainApp.UexecutorKeeper.GetUniversalTx(ctx, utxKey)
+		require.NoError(t, err)
+		require.True(t, found, "UTX should be created even when execution validation fails")
+		require.NotEmpty(t, utx.PcTx, "UTX should have a failed PCTx")
+		require.Equal(t, "FAILED", utx.PcTx[0].Status)
+		require.Contains(t, utx.PcTx[0].ErrorMsg, "recipient cannot be empty when isCEA is true")
+		// isCEA failures should NOT create an INBOUND_REVERT outbound
+		require.Empty(t, utx.OutboundTx, "isCEA failures should not create a revert outbound")
 	})
 
-	t.Run("vote fails at ValidateBasic when isCEA is true but recipient has no 0x prefix for GAS_AND_PAYLOAD", func(t *testing.T) {
+	t.Run("vote succeeds but UTX has failed PCTx when isCEA is true but recipient has no 0x prefix for GAS_AND_PAYLOAD", func(t *testing.T) {
 		chainApp, ctx, vals, _, coreVals, _ := setupInboundCEAGasAndPayloadTest(t, 4)
 		usdcAddress := utils.GetDefaultAddresses().ExternalUSDCAddr
 
@@ -382,13 +394,25 @@ func TestInboundCEAGasAndPayload(t *testing.T) {
 			IsCEA:            true,
 		}
 
-		valAddr, err := sdk.ValAddressFromBech32(coreVals[0].OperatorAddress)
-		require.NoError(t, err)
-		coreValAcc := sdk.AccAddress(valAddr).String()
+		// Vote from all validators to finalize the ballot
+		for i := 0; i < 3; i++ {
+			valAddr, err := sdk.ValAddressFromBech32(coreVals[i].OperatorAddress)
+			require.NoError(t, err)
+			coreValAcc := sdk.AccAddress(valAddr).String()
+			err = utils.ExecVoteInbound(t, ctx, chainApp, vals[i], coreValAcc, invalidInbound)
+			require.NoError(t, err, "vote should succeed — validation failure is recorded on UTX, not as a vote error")
+		}
 
-		err = utils.ExecVoteInbound(t, ctx, chainApp, vals[0], coreValAcc, invalidInbound)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "invalid recipient address when isCEA is true")
+		// UTX should exist with a failed PCTx
+		utxKey := uexecutortypes.GetInboundUniversalTxKey(*invalidInbound)
+		utx, found, err := chainApp.UexecutorKeeper.GetUniversalTx(ctx, utxKey)
+		require.NoError(t, err)
+		require.True(t, found, "UTX should be created even when execution validation fails")
+		require.NotEmpty(t, utx.PcTx, "UTX should have a failed PCTx")
+		require.Equal(t, "FAILED", utx.PcTx[0].Status)
+		require.Contains(t, utx.PcTx[0].ErrorMsg, "invalid recipient address when isCEA is true")
+		// isCEA failures should NOT create an INBOUND_REVERT outbound
+		require.Empty(t, utx.OutboundTx, "isCEA failures should not create a revert outbound")
 	})
 
 	t.Run("PRC20 balance lands at recipient UEA when isCEA is true for GAS_AND_PAYLOAD from different sender", func(t *testing.T) {

@@ -17,11 +17,20 @@ func (k Keeper) UpdateUniversalValidatorStatus(
 ) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
+	k.Logger().Info("updating universal validator status",
+		"validator", coreValidatorAddr,
+		"requested_status", newStatus.String(),
+	)
+
 	isOngoingTSS, err := k.UtssKeeper.HasOngoingTss(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to check TSS state: %w", err)
 	}
 	if isOngoingTSS {
+		k.Logger().Warn("cannot update validator status: TSS process is ongoing",
+			"validator", coreValidatorAddr,
+			"requested_status", newStatus.String(),
+		)
 		return fmt.Errorf("cannot update validator status: TSS process is ongoing")
 	}
 
@@ -42,8 +51,19 @@ func (k Keeper) UpdateUniversalValidatorStatus(
 	switch val.LifecycleInfo.CurrentStatus {
 	case types.UVStatus_UV_STATUS_PENDING_LEAVE:
 		if newStatus != types.UVStatus_UV_STATUS_ACTIVE {
+			k.Logger().Warn("invalid status transition: PENDING_LEAVE can only become ACTIVE",
+				"validator", coreValidatorAddr,
+				"old_status", oldStatus.String(),
+				"requested_status", newStatus.String(),
+			)
 			return fmt.Errorf("invalid new status, new status must be ACTIVE")
 		}
+
+		k.Logger().Info("transitioning validator from PENDING_LEAVE to ACTIVE",
+			"validator", coreValidatorAddr,
+			"old_status", oldStatus.String(),
+			"new_status", newStatus.String(),
+		)
 
 		// Pending Leave -> Active
 		if err := k.UpdateValidatorStatus(ctx, valAddr, newStatus); err != nil {
@@ -51,8 +71,18 @@ func (k Keeper) UpdateUniversalValidatorStatus(
 		}
 
 	default:
+		k.Logger().Warn("invalid current status for UpdateUniversalValidatorStatus: expected PENDING_LEAVE",
+			"validator", coreValidatorAddr,
+			"current_status", val.LifecycleInfo.CurrentStatus.String(),
+		)
 		return fmt.Errorf("invalid current status: %s, current status must be PENDING_LEAVE", val.LifecycleInfo.CurrentStatus)
 	}
+
+	k.Logger().Info("universal validator status updated",
+		"validator", coreValidatorAddr,
+		"old_status", oldStatus.String(),
+		"new_status", newStatus.String(),
+	)
 
 	// ---- Trigger hooks ----
 	if k.hooks != nil {

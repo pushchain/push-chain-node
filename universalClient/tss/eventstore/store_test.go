@@ -9,7 +9,6 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 )
 
@@ -36,7 +35,7 @@ func setupTestStore(t *testing.T) *Store {
 
 // createTestEvent creates a test TSS event in the database.
 func createTestEvent(t *testing.T, s *Store, eventID string, blockHeight uint64, status string, expiryHeight uint64) {
-	createTestEventWithType(t, s, eventID, blockHeight, status, expiryHeight, common.EventTypeKeygen)
+	createTestEventWithType(t, s, eventID, blockHeight, status, expiryHeight, store.EventTypeKeygen)
 }
 
 // createTestEventWithType creates a test event with a specific type.
@@ -88,7 +87,7 @@ func TestGetNonExpiredConfirmedEvents(t *testing.T) {
 		s := setupTestStore(t)
 		// Create event at block 95, current block is 100, min confirmation is 10
 		// Event is only 5 blocks old, needs 10 blocks confirmation
-		createTestEvent(t, s, "event-1", 95, StatusConfirmed, 200)
+		createTestEvent(t, s, "event-1", 95, store.StatusConfirmed, 200)
 
 		events, err := s.GetNonExpiredConfirmedEvents(100, 10, 0)
 		if err != nil {
@@ -103,8 +102,8 @@ func TestGetNonExpiredConfirmedEvents(t *testing.T) {
 		s := setupTestStore(t)
 		// Create event at block 80, current block is 100, min confirmation is 10
 		// Event is 20 blocks old, should be ready
-		createTestEvent(t, s, "event-1", 80, StatusConfirmed, 200)
-		createTestEvent(t, s, "event-2", 85, StatusConfirmed, 200)
+		createTestEvent(t, s, "event-1", 80, store.StatusConfirmed, 200)
+		createTestEvent(t, s, "event-2", 85, store.StatusConfirmed, 200)
 
 		events, err := s.GetNonExpiredConfirmedEvents(100, 10, 0)
 		if err != nil {
@@ -123,10 +122,10 @@ func TestGetNonExpiredConfirmedEvents(t *testing.T) {
 
 	t.Run("filters non-pending events", func(t *testing.T) {
 		s := setupTestStore(t)
-		createTestEvent(t, s, "pending-1", 80, StatusConfirmed, 200)
-		createTestEvent(t, s, "in-progress-1", 80, StatusInProgress, 200)
-		createTestEvent(t, s, "success-1", 80, StatusCompleted, 200)
-		createTestEvent(t, s, "reverted-1", 80, StatusReverted, 200)
+		createTestEvent(t, s, "pending-1", 80, store.StatusConfirmed, 200)
+		createTestEvent(t, s, "in-progress-1", 80, store.StatusInProgress, 200)
+		createTestEvent(t, s, "success-1", 80, store.StatusCompleted, 200)
+		createTestEvent(t, s, "reverted-1", 80, store.StatusReverted, 200)
 
 		events, err := s.GetNonExpiredConfirmedEvents(100, 10, 0)
 		if err != nil {
@@ -142,9 +141,9 @@ func TestGetNonExpiredConfirmedEvents(t *testing.T) {
 
 	t.Run("excludes expired events", func(t *testing.T) {
 		s := setupTestStore(t)
-		createTestEvent(t, s, "expired-1", 80, StatusConfirmed, 90) // expired (expiry 90 < current 100)
-		createTestEvent(t, s, "valid-1", 80, StatusConfirmed, 200)  // not expired (expiry 200 > current 100)
-		createTestEvent(t, s, "valid-2", 80, StatusConfirmed, 101)  // not expired (expiry 101 > current 100)
+		createTestEvent(t, s, "expired-1", 80, store.StatusConfirmed, 90) // expired (expiry 90 < current 100)
+		createTestEvent(t, s, "valid-1", 80, store.StatusConfirmed, 200)  // not expired (expiry 200 > current 100)
+		createTestEvent(t, s, "valid-2", 80, store.StatusConfirmed, 101)  // not expired (expiry 101 > current 100)
 
 		events, err := s.GetNonExpiredConfirmedEvents(100, 10, 0)
 		if err != nil {
@@ -157,9 +156,9 @@ func TestGetNonExpiredConfirmedEvents(t *testing.T) {
 
 	t.Run("respects limit", func(t *testing.T) {
 		s := setupTestStore(t)
-		createTestEvent(t, s, "event-1", 80, StatusConfirmed, 200)
-		createTestEvent(t, s, "event-2", 85, StatusConfirmed, 200)
-		createTestEvent(t, s, "event-3", 88, StatusConfirmed, 200)
+		createTestEvent(t, s, "event-1", 80, store.StatusConfirmed, 200)
+		createTestEvent(t, s, "event-2", 85, store.StatusConfirmed, 200)
+		createTestEvent(t, s, "event-3", 88, store.StatusConfirmed, 200)
 
 		events, err := s.GetNonExpiredConfirmedEvents(100, 10, 2)
 		if err != nil {
@@ -172,11 +171,11 @@ func TestGetNonExpiredConfirmedEvents(t *testing.T) {
 
 	t.Run("orders by block number and created_at", func(t *testing.T) {
 		s := setupTestStore(t)
-		createTestEvent(t, s, "event-1", 80, StatusConfirmed, 200)
+		createTestEvent(t, s, "event-1", 80, store.StatusConfirmed, 200)
 		time.Sleep(10 * time.Millisecond) // Ensure different created_at
-		createTestEvent(t, s, "event-2", 80, StatusConfirmed, 200)
+		createTestEvent(t, s, "event-2", 80, store.StatusConfirmed, 200)
 		time.Sleep(10 * time.Millisecond)
-		createTestEvent(t, s, "event-3", 75, StatusConfirmed, 200) // Earlier block
+		createTestEvent(t, s, "event-3", 75, store.StatusConfirmed, 200) // Earlier block
 
 		events, err := s.GetNonExpiredConfirmedEvents(100, 10, 0)
 		if err != nil {
@@ -199,7 +198,7 @@ func TestGetNonExpiredConfirmedEvents(t *testing.T) {
 
 	t.Run("handles current block less than min confirmation", func(t *testing.T) {
 		s := setupTestStore(t)
-		createTestEvent(t, s, "event-1", 0, StatusConfirmed, 200)
+		createTestEvent(t, s, "event-1", 0, store.StatusConfirmed, 200)
 
 		// Current block is 5, min confirmation is 10
 		events, err := s.GetNonExpiredConfirmedEvents(5, 10, 0)
@@ -215,7 +214,7 @@ func TestGetNonExpiredConfirmedEvents(t *testing.T) {
 func TestGetEvent(t *testing.T) {
 	t.Run("event exists", func(t *testing.T) {
 		s := setupTestStore(t)
-		createTestEvent(t, s, "event-1", 100, StatusConfirmed, 200)
+		createTestEvent(t, s, "event-1", 100, store.StatusConfirmed, 200)
 
 		event, err := s.GetEvent("event-1")
 		if err != nil {
@@ -230,8 +229,8 @@ func TestGetEvent(t *testing.T) {
 		if event.BlockHeight != 100 {
 			t.Errorf("GetEvent() block height = %d, want 100", event.BlockHeight)
 		}
-		if event.Status != StatusConfirmed {
-			t.Errorf("GetEvent() status = %s, want %s", event.Status, StatusConfirmed)
+		if event.Status != store.StatusConfirmed {
+			t.Errorf("GetEvent() status = %s, want %s", event.Status, store.StatusConfirmed)
 		}
 	})
 
@@ -251,9 +250,9 @@ func TestGetEvent(t *testing.T) {
 func TestUpdate(t *testing.T) {
 	t.Run("update status", func(t *testing.T) {
 		s := setupTestStore(t)
-		createTestEvent(t, s, "event-1", 100, StatusConfirmed, 200)
+		createTestEvent(t, s, "event-1", 100, store.StatusConfirmed, 200)
 
-		err := s.Update("event-1", map[string]any{"status": StatusInProgress})
+		err := s.Update("event-1", map[string]any{"status": store.StatusInProgress})
 		if err != nil {
 			t.Fatalf("Update() error = %v, want nil", err)
 		}
@@ -262,17 +261,17 @@ func TestUpdate(t *testing.T) {
 		if err != nil {
 			t.Fatalf("GetEvent() error = %v, want nil", err)
 		}
-		if event.Status != StatusInProgress {
-			t.Errorf("Update() status = %s, want %s", event.Status, StatusInProgress)
+		if event.Status != store.StatusInProgress {
+			t.Errorf("Update() status = %s, want %s", event.Status, store.StatusInProgress)
 		}
 	})
 
 	t.Run("update multiple fields", func(t *testing.T) {
 		s := setupTestStore(t)
-		createTestEvent(t, s, "event-1", 100, StatusInProgress, 200)
+		createTestEvent(t, s, "event-1", 100, store.StatusInProgress, 200)
 
 		err := s.Update("event-1", map[string]any{
-			"status":       StatusConfirmed,
+			"status":       store.StatusConfirmed,
 			"block_height": uint64(150),
 		})
 		if err != nil {
@@ -280,8 +279,8 @@ func TestUpdate(t *testing.T) {
 		}
 
 		event, _ := s.GetEvent("event-1")
-		if event.Status != StatusConfirmed {
-			t.Errorf("status = %s, want %s", event.Status, StatusConfirmed)
+		if event.Status != store.StatusConfirmed {
+			t.Errorf("status = %s, want %s", event.Status, store.StatusConfirmed)
 		}
 		if event.BlockHeight != 150 {
 			t.Errorf("block_height = %d, want 150", event.BlockHeight)
@@ -290,7 +289,7 @@ func TestUpdate(t *testing.T) {
 
 	t.Run("update broadcasted tx hash", func(t *testing.T) {
 		s := setupTestStore(t)
-		createTestEvent(t, s, "event-1", 100, StatusBroadcasted, 200)
+		createTestEvent(t, s, "event-1", 100, store.StatusBroadcasted, 200)
 
 		err := s.Update("event-1", map[string]any{"broadcasted_tx_hash": "eip155:11155111:0xabc"})
 		if err != nil {
@@ -306,7 +305,7 @@ func TestUpdate(t *testing.T) {
 	t.Run("update non-existent event", func(t *testing.T) {
 		s := setupTestStore(t)
 
-		err := s.Update("non-existent", map[string]any{"status": StatusCompleted})
+		err := s.Update("non-existent", map[string]any{"status": store.StatusCompleted})
 		if err == nil {
 			t.Fatal("Update() error = nil, want error")
 		}
@@ -314,24 +313,24 @@ func TestUpdate(t *testing.T) {
 
 	t.Run("multiple sequential updates", func(t *testing.T) {
 		s := setupTestStore(t)
-		createTestEvent(t, s, "event-1", 100, StatusConfirmed, 200)
+		createTestEvent(t, s, "event-1", 100, store.StatusConfirmed, 200)
 
 		// CONFIRMED -> IN_PROGRESS
-		if err := s.Update("event-1", map[string]any{"status": StatusInProgress}); err != nil {
+		if err := s.Update("event-1", map[string]any{"status": store.StatusInProgress}); err != nil {
 			t.Fatalf("Update() error = %v", err)
 		}
 		event, _ := s.GetEvent("event-1")
-		if event.Status != StatusInProgress {
-			t.Errorf("status = %s, want %s", event.Status, StatusInProgress)
+		if event.Status != store.StatusInProgress {
+			t.Errorf("status = %s, want %s", event.Status, store.StatusInProgress)
 		}
 
 		// IN_PROGRESS -> COMPLETED
-		if err := s.Update("event-1", map[string]any{"status": StatusCompleted}); err != nil {
+		if err := s.Update("event-1", map[string]any{"status": store.StatusCompleted}); err != nil {
 			t.Fatalf("Update() error = %v", err)
 		}
 		event, _ = s.GetEvent("event-1")
-		if event.Status != StatusCompleted {
-			t.Errorf("status = %s, want %s", event.Status, StatusCompleted)
+		if event.Status != store.StatusCompleted {
+			t.Errorf("status = %s, want %s", event.Status, store.StatusCompleted)
 		}
 	})
 }
@@ -339,8 +338,8 @@ func TestUpdate(t *testing.T) {
 func TestCountInProgress(t *testing.T) {
 	t.Run("no in-progress events", func(t *testing.T) {
 		s := setupTestStore(t)
-		createTestEvent(t, s, "event-1", 100, StatusConfirmed, 200)
-		createTestEvent(t, s, "event-2", 100, StatusCompleted, 200)
+		createTestEvent(t, s, "event-1", 100, store.StatusConfirmed, 200)
+		createTestEvent(t, s, "event-2", 100, store.StatusCompleted, 200)
 
 		count, err := s.CountInProgress()
 		if err != nil {
@@ -353,9 +352,9 @@ func TestCountInProgress(t *testing.T) {
 
 	t.Run("some in-progress events", func(t *testing.T) {
 		s := setupTestStore(t)
-		createTestEvent(t, s, "event-1", 100, StatusInProgress, 200)
-		createTestEvent(t, s, "event-2", 100, StatusInProgress, 200)
-		createTestEvent(t, s, "event-3", 100, StatusConfirmed, 200)
+		createTestEvent(t, s, "event-1", 100, store.StatusInProgress, 200)
+		createTestEvent(t, s, "event-2", 100, store.StatusInProgress, 200)
+		createTestEvent(t, s, "event-3", 100, store.StatusConfirmed, 200)
 
 		count, err := s.CountInProgress()
 		if err != nil {
@@ -370,9 +369,9 @@ func TestCountInProgress(t *testing.T) {
 func TestResetInProgressEventsToConfirmed(t *testing.T) {
 	t.Run("resets in-progress events", func(t *testing.T) {
 		s := setupTestStore(t)
-		createTestEvent(t, s, "ip-1", 100, StatusInProgress, 200)
-		createTestEvent(t, s, "ip-2", 100, StatusInProgress, 200)
-		createTestEvent(t, s, "confirmed-1", 100, StatusConfirmed, 200)
+		createTestEvent(t, s, "ip-1", 100, store.StatusInProgress, 200)
+		createTestEvent(t, s, "ip-2", 100, store.StatusInProgress, 200)
+		createTestEvent(t, s, "confirmed-1", 100, store.StatusConfirmed, 200)
 
 		count, err := s.ResetInProgressEventsToConfirmed()
 		if err != nil {
@@ -385,15 +384,15 @@ func TestResetInProgressEventsToConfirmed(t *testing.T) {
 		// Verify all are now CONFIRMED
 		for _, id := range []string{"ip-1", "ip-2", "confirmed-1"} {
 			event, _ := s.GetEvent(id)
-			if event.Status != StatusConfirmed {
-				t.Errorf("event %s status = %s, want %s", id, event.Status, StatusConfirmed)
+			if event.Status != store.StatusConfirmed {
+				t.Errorf("event %s status = %s, want %s", id, event.Status, store.StatusConfirmed)
 			}
 		}
 	})
 
 	t.Run("no in-progress events", func(t *testing.T) {
 		s := setupTestStore(t)
-		createTestEvent(t, s, "event-1", 100, StatusConfirmed, 200)
+		createTestEvent(t, s, "event-1", 100, store.StatusConfirmed, 200)
 
 		count, err := s.ResetInProgressEventsToConfirmed()
 		if err != nil {
@@ -406,9 +405,9 @@ func TestResetInProgressEventsToConfirmed(t *testing.T) {
 
 	t.Run("does not affect other statuses", func(t *testing.T) {
 		s := setupTestStore(t)
-		createTestEvent(t, s, "reverted-1", 100, StatusReverted, 200)
-		createTestEvent(t, s, "broadcasted-1", 100, StatusBroadcasted, 200)
-		createTestEvent(t, s, "ip-1", 100, StatusInProgress, 200)
+		createTestEvent(t, s, "reverted-1", 100, store.StatusReverted, 200)
+		createTestEvent(t, s, "broadcasted-1", 100, store.StatusBroadcasted, 200)
+		createTestEvent(t, s, "ip-1", 100, store.StatusInProgress, 200)
 
 		count, _ := s.ResetInProgressEventsToConfirmed()
 		if count != 1 {
@@ -417,12 +416,12 @@ func TestResetInProgressEventsToConfirmed(t *testing.T) {
 
 		// REVERTED and BROADCASTED should be unchanged
 		reverted, _ := s.GetEvent("reverted-1")
-		if reverted.Status != StatusReverted {
-			t.Errorf("reverted event status = %s, want %s", reverted.Status, StatusReverted)
+		if reverted.Status != store.StatusReverted {
+			t.Errorf("reverted event status = %s, want %s", reverted.Status, store.StatusReverted)
 		}
 		broadcasted, _ := s.GetEvent("broadcasted-1")
-		if broadcasted.Status != StatusBroadcasted {
-			t.Errorf("broadcasted event status = %s, want %s", broadcasted.Status, StatusBroadcasted)
+		if broadcasted.Status != store.StatusBroadcasted {
+			t.Errorf("broadcasted event status = %s, want %s", broadcasted.Status, store.StatusBroadcasted)
 		}
 	})
 }
@@ -431,16 +430,16 @@ func TestGetExpiredConfirmedEvents(t *testing.T) {
 	t.Run("returns only expired CONFIRMED events", func(t *testing.T) {
 		s := setupTestStore(t)
 		// Expired CONFIRMED (should be returned)
-		createTestEvent(t, s, "confirmed-expired", 50, StatusConfirmed, 90)
+		createTestEvent(t, s, "confirmed-expired", 50, store.StatusConfirmed, 90)
 		// Expired non-CONFIRMED (should NOT be returned)
-		createTestEvent(t, s, "ip-expired", 50, StatusInProgress, 95)
-		createTestEvent(t, s, "signed-expired", 50, StatusSigned, 95)
-		createTestEvent(t, s, "broadcasted-expired", 50, StatusBroadcasted, 100)
+		createTestEvent(t, s, "ip-expired", 50, store.StatusInProgress, 95)
+		createTestEvent(t, s, "signed-expired", 50, store.StatusSigned, 95)
+		createTestEvent(t, s, "broadcasted-expired", 50, store.StatusBroadcasted, 100)
 		// Not expired
-		createTestEvent(t, s, "confirmed-valid", 50, StatusConfirmed, 200)
+		createTestEvent(t, s, "confirmed-valid", 50, store.StatusConfirmed, 200)
 		// Terminal statuses (should not be returned)
-		createTestEvent(t, s, "completed", 50, StatusCompleted, 90)
-		createTestEvent(t, s, "reverted", 50, StatusReverted, 90)
+		createTestEvent(t, s, "completed", 50, store.StatusCompleted, 90)
+		createTestEvent(t, s, "reverted", 50, store.StatusReverted, 90)
 
 		events, err := s.GetExpiredConfirmedEvents(100, 100)
 		if err != nil {
@@ -456,7 +455,7 @@ func TestGetExpiredConfirmedEvents(t *testing.T) {
 
 	t.Run("no expired events", func(t *testing.T) {
 		s := setupTestStore(t)
-		createTestEvent(t, s, "event-1", 50, StatusConfirmed, 200)
+		createTestEvent(t, s, "event-1", 50, store.StatusConfirmed, 200)
 
 		events, err := s.GetExpiredConfirmedEvents(100, 100)
 		if err != nil {
@@ -469,9 +468,9 @@ func TestGetExpiredConfirmedEvents(t *testing.T) {
 
 	t.Run("respects limit", func(t *testing.T) {
 		s := setupTestStore(t)
-		createTestEvent(t, s, "expired-1", 50, StatusConfirmed, 90)
-		createTestEvent(t, s, "expired-2", 60, StatusConfirmed, 95)
-		createTestEvent(t, s, "expired-3", 70, StatusConfirmed, 99)
+		createTestEvent(t, s, "expired-1", 50, store.StatusConfirmed, 90)
+		createTestEvent(t, s, "expired-2", 60, store.StatusConfirmed, 95)
+		createTestEvent(t, s, "expired-3", 70, store.StatusConfirmed, 99)
 
 		events, err := s.GetExpiredConfirmedEvents(100, 2)
 		if err != nil {
@@ -484,8 +483,8 @@ func TestGetExpiredConfirmedEvents(t *testing.T) {
 
 	t.Run("orders by block height", func(t *testing.T) {
 		s := setupTestStore(t)
-		createTestEvent(t, s, "expired-high", 70, StatusConfirmed, 90)
-		createTestEvent(t, s, "expired-low", 50, StatusConfirmed, 90)
+		createTestEvent(t, s, "expired-high", 70, store.StatusConfirmed, 90)
+		createTestEvent(t, s, "expired-low", 50, store.StatusConfirmed, 90)
 
 		events, err := s.GetExpiredConfirmedEvents(100, 100)
 		if err != nil {
@@ -496,3 +495,113 @@ func TestGetExpiredConfirmedEvents(t *testing.T) {
 		}
 	})
 }
+
+func TestGetInFlightSignEvents(t *testing.T) {
+	s := setupTestStore(t)
+
+	createTestEventWithType(t, s, "sign-inprogress", 10, store.StatusInProgress, 200, store.EventTypeSign)
+	createTestEventWithType(t, s, "sign-signed", 11, store.StatusSigned, 200, store.EventTypeSign)
+	createTestEventWithType(t, s, "sign-broadcasted", 12, store.StatusBroadcasted, 200, store.EventTypeSign)
+	createTestEventWithType(t, s, "keygen-inprogress", 13, store.StatusInProgress, 200, store.EventTypeKeygen)
+
+	events, err := s.GetInFlightSignEvents()
+	if err != nil {
+		t.Fatalf("GetInFlightSignEvents() error = %v", err)
+	}
+	// Should return IN_PROGRESS + SIGNED sign events, NOT broadcasted, NOT keygen
+	if len(events) != 2 {
+		t.Fatalf("GetInFlightSignEvents() returned %d events, want 2", len(events))
+	}
+}
+
+func TestGetSignedSignEvents(t *testing.T) {
+	s := setupTestStore(t)
+
+	createTestEventWithType(t, s, "signed-1", 10, store.StatusSigned, 200, store.EventTypeSign)
+	createTestEventWithType(t, s, "signed-2", 11, store.StatusSigned, 200, store.EventTypeSign)
+	createTestEventWithType(t, s, "inprogress-1", 12, store.StatusInProgress, 200, store.EventTypeSign)
+
+	t.Run("returns only signed events", func(t *testing.T) {
+		events, err := s.GetSignedSignEvents(10)
+		if err != nil {
+			t.Fatalf("GetSignedSignEvents() error = %v", err)
+		}
+		if len(events) != 2 {
+			t.Errorf("GetSignedSignEvents() returned %d events, want 2", len(events))
+		}
+	})
+
+	t.Run("respects limit", func(t *testing.T) {
+		events, err := s.GetSignedSignEvents(1)
+		if err != nil {
+			t.Fatalf("GetSignedSignEvents() error = %v", err)
+		}
+		if len(events) != 1 {
+			t.Errorf("GetSignedSignEvents(1) returned %d events, want 1", len(events))
+		}
+	})
+
+	t.Run("zero limit defaults to 50", func(t *testing.T) {
+		events, err := s.GetSignedSignEvents(0)
+		if err != nil {
+			t.Fatalf("GetSignedSignEvents(0) error = %v", err)
+		}
+		if len(events) != 2 {
+			t.Errorf("GetSignedSignEvents(0) returned %d events, want 2", len(events))
+		}
+	})
+}
+
+func TestGetBroadcastedSignEvents(t *testing.T) {
+	s := setupTestStore(t)
+
+	// Create broadcasted event with tx hash
+	evt := store.Event{
+		EventID:           "bc-1",
+		BlockHeight:       10,
+		ExpiryBlockHeight: 200,
+		Type:              store.EventTypeSign,
+		Status:            store.StatusBroadcasted,
+		BroadcastedTxHash: "0xhash123",
+	}
+	if err := s.db.Create(&evt).Error; err != nil {
+		t.Fatalf("failed to create event: %v", err)
+	}
+
+	// Create broadcasted event without tx hash — should be excluded
+	evt2 := store.Event{
+		EventID:           "bc-2",
+		BlockHeight:       11,
+		ExpiryBlockHeight: 200,
+		Type:              store.EventTypeSign,
+		Status:            store.StatusBroadcasted,
+		BroadcastedTxHash: "",
+	}
+	if err := s.db.Create(&evt2).Error; err != nil {
+		t.Fatalf("failed to create event: %v", err)
+	}
+
+	t.Run("returns only events with tx hash", func(t *testing.T) {
+		events, err := s.GetBroadcastedSignEvents(10)
+		if err != nil {
+			t.Fatalf("GetBroadcastedSignEvents() error = %v", err)
+		}
+		if len(events) != 1 {
+			t.Errorf("got %d events, want 1", len(events))
+		}
+		if events[0].EventID != "bc-1" {
+			t.Errorf("got event %s, want bc-1", events[0].EventID)
+		}
+	})
+
+	t.Run("zero limit defaults to 50", func(t *testing.T) {
+		events, err := s.GetBroadcastedSignEvents(0)
+		if err != nil {
+			t.Fatalf("error = %v", err)
+		}
+		if len(events) != 1 {
+			t.Errorf("got %d events, want 1", len(events))
+		}
+	})
+}
+

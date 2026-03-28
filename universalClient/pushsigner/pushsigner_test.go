@@ -1,26 +1,31 @@
 package pushsigner
 
 import (
+	"context"
+	"fmt"
 	"os"
 	"testing"
 
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	cosmosauthz "github.com/cosmos/cosmos-sdk/x/authz"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/pushchain/push-chain-node/universalClient/config"
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
-	keysv2 "github.com/pushchain/push-chain-node/universalClient/pushsigner/keys"
+	"github.com/pushchain/push-chain-node/universalClient/pushsigner/keys"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
 func TestMain(m *testing.M) {
-	// Initialize SDK config for tests
 	sdkConfig := sdk.GetConfig()
 	func() {
 		defer func() {
-			_ = recover() // Ignore panic if already sealed
+			_ = recover()
 		}()
 		sdkConfig.SetBech32PrefixForAccount("push", "pushpub")
 		sdkConfig.SetBech32PrefixForValidator("pushvaloper", "pushvaloperpub")
@@ -31,12 +36,86 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-// createMockPushCoreClient creates a minimal pushcore.Client for testing.
-// Since pushcore.Client is a concrete struct, we create an empty one
-// and tests will need to handle the actual gRPC calls appropriately.
+// --- mock chainClient ---
+
+type mockChainClient struct {
+	broadcastTxFn     func(ctx context.Context, txBytes []byte) (*sdktx.BroadcastTxResponse, error)
+	getAccountFn      func(ctx context.Context, address string) (*authtypes.QueryAccountResponse, error)
+	getGranteeGrantFn func(ctx context.Context, addr string) (*cosmosauthz.QueryGranteeGrantsResponse, error)
+}
+
+func (m *mockChainClient) BroadcastTx(ctx context.Context, txBytes []byte) (*sdktx.BroadcastTxResponse, error) {
+	if m.broadcastTxFn != nil {
+		return m.broadcastTxFn(ctx, txBytes)
+	}
+	return nil, fmt.Errorf("BroadcastTx not mocked")
+}
+
+func (m *mockChainClient) GetAccount(ctx context.Context, address string) (*authtypes.QueryAccountResponse, error) {
+	if m.getAccountFn != nil {
+		return m.getAccountFn(ctx, address)
+	}
+	return nil, fmt.Errorf("GetAccount not mocked")
+}
+
+func (m *mockChainClient) GetGranteeGrants(ctx context.Context, addr string) (*cosmosauthz.QueryGranteeGrantsResponse, error) {
+	if m.getGranteeGrantFn != nil {
+		return m.getGranteeGrantFn(ctx, addr)
+	}
+	return nil, fmt.Errorf("GetGranteeGrants not mocked")
+}
+
+// --- helpers ---
+
 func createMockPushCoreClient() *pushcore.Client {
 	return &pushcore.Client{}
 }
+
+// createTestSigner creates a Signer with a real keyring and mock chainClient for testing.
+func createTestSigner(t *testing.T, mock *mockChainClient) *Signer {
+	t.Helper()
+
+	tempDir, err := os.MkdirTemp("", "signer-test")
+	require.NoError(t, err)
+	t.Cleanup(func() { os.RemoveAll(tempDir) })
+
+	kr, err := keys.CreateKeyring(tempDir, nil, config.KeyringBackendTest)
+	require.NoError(t, err)
+
+	record, _, err := keys.CreateNewKey(kr, "test-key", "", "")
+	require.NoError(t, err)
+
+	k := keys.NewKeys(kr, record.Name)
+	clientCtx := createClientContext(kr, "test-chain")
+
+	return &Signer{
+		keys:      k,
+		clientCtx: clientCtx,
+		pushCore:  mock,
+		granter:   "push1granter",
+		log:       zerolog.New(zerolog.NewTestWriter(t)),
+	}
+}
+
+// makeAccountResponse creates a mock QueryAccountResponse with the given sequence and account number.
+func makeAccountResponse(t *testing.T, address sdk.AccAddress, seq, accNum uint64) *authtypes.QueryAccountResponse {
+	t.Helper()
+
+	baseAccount := &authtypes.BaseAccount{
+		Address:       address.String(),
+		AccountNumber: accNum,
+		Sequence:      seq,
+	}
+
+	anyAccount, err := codectypes.NewAnyWithValue(baseAccount)
+	require.NoError(t, err)
+
+	return &authtypes.QueryAccountResponse{
+		Account: anyAccount,
+	}
+}
+
+// --- New() tests ---
 
 func TestNew(t *testing.T) {
 	logger := zerolog.Nop()
@@ -46,28 +125,18 @@ func TestNew(t *testing.T) {
 		require.NoError(t, err)
 		defer os.RemoveAll(tempDir)
 
-		cfg := &config.Config{
-			KeyringBackend:  config.KeyringBackendTest,
-			KeyringPassword: "",
-		}
-
 		mockCore := createMockPushCoreClient()
 
-		signer, err := New(logger, cfg.KeyringBackend, cfg.KeyringPassword, "", mockCore, "test-chain", "cosmos1granter")
+		signer, err := New(context.Background(), logger, config.KeyringBackendTest, "", "", mockCore, "test-chain", "cosmos1granter")
 		require.Error(t, err)
 		assert.Nil(t, signer)
 		assert.Contains(t, err.Error(), "PushSigner validation failed")
 	})
 
 	t.Run("validation failure - keyring creation fails", func(t *testing.T) {
-		cfg := &config.Config{
-			KeyringBackend:  config.KeyringBackendFile,
-			KeyringPassword: "", // Missing password for file backend
-		}
-
 		mockCore := createMockPushCoreClient()
 
-		signer, err := New(logger, cfg.KeyringBackend, cfg.KeyringPassword, "", mockCore, "test-chain", "cosmos1granter")
+		signer, err := New(context.Background(), logger, config.KeyringBackendFile, "", "", mockCore, "test-chain", "cosmos1granter")
 		require.Error(t, err)
 		assert.Nil(t, signer)
 		assert.Contains(t, err.Error(), "keyring_password is required for file backend")
@@ -78,126 +147,475 @@ func TestNew(t *testing.T) {
 		require.NoError(t, err)
 		defer os.RemoveAll(tempDir)
 
-		// Create keyring and add a key
-		kr, err := keysv2.CreateKeyring(tempDir, nil, keysv2.KeyringBackendTest)
+		kr, err := keys.CreateKeyring(tempDir, nil, config.KeyringBackendTest)
 		require.NoError(t, err)
 
-		_, _, err = keysv2.CreateNewKey(kr, "test-key", "", "")
+		_, _, err = keys.CreateNewKey(kr, "test-key", "", "")
 		require.NoError(t, err)
-
-		cfg := &config.Config{
-			KeyringBackend:  config.KeyringBackendTest,
-			KeyringPassword: "",
-		}
 
 		mockCore := createMockPushCoreClient()
 
-		// This will fail because GetGranteeGrants will fail (no real gRPC connection)
-		signer, err := New(logger, cfg.KeyringBackend, cfg.KeyringPassword, tempDir, mockCore, "test-chain", "cosmos1granter")
+		signer, err := New(context.Background(), logger, config.KeyringBackendTest, "", tempDir, mockCore, "test-chain", "cosmos1granter")
 		require.Error(t, err)
 		assert.Nil(t, signer)
-		// Error will be from GetGranteeGrants failing
 	})
 }
+
+// --- Keys tests ---
 
 func TestSigner_GetKeyring(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "test-signer")
 	require.NoError(t, err)
 	defer os.RemoveAll(tempDir)
 
-	kr, err := keysv2.CreateKeyring(tempDir, nil, keysv2.KeyringBackendTest)
+	kr, err := keys.CreateKeyring(tempDir, nil, config.KeyringBackendTest)
 	require.NoError(t, err)
 
-	record, _, err := keysv2.CreateNewKey(kr, "test-key", "", "")
+	record, _, err := keys.CreateNewKey(kr, "test-key", "", "")
 	require.NoError(t, err)
 
-	keys := keysv2.NewKeys(kr, record.Name, "")
+	k := keys.NewKeys(kr, record.Name)
 
 	t.Run("valid key", func(t *testing.T) {
-		keyring, err := keys.GetKeyring()
+		keyring, err := k.GetKeyring()
 		require.NoError(t, err)
 		assert.NotNil(t, keyring)
 	})
 
 	t.Run("invalid key", func(t *testing.T) {
-		invalidKeys := keysv2.NewKeys(kr, "non-existent-key", "")
-		keyring, err := invalidKeys.GetKeyring()
+		invalidK := keys.NewKeys(kr, "non-existent-key")
+		keyring, err := invalidK.GetKeyring()
 		require.Error(t, err)
 		assert.Nil(t, keyring)
 		assert.Contains(t, err.Error(), "not found in keyring")
 	})
 }
 
-// TestSigner_VoteInbound tests the VoteInbound method signature.
-// Full integration tests would require a complete setup with real keyring, pushcore client, etc.
-func TestSigner_VoteInbound(t *testing.T) {
-	// This test verifies the method exists and has the correct signature.
-	// Full testing requires integration test setup with real dependencies.
-	t.Run("method exists", func(t *testing.T) {
-		// Verify the method signature by checking it compiles
-		var signer *Signer
-		var inbound *uexecutortypes.Inbound
-		_ = signer
-		_ = inbound
-		// Method signature: VoteInbound(ctx context.Context, inbound *uexecutortypes.Inbound) (string, error)
-		assert.True(t, true)
+// --- AuthZ wrapping tests ---
+
+func TestWrapWithAuthZ(t *testing.T) {
+	mock := &mockChainClient{}
+	signer := createTestSigner(t, mock)
+
+	t.Run("empty messages returns error", func(t *testing.T) {
+		msgs, err := signer.wrapWithAuthZ(nil)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no messages to wrap")
+		assert.Nil(t, msgs)
+	})
+
+	t.Run("wraps messages with MsgExec", func(t *testing.T) {
+		innerMsg := &cosmosauthz.MsgExec{}
+		msgs, err := signer.wrapWithAuthZ([]sdk.Msg{innerMsg})
+		require.NoError(t, err)
+		require.Len(t, msgs, 1)
+
+		exec, ok := msgs[0].(*cosmosauthz.MsgExec)
+		require.True(t, ok, "expected MsgExec wrapper")
+		assert.Len(t, exec.Msgs, 1)
 	})
 }
 
-// TestSigner_VoteChainMeta tests the VoteChainMeta method signature.
-func TestSigner_VoteChainMeta(t *testing.T) {
-	t.Run("method exists", func(t *testing.T) {
-		// Method signature: VoteChainMeta(ctx context.Context, chainID string, price uint64, chainHeight uint64) (string, error)
-		assert.True(t, true)
+// --- TxBuilder tests ---
+
+func TestCreateTxBuilder(t *testing.T) {
+	mock := &mockChainClient{}
+	signer := createTestSigner(t, mock)
+
+	t.Run("creates tx builder with params", func(t *testing.T) {
+		fee := sdk.NewCoins(sdk.NewInt64Coin("upc", 1000))
+		txBuilder, err := signer.createTxBuilder(
+			[]sdk.Msg{&cosmosauthz.MsgExec{}},
+			"test memo",
+			200000,
+			fee,
+		)
+		require.NoError(t, err)
+		require.NotNil(t, txBuilder)
+
+		builtTx := txBuilder.GetTx()
+		assert.Equal(t, "test memo", builtTx.GetMemo())
+		assert.Equal(t, uint64(200000), builtTx.GetGas())
+		assert.Equal(t, fee, builtTx.GetFee())
 	})
 }
 
-// TestSigner_VoteOutbound tests the VoteOutbound method signature.
-func TestSigner_VoteOutbound(t *testing.T) {
-	t.Run("method exists with correct signature", func(t *testing.T) {
-		// Method signature: VoteOutbound(ctx context.Context, txID string, utxID string, observation *uexecutortypes.OutboundObservation) (string, error)
-		// Verify the method signature by checking it compiles with the correct parameters
-		var signer *Signer
-		var txID string = "tx-123"
-		var utxID string = "utx-456"
-		var observation *uexecutortypes.OutboundObservation
-		_ = signer
-		_ = txID
-		_ = utxID
-		_ = observation
-		assert.True(t, true)
-	})
+// --- Account info tests ---
 
-	t.Run("observation struct has required fields", func(t *testing.T) {
-		observation := &uexecutortypes.OutboundObservation{
-			Success:     true,
-			BlockHeight: 12345,
-			TxHash:      "0xabc123",
-			ErrorMsg:    "",
+func TestGetAccountInfo(t *testing.T) {
+	t.Run("returns account from chain", func(t *testing.T) {
+		mock := &mockChainClient{
+			getAccountFn: func(ctx context.Context, address string) (*authtypes.QueryAccountResponse, error) {
+				addr, _ := sdk.AccAddressFromBech32(address)
+				return makeAccountResponse(t, addr, 42, 7), nil
+			},
 		}
-		assert.True(t, observation.Success)
-		assert.Equal(t, uint64(12345), observation.BlockHeight)
-		assert.Equal(t, "0xabc123", observation.TxHash)
-		assert.Equal(t, "", observation.ErrorMsg)
+
+		signer := createTestSigner(t, mock)
+
+		account, err := signer.getAccountInfo(context.Background())
+		require.NoError(t, err)
+		assert.Equal(t, uint64(42), account.GetSequence())
+		assert.Equal(t, uint64(7), account.GetAccountNumber())
 	})
 
-	t.Run("observation for failed transaction", func(t *testing.T) {
-		observation := &uexecutortypes.OutboundObservation{
-			Success:     false,
-			BlockHeight: 0,
-			TxHash:      "",
-			ErrorMsg:    "transaction failed: insufficient funds",
+	t.Run("returns error on chain failure", func(t *testing.T) {
+		mock := &mockChainClient{
+			getAccountFn: func(ctx context.Context, address string) (*authtypes.QueryAccountResponse, error) {
+				return nil, fmt.Errorf("node unavailable")
+			},
 		}
-		assert.False(t, observation.Success)
-		assert.Equal(t, uint64(0), observation.BlockHeight)
-		assert.Equal(t, "transaction failed: insufficient funds", observation.ErrorMsg)
+
+		signer := createTestSigner(t, mock)
+
+		account, err := signer.getAccountInfo(context.Background())
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "node unavailable")
+		assert.Nil(t, account)
 	})
 }
 
-// TestSigner_VoteTssKeyProcess tests the VoteTssKeyProcess method signature.
-func TestSigner_VoteTssKeyProcess(t *testing.T) {
-	t.Run("method exists", func(t *testing.T) {
-		// Method signature: VoteTssKeyProcess(ctx context.Context, tssPubKey string, keyID string, processID uint64) (string, error)
-		assert.True(t, true)
+// --- Sign and broadcast tests ---
+
+func TestSignAndBroadcast_SequenceManagement(t *testing.T) {
+	t.Run("successful broadcast increments sequence", func(t *testing.T) {
+		broadcastCalls := 0
+		mock := &mockChainClient{
+			getAccountFn: func(ctx context.Context, address string) (*authtypes.QueryAccountResponse, error) {
+				addr, _ := sdk.AccAddressFromBech32(address)
+				return makeAccountResponse(t, addr, 5, 1), nil
+			},
+			broadcastTxFn: func(ctx context.Context, txBytes []byte) (*sdktx.BroadcastTxResponse, error) {
+				broadcastCalls++
+				return &sdktx.BroadcastTxResponse{
+					TxResponse: &sdk.TxResponse{Code: 0, TxHash: "ABC123"},
+				}, nil
+			},
+		}
+
+		signer := createTestSigner(t, mock)
+		assert.Equal(t, uint64(0), signer.lastSequence)
+
+		fee := sdk.NewCoins(sdk.NewInt64Coin("upc", 1000))
+		resp, err := signer.signAndBroadcastAuthZTx(
+			context.Background(),
+			[]sdk.Msg{&cosmosauthz.MsgExec{}},
+			"test", 200000, fee,
+		)
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Equal(t, "ABC123", resp.TxHash)
+		assert.Equal(t, uint64(6), signer.lastSequence)
+		assert.Equal(t, 1, broadcastCalls)
 	})
+
+	t.Run("network error resets sequence to 0", func(t *testing.T) {
+		mock := &mockChainClient{
+			getAccountFn: func(ctx context.Context, address string) (*authtypes.QueryAccountResponse, error) {
+				addr, _ := sdk.AccAddressFromBech32(address)
+				return makeAccountResponse(t, addr, 10, 1), nil
+			},
+			broadcastTxFn: func(ctx context.Context, txBytes []byte) (*sdktx.BroadcastTxResponse, error) {
+				return nil, fmt.Errorf("connection refused")
+			},
+		}
+
+		signer := createTestSigner(t, mock)
+		signer.lastSequence = 10
+
+		fee := sdk.NewCoins(sdk.NewInt64Coin("upc", 1000))
+		_, err := signer.signAndBroadcastAuthZTx(
+			context.Background(),
+			[]sdk.Msg{&cosmosauthz.MsgExec{}},
+			"test", 200000, fee,
+		)
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "connection refused")
+		assert.Equal(t, uint64(0), signer.lastSequence)
+	})
+
+	t.Run("sequence mismatch error retries with refresh", func(t *testing.T) {
+		attempt := 0
+		mock := &mockChainClient{
+			getAccountFn: func(ctx context.Context, address string) (*authtypes.QueryAccountResponse, error) {
+				addr, _ := sdk.AccAddressFromBech32(address)
+				if attempt > 0 {
+					return makeAccountResponse(t, addr, 7, 1), nil
+				}
+				return makeAccountResponse(t, addr, 5, 1), nil
+			},
+			broadcastTxFn: func(ctx context.Context, txBytes []byte) (*sdktx.BroadcastTxResponse, error) {
+				attempt++
+				if attempt == 1 {
+					return nil, fmt.Errorf("account sequence mismatch: expected 7, got 5")
+				}
+				return &sdktx.BroadcastTxResponse{
+					TxResponse: &sdk.TxResponse{Code: 0, TxHash: "RETRY_OK"},
+				}, nil
+			},
+		}
+
+		signer := createTestSigner(t, mock)
+
+		fee := sdk.NewCoins(sdk.NewInt64Coin("upc", 1000))
+		resp, err := signer.signAndBroadcastAuthZTx(
+			context.Background(),
+			[]sdk.Msg{&cosmosauthz.MsgExec{}},
+			"test", 200000, fee,
+		)
+
+		require.NoError(t, err)
+		assert.Equal(t, "RETRY_OK", resp.TxHash)
+		assert.Equal(t, 2, attempt)
+		assert.Equal(t, uint64(8), signer.lastSequence)
+	})
+
+	t.Run("on-chain error increments sequence", func(t *testing.T) {
+		mock := &mockChainClient{
+			getAccountFn: func(ctx context.Context, address string) (*authtypes.QueryAccountResponse, error) {
+				addr, _ := sdk.AccAddressFromBech32(address)
+				return makeAccountResponse(t, addr, 3, 1), nil
+			},
+			broadcastTxFn: func(ctx context.Context, txBytes []byte) (*sdktx.BroadcastTxResponse, error) {
+				return &sdktx.BroadcastTxResponse{
+					TxResponse: &sdk.TxResponse{Code: 5, TxHash: "FAILED_TX", RawLog: "insufficient funds"},
+				}, nil
+			},
+		}
+
+		signer := createTestSigner(t, mock)
+
+		fee := sdk.NewCoins(sdk.NewInt64Coin("upc", 1000))
+		resp, err := signer.signAndBroadcastAuthZTx(
+			context.Background(),
+			[]sdk.Msg{&cosmosauthz.MsgExec{}},
+			"test", 200000, fee,
+		)
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "insufficient funds")
+		assert.NotNil(t, resp)
+		assert.Equal(t, uint64(4), signer.lastSequence)
+	})
+
+	t.Run("on-chain sequence mismatch retries", func(t *testing.T) {
+		attempt := 0
+		mock := &mockChainClient{
+			getAccountFn: func(ctx context.Context, address string) (*authtypes.QueryAccountResponse, error) {
+				addr, _ := sdk.AccAddressFromBech32(address)
+				if attempt > 0 {
+					return makeAccountResponse(t, addr, 9, 1), nil
+				}
+				return makeAccountResponse(t, addr, 5, 1), nil
+			},
+			broadcastTxFn: func(ctx context.Context, txBytes []byte) (*sdktx.BroadcastTxResponse, error) {
+				attempt++
+				if attempt == 1 {
+					return &sdktx.BroadcastTxResponse{
+						TxResponse: &sdk.TxResponse{Code: 32, RawLog: "account sequence mismatch: expected 9, got 5"},
+					}, nil
+				}
+				return &sdktx.BroadcastTxResponse{
+					TxResponse: &sdk.TxResponse{Code: 0, TxHash: "OK_AFTER_RETRY"},
+				}, nil
+			},
+		}
+
+		signer := createTestSigner(t, mock)
+
+		fee := sdk.NewCoins(sdk.NewInt64Coin("upc", 1000))
+		resp, err := signer.signAndBroadcastAuthZTx(
+			context.Background(),
+			[]sdk.Msg{&cosmosauthz.MsgExec{}},
+			"test", 200000, fee,
+		)
+
+		require.NoError(t, err)
+		assert.Equal(t, "OK_AFTER_RETRY", resp.TxHash)
+		assert.Equal(t, 2, attempt)
+	})
+}
+
+// --- Sequence reconciliation tests ---
+
+func TestSequenceReconciliation(t *testing.T) {
+	t.Run("local=0 adopts chain sequence", func(t *testing.T) {
+		mock := &mockChainClient{
+			getAccountFn: func(ctx context.Context, address string) (*authtypes.QueryAccountResponse, error) {
+				addr, _ := sdk.AccAddressFromBech32(address)
+				return makeAccountResponse(t, addr, 15, 1), nil
+			},
+			broadcastTxFn: func(ctx context.Context, txBytes []byte) (*sdktx.BroadcastTxResponse, error) {
+				return &sdktx.BroadcastTxResponse{
+					TxResponse: &sdk.TxResponse{Code: 0, TxHash: "OK"},
+				}, nil
+			},
+		}
+
+		signer := createTestSigner(t, mock)
+		signer.lastSequence = 0
+
+		fee := sdk.NewCoins(sdk.NewInt64Coin("upc", 1000))
+		_, err := signer.signAndBroadcastAuthZTx(
+			context.Background(),
+			[]sdk.Msg{&cosmosauthz.MsgExec{}},
+			"test", 200000, fee,
+		)
+
+		require.NoError(t, err)
+		assert.Equal(t, uint64(16), signer.lastSequence)
+	})
+
+	t.Run("local behind chain adopts chain", func(t *testing.T) {
+		mock := &mockChainClient{
+			getAccountFn: func(ctx context.Context, address string) (*authtypes.QueryAccountResponse, error) {
+				addr, _ := sdk.AccAddressFromBech32(address)
+				return makeAccountResponse(t, addr, 20, 1), nil
+			},
+			broadcastTxFn: func(ctx context.Context, txBytes []byte) (*sdktx.BroadcastTxResponse, error) {
+				return &sdktx.BroadcastTxResponse{
+					TxResponse: &sdk.TxResponse{Code: 0, TxHash: "OK"},
+				}, nil
+			},
+		}
+
+		signer := createTestSigner(t, mock)
+		signer.lastSequence = 10
+
+		fee := sdk.NewCoins(sdk.NewInt64Coin("upc", 1000))
+		_, err := signer.signAndBroadcastAuthZTx(
+			context.Background(),
+			[]sdk.Msg{&cosmosauthz.MsgExec{}},
+			"test", 200000, fee,
+		)
+
+		require.NoError(t, err)
+		assert.Equal(t, uint64(21), signer.lastSequence)
+	})
+
+	t.Run("local ahead of chain keeps local", func(t *testing.T) {
+		mock := &mockChainClient{
+			getAccountFn: func(ctx context.Context, address string) (*authtypes.QueryAccountResponse, error) {
+				addr, _ := sdk.AccAddressFromBech32(address)
+				return makeAccountResponse(t, addr, 5, 1), nil
+			},
+			broadcastTxFn: func(ctx context.Context, txBytes []byte) (*sdktx.BroadcastTxResponse, error) {
+				return &sdktx.BroadcastTxResponse{
+					TxResponse: &sdk.TxResponse{Code: 0, TxHash: "OK"},
+				}, nil
+			},
+		}
+
+		signer := createTestSigner(t, mock)
+		signer.lastSequence = 8
+
+		fee := sdk.NewCoins(sdk.NewInt64Coin("upc", 1000))
+		_, err := signer.signAndBroadcastAuthZTx(
+			context.Background(),
+			[]sdk.Msg{&cosmosauthz.MsgExec{}},
+			"test", 200000, fee,
+		)
+
+		require.NoError(t, err)
+		assert.Equal(t, uint64(9), signer.lastSequence)
+	})
+}
+
+// --- Vote tests ---
+
+func successMock(t *testing.T) *mockChainClient {
+	return &mockChainClient{
+		getAccountFn: func(ctx context.Context, address string) (*authtypes.QueryAccountResponse, error) {
+			addr, _ := sdk.AccAddressFromBech32(address)
+			return makeAccountResponse(t, addr, 1, 1), nil
+		},
+		broadcastTxFn: func(ctx context.Context, txBytes []byte) (*sdktx.BroadcastTxResponse, error) {
+			return &sdktx.BroadcastTxResponse{
+				TxResponse: &sdk.TxResponse{Code: 0, TxHash: "VOTE_OK"},
+			}, nil
+		},
+	}
+}
+
+func failMock(t *testing.T) *mockChainClient {
+	return &mockChainClient{
+		getAccountFn: func(ctx context.Context, address string) (*authtypes.QueryAccountResponse, error) {
+			addr, _ := sdk.AccAddressFromBech32(address)
+			return makeAccountResponse(t, addr, 1, 1), nil
+		},
+		broadcastTxFn: func(ctx context.Context, txBytes []byte) (*sdktx.BroadcastTxResponse, error) {
+			return nil, fmt.Errorf("connection refused")
+		},
+	}
+}
+
+func TestVoteInbound(t *testing.T) {
+	t.Run("successful vote", func(t *testing.T) {
+		signer := createTestSigner(t, successMock(t))
+		inbound := &uexecutortypes.Inbound{TxHash: "0xabc"}
+
+		txHash, err := signer.VoteInbound(context.Background(), inbound)
+		require.NoError(t, err)
+		assert.Equal(t, "VOTE_OK", txHash)
+	})
+
+	t.Run("broadcast failure", func(t *testing.T) {
+		signer := createTestSigner(t, failMock(t))
+		inbound := &uexecutortypes.Inbound{TxHash: "0xabc"}
+
+		_, err := signer.VoteInbound(context.Background(), inbound)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to broadcast vote")
+	})
+}
+
+func TestVoteChainMeta(t *testing.T) {
+	signer := createTestSigner(t, successMock(t))
+
+	txHash, err := signer.VoteChainMeta(context.Background(), "eip155:1", 20000000000, 18500000)
+	require.NoError(t, err)
+	assert.Equal(t, "VOTE_OK", txHash)
+}
+
+func TestVoteOutbound(t *testing.T) {
+	signer := createTestSigner(t, successMock(t))
+	obs := &uexecutortypes.OutboundObservation{
+		Success:     true,
+		BlockHeight: 12345,
+		TxHash:      "0xdef",
+	}
+
+	txHash, err := signer.VoteOutbound(context.Background(), "tx-1", "utx-1", obs)
+	require.NoError(t, err)
+	assert.Equal(t, "VOTE_OK", txHash)
+}
+
+func TestVoteTssKeyProcess(t *testing.T) {
+	signer := createTestSigner(t, successMock(t))
+
+	txHash, err := signer.VoteTssKeyProcess(context.Background(), "tsspub1abc", "key-001", 42)
+	require.NoError(t, err)
+	assert.Equal(t, "VOTE_OK", txHash)
+}
+
+func TestVoteOnChainRejection(t *testing.T) {
+	mock := &mockChainClient{
+		getAccountFn: func(ctx context.Context, address string) (*authtypes.QueryAccountResponse, error) {
+			addr, _ := sdk.AccAddressFromBech32(address)
+			return makeAccountResponse(t, addr, 1, 1), nil
+		},
+		broadcastTxFn: func(ctx context.Context, txBytes []byte) (*sdktx.BroadcastTxResponse, error) {
+			return &sdktx.BroadcastTxResponse{
+				TxResponse: &sdk.TxResponse{Code: 5, RawLog: "unauthorized"},
+			}, nil
+		},
+	}
+
+	signer := createTestSigner(t, mock)
+
+	_, err := signer.VoteInbound(context.Background(), &uexecutortypes.Inbound{TxHash: "0x1"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "transaction failed with code 5")
 }

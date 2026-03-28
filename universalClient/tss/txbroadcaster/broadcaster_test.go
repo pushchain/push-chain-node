@@ -66,10 +66,10 @@ func (m *mockTxBuilder) GetGasFeeUsed(ctx context.Context, txHash string) (strin
 
 type mockChainClient struct{ builder *mockTxBuilder }
 
-func (m *mockChainClient) Start(context.Context) error                          { return nil }
-func (m *mockChainClient) Stop() error                                          { return nil }
-func (m *mockChainClient) IsHealthy() bool                                      { return true }
-func (m *mockChainClient) GetTxBuilder() (common.OutboundTxBuilder, error)      { return m.builder, nil }
+func (m *mockChainClient) Start(context.Context) error                     { return nil }
+func (m *mockChainClient) Stop() error                                     { return nil }
+func (m *mockChainClient) IsHealthy() bool                                 { return true }
+func (m *mockChainClient) GetTxBuilder() (common.OutboundTxBuilder, error) { return m.builder, nil }
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -139,7 +139,7 @@ func insertSignedEvent(t *testing.T, db *gorm.DB, eventID, destChain string, non
 		ExpiryBlockHeight: 99999,
 		Type:              "SIGN",
 		ConfirmationType:  "STANDARD",
-		Status:            eventstore.StatusSigned,
+		Status:            store.StatusSigned,
 		EventData:         makeSignedEventData(t, destChain, nonce),
 	}
 	require.NoError(t, db.Create(&event).Error)
@@ -184,7 +184,7 @@ func TestEVM_BroadcastError_NonceConsumed_MarksBroadcasted(t *testing.T) {
 	b.processSigned(context.Background())
 
 	ev := getEvent(t, db, "ev-1")
-	require.Equal(t, eventstore.StatusBroadcasted, ev.Status)
+	require.Equal(t, store.StatusBroadcasted, ev.Status)
 	require.Equal(t, "eip155:1:0xabc", ev.BroadcastedTxHash)
 }
 
@@ -203,7 +203,7 @@ func TestEVM_BroadcastSuccess_MarksBroadcasted(t *testing.T) {
 	b.processSigned(context.Background())
 
 	ev := getEvent(t, db, "ev-1")
-	require.Equal(t, eventstore.StatusBroadcasted, ev.Status)
+	require.Equal(t, store.StatusBroadcasted, ev.Status)
 	require.Equal(t, "eip155:1:0xabc123", ev.BroadcastedTxHash)
 	builder.AssertNotCalled(t, "GetNextNonce", mock.Anything, mock.Anything, mock.Anything)
 }
@@ -225,7 +225,7 @@ func TestEVM_BroadcastFails_NonceConsumedOnRecheck_MarksBroadcasted(t *testing.T
 	b.processSigned(context.Background())
 
 	ev := getEvent(t, db, "ev-1")
-	require.Equal(t, eventstore.StatusBroadcasted, ev.Status)
+	require.Equal(t, store.StatusBroadcasted, ev.Status)
 }
 
 func TestEVM_BroadcastFails_NonceNotConsumed_StaysSigned(t *testing.T) {
@@ -244,7 +244,7 @@ func TestEVM_BroadcastFails_NonceNotConsumed_StaysSigned(t *testing.T) {
 	b.processSigned(context.Background())
 
 	ev := getEvent(t, db, "ev-1")
-	require.Equal(t, eventstore.StatusSigned, ev.Status) // stays SIGNED
+	require.Equal(t, store.StatusSigned, ev.Status) // stays SIGNED
 	builder.AssertNotCalled(t, "GetNextNonce", mock.Anything, mock.Anything, mock.Anything)
 }
 
@@ -265,7 +265,7 @@ func TestEVM_BroadcastFails_WithTxHash_NonceNotConsumed_StaysSigned(t *testing.T
 	b.processSigned(context.Background())
 
 	ev := getEvent(t, db, "ev-1")
-	require.Equal(t, eventstore.StatusSigned, ev.Status) // stays SIGNED
+	require.Equal(t, store.StatusSigned, ev.Status) // stays SIGNED
 }
 
 func TestEVM_GetTSSAddressNil_UsesEmptyAddress(t *testing.T) {
@@ -291,7 +291,7 @@ func TestEVM_GetTSSAddressNil_UsesEmptyAddress(t *testing.T) {
 	b.processSigned(context.Background())
 
 	ev := getEvent(t, db, "ev-1")
-	require.Equal(t, eventstore.StatusBroadcasted, ev.Status)
+	require.Equal(t, store.StatusBroadcasted, ev.Status)
 	builder.AssertCalled(t, "GetNextNonce", mock.Anything, "", true)
 }
 
@@ -315,7 +315,7 @@ func TestSVM_BroadcastSuccess_MarksBroadcasted(t *testing.T) {
 	b.processSigned(context.Background())
 
 	ev := getEvent(t, db, "ev-1")
-	require.Equal(t, eventstore.StatusBroadcasted, ev.Status)
+	require.Equal(t, store.StatusBroadcasted, ev.Status)
 	require.Equal(t, "solana:mainnet:solTxSig123", ev.BroadcastedTxHash)
 }
 
@@ -336,7 +336,7 @@ func TestSVM_BroadcastFails_PDAExists_MarksBroadcasted(t *testing.T) {
 	b.processSigned(context.Background())
 
 	ev := getEvent(t, db, "ev-1")
-	require.Equal(t, eventstore.StatusBroadcasted, ev.Status)
+	require.Equal(t, store.StatusBroadcasted, ev.Status)
 	require.Equal(t, "solana:mainnet:", ev.BroadcastedTxHash) // empty tx hash
 }
 
@@ -357,7 +357,7 @@ func TestSVM_BroadcastFails_PDANotFound_MarksBroadcasted(t *testing.T) {
 	b.processSigned(context.Background())
 
 	ev := getEvent(t, db, "ev-1")
-	require.Equal(t, eventstore.StatusBroadcasted, ev.Status)
+	require.Equal(t, store.StatusBroadcasted, ev.Status)
 	require.Equal(t, "solana:mainnet:", ev.BroadcastedTxHash) // empty tx hash
 }
 
@@ -378,7 +378,7 @@ func TestSVM_BroadcastFails_PDACheckFails_StaysSigned(t *testing.T) {
 	b.processSigned(context.Background())
 
 	ev := getEvent(t, db, "ev-1")
-	require.Equal(t, eventstore.StatusSigned, ev.Status) // stays SIGNED
+	require.Equal(t, store.StatusSigned, ev.Status) // stays SIGNED
 }
 
 // ---------------------------------------------------------------------------
@@ -421,8 +421,8 @@ func TestProcessSigned_MultipleEvents(t *testing.T) {
 
 	ev1 := getEvent(t, db, "ev-1")
 	ev2 := getEvent(t, db, "ev-2")
-	require.Equal(t, eventstore.StatusBroadcasted, ev1.Status)
-	require.Equal(t, eventstore.StatusBroadcasted, ev2.Status)
+	require.Equal(t, store.StatusBroadcasted, ev1.Status)
+	require.Equal(t, store.StatusBroadcasted, ev2.Status)
 }
 
 // ---------------------------------------------------------------------------
@@ -439,7 +439,7 @@ func TestMarkBroadcasted_FormatsCAIPTxHash(t *testing.T) {
 
 	updated := getEvent(t, db, "ev-1")
 	require.Equal(t, "eip155:1:0xdeadbeef", updated.BroadcastedTxHash)
-	require.Equal(t, eventstore.StatusBroadcasted, updated.Status)
+	require.Equal(t, store.StatusBroadcasted, updated.Status)
 }
 
 func TestMarkBroadcasted_EmptyTxHash(t *testing.T) {

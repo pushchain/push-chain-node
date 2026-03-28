@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -11,8 +12,9 @@ import (
 
 // Server provides HTTP endpoints
 type Server struct {
-	logger zerolog.Logger
-	server *http.Server
+	logger   zerolog.Logger
+	server   *http.Server
+	listener net.Listener
 }
 
 // NewServer creates a new Server instance
@@ -37,24 +39,14 @@ func (s *Server) Start() error {
 		return fmt.Errorf("query server is nil")
 	}
 
-	// Channel to signal server startup result
-	startupChan := make(chan error, 1)
+	ln, err := net.Listen("tcp", s.server.Addr)
+	if err != nil {
+		return fmt.Errorf("failed to bind to address %s: %w", s.server.Addr, err)
+	}
+	s.listener = ln
 
-	// Start server in goroutine
 	go func() {
-		// Create a test listener to verify the port is available
-		ln, err := net.Listen("tcp", s.server.Addr)
-		if err != nil {
-			startupChan <- fmt.Errorf("failed to bind to address %s: %w", s.server.Addr, err)
-			return
-		}
-		ln.Close()
-
-		// Signal successful startup check
-		startupChan <- nil
-
-		// Now start the actual server
-		err = s.server.ListenAndServe()
+		err := s.server.Serve(ln)
 		switch err {
 		case nil:
 			s.logger.Info().Msg("Query server stopped normally")
@@ -65,22 +57,23 @@ func (s *Server) Start() error {
 		}
 	}()
 
-	// Wait for startup result with timeout
-	select {
-	case err := <-startupChan:
-		if err != nil {
-			return err
-		}
-		return nil
-	case <-time.After(5 * time.Second):
-		return fmt.Errorf("server startup timeout")
+	return nil
+}
+
+// Addr returns the listener address, useful when started on port 0
+func (s *Server) Addr() string {
+	if s.listener != nil {
+		return s.listener.Addr().String()
 	}
+	return ""
 }
 
 // Stop gracefully shuts down the HTTP server
 func (s *Server) Stop() error {
 	if s.server != nil {
-		return s.server.Close()
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		return s.server.Shutdown(ctx)
 	}
 	return nil
 }

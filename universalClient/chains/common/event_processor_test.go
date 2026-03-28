@@ -141,6 +141,83 @@ func TestEventProcessorConstructInbound(t *testing.T) {
 		assert.Equal(t, uexecutortypes.TxType_FUNDS, inbound.TxType)
 	})
 
+	t.Run("passes all fields unconditionally to inbound", func(t *testing.T) {
+		eventData := UniversalTx{
+			SourceChain:         "eip155:1",
+			LogIndex:            3,
+			Sender:              "0xsender",
+			Recipient:           "0xrecipient",
+			Token:               "0xtoken",
+			Amount:              "500",
+			RawPayload:          "0xdeadbeef",
+			VerificationData:    "0xsigdata",
+			RevertFundRecipient: "0xrevert",
+			TxType:              3, // FUNDS_AND_PAYLOAD
+			FromCEA:             true,
+		}
+		eventDataBytes, _ := json.Marshal(eventData)
+
+		event := &store.Event{
+			EventID:   "0xtxhash:3",
+			EventData: eventDataBytes,
+		}
+
+		inbound, err := processor.constructInbound(event)
+		require.NoError(t, err)
+		require.NotNil(t, inbound)
+		assert.Equal(t, "0xrecipient", inbound.Recipient)
+		assert.Equal(t, "0xdeadbeef", inbound.RawPayload)
+		assert.Equal(t, "0xsigdata", inbound.VerificationData)
+		assert.True(t, inbound.IsCEA)
+		require.NotNil(t, inbound.RevertInstructions)
+		assert.Equal(t, "0xrevert", inbound.RevertInstructions.FundRecipient)
+	})
+
+	t.Run("passes raw payload and verification data for non-payload tx types", func(t *testing.T) {
+		// Core will strip these — UV just passes everything through
+		eventData := UniversalTx{
+			SourceChain:      "eip155:1",
+			Sender:           "0xsender",
+			Recipient:        "0xrecipient",
+			Amount:           "1000",
+			RawPayload:       "0xcafe",
+			VerificationData: "0xsig",
+			TxType:           2, // FUNDS (non-payload type)
+		}
+		eventDataBytes, _ := json.Marshal(eventData)
+
+		event := &store.Event{
+			EventID:   "0xhash:0",
+			EventData: eventDataBytes,
+		}
+
+		inbound, err := processor.constructInbound(event)
+		require.NoError(t, err)
+		assert.Equal(t, "0xrecipient", inbound.Recipient)
+		assert.Equal(t, "0xcafe", inbound.RawPayload)
+		assert.Equal(t, "0xsig", inbound.VerificationData)
+	})
+
+	t.Run("no revert instructions when revert recipient is empty", func(t *testing.T) {
+		eventData := UniversalTx{
+			SourceChain:         "eip155:1",
+			Sender:              "0xsender",
+			Amount:              "100",
+			TxType:              0, // GAS
+			RevertFundRecipient: "",
+		}
+		eventDataBytes, _ := json.Marshal(eventData)
+
+		event := &store.Event{
+			EventID:   "0xhash:0",
+			EventData: eventDataBytes,
+		}
+
+		inbound, err := processor.constructInbound(event)
+		require.NoError(t, err)
+		assert.Nil(t, inbound.RevertInstructions)
+	})
+
 	t.Run("tx type mapping", func(t *testing.T) {
 		testCases := []struct {
 			txType   uint
@@ -384,14 +461,14 @@ func TestProcessConfirmedEventsEnabledFlags(t *testing.T) {
 		return []store.Event{
 			{
 				EventID:   "0xaaa:0",
-				Status:    "CONFIRMED",
-				Type:      EventTypeInbound,
+				Status:    store.StatusConfirmed,
+				Type:      store.EventTypeInbound,
 				EventData: inboundEventData,
 			},
 			{
 				EventID:   "0xbbb:0",
-				Status:    "CONFIRMED",
-				Type:      EventTypeOutbound,
+				Status:    store.StatusConfirmed,
+				Type:      store.EventTypeOutbound,
 				EventData: outboundEventData,
 			},
 		}
@@ -408,7 +485,7 @@ func TestProcessConfirmedEventsEnabledFlags(t *testing.T) {
 		// Inbound event should still be CONFIRMED (skipped, not processed)
 		var inboundEvt store.Event
 		database.Client().Where("event_id = ?", "0xaaa:0").First(&inboundEvt)
-		assert.Equal(t, "CONFIRMED", inboundEvt.Status)
+		assert.Equal(t, store.StatusConfirmed, inboundEvt.Status)
 	})
 
 	t.Run("outbound disabled skips outbound events, leaves them CONFIRMED", func(t *testing.T) {
@@ -421,7 +498,7 @@ func TestProcessConfirmedEventsEnabledFlags(t *testing.T) {
 		// Outbound event should still be CONFIRMED (skipped, not processed)
 		var outboundEvt store.Event
 		database.Client().Where("event_id = ?", "0xbbb:0").First(&outboundEvt)
-		assert.Equal(t, "CONFIRMED", outboundEvt.Status)
+		assert.Equal(t, store.StatusConfirmed, outboundEvt.Status)
 	})
 
 	t.Run("inbound enabled but outbound disabled skips only outbound", func(t *testing.T) {
@@ -429,8 +506,8 @@ func TestProcessConfirmedEventsEnabledFlags(t *testing.T) {
 		database := setupDB(t, []store.Event{
 			{
 				EventID:   "0xbbb:0",
-				Status:    "CONFIRMED",
-				Type:      EventTypeOutbound,
+				Status:    store.StatusConfirmed,
+				Type:      store.EventTypeOutbound,
 				EventData: outboundEventData,
 			},
 		})
@@ -442,7 +519,7 @@ func TestProcessConfirmedEventsEnabledFlags(t *testing.T) {
 		// Outbound event should still be CONFIRMED (skipped due to outbound disabled)
 		var outboundEvt store.Event
 		database.Client().Where("event_id = ?", "0xbbb:0").First(&outboundEvt)
-		assert.Equal(t, "CONFIRMED", outboundEvt.Status)
+		assert.Equal(t, store.StatusConfirmed, outboundEvt.Status)
 	})
 
 	t.Run("outbound enabled but inbound disabled skips only inbound", func(t *testing.T) {
@@ -450,8 +527,8 @@ func TestProcessConfirmedEventsEnabledFlags(t *testing.T) {
 		database := setupDB(t, []store.Event{
 			{
 				EventID:   "0xaaa:0",
-				Status:    "CONFIRMED",
-				Type:      EventTypeInbound,
+				Status:    store.StatusConfirmed,
+				Type:      store.EventTypeInbound,
 				EventData: inboundEventData,
 			},
 		})
@@ -463,6 +540,6 @@ func TestProcessConfirmedEventsEnabledFlags(t *testing.T) {
 		// Inbound event should still be CONFIRMED (skipped due to inbound disabled)
 		var inboundEvt store.Event
 		database.Client().Where("event_id = ?", "0xaaa:0").First(&inboundEvt)
-		assert.Equal(t, "CONFIRMED", inboundEvt.Status)
+		assert.Equal(t, store.StatusConfirmed, inboundEvt.Status)
 	})
 }

@@ -28,6 +28,7 @@ import (
 	tsscorefix "github.com/pushchain/push-chain-node/app/upgrades/tss-core-fix"
 	tssvotegasless "github.com/pushchain/push-chain-node/app/upgrades/tss-vote-gasless"
 	universaltxv1 "github.com/pushchain/push-chain-node/app/upgrades/universal-tx-v1"
+	aiauditfixes "github.com/pushchain/push-chain-node/app/upgrades/ai-audit-fixes"
 )
 
 // Upgrades list of chain upgrades
@@ -78,6 +79,7 @@ func (app *ChainApp) RegisterUpgradeHandlers() {
 		UTxVerifierKeeper: &app.UtxverifierKeeper,
 		URegistryKeeper:   &app.UregistryKeeper,
 		UValidatorKeeper:  &app.UvalidatorKeeper,
+		UTssKeeper:        &app.UtssKeeper,
 	}
 
 	// register all upgrade handlers

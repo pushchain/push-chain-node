@@ -21,6 +21,12 @@ func checkTxFeeWithValidatorMinGasPrices(ctx sdk.Context, tx sdk.Tx) (sdk.Coins,
 	feeCoins := feeTx.GetFee()
 	gas := feeTx.GetGas()
 
+	ctx.Logger().Debug("validator min gas price check",
+		"fee", feeCoins.String(),
+		"gas", gas,
+		"is_check_tx", ctx.IsCheckTx(),
+	)
+
 	// Ensure that the provided fees meet a minimum threshold for the validator,
 	// if this is a CheckTx. This is only for local mempool purposes, and thus
 	// is only ran on check tx.
@@ -38,12 +44,30 @@ func checkTxFeeWithValidatorMinGasPrices(ctx sdk.Context, tx sdk.Tx) (sdk.Coins,
 			}
 
 			if !feeCoins.IsAnyGTE(requiredFees) {
+				ctx.Logger().Debug("validator min gas price check: insufficient fee rejected",
+					"fee_provided", feeCoins.String(),
+					"fee_required", requiredFees.String(),
+					"gas", gas,
+				)
 				return nil, 0, errorsmod.Wrapf(sdkerrors.ErrInsufficientFee, "insufficient fees; got: %s required: %s", feeCoins, requiredFees)
 			}
+
+			ctx.Logger().Debug("validator min gas price check: fee meets minimum",
+				"fee_provided", feeCoins.String(),
+				"fee_required", requiredFees.String(),
+				"gas", gas,
+			)
+		} else {
+			ctx.Logger().Debug("validator min gas price check: no min gas price set, bypassing check")
 		}
 	}
 
 	priority := getTxPriority(feeCoins, int64(gas))
+	ctx.Logger().Debug("validator min gas price check: computed tx priority",
+		"fee", feeCoins.String(),
+		"gas", gas,
+		"priority", priority,
+	)
 	return feeCoins, priority, nil
 }
 

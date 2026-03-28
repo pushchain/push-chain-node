@@ -72,10 +72,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gagliardetto/solana-go"
+	addresslookuptable "github.com/gagliardetto/solana-go/programs/address-lookup-table"
+	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/rs/zerolog"
 
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
-	"github.com/pushchain/push-chain-node/universalClient/constant"
+	"github.com/pushchain/push-chain-node/universalClient/config"
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
@@ -102,6 +104,8 @@ type TxBuilder struct {
 	gatewayAddress solana.PublicKey
 	nodeHome       string
 	logger         zerolog.Logger
+	protocolALT    solana.PublicKey                        // Protocol ALT pubkey (zero if not configured)
+	tokenALTs      map[solana.PublicKey]solana.PublicKey    // mint pubkey → token ALT pubkey
 }
 
 // NewTxBuilder creates a new Solana transaction builder.
@@ -113,6 +117,7 @@ func NewTxBuilder(
 	gatewayAddress string,
 	nodeHome string,
 	logger zerolog.Logger,
+	chainConfig *config.ChainSpecificConfig,
 ) (*TxBuilder, error) {
 	if rpcClient == nil {
 		return nil, fmt.Errorf("rpcClient is required")
@@ -129,13 +134,45 @@ func NewTxBuilder(
 		return nil, fmt.Errorf("invalid gateway address: %w", err)
 	}
 
-	return &TxBuilder{
+	tb := &TxBuilder{
 		rpcClient:      rpcClient,
 		chainID:        chainID,
 		gatewayAddress: addr,
 		nodeHome:       nodeHome,
 		logger:         logger.With().Str("component", "svm_tx_builder").Str("chain", chainID).Logger(),
-	}, nil
+		tokenALTs:      make(map[solana.PublicKey]solana.PublicKey),
+	}
+
+	// Parse ALT config if provided
+	if chainConfig != nil {
+		if chainConfig.ProtocolALT != "" {
+			protocolALT, err := solana.PublicKeyFromBase58(chainConfig.ProtocolALT)
+			if err != nil {
+				tb.logger.Warn().Err(err).Str("address", chainConfig.ProtocolALT).Msg("invalid protocol ALT address, skipping")
+			} else {
+				tb.protocolALT = protocolALT
+				tb.logger.Info().Str("protocol_alt", chainConfig.ProtocolALT).Msg("configured protocol ALT")
+			}
+		}
+		for mint, altAddr := range chainConfig.TokenALTs {
+			mintPubkey, err := solana.PublicKeyFromBase58(mint)
+			if err != nil {
+				tb.logger.Warn().Err(err).Str("mint", mint).Msg("invalid token ALT mint address, skipping")
+				continue
+			}
+			altPubkey, err := solana.PublicKeyFromBase58(altAddr)
+			if err != nil {
+				tb.logger.Warn().Err(err).Str("alt", altAddr).Msg("invalid token ALT address, skipping")
+				continue
+			}
+			tb.tokenALTs[mintPubkey] = altPubkey
+		}
+		if len(tb.tokenALTs) > 0 {
+			tb.logger.Info().Int("count", len(tb.tokenALTs)).Msg("configured token ALTs")
+		}
+	}
+
+	return tb, nil
 }
 
 // =============================================================================
@@ -464,6 +501,49 @@ func (tb *TxBuilder) BroadcastOutboundSigningRequest(
 	return txHash, nil
 }
 
+// fetchAddressTables fetches Address Lookup Table state for V0 transactions.
+// Always includes the protocol ALT (if configured). For SPL tokens, also includes
+// the token-specific ALT for the given mint (if configured).
+// Returns an empty map if no ALTs are configured (transaction falls back to legacy format).
+func (tb *TxBuilder) fetchAddressTables(ctx context.Context, mintPubkey solana.PublicKey, isNative bool) (map[solana.PublicKey]solana.PublicKeySlice, error) {
+	addressTables := make(map[solana.PublicKey]solana.PublicKeySlice)
+
+	// Collect ALT pubkeys to fetch
+	var altsToFetch []solana.PublicKey
+
+	if !tb.protocolALT.IsZero() {
+		altsToFetch = append(altsToFetch, tb.protocolALT)
+	}
+
+	if !isNative {
+		if tokenALT, ok := tb.tokenALTs[mintPubkey]; ok {
+			altsToFetch = append(altsToFetch, tokenALT)
+		}
+	}
+
+	if len(altsToFetch) == 0 {
+		return addressTables, nil
+	}
+
+	// Fetch each ALT state from chain using the RPC client's failover mechanism
+	for _, altPubkey := range altsToFetch {
+		altKey := altPubkey // capture for closure
+		var altState *addresslookuptable.AddressLookupTableState
+		err := tb.rpcClient.executeWithFailover(ctx, "getAddressLookupTable", func(client *rpc.Client) error {
+			var fetchErr error
+			altState, fetchErr = addresslookuptable.GetAddressLookupTable(ctx, client, altKey)
+			return fetchErr
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch ALT %s: %w", altKey.String(), err)
+		}
+		addressTables[altKey] = altState.Addresses
+	}
+
+	tb.logger.Debug().Int("alt_count", len(addressTables)).Msg("fetched address lookup tables for V0 transaction")
+	return addressTables, nil
+}
+
 // BuildOutboundTransaction assembles a complete signed Solana transaction from the
 // TSS signature and event data, without broadcasting. Returns the transaction and
 // the instruction ID for logging. Use this for simulation or inspection.
@@ -763,11 +843,14 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 		return nil, 0, fmt.Errorf("failed to get recent blockhash: %w", err)
 	}
 
-	tx, err := solana.NewTransaction(
-		instructions,
-		recentBlockhash,
-		solana.TransactionPayer(relayerKeypair.PublicKey()),
-	)
+	opts := []solana.TransactionOption{solana.TransactionPayer(relayerKeypair.PublicKey())}
+	addressTables, err := tb.fetchAddressTables(ctx, mintPubkey, isNative)
+	if err != nil {
+		tb.logger.Warn().Err(err).Msg("failed to fetch ALTs, falling back to legacy tx")
+	} else if len(addressTables) > 0 {
+		opts = append(opts, solana.TransactionAddressTables(addressTables))
+	}
+	tx, err := solana.NewTransaction(instructions, recentBlockhash, opts...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to create transaction: %w", err)
 	}
@@ -1039,7 +1122,7 @@ func (tb *TxBuilder) loadRelayerKeypair() (solana.PrivateKey, error) {
 		return nil, fmt.Errorf("empty namespace in chain ID: %s", tb.chainID)
 	}
 
-	keyPath := filepath.Join(tb.nodeHome, constant.RelayerSubdir, namespace+".json")
+	keyPath := filepath.Join(tb.nodeHome, config.RelayerSubdir, namespace+".json")
 
 	keyData, err := os.ReadFile(keyPath)
 	if err != nil {

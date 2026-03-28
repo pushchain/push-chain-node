@@ -20,6 +20,12 @@ func (k Keeper) DeductAndBurnFees(ctx context.Context, from sdk.AccAddress, gasC
 	amt := sdkmath.NewIntFromBigInt(gasCost)
 	coin := sdk.NewCoin(pchaintypes.BaseDenom, amt)
 
+	k.Logger().Debug("deducting and burning fees",
+		"from", from.String(),
+		"gas_cost", gasCost.String(),
+		"denom", pchaintypes.BaseDenom,
+	)
+
 	err := k.bankKeeper.SendCoinsFromAccountToModule(ctx, from, types.ModuleName, sdk.NewCoins(coin))
 	if err != nil {
 		return err
@@ -43,7 +49,12 @@ func (k Keeper) CalculateGasCost(
 	gasUsed uint64,
 ) (*big.Int, error) {
 	baseFeeBig := baseFee.BigInt()
-	// @dev: baseFeeBig returns 1e18 for 1upc base fee
+	// @dev: LegacyDec stores values with 18-decimal precision internally, so 1 upc = 1e18
+	// in the LegacyDec representation. Since 1 upc is the smallest denomination (like wei
+	// in Ethereum), the base fee is always a whole number of upc -- no fractional upc exists.
+	// This division unwraps the LegacyDec encoding back to the actual upc amount.
+	// Note: baseFee.BigInt() returns a reference to the internal big.Int; the in-place Div
+	// mutates it, which is safe here since baseFee is a local value-type copy.
 	baseFeeBig.Div(baseFeeBig, big.NewInt(1e18))
 
 	// Step 1: Validate maxFeePerGas >= baseFee
@@ -66,6 +77,13 @@ func (k Keeper) CalculateGasCost(
 	// Step 4: Calculate final gas cost: effectiveGasPrice * gasUsed
 	gasUsedBig := new(big.Int).SetUint64(gasUsed)
 	gasCost := new(big.Int).Mul(effectiveGasPrice, gasUsedBig)
+
+	k.Logger().Debug("gas cost calculated",
+		"base_fee", baseFee.String(),
+		"effective_gas_price", effectiveGasPrice.String(),
+		"gas_used", gasUsed,
+		"gas_cost", gasCost.String(),
+	)
 
 	return gasCost, nil
 }

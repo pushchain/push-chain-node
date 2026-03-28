@@ -117,6 +117,13 @@ func (k Keeper) CallFactoryToDeployUEA(
 	from, factoryAddr common.Address,
 	universalAccount *types.UniversalAccountId,
 ) (*evmtypes.MsgEthereumTxResponse, error) {
+	k.Logger().Debug("EVM call: deployUEA",
+		"factory", factoryAddr.Hex(),
+		"chain_namespace", universalAccount.ChainNamespace,
+		"chain_id", universalAccount.ChainId,
+		"owner", universalAccount.Owner,
+	)
+
 	abi, err := types.ParseFactoryABI()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse factory ABI")
@@ -126,8 +133,6 @@ func (k Keeper) CallFactoryToDeployUEA(
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create universal account")
 	}
-
-	fmt.Println("FROM: ", from)
 
 	return k.evmKeeper.DerivedEVMCall(
 		ctx,
@@ -506,6 +511,13 @@ func (k Keeper) CallPRC20DepositAutoSwap(
 	prc20Address, to common.Address,
 	amount, fee, minPCOut *big.Int,
 ) (*evmtypes.MsgEthereumTxResponse, error) {
+	k.Logger().Debug("EVM call: depositPRC20WithAutoSwap",
+		"prc20", prc20Address.Hex(),
+		"recipient", to.Hex(),
+		"amount", amount.String(),
+		"fee", fee.String(),
+		"min_pc_out", minPCOut.String(),
+	)
 	handlerAddr := common.HexToAddress(uregistrytypes.SYSTEM_CONTRACTS["UNIVERSAL_CORE"].Address)
 
 	abi, err := types.ParseUniversalCoreABI()
@@ -645,4 +657,3 @@ func (k Keeper) CallExecuteUniversalTx(
 		txId,
 	)
 }
-

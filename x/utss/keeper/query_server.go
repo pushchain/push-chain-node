@@ -132,3 +132,86 @@ func (k Querier) AllKeys(goCtx context.Context, req *types.QueryAllKeysRequest) 
 		Pagination: pageRes,
 	}, nil
 }
+
+// ---------------- Get TSS Event by ID --------------------
+func (k Querier) GetTssEvent(goCtx context.Context, req *types.QueryGetTssEventRequest) (*types.QueryGetTssEventResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	event, err := k.Keeper.TssEvents.Get(ctx, req.Id)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.QueryGetTssEventResponse{
+		Event: &event,
+	}, nil
+}
+
+// ---------------- All TSS Events (Paginated) -------------
+func (k Querier) AllTssEvents(goCtx context.Context, req *types.QueryAllTssEventsRequest) (*types.QueryAllTssEventsResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	results, pageRes, err := query.CollectionPaginate(
+		ctx,
+		k.Keeper.TssEvents,
+		req.Pagination,
+		func(id uint64, event types.TssEvent) (*types.TssEvent, error) {
+			e := event
+			return &e, nil
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.QueryAllTssEventsResponse{
+		Events:     results,
+		Pagination: pageRes,
+	}, nil
+}
+
+// GetPendingTssEvent returns a single pending TSS event by process ID.
+func (k Querier) GetPendingTssEvent(goCtx context.Context, req *types.QueryGetPendingTssEventRequest) (*types.QueryGetPendingTssEventResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	eventId, err := k.Keeper.PendingTssEvents.Get(ctx, req.ProcessId)
+	if err != nil {
+		return nil, err
+	}
+
+	event, err := k.Keeper.TssEvents.Get(ctx, eventId)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.QueryGetPendingTssEventResponse{
+		Event: &event,
+	}, nil
+}
+
+// AllPendingTssEvents returns all pending TSS events (paginated).
+// Uses pagination.reverse for descending order (default: ascending by process_id).
+func (k Querier) AllPendingTssEvents(goCtx context.Context, req *types.QueryAllPendingTssEventsRequest) (*types.QueryAllPendingTssEventsResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	results, pageRes, err := query.CollectionPaginate(
+		ctx,
+		k.Keeper.PendingTssEvents,
+		req.Pagination,
+		func(processId uint64, eventId uint64) (*types.TssEvent, error) {
+			event, err := k.Keeper.TssEvents.Get(ctx, eventId)
+			if err != nil {
+				return nil, err
+			}
+			return &event, nil
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.QueryAllPendingTssEventsResponse{
+		Events:     results,
+		Pagination: pageRes,
+	}, nil
+}

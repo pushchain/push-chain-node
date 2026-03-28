@@ -771,6 +771,7 @@ func NewChainApp(
 	app.UvalidatorKeeper.SetHooks(
 		uvalidatorkeeper.NewMultiUValidatorHooks(
 			app.UtssKeeper.Hooks(),
+			uexecutorkeeper.NewUValidatorHooks(app.UexecutorKeeper),
 		),
 	)
 
@@ -791,19 +792,28 @@ func NewChainApp(
 		app.EvidenceKeeper,
 	)
 
-	// Add the usigverifier precompile for Ed25519 verification
+	// Add the usigverifier precompile for Ed25519 verification (old address: 0xCA)
 	usigverifierPrecompile, err := usigverifierprecompile.NewPrecompile()
 	if err != nil {
 		panic(fmt.Errorf("failed to instantiate usigverifier precompile: %w", err))
 	}
 	corePrecompiles[usigverifierPrecompile.Address()] = usigverifierPrecompile
 
-	// Add the utxhashverifier precompile for Payload verification
+	// Add the utxhashverifier precompile for Payload verification (old address: 0xCB)
 	utxhashverifierPrecompile, err := utxhashverifierprecompile.NewPrecompileWithUtv(&app.UtxverifierKeeper)
 	if err != nil {
 		panic(fmt.Errorf("failed to instantiate utxhashverifier precompile: %w", err))
 	}
 	corePrecompiles[utxhashverifierPrecompile.Address()] = utxhashverifierPrecompile
+
+	// New address (0xEC..01) — reserved Push precompile range.
+	// Both old and new addresses are registered simultaneously for backward compatibility
+	// with deployed contracts that have old addresses hardcoded in their bytecode.
+	usigverifierPrecompileV2, err := usigverifierprecompile.NewPrecompileV2()
+	if err != nil {
+		panic(fmt.Errorf("failed to instantiate usigverifier v2 precompile: %w", err))
+	}
+	corePrecompiles[usigverifierPrecompileV2.Address()] = usigverifierPrecompileV2
 
 	app.EVMKeeper.WithStaticPrecompiles(
 		corePrecompiles,

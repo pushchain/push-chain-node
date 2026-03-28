@@ -9,8 +9,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/authz"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/pushchain/push-chain-node/universalClient/constant"
 )
 
 func TestVerifyGrants(t *testing.T) {
@@ -28,10 +26,10 @@ func TestVerifyGrants(t *testing.T) {
 
 		msgs, err := verifyGrants(grants, granter)
 		require.NoError(t, err)
-		assert.Len(t, msgs, len(constant.RequiredMsgGrants))
+		assert.Len(t, msgs, len(requiredMsgGrants))
 
 		// Verify all required messages are returned
-		for _, req := range constant.RequiredMsgGrants {
+		for _, req := range requiredMsgGrants {
 			assert.Contains(t, msgs, req)
 		}
 	})
@@ -46,7 +44,7 @@ func TestVerifyGrants(t *testing.T) {
 
 		msgs, err := verifyGrants(grants, granter)
 		require.NoError(t, err)
-		assert.Len(t, msgs, len(constant.RequiredMsgGrants))
+		assert.Len(t, msgs, len(requiredMsgGrants))
 	})
 
 	t.Run("missing required grant", func(t *testing.T) {
@@ -111,7 +109,7 @@ func TestVerifyGrants(t *testing.T) {
 
 		msgs, err := verifyGrants(grants, granter)
 		require.NoError(t, err)
-		assert.Len(t, msgs, len(constant.RequiredMsgGrants))
+		assert.Len(t, msgs, len(requiredMsgGrants))
 	})
 
 	t.Run("extra non-required grants are ignored", func(t *testing.T) {
@@ -125,7 +123,7 @@ func TestVerifyGrants(t *testing.T) {
 
 		msgs, err := verifyGrants(grants, granter)
 		require.NoError(t, err)
-		assert.Len(t, msgs, len(constant.RequiredMsgGrants))
+		assert.Len(t, msgs, len(requiredMsgGrants))
 		assert.NotContains(t, msgs, "/some.other.v1.MsgNotRequired")
 	})
 }

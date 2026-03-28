@@ -2,6 +2,7 @@ package types
 
 import (
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -9,6 +10,44 @@ import (
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/pushchain/push-chain-node/utils"
 )
+
+const EvmZeroAddress = "0x0000000000000000000000000000000000000000"
+
+// NormalizeForTxType zeroes out fields that are irrelevant for the given TxType,
+// and decodes raw_payload into universal_payload for payload types.
+// This should be called by the core module after ballot finalization.
+// Returns an error if raw_payload decoding fails.
+func (p *Inbound) NormalizeForTxType() error {
+	switch p.TxType {
+	case TxType_FUNDS_AND_PAYLOAD, TxType_GAS_AND_PAYLOAD:
+		// Payload types: recipient is only meaningful when isCEA
+		if !p.IsCEA {
+			p.Recipient = EvmZeroAddress
+		}
+		// Always clear universal_payload — whatever the UV sends is ignored.
+		// Core validator decodes from raw_payload.
+		p.UniversalPayload = nil
+
+		// Decode raw_payload → universal_payload
+		if p.RawPayload != "" {
+			decoded, err := DecodeRawPayload(p.RawPayload, p.SourceChain)
+			if err != nil {
+				return fmt.Errorf("failed to decode raw payload: %w", err)
+			}
+			if decoded == nil {
+				return fmt.Errorf("raw_payload decoded to nil for payload tx type")
+			}
+			p.UniversalPayload = decoded
+			p.RawPayload = "" // clear after successful decode to save storage
+		}
+	default:
+		// Non-payload types: payload is not used
+		p.UniversalPayload = nil
+		p.VerificationData = ""
+		p.RawPayload = ""
+	}
+	return nil
+}
 
 // Stringer method for Params.
 func (p Inbound) String() string {
@@ -20,9 +59,14 @@ func (p Inbound) String() string {
 	return string(bz)
 }
 
-// ValidateBasic does the sanity check on the Inbound fields.
+// ValidateBasic does minimal sanity checks needed to accept a vote.
+// Only fields required to identify the inbound and create a UTX key are validated here.
+// Execution-level validation (amount, addresses, payload, recipient) is deferred to
+// ValidateForExecution so that invalid inbounds still produce an on-chain UTX record
+// (with a failed PCTx / revert) instead of silently dropping the vote and leaving
+// user funds stuck in the gateway.
 func (p Inbound) ValidateBasic() error {
-	// Validate source_chain (must follow CAIP-2 format)
+	// Validate source_chain (must follow CAIP-2 format) — needed for UTX key
 	chain := strings.TrimSpace(p.SourceChain)
 	if chain == "" {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "source chain cannot be empty")
@@ -31,16 +75,33 @@ func (p Inbound) ValidateBasic() error {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "source chain must be in CAIP-2 format <namespace>:<reference>")
 	}
 
-	// Validate tx_hash
+	// Validate tx_hash — needed for UTX key
 	if strings.TrimSpace(p.TxHash) == "" {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "tx_hash cannot be empty")
 	}
 
-	// Validate sender
+	// Validate sender — needed for revert recipient fallback
 	if strings.TrimSpace(p.Sender) == "" {
 		return errors.Wrap(sdkerrors.ErrInvalidAddress, "sender cannot be empty")
 	}
 
+	// Validate log_index — needed for UTX key
+	if strings.TrimSpace(p.LogIndex) == "" {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "log_index cannot be empty")
+	}
+
+	// Validate tx_type enum — needed to route execution
+	if _, ok := TxType_name[int32(p.TxType)]; !ok || p.TxType == TxType_UNSPECIFIED_TX {
+		return errors.Wrapf(sdkerrors.ErrInvalidRequest, "invalid tx_type: %v", p.TxType)
+	}
+
+	return nil
+}
+
+// ValidateForExecution checks fields that are required for actual execution of the inbound.
+// Called after ballot finalization, before ExecuteInbound. Failures here produce a failed
+// PCTx and (for non-isCEA) a revert outbound, rather than dropping the vote.
+func (p Inbound) ValidateForExecution() error {
 	// Validate amount as uint256
 	if strings.TrimSpace(p.Amount) == "" {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "amount cannot be empty")
@@ -59,31 +120,16 @@ func (p Inbound) ValidateBasic() error {
 		return errors.Wrap(sdkerrors.ErrInvalidAddress, "asset_addr cannot be empty")
 	}
 
-	// Validate log_index as uint256
-	if strings.TrimSpace(p.LogIndex) == "" {
-		return errors.Wrap(sdkerrors.ErrInvalidRequest, "log_index cannot be empty")
-	}
-
-	// Validate tx_type enum
-	if _, ok := TxType_name[int32(p.TxType)]; !ok || p.TxType == TxType_UNSPECIFIED_TX {
-		return errors.Wrapf(sdkerrors.ErrInvalidRequest, "invalid tx_type: %v", p.TxType)
-	}
-
 	// isCEA is only supported for FUNDS, FUNDS_AND_PAYLOAD, and GAS_AND_PAYLOAD
 	if p.IsCEA && p.TxType != TxType_FUNDS && p.TxType != TxType_FUNDS_AND_PAYLOAD && p.TxType != TxType_GAS_AND_PAYLOAD {
 		return errors.Wrapf(sdkerrors.ErrInvalidRequest, "isCEA is only supported for FUNDS, FUNDS_AND_PAYLOAD, and GAS_AND_PAYLOAD tx types, got: %v", p.TxType)
 	}
 
-	// Validate payload only if tx_type requires it
+	// Validate fields required per tx_type
 	switch p.TxType {
 	case TxType_FUNDS_AND_PAYLOAD, TxType_GAS_AND_PAYLOAD:
 		if p.UniversalPayload == nil {
 			return errors.Wrap(sdkerrors.ErrInvalidRequest, "payload is required for payload tx types")
-		}
-		// When isCEA is true, recipient should be the payload's "to" address (which is the UEA)
-		// When isCEA is false, recipient must be empty (payload handles all execution)
-		if !p.IsCEA && strings.TrimSpace(p.Recipient) != "" {
-			return errors.Wrap(sdkerrors.ErrInvalidAddress, "recipient must be empty for a payload tx type")
 		}
 		if p.IsCEA && strings.TrimSpace(p.Recipient) == "" {
 			return errors.Wrap(sdkerrors.ErrInvalidAddress, "recipient cannot be empty when isCEA is true")
@@ -94,11 +140,7 @@ func (p Inbound) ValidateBasic() error {
 		if err := p.UniversalPayload.ValidateBasic(); err != nil {
 			return errors.Wrap(err, "invalid payload")
 		}
-	default:
-		// If payload is provided for non-payload types, reject
-		if p.UniversalPayload != nil {
-			return errors.Wrap(sdkerrors.ErrInvalidRequest, "payload must be empty for non-payload tx types")
-		}
+	case TxType_FUNDS, TxType_GAS:
 		if strings.TrimSpace(p.Recipient) == "" {
 			return errors.Wrap(sdkerrors.ErrInvalidAddress, "recipient cannot be empty")
 		}

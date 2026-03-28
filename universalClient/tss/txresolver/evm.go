@@ -5,7 +5,6 @@ import (
 
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/store"
-	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 )
 
 // resolveEVM checks the on-chain receipt and moves the event to COMPLETED or REVERTED.
@@ -73,7 +72,7 @@ func (r *Resolver) resolveEVM(ctx context.Context, event *store.Event, chainID, 
 	}
 
 	// status == 1 (success)
-	if err := r.eventStore.Update(event.EventID, map[string]any{"status": eventstore.StatusCompleted}); err != nil {
+	if err := r.eventStore.Update(event.EventID, map[string]any{"status": store.StatusCompleted}); err != nil {
 		r.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to mark event COMPLETED")
 		return
 	}

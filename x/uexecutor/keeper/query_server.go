@@ -3,6 +3,7 @@ package keeper
 import (
 	"context"
 	"errors"
+	"sort"
 
 	"cosmossdk.io/collections"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -321,6 +322,119 @@ func (k Querier) AllChainMetas(goCtx context.Context, req *types.QueryAllChainMe
 	return &types.QueryAllChainMetasResponse{
 		ChainMetas: items,
 		Pagination: pageRes,
+	}, nil
+}
+
+// GetPendingOutbound implements types.QueryServer.
+// Returns a single pending outbound entry by ID, along with the full outbound data from the parent UTX.
+func (k Querier) GetPendingOutbound(goCtx context.Context, req *types.QueryGetPendingOutboundRequest) (*types.QueryGetPendingOutboundResponse, error) {
+	if req == nil || req.OutboundId == "" {
+		return nil, status.Error(codes.InvalidArgument, "outbound_id is required")
+	}
+
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	entry, err := k.PendingOutbounds.Get(ctx, req.OutboundId)
+	if err != nil {
+		if errors.Is(err, collections.ErrNotFound) {
+			return nil, status.Errorf(codes.NotFound, "pending outbound not found: %s", req.OutboundId)
+		}
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	// Fetch the parent UTX to get the full outbound data
+	utx, err := k.UniversalTx.Get(ctx, entry.UniversalTxId)
+	if err != nil {
+		if errors.Is(err, collections.ErrNotFound) {
+			return nil, status.Errorf(codes.Internal, "parent UTX %s not found for pending outbound %s", entry.UniversalTxId, req.OutboundId)
+		}
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	// Find the outbound in utx.OutboundTx[] by ID
+	var outbound *types.OutboundTx
+	for _, ob := range utx.OutboundTx {
+		if ob != nil && ob.Id == req.OutboundId {
+			outbound = ob
+			break
+		}
+	}
+
+	return &types.QueryGetPendingOutboundResponse{
+		Entry:    &entry,
+		Outbound: outbound,
+	}, nil
+}
+
+// AllPendingOutbounds implements types.QueryServer.
+// Returns all pending outbound entries with full outbound data, sorted by block height.
+// Uses pagination.reverse for descending order (default: ascending by created_at).
+func (k Querier) AllPendingOutbounds(goCtx context.Context, req *types.QueryAllPendingOutboundsRequest) (*types.QueryAllPendingOutboundsResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid request")
+	}
+
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	// Collect all entries (pending set is small)
+	var allEntries []types.PendingOutboundEntry
+	err := k.PendingOutbounds.Walk(ctx, nil, func(_ string, value types.PendingOutboundEntry) (bool, error) {
+		allEntries = append(allEntries, value)
+		return false, nil
+	})
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	// Sort by CreatedAt (block height)
+	reverse := req.Pagination.GetReverse()
+	sort.Slice(allEntries, func(i, j int) bool {
+		if reverse {
+			return allEntries[i].CreatedAt > allEntries[j].CreatedAt
+		}
+		return allEntries[i].CreatedAt < allEntries[j].CreatedAt
+	})
+
+	// Apply pagination
+	total := uint64(len(allEntries))
+	limit := req.Pagination.GetLimit()
+	if limit == 0 {
+		limit = query.DefaultLimit
+	}
+	offset := req.Pagination.GetOffset()
+
+	start := offset
+	if start > total {
+		start = total
+	}
+	end := start + limit
+	if end > total {
+		end = total
+	}
+	pageEntries := allEntries[start:end]
+
+	// Convert to pointers and resolve full outbound data
+	var entries []*types.PendingOutboundEntry
+	var outbounds []*types.OutboundTx
+	for i := range pageEntries {
+		entries = append(entries, &pageEntries[i])
+
+		utx, err := k.UniversalTx.Get(ctx, pageEntries[i].UniversalTxId)
+		if err != nil {
+			continue
+		}
+		for _, ob := range utx.OutboundTx {
+			if ob != nil && ob.Id == pageEntries[i].OutboundId {
+				outbounds = append(outbounds, ob)
+				break
+			}
+		}
+	}
+
+	return &types.QueryAllPendingOutboundsResponse{
+		Entries:    entries,
+		Outbounds:  outbounds,
+		Pagination: &query.PageResponse{Total: total},
 	}, nil
 }
 

@@ -18,6 +18,11 @@ import (
 func (k Keeper) ExecutePayloadV2(ctx context.Context, evmFrom common.Address, ueaAddr common.Address, universalPayload *types.UniversalPayload, verificationData string) (*vmtypes.MsgEthereumTxResponse, error) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
+	k.Logger().Debug("execute payload v2",
+		"uea", ueaAddr.Hex(),
+		"from", evmFrom.Hex(),
+	)
+
 	// Step 1: Parse and validate payload and verificationData
 	payload, err := types.NewAbiUniversalPayload(universalPayload)
 	if err != nil {
@@ -37,6 +42,12 @@ func (k Keeper) ExecutePayloadV2(ctx context.Context, evmFrom common.Address, ue
 
 	gasUnitsUsed := receipt.GasUsed
 	gasUnitsUsedBig := new(big.Int).SetUint64(gasUnitsUsed)
+
+	k.Logger().Debug("payload executed via UEA",
+		"uea", ueaAddr.Hex(),
+		"tx_hash", receipt.Hash,
+		"gas_used", gasUnitsUsed,
+	)
 
 	// Step 3: Handle fee calculation and deduction
 	ueaAccAddr := sdk.AccAddress(ueaAddr.Bytes())
@@ -58,6 +69,11 @@ func (k Keeper) ExecutePayloadV2(ctx context.Context, evmFrom common.Address, ue
 	if err = k.DeductAndBurnFees(ctx, ueaAccAddr, gasCost); err != nil {
 		return nil, errors.Wrapf(err, "failed to deduct fees from %s", ueaAccAddr)
 	}
+
+	k.Logger().Debug("fees deducted for payload execution",
+		"uea", ueaAddr.Hex(),
+		"gas_cost", gasCost.String(),
+	)
 
 	return receipt, nil
 }

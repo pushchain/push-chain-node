@@ -31,9 +31,6 @@ service Msg {
   // VoteOutbound defines a message for voting on a observed outbound tx on external chain
   rpc VoteOutbound(MsgVoteOutbound) returns (MsgVoteOutboundResponse);
 
-  // VoteGasPrice defines a message for universal validators to vote on the gas price
-  rpc VoteGasPrice(MsgVoteGasPrice) returns (MsgVoteGasPriceResponse);
-
   // VoteChainMeta defines a message for universal validators to vote on chain metadata (gas price + block height)
   rpc VoteChainMeta(MsgVoteChainMeta) returns (MsgVoteChainMetaResponse);
 }
@@ -129,20 +126,6 @@ message MsgVoteOutbound {
 
 // MsgVoteInboundResponse defines the response for MsgExecutePayload.
 message MsgVoteOutboundResponse {}
-
-// MsgVoteGasPrice is broadcasted by Universal Validators to submit their observed gas prices
-message MsgVoteGasPrice {
-  option (amino.name) = "uexecutor/MsgVoteGasPrice";
-  option (cosmos.msg.v1.signer) = "signer";
-
-  string signer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];       // Universal Validator address submitting the vote
-  string observed_chain_id = 2;      // chain ID of observed external chain (e.g. "1" for ethereum mainnet)
-  uint64 price = 3;         // Observed gas price in wei
-  uint64 block_number = 4;  // Block number from which price was observed
-}
-
-// MsgVoteGasPriceResponse defines the response for MsgVoteGasPrice
-message MsgVoteGasPriceResponse {}
 
 // MsgVoteChainMeta is broadcasted by Universal Validators to submit observed chain metadata (gas price + block height)
 message MsgVoteChainMeta {

@@ -44,6 +44,25 @@ var (
 
 	// TssKeyHistoryName is the name of the TssKeyHistory collection.
 	TssKeyHistoryName = "tss_key_history"
+
+	// TssEventsKey saves the persistent TSS events.
+	TssEventsKey = collections.NewPrefix(6)
+
+	// TssEventsName is the name of the TssEvents collection.
+	TssEventsName = "tss_events"
+
+	// NextTssEventIdKey saves the auto-increment counter for TSS event IDs.
+	NextTssEventIdKey = collections.NewPrefix(7)
+
+	// NextTssEventIdName is the name of the NextTssEventId collection.
+	NextTssEventIdName = "next_tss_event_id"
+
+	// PendingTssEventsKey is a secondary index of TSS events with ACTIVE status.
+	// Key: process_id -> Value: TssEvent
+	PendingTssEventsKey = collections.NewPrefix(8)
+
+	// PendingTssEventsName is the name of the PendingTssEvents collection.
+	PendingTssEventsName = "pending_tss_events"
 )
 
 const (

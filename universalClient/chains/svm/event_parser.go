@@ -6,17 +6,14 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/mr-tron/base58"
 	"github.com/rs/zerolog"
 
-	"github.com/near/borsh-go"
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/store"
-	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
 // Event type constants
@@ -90,8 +87,8 @@ func parseSendFundsEvent(log string, signature string, slot uint64, logIndex uin
 	event := &store.Event{
 		EventID:           eventID,
 		BlockHeight:       slot,
-		Type:              common.EventTypeInbound, // Gateway events from external chains are INBOUND
-		Status:            "PENDING",
+		Type:              store.EventTypeInbound, // Gateway events from external chains are INBOUND
+		Status:            store.StatusPending,
 		ExpiryBlockHeight: 0, // Will be set based on confirmation type if needed
 	}
 
@@ -176,10 +173,10 @@ func parseOutboundObservationEvent(log string, signature string, slot uint64, lo
 	event := &store.Event{
 		EventID:           eventID,
 		BlockHeight:       slot,
-		Type:              common.EventTypeOutbound, // Outbound observation events
-		Status:            "PENDING",
-		ConfirmationType:  "STANDARD", // Use STANDARD confirmation for outbound events
-		ExpiryBlockHeight: 0,          // 0 means no expiry
+		Type:              store.EventTypeOutbound, // Outbound observation events
+		Status:            store.StatusPending,
+		ConfirmationType:  store.ConfirmationStandard, // Use STANDARD confirmation for outbound events
+		ExpiryBlockHeight: 0,                          // 0 means no expiry
 		EventData:         payloadData,
 	}
 
@@ -221,9 +218,9 @@ func parseUniversalTxEvent(event *store.Event, decoded []byte, logIndex uint, ch
 
 	// if TxType is 0 or 1, use FAST else use STANDARD
 	if payload.TxType == 0 || payload.TxType == 1 {
-		event.ConfirmationType = "FAST"
+		event.ConfirmationType = store.ConfirmationFast
 	} else {
-		event.ConfirmationType = "STANDARD"
+		event.ConfirmationType = store.ConfirmationStandard
 	}
 }
 
@@ -296,20 +293,7 @@ func decodeUniversalTxEvent(data []byte, logger zerolog.Logger) (*common.Univers
 	}
 	if dataLen > 0 {
 		dataField := data[offset : offset+int(dataLen)]
-		hexStr := "0x" + hex.EncodeToString(dataField)
-
-		// Try to decode as UniversalPayload
-		up, err := decodeUniversalPayload(hexStr)
-		if err != nil {
-			logger.Warn().
-				Str("hex_str", hexStr).
-				Err(err).
-				Msg("failed to decode universal payload")
-		} else if up != nil {
-			payload.Payload = *up
-		}
-
-		// Data is now stored in UniversalPayload, not as a separate field
+		payload.RawPayload = "0x" + hex.EncodeToString(dataField)
 		offset += int(dataLen)
 	}
 
@@ -366,7 +350,7 @@ func decodeUniversalTxEvent(data []byte, logger zerolog.Logger) (*common.Univers
 		Str("recipient", payload.Recipient).
 		Str("bridge_amount", payload.Amount).
 		Str("bridge_token", payload.Token).
-		Str("universal_payload", fmt.Sprintf("%+v", payload.Payload)).
+		Str("raw_payload", payload.RawPayload).
 		Str("verification_data", payload.VerificationData).
 		Str("revert_recipient", payload.RevertFundRecipient).
 		Uint("tx_type", payload.TxType).
@@ -377,74 +361,3 @@ func decodeUniversalTxEvent(data []byte, logger zerolog.Logger) (*common.Univers
 	return payload, nil
 }
 
-// decodeUniversalPayload takes a hex string and decodes it into UniversalPayload
-// It decodes Rust Anchor/Borsh-serialized UniversalPayload bytes matching this Rust layout:
-//
-// #[derive(AnchorSerialize, AnchorDeserialize)]
-//
-//	pub struct UniversalPayload {
-//	    pub to: [u8; 20],
-//	    pub value: u64,
-//	    pub data: Vec<u8>,
-//	    pub gas_limit: u64,
-//	    pub max_fee_per_gas: u64,
-//	    pub max_priority_fee_per_gas: u64,
-//	    pub nonce: u64,
-//	    pub deadline: i64,
-//	    pub v_type: u8, // enum variant index (no payload)
-//	}
-func decodeUniversalPayload(hexStr string) (*uetypes.UniversalPayload, error) {
-	// Handle empty string case
-	if hexStr == "" || strings.TrimSpace(hexStr) == "" {
-		return nil, nil
-	}
-
-	clean := strings.TrimPrefix(hexStr, "0x")
-
-	// Handle case where hex string is empty after removing 0x prefix
-	if clean == "" {
-		return nil, nil
-	}
-
-	bz, err := hex.DecodeString(clean)
-	if err != nil {
-		return nil, fmt.Errorf("hex decode: %w", err)
-	}
-
-	// Handle case where decoded bytes are empty
-	if len(bz) == 0 {
-		return nil, nil
-	}
-
-	// Mirror the exact Rust/Borsh field order & types
-	type universalPayloadBorsh struct {
-		To                   [20]byte
-		Value                uint64
-		Data                 []byte
-		GasLimit             uint64
-		MaxFeePerGas         uint64
-		MaxPriorityFeePerGas uint64
-		Nonce                uint64
-		Deadline             int64
-		VType                uint8
-	}
-
-	var raw universalPayloadBorsh
-	if err := borsh.Deserialize(&raw, bz); err != nil {
-		return nil, fmt.Errorf("borsh decode failed: %w", err)
-	}
-
-	up := &uetypes.UniversalPayload{
-		To:                   "0x" + hex.EncodeToString(raw.To[:]),
-		Value:                strconv.FormatUint(raw.Value, 10),
-		Data:                 "0x" + hex.EncodeToString(raw.Data),
-		GasLimit:             strconv.FormatUint(raw.GasLimit, 10),
-		MaxFeePerGas:         strconv.FormatUint(raw.MaxFeePerGas, 10),
-		MaxPriorityFeePerGas: strconv.FormatUint(raw.MaxPriorityFeePerGas, 10),
-		Nonce:                strconv.FormatUint(raw.Nonce, 10),
-		Deadline:             strconv.FormatInt(raw.Deadline, 10),
-		VType:                uetypes.VerificationType(raw.VType), // enum index -> your type
-	}
-
-	return up, nil
-}

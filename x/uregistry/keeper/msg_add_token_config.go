@@ -25,5 +25,12 @@ func (k Keeper) AddTokenConfig(ctx context.Context, tokenConfig *types.TokenConf
 	}
 
 	// Set the new token config
-	return k.TokenConfigs.Set(ctx, storageKey, *tokenConfig)
+	if err := k.TokenConfigs.Set(ctx, storageKey, *tokenConfig); err != nil {
+		return err
+	}
+	k.Logger().Info("token config added",
+		"chain", tokenConfig.Chain,
+		"token_address", tokenConfig.Address,
+	)
+	return nil
 }

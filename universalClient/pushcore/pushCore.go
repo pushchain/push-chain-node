@@ -293,6 +293,22 @@ func (c *Client) BroadcastTx(ctx context.Context, txBytes []byte) (*tx.Broadcast
 	)
 }
 
+// GetTx queries for a transaction by its hash. Returns the response if found,
+// or an error if the tx does not exist or the query fails.
+func (c *Client) GetTx(ctx context.Context, txHash string) (*tx.GetTxResponse, error) {
+	return retryWithRoundRobin(
+		len(c.txClients),
+		&c.rr,
+		func(idx int) (*tx.GetTxResponse, error) {
+			return c.txClients[idx].GetTx(ctx, &tx.GetTxRequest{
+				Hash: txHash,
+			})
+		},
+		"GetTx",
+		c.logger,
+	)
+}
+
 // GetPendingTssEvents retrieves up to the first 1000 pending TSS events from Push Chain.
 // Sorted by process_id ascending (oldest first).
 func (c *Client) GetPendingTssEvents(ctx context.Context) ([]*utsstypes.TssEvent, error) {

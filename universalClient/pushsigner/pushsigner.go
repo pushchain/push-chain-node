@@ -31,6 +31,7 @@ import (
 // Defined here (consumer-side) so tests can provide mock implementations.
 type chainClient interface {
 	BroadcastTx(ctx context.Context, txBytes []byte) (*sdktx.BroadcastTxResponse, error)
+	GetTx(ctx context.Context, txHash string) (*sdktx.GetTxResponse, error)
 	GetAccount(ctx context.Context, address string) (*authtypes.QueryAccountResponse, error)
 	GetGranteeGrants(ctx context.Context, granteeAddr string) (*cosmosauthz.QueryGranteeGrantsResponse, error)
 }

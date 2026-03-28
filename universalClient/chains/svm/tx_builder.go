@@ -848,7 +848,14 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 	if err != nil {
 		tb.logger.Warn().Err(err).Msg("failed to fetch ALTs, falling back to legacy tx")
 	} else if len(addressTables) > 0 {
+		totalAddrs := 0
+		for _, addrs := range addressTables {
+			totalAddrs += len(addrs)
+		}
+		tb.logger.Info().Int("alt_count", len(addressTables)).Int("total_addresses", totalAddrs).Msg("using V0 transaction with ALTs")
 		opts = append(opts, solana.TransactionAddressTables(addressTables))
+	} else {
+		tb.logger.Info().Msg("no ALTs configured, using legacy transaction")
 	}
 	tx, err := solana.NewTransaction(instructions, recentBlockhash, opts...)
 	if err != nil {

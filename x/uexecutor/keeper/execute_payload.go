@@ -37,7 +37,9 @@ func (k Keeper) ExecutePayloadV2(ctx context.Context, evmFrom common.Address, ue
 	// Step 2: Execute payload through UEA
 	receipt, err := k.CallUEAExecutePayload(sdkCtx, evmFrom, ueaAddr, universalPayload, verificationDataVal)
 	if err != nil {
-		return nil, err
+		// Return receipt even on EVM revert so callers can capture the tx hash for debugging.
+		// DerivedEVMCall returns (receipt, error) on revert -- receipt.Hash is valid.
+		return receipt, err
 	}
 
 	gasUnitsUsed := receipt.GasUsed

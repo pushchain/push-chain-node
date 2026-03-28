@@ -38,8 +38,11 @@ const (
 	VotesThresholdNumerator   = 2
 	VotesThresholdDenominator = 3
 
-	// Default number of blocks after which ballot expires
-	DefaultExpiryAfterBlocks = 10000
+	// Default number of blocks after which ballot expires.
+	// Set to 100M (~19 years at 6s blocks) to effectively disable expiry.
+	// Ballots should not expire without an escape hatch for stuck pending items.
+	// Disabling the expiry temporarily, will most likely enable once ballot pruning is implemented or escape hatch
+	DefaultExpiryAfterBlocks = 100_000_000
 )
 
 var UniversalTxOutboundEventSig = crypto.Keccak256Hash([]byte(

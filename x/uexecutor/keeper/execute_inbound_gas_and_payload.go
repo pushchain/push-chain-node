@@ -87,8 +87,12 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 							}
 						}
 					} else {
-						// Non-UEA path (smart contract or EOA): deposit + autoswap and call executeUniversalTx
-						isSmartContract = true
+						// Non-UEA: check if recipient has code (smart contract) vs EOA
+						codeHash := k.evmKeeper.GetCodeHash(sdkCtx, ueaAddr)
+						if codeHash != types.EmptyCodeHash && codeHash != (common.Hash{}) {
+							isSmartContract = true
+						}
+						// EOA: just deposit, skip executeUniversalTx
 						if amount.Sign() > 0 {
 							prc20AddrHex := common.HexToAddress(tokenConfig.NativeRepresentation.ContractAddress)
 							receipt, execErr = k.gasAndPayloadDepositAutoSwap(sdkCtx, prc20AddrHex, ueaAddr, amount)
@@ -261,12 +265,20 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 			BlockHeight: uint64(sdkCtx.BlockHeight()),
 			Status:      "FAILED",
 		}
+		if contractReceipt != nil {
+			callPcTx.TxHash = contractReceipt.Hash
+			callPcTx.GasUsed = contractReceipt.GasUsed
+		}
 		if contractErr != nil {
 			callPcTx.ErrorMsg = contractErr.Error()
 		} else if contractReceipt != nil {
-			callPcTx.TxHash = contractReceipt.Hash
-			callPcTx.GasUsed = contractReceipt.GasUsed
-			callPcTx.Status = "SUCCESS"
+			// Deduct gas fees from the recipient contract address
+			if feeErr := k.DeductGasFeesFromReceipt(ctx, sdkCtx, ueaAddr, contractReceipt, utx.InboundTx.UniversalPayload); feeErr != nil {
+				callPcTx.Status = "FAILED"
+				callPcTx.ErrorMsg = fmt.Sprintf("gas fee deduction failed: %s", feeErr.Error())
+			} else {
+				callPcTx.Status = "SUCCESS"
+			}
 		}
 		if updateErr := k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
 			utx.PcTx = append(utx.PcTx, &callPcTx)

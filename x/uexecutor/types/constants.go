@@ -5,6 +5,9 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
+// EmptyCodeHash is the keccak256 hash of empty bytes — the code hash for EOAs (no contract code).
+var EmptyCodeHash = common.HexToHash("0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470")
+
 const (
 	FACTORY_PROXY_ADDRESS_HEX     = "0x00000000000000000000000000000000000000eA"
 	PROXY_ADMIN_OWNER_ADDRESS_HEX = "0xa96CaA79eb2312DbEb0B8E93c1Ce84C98b67bF11"

@@ -52,6 +52,7 @@ type EVMKeeper interface {
 		method string,
 		args ...interface{},
 	) (*types.MsgEthereumTxResponse, error)
+	GetCodeHash(ctx sdk.Context, addr common.Address) common.Hash
 }
 
 // FeeMarketKeeper defines the expected interface for the fee market module.
@@ -86,6 +87,8 @@ type BankKeeper interface {
 		moduleName string,
 		amt sdk.Coins,
 	) error
+
+	GetBalance(ctx context.Context, addr sdk.AccAddress, denom string) sdk.Coin
 }
 
 // AccountKeeper defines the expected interface for the auth module

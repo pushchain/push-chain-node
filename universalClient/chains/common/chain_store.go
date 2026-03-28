@@ -2,6 +2,7 @@ package common
 
 import (
 	"fmt"
+	"strings"
 
 	"gorm.io/gorm"
 
@@ -211,6 +212,11 @@ func (cs *ChainStore) InsertEventIfNotExists(event *store.Event) (bool, error) {
 
 	// Store new event
 	if err := cs.database.Client().Create(event).Error; err != nil {
+		// UNIQUE constraint violation means another goroutine or poll cycle already
+		// inserted this event between our check and insert — treat as duplicate.
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+			return false, nil
+		}
 		return false, fmt.Errorf("failed to create event: %w", err)
 	}
 

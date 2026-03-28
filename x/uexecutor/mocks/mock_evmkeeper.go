@@ -59,6 +59,20 @@ func (mr *MockEVMKeeperMockRecorder) CallEVM(ctx, abi, from, contract, commit, m
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CallEVM", reflect.TypeOf((*MockEVMKeeper)(nil).CallEVM), varargs...)
 }
 
+// GetCodeHash mocks base method.
+func (m *MockEVMKeeper) GetCodeHash(ctx types.Context, addr common.Address) common.Hash {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCodeHash", ctx, addr)
+	ret0, _ := ret[0].(common.Hash)
+	return ret0
+}
+
+// GetCodeHash indicates an expected call of GetCodeHash.
+func (mr *MockEVMKeeperMockRecorder) GetCodeHash(ctx, addr interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCodeHash", reflect.TypeOf((*MockEVMKeeper)(nil).GetCodeHash), ctx, addr)
+}
+
 // DerivedEVMCall mocks base method.
 func (m *MockEVMKeeper) DerivedEVMCall(ctx types.Context, abi abi.ABI, from, contract common.Address, value, gasLimit *big.Int, commit, gasless, isModuleSender bool, manualNonce *uint64, method string, args ...interface{}) (*types0.MsgEthereumTxResponse, error) {
 	m.ctrl.T.Helper()

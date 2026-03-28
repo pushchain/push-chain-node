@@ -7,6 +7,8 @@ import (
 
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
+	"github.com/ethereum/go-ethereum/common"
 	pchaintypes "github.com/pushchain/push-chain-node/types"
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
@@ -86,4 +88,61 @@ func (k Keeper) CalculateGasCost(
 	)
 
 	return gasCost, nil
+}
+
+// DeductGasFeesFromReceipt calculates and deducts gas fees from a recipient address
+// based on the EVM receipt and universal payload parameters.
+// Returns nil if receipt is nil (Go-level error, no EVM tx was created).
+// Returns error with gas details if deduction fails (insufficient balance, etc).
+func (k Keeper) DeductGasFeesFromReceipt(
+	ctx context.Context,
+	sdkCtx sdk.Context,
+	recipient common.Address,
+	receipt *evmtypes.MsgEthereumTxResponse,
+	universalPayload *types.UniversalPayload,
+) error {
+	if receipt == nil || receipt.GasUsed == 0 {
+		return nil
+	}
+	if universalPayload == nil {
+		return nil
+	}
+
+	abiPayload, err := types.NewAbiUniversalPayload(universalPayload)
+	if err != nil {
+		return fmt.Errorf("failed to parse payload for gas deduction: %w", err)
+	}
+
+	baseFee := k.feemarketKeeper.GetBaseFee(sdkCtx)
+	if baseFee.IsNil() {
+		return fmt.Errorf("base fee not found")
+	}
+
+	gasCost, err := k.CalculateGasCost(baseFee, abiPayload.MaxFeePerGas, abiPayload.MaxPriorityFeePerGas, receipt.GasUsed)
+	if err != nil {
+		return fmt.Errorf("failed to calculate gas cost: %w", err)
+	}
+	if gasCost.Sign() <= 0 {
+		return nil
+	}
+
+	gasUsedBig := new(big.Int).SetUint64(receipt.GasUsed)
+	if gasUsedBig.Cmp(abiPayload.GasLimit) > 0 {
+		return fmt.Errorf("gas used (%d) exceeds gas limit (%s)", receipt.GasUsed, abiPayload.GasLimit.String())
+	}
+
+	recipientAccAddr := sdk.AccAddress(recipient.Bytes())
+	balance := k.bankKeeper.GetBalance(sdkCtx, recipientAccAddr, pchaintypes.BaseDenom)
+
+	if err := k.DeductAndBurnFees(ctx, recipientAccAddr, gasCost); err != nil {
+		return fmt.Errorf("insufficient gas: required %s upc, available %s upc, gas_used %d, from %s: %w",
+			gasCost.String(), balance.Amount.String(), receipt.GasUsed, recipient.Hex(), err)
+	}
+
+	k.Logger().Debug("gas fees deducted",
+		"recipient", recipient.Hex(),
+		"gas_used", receipt.GasUsed,
+		"gas_cost", gasCost.String(),
+	)
+	return nil
 }

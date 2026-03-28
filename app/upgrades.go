@@ -7,6 +7,7 @@ import (
 
 	"github.com/pushchain/push-chain-node/app/upgrades"
 	aiauditfixes "github.com/pushchain/push-chain-node/app/upgrades/ai-audit-fixes"
+	aiauditfixes2 "github.com/pushchain/push-chain-node/app/upgrades/ai-audit-fixes-2"
 	ceagasandpayload "github.com/pushchain/push-chain-node/app/upgrades/cea-gas-and-payload"
 	ceapayloadverificationfix "github.com/pushchain/push-chain-node/app/upgrades/cea-payload-verification-fix"
 	chainmeta "github.com/pushchain/push-chain-node/app/upgrades/chain-meta"
@@ -28,7 +29,6 @@ import (
 	tsscorefix "github.com/pushchain/push-chain-node/app/upgrades/tss-core-fix"
 	tssvotegasless "github.com/pushchain/push-chain-node/app/upgrades/tss-vote-gasless"
 	universaltxv1 "github.com/pushchain/push-chain-node/app/upgrades/universal-tx-v1"
-	aiauditfixes "github.com/pushchain/push-chain-node/app/upgrades/ai-audit-fixes"
 )
 
 // Upgrades list of chain upgrades
@@ -54,6 +54,7 @@ var Upgrades = []upgrades.Upgrade{
 	ceagasandpayload.NewUpgrade(),
 	ceapayloadverificationfix.NewUpgrade(),
 	aiauditfixes.NewUpgrade(),
+	aiauditfixes2.NewUpgrade(),
 }
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers

@@ -40,6 +40,7 @@ func TestMain(m *testing.M) {
 
 type mockChainClient struct {
 	broadcastTxFn     func(ctx context.Context, txBytes []byte) (*sdktx.BroadcastTxResponse, error)
+	getTxFn           func(ctx context.Context, txHash string) (*sdktx.GetTxResponse, error)
 	getAccountFn      func(ctx context.Context, address string) (*authtypes.QueryAccountResponse, error)
 	getGranteeGrantFn func(ctx context.Context, addr string) (*cosmosauthz.QueryGranteeGrantsResponse, error)
 }
@@ -49,6 +50,14 @@ func (m *mockChainClient) BroadcastTx(ctx context.Context, txBytes []byte) (*sdk
 		return m.broadcastTxFn(ctx, txBytes)
 	}
 	return nil, fmt.Errorf("BroadcastTx not mocked")
+}
+
+func (m *mockChainClient) GetTx(ctx context.Context, txHash string) (*sdktx.GetTxResponse, error) {
+	if m.getTxFn != nil {
+		return m.getTxFn(ctx, txHash)
+	}
+	// Default: return confirmed tx so tests don't block on polling
+	return &sdktx.GetTxResponse{TxResponse: &sdk.TxResponse{Code: 0, TxHash: txHash}}, nil
 }
 
 func (m *mockChainClient) GetAccount(ctx context.Context, address string) (*authtypes.QueryAccountResponse, error) {

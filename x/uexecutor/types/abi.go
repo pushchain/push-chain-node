@@ -181,7 +181,7 @@ const FactoryV1ABI = `[
 const UeaV1ABI = `[
   {
     "type": "function",
-    "name": "executePayload",
+    "name": "executeUniversalTx",
     "inputs": [
       {
         "name": "payload",

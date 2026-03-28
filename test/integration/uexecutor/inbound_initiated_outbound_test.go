@@ -116,8 +116,8 @@ func setupInboundInitiatedOutboundTest(t *testing.T, numVals int) (*app.ChainApp
 
 	ueModuleAccAddress, _ := app.UexecutorKeeper.GetUeModuleAddress(ctx)
 	receipt, err := app.UexecutorKeeper.DeployUEAV2(ctx, ueModuleAccAddress, validUA)
-	ueaAddrHex := common.BytesToAddress(receipt.Ret)
 	require.NoError(t, err)
+	ueaAddrHex := common.BytesToAddress(receipt.Ret)
 
 	// signature
 	validVerificationData := "0xa7531ada733322bd6708c94cba5a7dbd1ce25bccf010f774777b039713fc330643e23b7ef2a4609244900c6ab9a03d83d3ecf73edf6b451f21cc7dbda625a3211b"

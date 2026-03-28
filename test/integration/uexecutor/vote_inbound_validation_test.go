@@ -123,13 +123,16 @@ func TestVoteInboundValidation(t *testing.T) {
 	t.Run("inbound with invalid payload records failed PCTx", func(t *testing.T) {
 		chainApp, ctx, vals, coreVals, _ := setupInboundValidationTest(t, 4)
 
-		// Construct a FUNDS_AND_PAYLOAD inbound with a malformed UniversalPayload:
-		// empty "to" encodes as zero address in RawPayload, passes ValidateForExecution,
-		// but fails at EVM execution level. The failure is recorded as a failed PCTx.
+		// Construct a FUNDS_AND_PAYLOAD inbound whose payload will revert at EVM execution.
+		// The UEA's executeUniversalTx skips verification for module-sender calls, so we
+		// must trigger a revert in the execution step itself.
+		// Strategy: call the Handler contract with an invalid function selector — the
+		// Handler has no fallback, so the low-level .call() returns success=false and
+		// the UEA reverts with ExecutionFailed().
 		malformedPayload := &uexecutortypes.UniversalPayload{
-			To:                   "", // empty "to" address -- fails at EVM execution
+			To:                   utils.GetDefaultAddresses().HandlerAddr.Hex(), // real contract, no fallback
 			Value:                "0",
-			Data:                 "0x",
+			Data:                 "0xdeadbeef", // invalid selector — no matching function
 			GasLimit:             "21000000",
 			MaxFeePerGas:         "1000000000",
 			MaxPriorityFeePerGas: "200000000",

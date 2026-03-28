@@ -34,7 +34,7 @@ const testGatewayAddress = "CFVSincHYbETh2k7w6u1ENEkjbSLtveRCEBupKidw2VS"
 func newTestBuilder(t *testing.T) *TxBuilder {
 	t.Helper()
 	logger := zerolog.Nop()
-	builder, err := NewTxBuilder(&RPCClient{}, "solana:devnet", testGatewayAddress, "/tmp", logger)
+	builder, err := NewTxBuilder(&RPCClient{}, "solana:devnet", testGatewayAddress, "/tmp", logger, nil)
 	require.NoError(t, err)
 	return builder
 }
@@ -199,7 +199,7 @@ func TestNewTxBuilder(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			builder, err := NewTxBuilder(tt.rpcClient, tt.chainID, tt.gatewayAddress, "/tmp", logger)
+			builder, err := NewTxBuilder(tt.rpcClient, tt.chainID, tt.gatewayAddress, "/tmp", logger, nil)
 			if tt.expectError {
 				assert.Error(t, err)
 				if tt.errorContains != "" {
@@ -1493,7 +1493,7 @@ func setupDevnetSimulation(t *testing.T) (*RPCClient, *TxBuilder) {
 	require.NoError(t, os.MkdirAll(relayerDir, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(relayerDir, "solana.json"), []byte(testSolanaKeypairJSON), 0o600))
 
-	builder, err := NewTxBuilder(rpcClient, "solana:"+devnetGenesisHash, devnetGatewayAddress, tmpDir, logger)
+	builder, err := NewTxBuilder(rpcClient, "solana:"+devnetGenesisHash, devnetGatewayAddress, tmpDir, logger, nil)
 	require.NoError(t, err)
 
 	t.Logf("relayer pubkey: AdWDRaQfvWJqW4TaxTrXP5WogCWJMJBrtBfGjjHUDADM")

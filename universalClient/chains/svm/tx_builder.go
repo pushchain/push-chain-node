@@ -810,16 +810,11 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 		instructionData,
 	)
 
-	if data.GasLimit == "" || data.GasLimit == "0" {
-		return nil, 0, fmt.Errorf("gas limit is required in outbound event")
-	}
-	parsedLimit, parseErr := strconv.ParseUint(data.GasLimit, 10, 32)
-	if parseErr != nil {
-		return nil, 0, fmt.Errorf("invalid gas limit: %s", data.GasLimit)
-	}
-	computeUnitLimit := uint32(parsedLimit)
-
-	computeLimitIx := tb.buildSetComputeUnitLimitInstruction(computeUnitLimit)
+	// Hardcoded compute budget for Solana transactions. The event's gasLimit is a fee
+	// parameter (used by core for gasFee = gasPrice × gasLimit), not actual compute units.
+	// 400,000 CU is sufficient for all gateway operations including CEA execute flows.
+	const svmComputeUnitLimit = uint32(400_000)
+	computeLimitIx := tb.buildSetComputeUnitLimitInstruction(svmComputeUnitLimit)
 
 	// Build the instruction list.
 	instructions := []solana.Instruction{computeLimitIx}

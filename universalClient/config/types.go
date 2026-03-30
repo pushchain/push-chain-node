@@ -52,6 +52,7 @@ type ChainSpecificConfig struct {
 	EventPollingIntervalSeconds *int              `json:"event_polling_interval_seconds,omitempty"`
 	EventStartFrom              *int64            `json:"event_start_from,omitempty"`
 	GasPriceIntervalSeconds     *int              `json:"gas_price_interval_seconds,omitempty"`
+	GasPriceMarkupPercent       *int              `json:"gas_price_markup_percent,omitempty"`    // % markup on fetched gas price to handle spikes
 	ProtocolALT                 string            `json:"protocol_alt,omitempty"`            // Protocol ALT address (base58) for V0 transactions
 	TokenALTs                   map[string]string `json:"token_alts,omitempty"`              // mint address → token ALT address (base58)
 }

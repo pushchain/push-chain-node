@@ -25,6 +25,7 @@
       "retention_period_seconds": 43200,
       "event_polling_interval_seconds": 5,
       "gas_price_interval_seconds": 60,
+      "gas_price_markup_percent": 0,
       "event_start_from": 9084430
     },
     "eip155:421614": {
@@ -35,6 +36,7 @@
       "retention_period_seconds": 43200,
       "event_polling_interval_seconds": 5,
       "gas_price_interval_seconds": 60,
+      "gas_price_markup_percent": 10,
       "event_start_from": 203887665
     },
     "eip155:84532": {
@@ -45,6 +47,7 @@
       "retention_period_seconds": 43200,
       "event_polling_interval_seconds": 5,
       "gas_price_interval_seconds": 60,
+      "gas_price_markup_percent": 0,
       "event_start_from": 32257378
     },
     "eip155:97": {
@@ -55,6 +58,7 @@
       "retention_period_seconds": 43200,
       "event_polling_interval_seconds": 5,
       "gas_price_interval_seconds": 60,
+      "gas_price_markup_percent": 0,
       "event_start_from": 68905309
     },
     "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1": {
@@ -65,6 +69,7 @@
       "retention_period_seconds": 172800,
       "event_polling_interval_seconds": 5,
       "gas_price_interval_seconds": 30,
+      "gas_price_markup_percent": 0,
       "event_start_from": 403697270,
       "protocol_alt": "6AdUqeKQMapkoMXP3wJ7FrjYfVreqaD7bq3HZyZEn8kN",
       "token_alts": {

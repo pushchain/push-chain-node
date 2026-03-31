@@ -147,7 +147,7 @@ func TestConvertOutboundToEvent(t *testing.T) {
 
 		// Verify store.Event fields
 		assert.Equal(t, "0x123abc", result.EventID)
-		assert.Equal(t, store.EventTypeSign, result.Type)
+		assert.Equal(t, store.EventTypeSignOutbound, result.Type)
 		assert.Equal(t, uint64(1000), result.BlockHeight)
 		assert.Equal(t, uint64(1000+DefaultExpiryOffset), result.ExpiryBlockHeight)
 		assert.Equal(t, store.StatusConfirmed, result.Status)
@@ -275,7 +275,7 @@ func TestConvertFundMigrationEvent(t *testing.T) {
 		require.NotNil(t, result)
 
 		assert.Equal(t, "fm_1", result.EventID)
-		assert.Equal(t, store.EventTypeFundMigrate, result.Type)
+		assert.Equal(t, store.EventTypeSignFundMigrate, result.Type)
 		assert.Equal(t, store.StatusConfirmed, result.Status)
 		assert.Equal(t, store.ConfirmationInstant, result.ConfirmationType)
 		assert.Equal(t, uint64(5000), result.BlockHeight)

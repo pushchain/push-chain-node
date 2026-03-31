@@ -24,8 +24,8 @@ const (
 	EventTypeKeygen       = "KEYGEN"
 	EventTypeKeyrefresh   = "KEYREFRESH"
 	EventTypeQuorumChange = "QUORUM_CHANGE"
-	EventTypeSign         = "SIGN"
-	EventTypeFundMigrate  = "FUND_MIGRATE"
+	EventTypeSignOutbound     = "SIGN_OUTBOUND"
+	EventTypeSignFundMigrate  = "SIGN_FUND_MIGRATE"
 	EventTypeInbound      = "INBOUND"
 	EventTypeOutbound     = "OUTBOUND"
 )

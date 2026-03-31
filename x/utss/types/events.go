@@ -100,13 +100,15 @@ const (
 
 // FundMigrationInitiatedEventData represents the emitted event when fund migration is initiated.
 type FundMigrationInitiatedEventData struct {
-	MigrationID     uint64 `json:"migration_id"`
-	OldKeyID        string `json:"old_key_id"`
-	OldTssPubkey    string `json:"old_tss_pubkey"`
-	CurrentKeyID    string `json:"current_key_id"`
+	MigrationID      uint64 `json:"migration_id"`
+	OldKeyID         string `json:"old_key_id"`
+	OldTssPubkey     string `json:"old_tss_pubkey"`
+	CurrentKeyID     string `json:"current_key_id"`
 	CurrentTssPubkey string `json:"current_tss_pubkey"`
-	Chain           string `json:"chain"`
-	BlockHeight     int64  `json:"block_height"`
+	Chain            string `json:"chain"`
+	BlockHeight      int64  `json:"block_height"`
+	GasPrice         string `json:"gas_price"`
+	GasLimit         uint64 `json:"gas_limit"`
 }
 
 // NewFundMigrationInitiatedEvent creates and returns a Cosmos SDK event.
@@ -124,6 +126,8 @@ func NewFundMigrationInitiatedEvent(e FundMigrationInitiatedEventData) (sdk.Even
 		sdk.NewAttribute("current_key_id", e.CurrentKeyID),
 		sdk.NewAttribute("current_tss_pubkey", e.CurrentTssPubkey),
 		sdk.NewAttribute("chain", e.Chain),
+		sdk.NewAttribute("gas_price", e.GasPrice),
+		sdk.NewAttribute("gas_limit", fmt.Sprintf("%d", e.GasLimit)),
 		sdk.NewAttribute("data", string(bz)),
 	)
 

@@ -386,6 +386,30 @@ func (k Keeper) CallUniversalCoreSetChainMeta(
 	)
 }
 
+// GetGasPriceByChain reads the gas price for a chain from the UniversalCore contract.
+func (k Keeper) GetGasPriceByChain(ctx sdk.Context, chainNamespace string) (*big.Int, error) {
+	handlerAddr := common.HexToAddress(uregistrytypes.SYSTEM_CONTRACTS["UNIVERSAL_CORE"].Address)
+
+	abi, err := types.ParseUniversalCoreABI()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse UniversalCore ABI")
+	}
+
+	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
+
+	receipt, err := k.evmKeeper.CallEVM(ctx, abi, ueModuleAccAddress, handlerAddr, false, "gasPriceByChainNamespace", chainNamespace)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to call gasPriceByChainNamespace")
+	}
+
+	results, err := abi.Methods["gasPriceByChainNamespace"].Outputs.Unpack(receipt.Ret)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to unpack gasPriceByChainNamespace result")
+	}
+
+	return results[0].(*big.Int), nil
+}
+
 // GetUniversalCoreQuoterAddress reads the uniswapV3Quoter address stored in UniversalCore.
 func (k Keeper) GetUniversalCoreQuoterAddress(ctx sdk.Context) (common.Address, error) {
 	handlerAddr := common.HexToAddress(uregistrytypes.SYSTEM_CONTRACTS["UNIVERSAL_CORE"].Address)

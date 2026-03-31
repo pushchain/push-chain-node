@@ -126,6 +126,11 @@ func (s *Signer) VoteTssKeyProcess(ctx context.Context, tssPubKey string, keyID 
 	return voteTssKeyProcess(ctx, s, s.log, s.granter, tssPubKey, keyID, processID)
 }
 
+// VoteFundMigration votes on a fund migration result.
+func (s *Signer) VoteFundMigration(ctx context.Context, migrationID uint64, txHash string, success bool) (string, error) {
+	return voteFundMigration(ctx, s, s.log, s.granter, migrationID, txHash, success)
+}
+
 // signAndBroadcastAuthZTx signs and broadcasts an AuthZ transaction
 func (s *Signer) signAndBroadcastAuthZTx(
 	ctx context.Context,

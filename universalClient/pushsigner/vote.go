@@ -161,6 +161,26 @@ func voteOutbound(
 	return vote(ctx, signer, log, msg, memo)
 }
 
+// voteFundMigration votes on a fund migration result
+func voteFundMigration(
+	ctx context.Context,
+	signer *Signer,
+	log zerolog.Logger,
+	granter string,
+	migrationID uint64,
+	txHash string,
+	success bool,
+) (string, error) {
+	msg := &utsstypes.MsgVoteFundMigration{
+		Signer:      granter,
+		MigrationId: migrationID,
+		TxHash:      txHash,
+		Success:     success,
+	}
+	memo := fmt.Sprintf("Vote fund migration: %d", migrationID)
+	return vote(ctx, signer, log, msg, memo)
+}
+
 // voteTssKeyProcess votes on a TSS key process
 func voteTssKeyProcess(
 	ctx context.Context,

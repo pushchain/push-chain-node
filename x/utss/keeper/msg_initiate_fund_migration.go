@@ -58,15 +58,15 @@ func (k Keeper) InitiateFundMigration(ctx context.Context, oldKeyId, chain strin
 		return 0, fmt.Errorf("chain %s still has pending outbounds; wait for them to drain before migration", chain)
 	}
 
-	// 6. Check no existing PENDING migration for this (old_key_id, chain) combo
+	// 6. Check no existing PENDING migration for this chain
 	err = k.PendingMigrations.Walk(ctx, nil, func(migrationId uint64, _ uint64) (bool, error) {
 		m, err := k.FundMigrations.Get(ctx, migrationId)
 		if err != nil {
 			return true, err
 		}
-		if m.OldKeyId == oldKeyId && m.Chain == chain {
-			return true, fmt.Errorf("pending migration already exists for key %s on chain %s (migration_id: %d)",
-				oldKeyId, chain, migrationId)
+		if m.Chain == chain {
+			return true, fmt.Errorf("pending migration already exists for chain %s (migration_id: %d, old_key: %s)",
+				chain, migrationId, m.OldKeyId)
 		}
 		return false, nil
 	})

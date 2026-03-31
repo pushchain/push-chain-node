@@ -201,9 +201,9 @@ func TestInitiateFundMigration(t *testing.T) {
 		_, err := app.UtssKeeper.InitiateFundMigration(ctx, oldKeyId, testChain)
 		require.NoError(t, err)
 
-		// Try again — should fail
+		// Try again — should fail (same chain already has pending migration)
 		_, err = app.UtssKeeper.InitiateFundMigration(ctx, oldKeyId, testChain)
-		require.ErrorContains(t, err, "pending migration already exists")
+		require.ErrorContains(t, err, "pending migration already exists for chain")
 	})
 }
 

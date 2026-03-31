@@ -7,7 +7,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"strconv"
+	"math/big"
+
 	"sync"
 	"time"
 
@@ -23,6 +24,7 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
+	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 )
 
 // SendFunc is a function type for sending messages to participants.
@@ -36,7 +38,7 @@ type sessionState struct {
 	expiryTime   time.Time                     // when session expires
 	participants []string                      // list of participants (from setup message)
 	stepMu       sync.Mutex                    // mutex to serialize Step() calls (DKLS may not be thread-safe)
-	signingReq   *common.UnSignedOutboundTxReq // cached from coordinator setup (sign sessions only)
+	signingReq   *common.UnsignedSigningReq // cached from coordinator setup (sign sessions only)
 }
 
 // SessionManager manages TSS protocol sessions and handles incoming messages.
@@ -170,9 +172,16 @@ func (sm *SessionManager) handleSetupMessage(ctx context.Context, senderPeerID s
 	}
 
 	// 6. For SIGN events, verify the signing hash independently
-	if event.Type == store.EventTypeSign {
-		if err := sm.verifySigningRequest(ctx, event, msg.UnSignedOutboundTxReq); err != nil {
+	if event.Type == store.EventTypeSignOutbound {
+		if err := sm.verifyOutboundSigningRequest(ctx, event, msg.UnsignedSigningReq); err != nil {
 			return fmt.Errorf("signing request verification failed: %w", err)
+		}
+	}
+
+	// 6b. For FUND_MIGRATE events, verify the fund migration signing hash independently
+	if event.Type == store.EventTypeSignFundMigrate {
+		if err := sm.verifyFundMigrationSigningRequest(ctx, event, msg.UnsignedSigningReq); err != nil {
+			return fmt.Errorf("fund migration signing request verification failed: %w", err)
 		}
 	}
 
@@ -190,7 +199,7 @@ func (sm *SessionManager) handleSetupMessage(ctx context.Context, senderPeerID s
 		coordinator:  senderPeerID,
 		expiryTime:   time.Now().Add(sm.sessionExpiryTime),
 		participants: msg.Participants,
-		signingReq:   msg.UnSignedOutboundTxReq,
+		signingReq:   msg.UnsignedSigningReq,
 	}
 	sm.mu.Unlock()
 
@@ -402,8 +411,8 @@ func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID str
 		return fmt.Errorf("failed to get result for session %s: %w", eventID, err)
 	}
 
-	// SIGN sessions: broadcast the signed tx, then done (status managed by handleSigningComplete)
-	if state.protocolType == store.EventTypeSign {
+	// SIGN and FUND_MIGRATE sessions: broadcast the signed tx, then done (status managed by handleSigningComplete)
+	if state.protocolType == store.EventTypeSignOutbound || state.protocolType == store.EventTypeSignFundMigrate {
 		return sm.handleSignFinished(ctx, eventID, result, state.signingReq)
 	}
 
@@ -412,7 +421,7 @@ func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID str
 }
 
 // handleSignFinished handles a completed SIGN session by broadcasting the signed transaction.
-func (sm *SessionManager) handleSignFinished(ctx context.Context, eventID string, result *dkls.Result, signingReq *common.UnSignedOutboundTxReq) error {
+func (sm *SessionManager) handleSignFinished(ctx context.Context, eventID string, result *dkls.Result, signingReq *common.UnsignedSigningReq) error {
 	sm.logger.Info().
 		Str("event_id", eventID).
 		Str("signature", hex.EncodeToString(result.Signature)).
@@ -459,10 +468,18 @@ func (sm *SessionManager) handleKeyFinished(ctx context.Context, eventID, protoc
 	if sm.pushSigner != nil {
 		pubKeyHex := hex.EncodeToString(result.PublicKey)
 
-		processID, err := strconv.ParseUint(eventID, 10, 64)
+		// Extract process_id from event data (eventID is a hash, not the raw process ID)
+		event, err := sm.eventStore.GetEvent(eventID)
 		if err != nil {
-			return fmt.Errorf("failed to parse process id from %s: %w", eventID, err)
+			return fmt.Errorf("failed to get event %s for process ID extraction: %w", eventID, err)
 		}
+		var eventData struct {
+			ProcessID uint64 `json:"process_id"`
+		}
+		if err := json.Unmarshal(event.EventData, &eventData); err != nil {
+			return fmt.Errorf("failed to parse process id from event data: %w", err)
+		}
+		processID := eventData.ProcessID
 
 		voteTxHash, err = sm.pushSigner.VoteTssKeyProcess(ctx, pubKeyHex, storageID, processID)
 		if err != nil {
@@ -554,7 +571,7 @@ func (sm *SessionManager) createSession(ctx context.Context, event *store.Event,
 			oldKeyshare,
 		)
 
-	case store.EventTypeSign:
+	case store.EventTypeSignOutbound:
 		// Get current keyID
 		keyID, _, err := sm.coordinator.GetCurrentTSSKey(ctx)
 		if err != nil {
@@ -573,7 +590,30 @@ func (sm *SessionManager) createSession(ctx context.Context, event *store.Event,
 			sm.partyID,
 			msg.Participants,
 			keyshareBytes,
-			msg.UnSignedOutboundTxReq.SigningHash,
+			msg.UnsignedSigningReq.SigningHash,
+			nil, // chainPath
+		)
+
+	case store.EventTypeSignFundMigrate:
+		// Parse event data to get OldKeyID
+		var migrationData utsstypes.FundMigrationInitiatedEventData
+		if err := json.Unmarshal(event.EventData, &migrationData); err != nil {
+			return nil, fmt.Errorf("failed to parse fund migration data: %w", err)
+		}
+
+		// Load OLD keyshare (we sign with old key to move funds from old TSS)
+		oldKeyshare, err := sm.keyshareManager.Get(migrationData.OldKeyID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load old keyshare %s: %w", migrationData.OldKeyID, err)
+		}
+
+		return dkls.NewSignSession(
+			msg.Payload, // setupData
+			msg.EventID, // sessionID
+			sm.partyID,
+			msg.Participants,
+			oldKeyshare,
+			msg.UnsignedSigningReq.SigningHash,
 			nil, // chainPath
 		)
 
@@ -626,14 +666,14 @@ func (sm *SessionManager) validateParticipants(participants []string, event *sto
 			}
 		}
 
-	case store.EventTypeSign:
-		// For SIGN the coordinator picks a random threshold subset (>2/3 of eligible) rather than
-		// all eligible validators. Accept any subset as long as it meets the threshold minimum;
-		// all participants are already verified eligible by the eligibleSet check above.
+	case store.EventTypeSignOutbound, store.EventTypeSignFundMigrate:
+		// For SIGN and FUND_MIGRATE the coordinator picks a random threshold subset (>2/3 of eligible)
+		// rather than all eligible validators. Accept any subset as long as it meets the threshold
+		// minimum; all participants are already verified eligible by the eligibleSet check above.
 		threshold := coordinator.CalculateThreshold(len(eligibleList))
 		if len(participants) < threshold {
-			return fmt.Errorf("SIGN participants count %d is below required threshold %d (eligible: %d)",
-				len(participants), threshold, len(eligibleList))
+			return fmt.Errorf("%s participants count %d is below required threshold %d (eligible: %d)",
+				event.Type, len(participants), threshold, len(eligibleList))
 		}
 
 	default:
@@ -718,8 +758,8 @@ func (sm *SessionManager) checkExpiredSessions(ctx context.Context, blockDelay u
 	}
 }
 
-// verifySigningRequest validates the coordinator's signing request: hash verification (coordinator nonce is source of truth).
-func (sm *SessionManager) verifySigningRequest(ctx context.Context, event *store.Event, req *common.UnSignedOutboundTxReq) error {
+// verifyOutboundSigningRequest validates the coordinator's signing request: hash verification (coordinator nonce is source of truth).
+func (sm *SessionManager) verifyOutboundSigningRequest(ctx context.Context, event *store.Event, req *common.UnsignedSigningReq) error {
 	if req == nil {
 		return fmt.Errorf("unsigned transaction request is required for SIGN events")
 	}
@@ -799,6 +839,93 @@ func (sm *SessionManager) verifySigningRequest(ctx context.Context, event *store
 	return nil
 }
 
+// verifyFundMigrationSigningRequest validates the coordinator's fund migration signing request.
+// It independently rebuilds the signing hash from the event data and compares it with the coordinator's hash.
+func (sm *SessionManager) verifyFundMigrationSigningRequest(ctx context.Context, event *store.Event, req *common.UnsignedSigningReq) error {
+	if req == nil {
+		return fmt.Errorf("unsigned transaction request is required for FUND_MIGRATE events")
+	}
+
+	if len(req.SigningHash) == 0 {
+		return fmt.Errorf("signing hash is missing in request")
+	}
+
+	// Parse event data to get fund migration details
+	var migrationData utsstypes.FundMigrationInitiatedEventData
+	if err := json.Unmarshal(event.EventData, &migrationData); err != nil {
+		return fmt.Errorf("failed to parse fund migration event data: %w", err)
+	}
+
+	// Derive old and current TSS addresses from TSS public keys
+	oldTSSAddr, err := coordinator.DeriveEVMAddressFromPubkey(migrationData.OldTssPubkey)
+	if err != nil {
+		return fmt.Errorf("failed to derive old TSS address: %w", err)
+	}
+	currentTSSAddr, err := coordinator.DeriveEVMAddressFromPubkey(migrationData.CurrentTssPubkey)
+	if err != nil {
+		return fmt.Errorf("failed to derive current TSS address: %w", err)
+	}
+
+	// Get chain client and tx builder
+	if sm.chains == nil {
+		sm.logger.Warn().Msg("chains manager not configured, skipping fund migration hash verification")
+		return nil
+	}
+	client, err := sm.chains.GetClient(migrationData.Chain)
+	if err != nil {
+		sm.logger.Warn().Err(err).Str("chain", migrationData.Chain).Msg("failed to get client, skipping fund migration hash verification")
+		return nil
+	}
+	builder, err := client.GetTxBuilder()
+	if err != nil {
+		sm.logger.Warn().Err(err).Str("chain", migrationData.Chain).Msg("failed to get tx builder, skipping fund migration hash verification")
+		return nil
+	}
+
+	// Guard against stale / replayed nonces: reject if coordinator's nonce is below the
+	// last finalized nonce on chain for the old TSS address.
+	if finalizedNonce, nonceErr := builder.GetNextNonce(ctx, oldTSSAddr, true /* useFinalized */); nonceErr != nil {
+		sm.logger.Warn().Err(nonceErr).Str("chain", migrationData.Chain).Msg("cannot get finalized nonce for old TSS, skipping nonce check")
+	} else if req.Nonce < finalizedNonce {
+		return fmt.Errorf("coordinator assigned nonce %d is below chain finalized nonce %d for old TSS %s — nonce already used on chain",
+			req.Nonce, finalizedNonce, oldTSSAddr)
+	}
+
+	// Rebuild fund migration signing request with coordinator's nonce
+	gasPrice := new(big.Int)
+	gasPrice.SetString(migrationData.GasPrice, 10)
+
+	migrationFundData := &common.FundMigrationData{
+		From:     oldTSSAddr,
+		To:       currentTSSAddr,
+		GasPrice: gasPrice,
+		GasLimit: migrationData.GasLimit,
+	}
+	signingReq, err := builder.GetFundMigrationSigningRequest(ctx, migrationFundData, req.Nonce)
+	if err != nil {
+		return fmt.Errorf("failed to get fund migration signing request for verification: %w", err)
+	}
+
+	// Compare hashes - must match exactly
+	if !bytes.Equal(signingReq.SigningHash, req.SigningHash) {
+		sm.logger.Error().
+			Str("our_hash", hex.EncodeToString(signingReq.SigningHash)).
+			Str("coordinator_hash", hex.EncodeToString(req.SigningHash)).
+			Str("event_id", event.EventID).
+			Msg("fund migration signing hash mismatch - rejecting signing request")
+		return fmt.Errorf("fund migration signing hash mismatch: our computed hash does not match coordinator's hash")
+	}
+
+	sm.logger.Debug().
+		Str("event_id", event.EventID).
+		Str("signing_hash", hex.EncodeToString(req.SigningHash)).
+		Str("old_tss_addr", oldTSSAddr).
+		Str("current_tss_addr", currentTSSAddr).
+		Msg("fund migration sign metadata verified - hash matches")
+
+	return nil
+}
+
 // getTSSAddress gets the TSS ECDSA address from the current TSS public key
 // The TSS address is always the same ECDSA address derived from the TSS public key
 func (sm *SessionManager) getTSSAddress(ctx context.Context) (string, error) {
@@ -810,7 +937,7 @@ func (sm *SessionManager) getTSSAddress(ctx context.Context) (string, error) {
 
 // handleSigningComplete handles post-sign steps. EVM: set status SIGNED and store payload (txlifecycle/signed runs BroadcastOutboundSigningRequest). Solana: enqueue for sequential per-chain broadcast (PDA nonce order).
 // signingReq is the cached signing request from the coordinator setup message.
-func (sm *SessionManager) handleSigningComplete(_ context.Context, eventID string, eventData []byte, signature []byte, signingReq *common.UnSignedOutboundTxReq) error {
+func (sm *SessionManager) handleSigningComplete(_ context.Context, eventID string, eventData []byte, signature []byte, signingReq *common.UnsignedSigningReq) error {
 	if signingReq == nil {
 		return fmt.Errorf("signing request is nil - cannot persist signing data")
 	}

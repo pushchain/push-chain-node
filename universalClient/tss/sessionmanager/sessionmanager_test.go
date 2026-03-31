@@ -310,7 +310,7 @@ func TestValidateParticipants(t *testing.T) {
 	}
 	setCoordinatorValidators(coord, fourActive)
 
-	signEvent := &store.Event{EventID: "sign-1", Type: "SIGN"}
+	signEvent := &store.Event{EventID: "sign-1", Type: "SIGN_OUTBOUND"}
 	keygenEvent := &store.Event{EventID: "keygen-1", Type: "KEYGEN"}
 
 	// --- SIGN: threshold subset rules ---
@@ -335,6 +335,20 @@ func TestValidateParticipants(t *testing.T) {
 		err := sm.validateParticipants([]string{"v1", "v2", "unknown"}, signEvent)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "not eligible")
+	})
+
+	// --- SIGN_FUND_MIGRATE: same threshold rules as SIGN_OUTBOUND ---
+
+	fmEvent := &store.Event{EventID: "fm-1", Type: store.EventTypeSignFundMigrate}
+
+	t.Run("SIGN_FUND_MIGRATE: threshold subset is valid", func(t *testing.T) {
+		assert.NoError(t, sm.validateParticipants([]string{"v1", "v2", "v3"}, fmEvent))
+	})
+
+	t.Run("SIGN_FUND_MIGRATE: below threshold is rejected", func(t *testing.T) {
+		err := sm.validateParticipants([]string{"v1", "v2"}, fmEvent)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "threshold")
 	})
 
 	// --- KEYGEN: exact-match rules (all eligible must participate) ---
@@ -405,17 +419,17 @@ func TestVerifySigningRequest_OutboundDisabled(t *testing.T) {
 
 	event := &store.Event{
 		EventID:   "sign-event-1",
-		Type:      "SIGN",
+		Type:      "SIGN_OUTBOUND",
 		Status:    store.StatusConfirmed,
 		EventData: eventDataBytes,
 	}
 
-	req := &common.UnSignedOutboundTxReq{
+	req := &common.UnsignedSigningReq{
 		SigningHash: []byte{0x01, 0x02, 0x03},
 	}
 
 	t.Run("rejects signing when outbound disabled for destination chain", func(t *testing.T) {
-		err := sm.verifySigningRequest(ctx, event, req)
+		err := sm.verifyOutboundSigningRequest(ctx, event, req)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "outbound disabled")
 		assert.Contains(t, err.Error(), "eip155:1")
@@ -423,7 +437,7 @@ func TestVerifySigningRequest_OutboundDisabled(t *testing.T) {
 
 	t.Run("nil chains skips outbound check", func(t *testing.T) {
 		sm.chains = nil
-		err := sm.verifySigningRequest(ctx, event, req)
+		err := sm.verifyOutboundSigningRequest(ctx, event, req)
 		// Should pass the outbound check (skipped) and fail later on gas price validation
 		// or hash verification — but NOT on "outbound disabled"
 		if err != nil {

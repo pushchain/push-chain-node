@@ -71,12 +71,12 @@ func (b *Broadcaster) broadcastEVM(ctx context.Context, event *store.Event, data
 // broadcastFundMigrationEVM broadcasts a signed EVM fund migration transaction.
 // Same nonce-consumed recovery pattern as outbound, but uses old TSS address for nonce check.
 func (b *Broadcaster) broadcastFundMigrationEVM(ctx context.Context, event *store.Event, data *SignedFundMigrationData, chainID string) {
-	oldAddr, err := coordinator.DeriveEVMAddressFromPubkey(data.OldTssPubkey)
+	oldTSSAddr, err := coordinator.DeriveEVMAddressFromPubkey(data.OldTssPubkey)
 	if err != nil {
 		b.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to derive old TSS address")
 		return
 	}
-	newAddr, err := coordinator.DeriveEVMAddressFromPubkey(data.CurrentTssPubkey)
+	currentTSSAddr, err := coordinator.DeriveEVMAddressFromPubkey(data.CurrentTssPubkey)
 	if err != nil {
 		b.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to derive new TSS address")
 		return
@@ -103,8 +103,8 @@ func (b *Broadcaster) broadcastFundMigrationEVM(ctx context.Context, event *stor
 	gasPrice.SetString(data.GasPrice, 10)
 
 	migrationData := &common.FundMigrationData{
-		From:     oldAddr,
-		To:       newAddr,
+		From:     oldTSSAddr,
+		To:       currentTSSAddr,
 		GasPrice: gasPrice,
 		GasLimit: data.GasLimit,
 	}
@@ -123,7 +123,7 @@ func (b *Broadcaster) broadcastFundMigrationEVM(ctx context.Context, event *stor
 	}
 
 	// Use old TSS address for nonce check since that's the sender
-	b.checkNonceAndMarkBroadcasted(ctx, event, builder, chainID, txHash, oldAddr, data.SigningData.Nonce, broadcastErr)
+	b.checkNonceAndMarkBroadcasted(ctx, event, builder, chainID, txHash, oldTSSAddr, data.SigningData.Nonce, broadcastErr)
 }
 
 // checkNonceAndMarkBroadcasted checks if a nonce has been consumed on-chain despite broadcast error.

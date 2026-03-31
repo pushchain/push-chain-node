@@ -178,8 +178,8 @@ func (c *Client) GetConfig() *uregistrytypes.ChainConfig {
 	return c.registryConfig
 }
 
-// GetTxBuilder returns the OutboundTxBuilder for this chain
-func (c *Client) GetTxBuilder() (common.OutboundTxBuilder, error) {
+// GetTxBuilder returns the TxBuilder for this chain
+func (c *Client) GetTxBuilder() (common.TxBuilder, error) {
 	if c.txBuilder == nil {
 		return nil, fmt.Errorf("txBuilder not available for chain %s (gateway not configured)", c.chainIDStr)
 	}

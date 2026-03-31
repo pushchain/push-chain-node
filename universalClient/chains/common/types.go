@@ -17,28 +17,28 @@ type ChainClient interface {
 	// IsHealthy checks if the chain client is operational
 	IsHealthy() bool
 
-	// GetTxBuilder returns the OutboundTxBuilder for this chain
+	// GetTxBuilder returns the TxBuilder for this chain
 	// Returns an error if txBuilder is not supported for this chain (e.g., Push chain)
-	GetTxBuilder() (OutboundTxBuilder, error)
+	GetTxBuilder() (TxBuilder, error)
 }
 
-// UnSignedOutboundTxReq contains the request for signing an outbound transaction
-type UnSignedOutboundTxReq struct {
+// UnsignedSigningReq contains the request for signing an outbound transaction
+type UnsignedSigningReq struct {
 	SigningHash []byte // Hash to be signed by TSS
 	Nonce       uint64 // evm - TSS Address nonce | svm - PDA nonce
 }
 
-// OutboundTxBuilder builds and broadcasts transactions for outbound transfers
-type OutboundTxBuilder interface {
+// TxBuilder builds and broadcasts transactions for outbound transfers
+type TxBuilder interface {
 	// GetOutboundSigningRequest creates a signing request from outbound event data
-	GetOutboundSigningRequest(ctx context.Context, data *uetypes.OutboundCreatedEvent, nonce uint64) (*UnSignedOutboundTxReq, error)
+	GetOutboundSigningRequest(ctx context.Context, data *uetypes.OutboundCreatedEvent, nonce uint64) (*UnsignedSigningReq, error)
 
 	// GetNextNonce returns the next nonce for the given signer on this chain (for seeding local nonce).
 	// useFinalized: for EVM, if true use finalized block nonce (aggressive/replace stuck); if false use pending. SVM ignores this.
 	GetNextNonce(ctx context.Context, signerAddress string, useFinalized bool) (uint64, error)
 
 	// BroadcastOutboundSigningRequest assembles and broadcasts a signed transaction from the signing request, event data, and signature
-	BroadcastOutboundSigningRequest(ctx context.Context, req *UnSignedOutboundTxReq, data *uetypes.OutboundCreatedEvent, signature []byte) (string, error)
+	BroadcastOutboundSigningRequest(ctx context.Context, req *UnsignedSigningReq, data *uetypes.OutboundCreatedEvent, signature []byte) (string, error)
 
 	// VerifyBroadcastedTx checks the status of a broadcasted transaction on the destination chain.
 	// Returns (found, blockHeight, confirmations, status, error):
@@ -60,6 +60,13 @@ type OutboundTxBuilder interface {
 	// SVM: returns "0" (gas accounting is handled via vault gasFee reimbursement).
 	// Returns "0" if the transaction is not found.
 	GetGasFeeUsed(ctx context.Context, txHash string) (string, error)
+
+	// GetFundMigrationSigningRequest builds a native token transfer from `from` to `to`,
+	// transferring the maximum possible balance (balance minus gas cost).
+	GetFundMigrationSigningRequest(ctx context.Context, from, to string, nonce uint64) (*UnsignedSigningReq, error)
+
+	// BroadcastFundMigrationTx assembles and broadcasts a signed fund migration transaction.
+	BroadcastFundMigrationTx(ctx context.Context, req *UnsignedSigningReq, from, to string, signature []byte) (string, error)
 }
 
 // UniversalTx Payload

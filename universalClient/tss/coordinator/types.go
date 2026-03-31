@@ -18,7 +18,7 @@ type Message struct {
 	Payload      []byte   `json:"payload"`
 	Participants []string `json:"participants"` // Array of PartyIDs (validator addresses) participating in this process
 
-	// UnSignedOutboundTxReq is included for SIGN protocol setup messages.
+	// UnsignedSigningReq is included for SIGN protocol setup messages.
 	// Participants use this to verify the signing hash before proceeding.
-	UnSignedOutboundTxReq *common.UnSignedOutboundTxReq `json:"unsigned_outbound_tx_req,omitempty"`
+	UnsignedSigningReq *common.UnsignedSigningReq `json:"unsigned_outbound_tx_req,omitempty"`
 }

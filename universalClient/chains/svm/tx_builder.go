@@ -91,7 +91,7 @@ type GatewayAccountMeta struct {
 }
 
 // TxBuilder constructs and broadcasts Solana transactions for cross-chain operations.
-// It implements the common.OutboundTxBuilder interface shared with the EVM tx builder.
+// It implements the common.TxBuilder interface shared with the EVM tx builder.
 //
 // The builder needs:
 //   - rpcClient: to talk to a Solana RPC node (fetch account data, send transactions)
@@ -195,7 +195,7 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 	ctx context.Context,
 	data *uetypes.OutboundCreatedEvent,
 	nonce uint64,
-) (*common.UnSignedOutboundTxReq, error) {
+) (*common.UnsignedSigningReq, error) {
 	if data == nil {
 		return nil, fmt.Errorf("outbound event data is nil")
 	}
@@ -409,7 +409,7 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 		return nil, fmt.Errorf("failed to construct TSS message: %w", err)
 	}
 
-	return &common.UnSignedOutboundTxReq{
+	return &common.UnsignedSigningReq{
 		SigningHash: messageHash, // This is the keccak256 hash to be signed by TSS
 		Nonce:       nonce,
 	}, nil
@@ -479,7 +479,7 @@ func (tb *TxBuilder) GetGasFeeUsed(ctx context.Context, txHash string) (string, 
 // TSS signature and broadcasts it to the Solana network.
 func (tb *TxBuilder) BroadcastOutboundSigningRequest(
 	ctx context.Context,
-	req *common.UnSignedOutboundTxReq,
+	req *common.UnsignedSigningReq,
 	data *uetypes.OutboundCreatedEvent,
 	signature []byte,
 ) (string, error) {
@@ -549,7 +549,7 @@ func (tb *TxBuilder) fetchAddressTables(ctx context.Context, mintPubkey solana.P
 // the instruction ID for logging. Use this for simulation or inspection.
 func (tb *TxBuilder) BuildOutboundTransaction(
 	ctx context.Context,
-	req *common.UnSignedOutboundTxReq,
+	req *common.UnsignedSigningReq,
 	data *uetypes.OutboundCreatedEvent,
 	signature []byte,
 ) (*solana.Transaction, uint8, error) {
@@ -1779,4 +1779,14 @@ func (tb *TxBuilder) buildCreateATAIdempotentInstruction(
 
 	// Instruction index 1 = CreateIdempotent
 	return solana.NewInstruction(ataProgramID, accounts, []byte{1})
+}
+
+// GetFundMigrationSigningRequest is not supported for SVM - funds are held by the program, not the TSS key.
+func (tb *TxBuilder) GetFundMigrationSigningRequest(ctx context.Context, from, to string, nonce uint64) (*common.UnsignedSigningReq, error) {
+	return nil, fmt.Errorf("fund migration not supported for SVM")
+}
+
+// BroadcastFundMigrationTx is not supported for SVM - funds are held by the program, not the TSS key.
+func (tb *TxBuilder) BroadcastFundMigrationTx(ctx context.Context, req *common.UnsignedSigningReq, from, to string, signature []byte) (string, error) {
+	return "", fmt.Errorf("fund migration not supported for SVM")
 }

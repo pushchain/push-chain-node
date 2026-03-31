@@ -102,4 +102,6 @@ message FundMigration {
   int64  initiated_block    = 8;
   int64  completed_block    = 9;
   string tx_hash            = 10;
+  string gas_price          = 11; // gas price from oracle (wei)
+  uint64 gas_limit          = 12; // gas limit for native transfer (21000)
 }

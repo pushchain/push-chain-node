@@ -1,6 +1,8 @@
 package push
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 
@@ -8,6 +10,13 @@ import (
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 )
+
+// hashEventID generates a unique event ID by hashing eventType + ":" + rawID.
+// This prevents collisions between different event types that may share numeric IDs.
+func hashEventID(eventType, rawID string) string {
+	h := sha256.Sum256([]byte(eventType + ":" + rawID))
+	return hex.EncodeToString(h[:])
+}
 
 // DefaultExpiryOffset is the number of blocks after event detection
 // before an event expires (~10 minutes at ~1s block time).
@@ -45,7 +54,7 @@ func convertTssEvent(tssEvent *utsstypes.TssEvent) (*store.Event, error) {
 	}
 
 	return &store.Event{
-		EventID:           fmt.Sprintf("%d", tssEvent.ProcessId),
+		EventID:           hashEventID(protocolType, fmt.Sprintf("%d", tssEvent.ProcessId)),
 		BlockHeight:       uint64(tssEvent.BlockHeight),
 		ExpiryBlockHeight: uint64(tssEvent.ExpiryHeight),
 		Type:              protocolType,
@@ -78,7 +87,7 @@ func convertFundMigrationEvent(migration *utsstypes.FundMigration) (*store.Event
 	blockHeight := uint64(migration.InitiatedBlock)
 
 	return &store.Event{
-		EventID:           fmt.Sprintf("fm_%d", migration.Id),
+		EventID:           hashEventID(store.EventTypeSignFundMigrate, fmt.Sprintf("%d", migration.Id)),
 		BlockHeight:       blockHeight,
 		ExpiryBlockHeight: blockHeight + DefaultExpiryOffset,
 		Type:              store.EventTypeSignFundMigrate,

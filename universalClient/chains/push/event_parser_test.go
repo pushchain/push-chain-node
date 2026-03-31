@@ -46,7 +46,7 @@ func TestConvertTssEvent(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, result)
 
-		assert.Equal(t, "123", result.EventID)
+		assert.Equal(t, hashEventID(store.EventTypeKeygen, "123"), result.EventID)
 		assert.Equal(t, store.EventTypeKeygen, result.Type)
 		assert.Equal(t, uint64(500), result.BlockHeight)
 		assert.Equal(t, uint64(1000), result.ExpiryBlockHeight)
@@ -70,7 +70,7 @@ func TestConvertTssEvent(t *testing.T) {
 			BlockHeight: 600,
 		})
 		require.NoError(t, err)
-		assert.Equal(t, "456", result.EventID)
+		assert.Equal(t, hashEventID(store.EventTypeKeyrefresh, "456"), result.EventID)
 		assert.Equal(t, store.EventTypeKeyrefresh, result.Type)
 		assert.Equal(t, uint64(600), result.BlockHeight)
 		assert.Nil(t, result.EventData) // no participants
@@ -84,7 +84,7 @@ func TestConvertTssEvent(t *testing.T) {
 			BlockHeight:  700,
 		})
 		require.NoError(t, err)
-		assert.Equal(t, "789", result.EventID)
+		assert.Equal(t, hashEventID(store.EventTypeQuorumChange, "789"), result.EventID)
 		assert.Equal(t, store.EventTypeQuorumChange, result.Type)
 		assert.Equal(t, uint64(2000), result.ExpiryBlockHeight)
 	})
@@ -274,7 +274,7 @@ func TestConvertFundMigrationEvent(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, result)
 
-		assert.Equal(t, "fm_1", result.EventID)
+		assert.Equal(t, hashEventID(store.EventTypeSignFundMigrate, "1"), result.EventID)
 		assert.Equal(t, store.EventTypeSignFundMigrate, result.Type)
 		assert.Equal(t, store.StatusConfirmed, result.Status)
 		assert.Equal(t, store.ConfirmationInstant, result.ConfirmationType)
@@ -292,7 +292,7 @@ func TestConvertFundMigrationEvent(t *testing.T) {
 		assert.Equal(t, int64(5000), data.BlockHeight)
 	})
 
-	t.Run("event ID uses fm_ prefix", func(t *testing.T) {
+	t.Run("event ID is hash of type and migration ID", func(t *testing.T) {
 		migration := &utsstypes.FundMigration{
 			Id:             42,
 			InitiatedBlock: 100,
@@ -300,6 +300,6 @@ func TestConvertFundMigrationEvent(t *testing.T) {
 
 		result, err := convertFundMigrationEvent(migration)
 		require.NoError(t, err)
-		assert.Equal(t, "fm_42", result.EventID)
+		assert.Equal(t, hashEventID(store.EventTypeSignFundMigrate, "42"), result.EventID)
 	})
 }

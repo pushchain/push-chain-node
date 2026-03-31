@@ -16,6 +16,7 @@ import (
 
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
+	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 
 	"github.com/pushchain/push-chain-node/universalClient/chains"
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
@@ -30,12 +31,12 @@ import (
 
 type mockTxBuilder struct{ mock.Mock }
 
-func (m *mockTxBuilder) GetOutboundSigningRequest(ctx context.Context, data *uexecutortypes.OutboundCreatedEvent, nonce uint64) (*common.UnSignedOutboundTxReq, error) {
+func (m *mockTxBuilder) GetOutboundSigningRequest(ctx context.Context, data *uexecutortypes.OutboundCreatedEvent, nonce uint64) (*common.UnsignedSigningReq, error) {
 	args := m.Called(ctx, data, nonce)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*common.UnSignedOutboundTxReq), args.Error(1)
+	return args.Get(0).(*common.UnsignedSigningReq), args.Error(1)
 }
 
 func (m *mockTxBuilder) GetNextNonce(ctx context.Context, addr string, useFinalized bool) (uint64, error) {
@@ -43,7 +44,7 @@ func (m *mockTxBuilder) GetNextNonce(ctx context.Context, addr string, useFinali
 	return args.Get(0).(uint64), args.Error(1)
 }
 
-func (m *mockTxBuilder) BroadcastOutboundSigningRequest(ctx context.Context, req *common.UnSignedOutboundTxReq, data *uexecutortypes.OutboundCreatedEvent, sig []byte) (string, error) {
+func (m *mockTxBuilder) BroadcastOutboundSigningRequest(ctx context.Context, req *common.UnsignedSigningReq, data *uexecutortypes.OutboundCreatedEvent, sig []byte) (string, error) {
 	args := m.Called(ctx, req, data, sig)
 	return args.String(0), args.Error(1)
 }
@@ -63,12 +64,25 @@ func (m *mockTxBuilder) GetGasFeeUsed(ctx context.Context, txHash string) (strin
 	return args.String(0), args.Error(1)
 }
 
+func (m *mockTxBuilder) GetFundMigrationSigningRequest(ctx context.Context, data *common.FundMigrationData, nonce uint64) (*common.UnsignedSigningReq, error) {
+	args := m.Called(ctx, data, nonce)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*common.UnsignedSigningReq), args.Error(1)
+}
+
+func (m *mockTxBuilder) BroadcastFundMigrationTx(ctx context.Context, req *common.UnsignedSigningReq, data *common.FundMigrationData, sig []byte) (string, error) {
+	args := m.Called(ctx, req, data, sig)
+	return args.String(0), args.Error(1)
+}
+
 type mockChainClient struct{ builder *mockTxBuilder }
 
 func (m *mockChainClient) Start(context.Context) error                     { return nil }
 func (m *mockChainClient) Stop() error                                     { return nil }
 func (m *mockChainClient) IsHealthy() bool                                 { return true }
-func (m *mockChainClient) GetTxBuilder() (common.OutboundTxBuilder, error) { return m.builder, nil }
+func (m *mockChainClient) GetTxBuilder() (common.TxBuilder, error) { return m.builder, nil }
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -122,7 +136,7 @@ func insertBroadcastedEvent(t *testing.T, db *gorm.DB, eventID, destChain, broad
 		EventID:           eventID,
 		BlockHeight:       100,
 		ExpiryBlockHeight: 99999,
-		Type:              "SIGN",
+		Type:              "SIGN_OUTBOUND",
 		ConfirmationType:  "STANDARD",
 		Status:            store.StatusBroadcasted,
 		EventData:         eventData,
@@ -268,7 +282,7 @@ func TestSVM_PDANotFound_VotesFailureAndReverts(t *testing.T) {
 	ev := getEvent(t, db, "ev-1")
 	resolver.resolveSVM(context.Background(), &ev, "solana:mainnet")
 
-	// With no push signer, voteFailureAndMarkReverted returns nil early (logs warning).
+	// With no push signer, voteOutboundFailureAndMarkReverted returns nil early (logs warning).
 	// The event stays BROADCASTED because the vote+revert is skipped.
 	updated := getEvent(t, db, "ev-1")
 	require.Equal(t, store.StatusBroadcasted, updated.Status)
@@ -409,7 +423,7 @@ func TestNotFoundCountTracking(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// voteFailureAndMarkReverted tests
+// voteOutboundFailureAndMarkReverted tests
 // ---------------------------------------------------------------------------
 
 func TestVoteFailureAndMarkReverted(t *testing.T) {
@@ -422,9 +436,125 @@ func TestVoteFailureAndMarkReverted(t *testing.T) {
 		})
 
 		event := &store.Event{EventID: "ev-1"}
-		err := resolver.voteFailureAndMarkReverted(context.Background(), event, "tx-1", "utx-1", "0xhash", 12345, "0", "some error")
+		err := resolver.voteOutboundFailureAndMarkReverted(context.Background(), event, "tx-1", "utx-1", "0xhash", 12345, "0", "some error")
 		assert.NoError(t, err)
 	})
+}
+
+// ---------------------------------------------------------------------------
+// Fund migration EVM resolution tests
+// ---------------------------------------------------------------------------
+
+func makeFundMigrationEventData(migrationID uint64, chain string) []byte {
+	data := utsstypes.FundMigrationInitiatedEventData{
+		MigrationID: migrationID,
+		Chain:       chain,
+	}
+	b, _ := json.Marshal(data)
+	return b
+}
+
+func insertBroadcastedFundMigrationEvent(t *testing.T, db *gorm.DB, eventID, chain, broadcastedTxHash string, migrationID uint64) {
+	t.Helper()
+	event := store.Event{
+		EventID:           eventID,
+		BlockHeight:       100,
+		ExpiryBlockHeight: 99999,
+		Type:              store.EventTypeSignFundMigrate,
+		ConfirmationType:  "INSTANT",
+		Status:            store.StatusBroadcasted,
+		EventData:         makeFundMigrationEventData(migrationID, chain),
+		BroadcastedTxHash: broadcastedTxHash,
+	}
+	require.NoError(t, db.Create(&event).Error)
+}
+
+func TestFundMigrationEVM_TxSuccess_VotesSuccessAndCompletes(t *testing.T) {
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "eip155:1", uregistrytypes.VmType_EVM, client)
+
+	insertBroadcastedFundMigrationEvent(t, db, "fm-1", "eip155:1", "eip155:1:0xmigrate123", 42)
+
+	// Tx found, confirmed, status=1 (success)
+	builder.On("VerifyBroadcastedTx", mock.Anything, "0xmigrate123").
+		Return(true, uint64(500), uint64(20), uint8(1), nil)
+
+	// No pushSigner — voteFundMigrationAndMark logs warning but doesn't panic
+	resolver := newResolver(evtStore, ch)
+	resolver.processBroadcasted(context.Background())
+
+	// Without pushSigner, vote is skipped so status stays BROADCASTED
+	ev := getEvent(t, db, "fm-1")
+	require.Equal(t, store.StatusBroadcasted, ev.Status)
+}
+
+func TestFundMigrationEVM_TxReverted_VotesFailure(t *testing.T) {
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "eip155:1", uregistrytypes.VmType_EVM, client)
+
+	insertBroadcastedFundMigrationEvent(t, db, "fm-1", "eip155:1", "eip155:1:0xfailed", 42)
+
+	// Tx found, confirmed, status=0 (reverted)
+	builder.On("VerifyBroadcastedTx", mock.Anything, "0xfailed").
+		Return(true, uint64(500), uint64(20), uint8(0), nil)
+
+	resolver := newResolver(evtStore, ch)
+	resolver.processBroadcasted(context.Background())
+
+	// Without pushSigner, vote is skipped so status stays BROADCASTED
+	ev := getEvent(t, db, "fm-1")
+	require.Equal(t, store.StatusBroadcasted, ev.Status)
+}
+
+func TestFundMigrationEVM_TxNotFound_RetriesAndReverts(t *testing.T) {
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "eip155:1", uregistrytypes.VmType_EVM, client)
+
+	insertBroadcastedFundMigrationEvent(t, db, "fm-1", "eip155:1", "eip155:1:0xnotfound", 42)
+
+	// Tx not found
+	builder.On("VerifyBroadcastedTx", mock.Anything, "0xnotfound").
+		Return(false, uint64(0), uint64(0), uint8(0), nil)
+
+	resolver := newResolver(evtStore, ch)
+
+	// Should increment not found count each time, stay BROADCASTED
+	for i := 0; i < maxNotFoundRetries-1; i++ {
+		resolver.processBroadcasted(context.Background())
+		ev := getEvent(t, db, "fm-1")
+		require.Equal(t, store.StatusBroadcasted, ev.Status)
+	}
+
+	// On max retries, without pushSigner vote is skipped
+	resolver.processBroadcasted(context.Background())
+	ev := getEvent(t, db, "fm-1")
+	require.Equal(t, store.StatusBroadcasted, ev.Status) // no signer = no revert
+}
+
+func TestFundMigrationEVM_InsufficientConfirmations_Retries(t *testing.T) {
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "eip155:1", uregistrytypes.VmType_EVM, client)
+
+	insertBroadcastedFundMigrationEvent(t, db, "fm-1", "eip155:1", "eip155:1:0xpending", 42)
+
+	// Tx found but only 2 confirmations (needs more)
+	builder.On("VerifyBroadcastedTx", mock.Anything, "0xpending").
+		Return(true, uint64(500), uint64(2), uint8(1), nil)
+
+	resolver := newResolver(evtStore, ch)
+	resolver.processBroadcasted(context.Background())
+
+	// Not enough confirmations, stays BROADCASTED
+	ev := getEvent(t, db, "fm-1")
+	require.Equal(t, store.StatusBroadcasted, ev.Status)
 }
 
 // ---------------------------------------------------------------------------

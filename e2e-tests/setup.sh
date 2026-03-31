@@ -24,7 +24,7 @@ fi
 : "${FUND_AMOUNT:=1000000000000000000upc}"
 : "${POOL_CREATION_TOPUP_AMOUNT:=50000000000000000000upc}"
 : "${GAS_PRICES:=100000000000upc}"
-: "${LOCAL_DEVNET_DIR:=./local-multi-validator}"
+: "${LOCAL_DEVNET_DIR:=./local-setup-e2e}"
 : "${LEGACY_LOCAL_NATIVE_DIR:=./local-native}"
 
 : "${CORE_CONTRACTS_REPO:=https://github.com/pushchain/push-chain-core-contracts.git}"
@@ -820,7 +820,7 @@ step_run_sdk_tests_all() {
 
 step_devnet() {
   require_cmd bash
-  log_info "Starting local-multi-validator devnet"
+  log_info "Starting local devnet"
   (
     cd "$LOCAL_DEVNET_DIR"
     ./devnet start --build
@@ -852,12 +852,12 @@ step_setup_environment() {
   local base_host_rpc="${ANVIL_BASE_HOST_RPC_URL:-http://localhost:9547}"
   local bsc_host_rpc="${ANVIL_BSC_HOST_RPC_URL:-http://localhost:9548}"
 
-  local uv_sepolia_rpc_url="${LOCAL_SEPOLIA_UV_RPC_URL:-http://host.docker.internal:9545}"
-  local uv_arbitrum_rpc_url="${LOCAL_ARBITRUM_UV_RPC_URL:-http://host.docker.internal:9546}"
-  local uv_base_rpc_url="${LOCAL_BASE_UV_RPC_URL:-http://host.docker.internal:9547}"
-  local uv_bsc_rpc_url="${LOCAL_BSC_UV_RPC_URL:-http://host.docker.internal:9548}"
+  local uv_sepolia_rpc_url="${LOCAL_SEPOLIA_UV_RPC_URL:-http://localhost:9545}"
+  local uv_arbitrum_rpc_url="${LOCAL_ARBITRUM_UV_RPC_URL:-http://localhost:9546}"
+  local uv_base_rpc_url="${LOCAL_BASE_UV_RPC_URL:-http://localhost:9547}"
+  local uv_bsc_rpc_url="${LOCAL_BSC_UV_RPC_URL:-http://localhost:9548}"
   local solana_host_rpc="${SURFPOOL_SOLANA_HOST_RPC_URL:-http://localhost:8899}"
-  local uv_solana_rpc_url="${LOCAL_SOLANA_UV_RPC_URL:-http://host.docker.internal:8899}"
+  local uv_solana_rpc_url="${LOCAL_SOLANA_UV_RPC_URL:-http://localhost:8899}"
 
   patch_chain_config_public_rpc() {
     local file_path="$1"
@@ -974,20 +974,27 @@ step_setup_environment() {
   solana_latest_slot="$(wait_for_solana_slot "$solana_host_rpc")"
 
   local patched_count=0
-  local config_path="/root/.puniversal/config/pushuv_config.json"
-  local uv_container
-  for uv_container in universal-validator-1 universal-validator-2 universal-validator-3 universal-validator-4; do
-    if ! docker ps --format '{{.Names}}' | grep -qx "$uv_container"; then
-      continue
-    fi
+  local uv_idx
+  for uv_idx in 1 2 3 4; do
+    # Prefer local file (local-setup-e2e devnet); fall back to Docker container
+    local local_cfg="$LOCAL_DEVNET_DIR/data/universal-${uv_idx}/.puniversal/config/pushuv_config.json"
+    local uv_container="universal-validator-${uv_idx}"
 
     local tmp_in tmp_out
     tmp_in="$(mktemp)"
     tmp_out="$(mktemp)"
 
-    if ! docker exec "$uv_container" cat "$config_path" >"$tmp_in"; then
+    if [[ -f "$local_cfg" ]]; then
+      cp "$local_cfg" "$tmp_in"
+    elif docker ps --format '{{.Names}}' | grep -qx "$uv_container" 2>/dev/null; then
+      local docker_cfg="/root/.puniversal/config/pushuv_config.json"
+      if ! docker exec "$uv_container" cat "$docker_cfg" >"$tmp_in" 2>/dev/null; then
+        rm -f "$tmp_in" "$tmp_out"
+        log_warn "Failed to read config from $uv_container"
+        continue
+      fi
+    else
       rm -f "$tmp_in" "$tmp_out"
-      log_warn "Failed to read $config_path from $uv_container"
       continue
     fi
 
@@ -1015,15 +1022,20 @@ step_setup_environment() {
         | .chain_configs["solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"].event_start_from = $solana_start
       ' "$tmp_in" >"$tmp_out"
 
-    docker cp "$tmp_out" "$uv_container":"$config_path"
+    if [[ -f "$local_cfg" ]]; then
+      cp "$tmp_out" "$local_cfg"
+      log_ok "Updated universal-validator-${uv_idx} local config for Sepolia/Arbitrum/Base/BSC/Solana forks"
+    else
+      local docker_cfg="/root/.puniversal/config/pushuv_config.json"
+      docker cp "$tmp_out" "$uv_container":"$docker_cfg"
+      log_ok "Updated $uv_container Docker config for Sepolia/Arbitrum/Base/BSC/Solana local forks"
+    fi
     rm -f "$tmp_in" "$tmp_out"
-
     patched_count=$((patched_count + 1))
-    log_ok "Updated $uv_container config for Sepolia/Arbitrum/Base/BSC/Solana local forks"
   done
 
   if [[ "$patched_count" -eq 0 ]]; then
-    log_warn "No universal-validator containers are running yet; skipped pushuv_config.json patch"
+    log_warn "No universal validators found (local or Docker); skipped pushuv_config.json patch"
     return 0
   fi
 
@@ -1224,6 +1236,9 @@ step_setup_core_contracts() {
   local failed=0
   local resume_attempt=1
   local resume_max_attempts="${CORE_RESUME_MAX_ATTEMPTS:-0}"  # 0 = unlimited
+
+  log_info "Clearing stale forge broadcast cache for fresh deploy"
+  rm -rf "$CORE_CONTRACTS_DIR/broadcast/setup.s.sol"
 
   log_info "Running local core setup script"
   (
@@ -1593,6 +1608,9 @@ step_setup_gateway() {
 
   log_info "Building gateway evm contracts"
   (cd "$gw_dir" && forge build)
+
+  log_info "Clearing stale forge broadcast cache for gateway deploy"
+  rm -rf "$gw_dir/broadcast/$(basename "$gw_setup_script" .s.sol).s.sol"
 
   log_info "Running gateway local setup script"
   (
@@ -2019,6 +2037,9 @@ step_configure_universal_core() {
     return 0
   fi
 
+  log_info "Clearing stale forge broadcast cache for configureUniversalCore"
+  rm -rf "$CORE_CONTRACTS_DIR/broadcast/configureUniversalCore.s.sol"
+
   log_info "Running configureUniversalCore script"
   if (
     cd "$CORE_CONTRACTS_DIR"
@@ -2287,12 +2308,12 @@ Important env:
   ANVIL_ARBITRUM_HOST_RPC_URL=http://localhost:9546
   ANVIL_BASE_HOST_RPC_URL=http://localhost:9547
   ANVIL_BSC_HOST_RPC_URL=http://localhost:9548
-  LOCAL_SEPOLIA_UV_RPC_URL=http://host.docker.internal:9545
-  LOCAL_ARBITRUM_UV_RPC_URL=http://host.docker.internal:9546
-  LOCAL_BASE_UV_RPC_URL=http://host.docker.internal:9547
-  LOCAL_BSC_UV_RPC_URL=http://host.docker.internal:9548
+  LOCAL_SEPOLIA_UV_RPC_URL=http://localhost:9545
+  LOCAL_ARBITRUM_UV_RPC_URL=http://localhost:9546
+  LOCAL_BASE_UV_RPC_URL=http://localhost:9547
+  LOCAL_BSC_UV_RPC_URL=http://localhost:9548
   SURFPOOL_SOLANA_HOST_RPC_URL=http://localhost:8899
-  LOCAL_SOLANA_UV_RPC_URL=http://host.docker.internal:8899
+  LOCAL_SOLANA_UV_RPC_URL=http://localhost:8899
 EOF
 }
 

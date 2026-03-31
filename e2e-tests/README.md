@@ -4,28 +4,39 @@ This folder provides a full, automated local E2E bootstrap for Push Chain.
 
 It covers:
 
-1. local-multi-validator devnet (Docker, validators + universal validators)
-2. genesis key recovery + account funding
-3. core contracts deployment
-4. swap AMM deployment (WPC + V3 core + V3 periphery)
-5. pool creation for pETH/WPC
-6. core `.env` generation from deployed addresses
-7. token config update (`eth_sepolia_eth.json`)
-8. gateway contracts deployment
-9. push-chain-sdk setup + E2E test runners
-10. uregistry chain/token config submission
+1. Local devnet — 4 `pchaind` + 4 `puniversald` processes (no Docker)
+2. TSS key generation
+3. Genesis key recovery + account funding
+4. Core contracts deployment (auto-resume on receipt errors)
+5. Swap AMM deployment (WPC + Uniswap V3 core + periphery)
+6. WPC liquidity pool creation for all synthetic tokens
+7. Core `.env` generation from deployed addresses
+8. Token config updates
+9. Gateway contracts deployment (auto-resume on receipt errors)
+10. `configureUniversalCore` script
+11. uregistry chain/token config submission
+12. CounterPayable deployment + SDK constant sync
+13. `push-chain-sdk` E2E test runners
 
 ---
 
 ## What gets created
 
-- `e2e-tests/repos/` — cloned external repos
-  - push-chain-core-contracts
-  - push-chain-swap-internal-amm-contracts
-  - push-chain-gateway-contracts
-  - push-chain-sdk
-- `e2e-tests/logs/` — logs for each major deployment step
+- `local-setup-e2e/data/` — validator + universal-validator home directories
+- `local-setup-e2e/logs/` — per-process log files
+- `e2e-tests/logs/` — logs for each deployment step
 - `e2e-tests/deploy_addresses.json` — contract/token address source-of-truth
+
+External repos are resolved from **sibling directories** (relative to `push-chain/`):
+
+| Repo | Default path |
+|---|---|
+| `push-chain-core-contracts` | `../push-chain-core-contracts` |
+| `push-chain-swap-internal-amm-contracts` | `../push-chain-swap-internal-amm-contracts` |
+| `push-chain-gateway-contracts` | `../push-chain-gateway-contracts` |
+| `push-chain-sdk` | `../push-chain-sdk` |
+
+Override any of these with env vars (`CORE_CONTRACTS_DIR`, `SWAP_AMM_DIR`, `GATEWAY_DIR`, `PUSH_CHAIN_SDK_DIR`).
 
 ---
 
@@ -33,18 +44,17 @@ It covers:
 
 Required tools:
 
-- `git`
+- `git`, `make`
 - `jq`
 - `node`, `npm`, `npx`
-- `forge` (Foundry)
-- `make`
+- `forge`, `cast` (Foundry)
+- `pchaind` and `puniversald` binaries in `build/` (built by `make build`)
 
-Also ensure the Push Chain repo builds/runs locally.
-
-Before running any e2e setup command, run:
+Build the binaries first:
 
 ```bash
 make replace-addresses
+make build
 ```
 
 ---
@@ -57,44 +67,42 @@ Copy env template:
 cp e2e-tests/.env.example e2e-tests/.env
 ```
 
-Important variables in `.env`:
+Edit `e2e-tests/.env`. Key variables:
 
-- `PUSH_RPC_URL` (default `http://localhost:8545`)
-- `TESTING_ENV` (`LOCAL` enables anvil/surfpool + local RPC rewrites)
-- `PRIVATE_KEY`
-- `FUND_TO_ADDRESS`
-- `POOL_CREATION_TOPUP_AMOUNT` (funding for deployer before pool creation)
-- `CORE_CONTRACTS_BRANCH`
-- `SWAP_AMM_BRANCH`
-- `GATEWAY_BRANCH` (currently `e2e-push-node`)
-- `PUSH_CHAIN_SDK_BRANCH` (default `outbound_changes`)
-- `PUSH_CHAIN_SDK_E2E_DIR` (default `packages/core/__e2e__/evm/inbound`)
+| Variable | Default | Description |
+|---|---|---|
+| `TESTING_ENV` | _(empty)_ | Set to `LOCAL` for local devnet |
+| `PUSH_RPC_URL` | `http://localhost:8545` | Push Chain EVM JSON-RPC |
+| `PRIVATE_KEY` | — | EVM deployer private key (forge/hardhat) |
+| `EVM_PRIVATE_KEY` | ← `PRIVATE_KEY` | SDK EVM signer key |
+| `PUSH_PRIVATE_KEY` | ← `PRIVATE_KEY` | SDK Push Chain signer key |
+| `FUND_TO_ADDRESS` | — | Address to top up from genesis account |
+| `POOL_CREATION_TOPUP_AMOUNT` | `50000000000000000000upc` | Deployer top-up before pool creation |
+| `CORE_CONTRACTS_BRANCH` | `e2e-push-node` | |
+| `SWAP_AMM_BRANCH` | `e2e-push-node` | |
+| `GATEWAY_BRANCH` | `e2e-push-node` | |
+| `PUSH_CHAIN_SDK_BRANCH` | `outbound_changes` | |
+| `PUSH_CHAIN_SDK_E2E_DIR` | `packages/core/__e2e__/evm/inbound` | Test directory inside SDK |
 
-### TESTING_ENV=LOCAL behavior
+### TESTING_ENV=LOCAL
 
-Set this in `e2e-tests/.env` when running local fork-based E2E:
+When set in `.env`, the `setup-environment` step (also called by `all`) does:
 
-```bash
-TESTING_ENV=LOCAL
-```
+1. Starts local fork nodes:
+   - `anvil` for Ethereum Sepolia, Arbitrum Sepolia, Base Sepolia, BSC Testnet
+   - `surfpool` for Solana
+2. Rewrites `public_rpc_url` in `config/testnet-donut/*/chain.json` to local fork URLs
+3. Patches `puniversald` chain RPC config (`local-setup-e2e/data/universal-N/.puniversal/config/pushuv_config.json`) to use local fork endpoints
 
-When `TESTING_ENV=LOCAL`, `setup-environment` (and `all`) now does both:
+Default local fork URLs (override in `.env`):
 
-1. starts local fork nodes (`anvil` for Sepolia/Arbitrum/Base/BSC and `surfpool` for Solana)
-2. rewrites `public_rpc_url` in `config/testnet-donut/*/chain.json` to your configured local RPC URLs:
-  - `ANVIL_SEPOLIA_HOST_RPC_URL` (default `http://localhost:9545`)
-  - `ANVIL_ARBITRUM_HOST_RPC_URL` (default `http://localhost:9546`)
-  - `ANVIL_BASE_HOST_RPC_URL` (default `http://localhost:9547`)
-  - `ANVIL_BSC_HOST_RPC_URL` (default `http://localhost:9548`)
-  - `SURFPOOL_SOLANA_HOST_RPC_URL` (default `http://localhost:8899`)
-3. patches universal-validator container RPC endpoints (`pushuv_config.json`) to the corresponding local endpoints
-
-Genesis account source:
-
-- `GENESIS_ACCOUNTS_JSON` can point to a local file, but if missing `setup.sh` automatically
-  reads `/tmp/push-accounts/genesis_accounts.json` from docker container `core-validator-1`.
-
-Path settings are repository-relative and portable.
+| Variable | Default |
+|---|---|
+| `ANVIL_SEPOLIA_HOST_RPC_URL` | `http://localhost:9545` |
+| `ANVIL_ARBITRUM_HOST_RPC_URL` | `http://localhost:9546` |
+| `ANVIL_BASE_HOST_RPC_URL` | `http://localhost:9547` |
+| `ANVIL_BSC_HOST_RPC_URL` | `http://localhost:9548` |
+| `SURFPOOL_SOLANA_HOST_RPC_URL` | `http://localhost:8899` |
 
 ---
 
@@ -102,106 +110,123 @@ Path settings are repository-relative and portable.
 
 ```bash
 make replace-addresses
-./e2e-tests/setup.sh all
+make build
+TESTING_ENV=LOCAL bash e2e-tests/setup.sh all
 ```
 
-This runs the full sequence in order:
+The `all` pipeline runs in order:
 
-1. `devnet`
-2. `recover-genesis-key`
-3. `fund`
-4. `setup-core`
-5. `setup-swap`
-6. `sync-addresses`
-7. `create-pool`
-8. `check-addresses`
-9. `write-core-env`
-10. `update-token-config`
-11. `setup-gateway`
-12. `add-uregistry-configs`
+1. `setup-environment` — start anvil/surfpool + patch chain RPC configs
+2. Build binaries (`make replace-addresses` + `make build`)
+3. `devnet` — start 4 validators + 4 universal validators (clean)
+4. `tss-keygen` — TSS key generation (via `./local-setup-e2e/devnet tss-keygen`)
+5. `recover-genesis-key` — import genesis mnemonic into local keyring
+6. `fund` — top up deployer address from genesis account
+7. `setup-core` — deploy core contracts (forge, auto-resume)
+8. `setup-swap` — deploy WPC + Uniswap V3 (hardhat)
+9. `sync-addresses` — copy addresses into swap `test-addresses.json`
+10. `create-pool` — create WPC liquidity pools for all tokens
+11. `write-core-env` — generate core contracts `.env`
+12. `configure-core` — run `configureUniversalCore.s.sol` (forge, auto-resume)
+13. `update-token-config` — patch token config JSON files
+14. `setup-gateway` — deploy gateway contracts (forge, auto-resume)
+15. `add-uregistry-configs` — submit chain + token config txs
+16. `deploy-counter-sdk` — deploy CounterPayable + sync SDK constants
 
 ---
 
-## Command reference
+## Local devnet (`local-setup-e2e/devnet`)
 
-```bash
-./e2e-tests/setup.sh devnet
-./e2e-tests/setup.sh print-genesis
-./e2e-tests/setup.sh recover-genesis-key
-./e2e-tests/setup.sh fund
-./e2e-tests/setup.sh setup-core
-./e2e-tests/setup.sh setup-swap
-./e2e-tests/setup.sh sync-addresses
-./e2e-tests/setup.sh create-pool
-./e2e-tests/setup.sh check-addresses
-./e2e-tests/setup.sh write-core-env
-./e2e-tests/setup.sh update-token-config
-./e2e-tests/setup.sh setup-gateway
-./e2e-tests/setup.sh setup-sdk
-./e2e-tests/setup.sh sdk-test-all
-./e2e-tests/setup.sh sdk-test-pctx-last-transaction
-./e2e-tests/setup.sh sdk-test-send-to-self
-./e2e-tests/setup.sh sdk-test-progress-hook
-./e2e-tests/setup.sh sdk-test-bridge-multicall
-./e2e-tests/setup.sh sdk-test-pushchain
-./e2e-tests/setup.sh add-uregistry-configs
-make replace-addresses
-./e2e-tests/setup.sh all
+The `devnet` script manages 4 `pchaind` validators and 4 `puniversald` universal validators as local OS processes (no Docker).
+
+```
+local-setup-e2e/
+  devnet          # management script
+  data/           # validator home dirs + PID file (gitignored)
+  logs/           # per-process log files (gitignored)
 ```
 
-### push-chain-sdk setup + tests
-
-Clone and install dependencies in one command:
+### Devnet commands
 
 ```bash
-./e2e-tests/setup.sh setup-sdk
+./local-setup-e2e/devnet start [--build]   # Start all 4 validators + 4 UVs
+                                            # --build for clean start (wipes data)
+./local-setup-e2e/devnet stop              # Stop all processes (keep data)
+./local-setup-e2e/devnet down              # Stop and remove data
+./local-setup-e2e/devnet status            # Show running processes + block heights
+./local-setup-e2e/devnet logs [name]       # Tail logs (validator-1, universal-2, all, …)
+./local-setup-e2e/devnet tss-keygen        # Initiate TSS key generation
+./local-setup-e2e/devnet setup-uvalidators # Register UVs + create AuthZ grants
 ```
 
-This executes:
+Port layout:
 
-- `yarn install`
-- `npm install`
-- `npm i --save-dev @types/bs58`
+| Node | RPC | EVM JSON-RPC | WS |
+|---|---|---|---|
+| validator-1 | 26657 | 8545 | 8546 |
+| validator-2 | 26658 | 8547 | 8548 |
+| validator-3 | 26659 | 8549 | 8550 |
+| validator-4 | 26660 | 8551 | 8552 |
 
-It also fetches `UEA_PROXY_IMPLEMENTATION` with:
+| UV | Query | TSS P2P |
+|---|---|---|
+| universal-validator-1 | 8080 | 39000 |
+| universal-validator-2 | 8081 | 39001 |
+| universal-validator-3 | 8082 | 39002 |
+| universal-validator-4 | 8083 | 39003 |
 
-- `cast call 0x00000000000000000000000000000000000000ea "UEA_PROXY_IMPLEMENTATION()(address)"`
-
-Then it updates both:
-
-- `e2e-tests/deploy_addresses.json` as `contracts.UEA_PROXY_IMPLEMENTATION`
-- `push-chain-sdk/packages/core/src/lib/constants/chain.ts` at `[PUSH_NETWORK.LOCALNET]`
-
-SDK tests are discovered from:
-
-- `push-chain-sdk/packages/core/__e2e__/evm/inbound`
-
-Run all configured SDK E2E files:
+### Clean devnet restart
 
 ```bash
-./e2e-tests/setup.sh sdk-test-all
+./local-setup-e2e/devnet down
+./local-setup-e2e/devnet start --build
 ```
 
-Run single files:
+---
+
+## setup.sh command reference
 
 ```bash
-./e2e-tests/setup.sh sdk-test-pctx-last-transaction
-./e2e-tests/setup.sh sdk-test-send-to-self
-./e2e-tests/setup.sh sdk-test-progress-hook
-./e2e-tests/setup.sh sdk-test-bridge-multicall
-./e2e-tests/setup.sh sdk-test-pushchain
+TESTING_ENV=LOCAL bash e2e-tests/setup.sh <command>
 ```
 
-Before each SDK test run, the script automatically rewrites these values in configured files:
-
-- `PUSH_NETWORK.TESTNET_DONUT` → `PUSH_NETWORK.LOCALNET`
-- `PUSH_NETWORK.TESTNET` → `PUSH_NETWORK.LOCALNET`
+| Command | Description |
+|---|---|
+| `all` | Full setup pipeline |
+| `setup-environment` | Start anvil/surfpool + patch chain RPC configs |
+| `devnet` | Start local devnet + register universal validators |
+| `print-genesis` | Print first genesis account + mnemonic |
+| `recover-genesis-key` | Import genesis mnemonic into local keyring |
+| `fund` | Fund `FUND_TO_ADDRESS` from genesis account |
+| `setup-core` | Build + deploy core contracts (auto-resume) |
+| `setup-swap` | Build + deploy WPC + Uniswap V3 |
+| `sync-addresses` | Copy `deploy_addresses.json` into swap `test-addresses.json` |
+| `create-pool` | Create WPC pools for all deployed core tokens |
+| `configure-core` | Run `configureUniversalCore.s.sol` (auto-resume) |
+| `check-addresses` | Assert required contract addresses are recorded |
+| `write-core-env` | Generate core contracts `.env` |
+| `update-token-config` | Patch token config JSON contract addresses |
+| `setup-gateway` | Build + deploy gateway contracts (auto-resume) |
+| `add-uregistry-configs` | Submit chain + token configs to uregistry |
+| `deploy-counter-sdk` | Deploy CounterPayable + sync SDK `COUNTER_ADDRESS_PAYABLE` |
+| `bootstrap-cea-sdk` | Ensure CEA is deployed for SDK signer (Route 2 bootstrap) |
+| `setup-sdk` | Install SDK dependencies + generate SDK `.env` |
+| `sdk-test-all` | Run all configured SDK E2E test files |
+| `sdk-test-pctx-last-transaction` | Run `pctx-last-transaction.spec.ts` |
+| `sdk-test-send-to-self` | Run `send-to-self.spec.ts` |
+| `sdk-test-progress-hook` | Run `progress-hook-per-tx.spec.ts` |
+| `sdk-test-bridge-multicall` | Run `bridge-multicall.spec.ts` |
+| `sdk-test-pushchain` | Run `pushchain.spec.ts` |
+| `sdk-test-bridge-hooks` | Run `bridge-hooks.spec.ts` |
+| `record-contract K A` | Manually record contract key + address |
+| `record-token N S A` | Manually record token name, symbol, address |
+| `help` | Show help |
 
 ---
 
 ## Address tracking model
 
-`deploy_addresses.json` is the canonical address registry used by later steps.
+`e2e-tests/deploy_addresses.json` is the canonical address registry.
 
 ### Required contracts
 
@@ -209,91 +234,104 @@ Before each SDK test run, the script automatically rewrites these values in conf
 - `contracts.Factory`
 - `contracts.QuoterV2`
 - `contracts.SwapRouter`
+- `contracts.UEA_PROXY_IMPLEMENTATION`
+- `contracts.COUNTER_ADDRESS_PAYABLE`
 
 ### Token entries
 
-- `tokens[]` from core deployment logs (`name`, `symbol`, `address`, `source`)
+`tokens[]` records each synthetic ERC-20 deployed by core contracts (`name`, `symbol`, `address`, `decimals`).
 
 These addresses are used to:
 
 - sync swap repo `test-addresses.json`
 - generate core contracts `.env`
-- update `config/testnet-donut/tokens/eth_sepolia_eth.json`
+- update `config/testnet-donut/tokens/*.json`
+- submit token config txs to uregistry
 
 Manual helpers:
 
 ```bash
-./e2e-tests/setup.sh record-contract Factory 0x1234567890123456789012345678901234567890
-./e2e-tests/setup.sh record-token "Push ETH" pETH 0x1234567890123456789012345678901234567890
+./e2e-tests/setup.sh record-contract Factory 0x1234...
+./e2e-tests/setup.sh record-token "Push ETH" pETH 0x1234...
 ```
 
 ---
 
 ## Auto-retry and resilience behavior
 
-### Core contracts
+### Forge scripts (core, gateway, configureUniversalCore)
 
-- Runs `forge script scripts/localSetup/setup.s.sol ...`
-- If receipt fetch fails, auto-retries with `--resume` in a loop until success
-- Optional cap via:
-
-```bash
-CORE_RESUME_MAX_ATTEMPTS=0   # 0 means unlimited (default)
-```
-
-### Gateway contracts
-
-- Runs gateway `forge script ... setup.s.sol`
-- If initial execution fails, retries with `--resume`
+- Stale broadcast cache from previous runs is cleared automatically before each fresh deploy.
+- If the initial `forge script --broadcast` fails (e.g., receipt timeout), retries with `--resume` until success.
+- Optional cap: `CORE_RESUME_MAX_ATTEMPTS=5` (default `0` = unlimited).
 
 ### uregistry tx submission
 
-- Submits chain config then token config
-- Retries automatically on account sequence mismatch
-- Validates tx result by checking returned `code`
+- Retries automatically on `account sequence mismatch`.
+- Validates tx result by checking the returned `code` field.
 
 ---
 
 ## Generated files of interest
 
-- `e2e-tests/deploy_addresses.json`
-- `e2e-tests/repos/push-chain-swap-internal-amm-contracts/test-addresses.json`
-- `e2e-tests/repos/push-chain-core-contracts/.env`
-- `config/testnet-donut/tokens/eth_sepolia_eth.json` (updated contract address)
+| File | Description |
+|---|---|
+| `e2e-tests/deploy_addresses.json` | Contract/token address registry |
+| `e2e-tests/logs/` | Per-step deployment logs |
+| `local-setup-e2e/data/` | Validator + UV home directories |
+| `local-setup-e2e/logs/` | Per-process stdout/stderr |
+| `<SWAP_AMM_DIR>/test-addresses.json` | Swap repo address file (synced from deploy_addresses.json) |
+| `<CORE_CONTRACTS_DIR>/.env` | Core contracts env (generated by `write-core-env`) |
+| `config/testnet-donut/*/tokens/*.json` | Token config files (updated contract addresses) |
 
 ---
 
-## Clean re-run
-
-For a fresh run:
+## Clean full re-run
 
 ```bash
-rm -rf e2e-tests/repos
-./local-multi-validator/devnet down || true
+# Stop + wipe devnet
+./local-setup-e2e/devnet down
+
+# Reset state
+rm -f e2e-tests/deploy_addresses.json
+
+# Rebuild + run
 make replace-addresses
-./e2e-tests/setup.sh all
+make build
+TESTING_ENV=LOCAL bash e2e-tests/setup.sh all
 ```
 
 ---
 
 ## Troubleshooting
 
-### 1) Core script keeps stopping with receipt errors
+### 1) `pchaind` or `puniversald` won't start
 
-This is expected intermittently on local RPC. The script auto-runs `--resume` until completion.
+Check that `make build` completed successfully and `build/pchaind` / `build/puniversald` exist.
 
-### 2) Missing branch in a dependency repo
+### 2) Validators stuck at height 0
 
-The script attempts to resolve/fallback to available remote branches.
+P2P peer connections failing. The devnet script sets `allow_duplicate_ip = true` and `addr_book_strict = false` automatically for all-localhost setups. If reusing old data, run `./local-setup-e2e/devnet down` to wipe and restart clean.
 
-### 3) `account sequence mismatch` in uregistry tx
+### 3) TSS keygen not completing
 
-The script retries automatically for this error.
+Check UV logs (`./local-setup-e2e/devnet logs universal-1`). UVs need:
+- All 4 validators bonded
+- All 4 UVs registered with AuthZ grants
+- External chain RPC endpoints configured (set by `setup-environment`)
 
-### 4) WPC deployment artifact not found
+### 4) Core/gateway forge script keeps stopping with receipt errors
 
-`setup-swap` compiles before deployment. If interrupted mid-run, re-run:
+Expected intermittently. The script auto-retries with `--resume` until all receipts confirm.
+
+### 5) `account sequence mismatch` in uregistry tx
+
+The script retries automatically.
+
+### 6) Swap AMM deployment fails mid-run
+
+Re-run the individual step:
 
 ```bash
-./e2e-tests/setup.sh setup-swap
+TESTING_ENV=LOCAL bash e2e-tests/setup.sh setup-swap
 ```

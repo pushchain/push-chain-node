@@ -1,0 +1,1119 @@
+#!/usr/bin/env bash
+# devnet - Push Chain Local Network Manager (local processes, no Docker)
+# Drop-in replacement for local-multi-validator/devnet using native binaries.
+
+set -euo pipefail
+IFS=$'\n\t'
+
+SCRIPT_DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PUSH_CHAIN_DIR="$(cd -P "$SCRIPT_DIR/.." && pwd)"
+DATA_DIR="$SCRIPT_DIR/data"
+LOG_DIR="$SCRIPT_DIR/logs"
+PID_DIR="$DATA_DIR/pids"
+TMP_DIR="/tmp/push-accounts"
+
+# Prefer freshly built binaries; fall back to PATH
+PCHAIND="${PCHAIND:-$PUSH_CHAIN_DIR/build/pchaind}"
+PUNIVERSALD="${PUNIVERSALD:-$PUSH_CHAIN_DIR/build/puniversald}"
+[[ -x "$PCHAIND" ]]     || PCHAIND=pchaind
+[[ -x "$PUNIVERSALD" ]] || PUNIVERSALD=puniversald
+
+CHAIN_ID="${CHAIN_ID:-localchain_9000-1}"
+EVM_CHAIN_ID="9000"
+DENOM="upc"
+KEYRING="test"
+KEYALGO="eth_secp256k1"
+BLOCK_TIME="1s"
+
+# Chain IDs for UV config
+SEPOLIA_CHAIN_ID="eip155:11155111"
+ARBITRUM_CHAIN_ID="eip155:421614"
+BASE_CHAIN_ID="eip155:84532"
+BSC_CHAIN_ID="eip155:97"
+SOLANA_CHAIN_ID="solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"
+LOCALCHAIN_CHAIN_ID="localchain_9000-1"
+
+# Per-validator ports (matching docker-compose.yml host port mapping)
+val_rpc()     { case $1 in 1) echo 26657;; 2) echo 26658;; 3) echo 26659;; 4) echo 26660;; esac; }
+val_rest()    { case $1 in 1) echo 1317;; 2) echo 1318;; 3) echo 1319;; 4) echo 1320;; esac; }
+val_grpc()    { case $1 in 1) echo 9090;; 2) echo 9093;; 3) echo 9095;; 4) echo 9097;; esac; }
+val_grpcweb() { case $1 in 1) echo 9091;; 2) echo 9094;; 3) echo 9096;; 4) echo 9098;; esac; }
+val_p2p()     { case $1 in 1) echo 26656;; 2) echo 26666;; 3) echo 26676;; 4) echo 26686;; esac; }
+val_evm()     { case $1 in 1) echo 8545;; 2) echo 8547;; 3) echo 8549;; 4) echo 8551;; esac; }
+val_evmws()   { case $1 in 1) echo 8546;; 2) echo 8548;; 3) echo 8550;; 4) echo 8552;; esac; }
+val_pprof()   { echo $((6060 + $1)); }
+
+uv_query()    { case $1 in 1) echo 8080;; 2) echo 8081;; 3) echo 8082;; 4) echo 8083;; esac; }
+uv_tss()      { echo $((39000 + $1 - 1)); }
+uv_grpc()     { echo "localhost:$(val_grpc $1)"; }
+
+# TSS peer IDs (deterministic from private keys 01..01 02..02 etc.)
+uv_peer_id() {
+  case $1 in
+    1) echo "12D3KooWK99VoVxNE7XzyBwXEzW7xhK7Gpv85r9F3V3fyKSUKPH5";;
+    2) echo "12D3KooWJWoaqZhDaoEFshF7Rh1bpY9ohihFhzcW6d69Lr2NASuq";;
+    3) echo "12D3KooWRndVhVZPCiQwHBBBdg769GyrPUW13zxwqQyf9r3ANaba";;
+    4) echo "12D3KooWPT98FXMfDQYavZm66EeVjTqP9Nnehn1gyaydqV8L8BQw";;
+  esac
+}
+
+# TSS private keys
+uv_tss_key() {
+  local byte; byte=$(printf '%02x' "$1")
+  local result=""
+  for _ in {1..32}; do result+="$byte"; done
+  echo "$result"
+}
+
+GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[0;33m'
+CYAN='\033[0;36m'; BLUE='\033[1;94m'; NC='\033[0m'; BOLD='\033[1m'
+
+log()    { printf "%b\n" "${CYAN}==>${NC} $*"; }
+ok()     { printf "%b\n" "${GREEN}✓${NC} $*"; }
+warn()   { printf "%b\n" "${YELLOW}!${NC} $*"; }
+err()    { printf "%b\n" "${RED}✗${NC} $*"; }
+header() { printf "\n%b\n" "${BOLD}${BLUE}═══ $* ═══${NC}"; }
+
+require_cmd() { for c in "$@"; do command -v "$c" >/dev/null 2>&1 || { err "Required command not found: $c"; exit 1; }; done; }
+
+# ─── PID management ───────────────────────────────────────────────────────────
+
+write_pid() { local name="$1" pid="$2"; mkdir -p "$PID_DIR"; echo "$pid" > "$PID_DIR/$name.pid"; }
+read_pid()  { local f="$PID_DIR/$1.pid"; [[ -f "$f" ]] && cat "$f" || echo ""; }
+
+is_alive() {
+  local pid="${1:-}"
+  [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null
+}
+
+# ─── Health checks ─────────────────────────────────────────────────────────────
+
+wait_rpc() {
+  local port="$1" label="$2" max="${3:-120}" i=0
+  while (( i < max )); do
+    if curl -sf "http://127.0.0.1:$port/status" >/dev/null 2>&1; then return 0; fi
+    sleep 1; (( i++ ))
+  done
+  err "$label RPC not ready after ${max}s"; return 1
+}
+
+wait_block() {
+  local port="$1" label="$2" max="${3:-120}" i=0
+  while (( i < max )); do
+    local h
+    h=$(curl -sf "http://127.0.0.1:$port/status" 2>/dev/null \
+      | jq -r '.result.sync_info.latest_block_height // "0"' 2>/dev/null || echo "0")
+    if [[ "$h" != "0" && "$h" != "null" && -n "$h" ]]; then return 0; fi
+    sleep 2; (( i += 2 ))
+  done
+  err "$label not producing blocks after ${max}s"; return 1
+}
+
+wait_uv_health() {
+  local port="$1" label="$2" max="${3:-180}" i=0
+  while (( i < max )); do
+    if curl -sf "http://127.0.0.1:$port/health" >/dev/null 2>&1; then return 0; fi
+    sleep 2; (( i += 2 ))
+  done
+  err "$label not healthy after ${max}s"; return 1
+}
+
+wait_validator_bonded() {
+  local valoper="$1" max="${2:-120}" i=0 genesis_rpc="http://127.0.0.1:$(val_rpc 1)"
+  while (( i < max )); do
+    local status
+    status=$("$PCHAIND" query staking validator "$valoper" --node="$genesis_rpc" --output json 2>/dev/null \
+      | jq -r '.validator.status // "NOT_FOUND"' 2>/dev/null || echo "NOT_FOUND")
+    [[ "$status" == "BOND_STATUS_BONDED" ]] && return 0
+    sleep 3; (( i += 3 ))
+  done
+  return 1
+}
+
+wait_chain_tx() {
+  local txhash="$1" node="$2" max="${3:-30}" i=0
+  while (( i < max )); do
+    local code
+    code=$("$PCHAIND" query tx "$txhash" --node="$node" --output json 2>/dev/null \
+      | jq -r '.code // empty' 2>/dev/null || true)
+    [[ "$code" == "0" ]] && return 0
+    [[ -n "$code" && "$code" != "0" ]] && return 1
+    sleep 1; (( i++ ))
+  done
+  return 1
+}
+
+# ─── Account generation ────────────────────────────────────────────────────────
+
+generate_accounts() {
+  if [[ -f "$TMP_DIR/genesis_accounts.json" && -f "$TMP_DIR/validators.json" && -f "$TMP_DIR/hotkeys.json" ]]; then
+    ok "Account files already exist in $TMP_DIR — skipping generation"
+    return 0
+  fi
+
+  require_cmd jq "$PCHAIND"
+  mkdir -p "$TMP_DIR"
+
+  log "Generating genesis, validator, and hotkey accounts..."
+
+  # genesis-acc-1: hardcoded admin mnemonic
+  local ADMIN_MNEMONIC="surface task term spring horse impact tortoise often session cable off catch harvest rain able jealous coral cargo portion surge spring genre mix avoid"
+  local GENESIS_ACCOUNTS_FILE="$TMP_DIR/genesis_accounts.json"
+  echo "[]" > "$GENESIS_ACCOUNTS_FILE"
+
+  # Use a temp home to avoid conflicts with any pre-existing global keyring entries
+  # NOTE: use a global-scoped variable so traps work correctly under set -u
+  _KEYGEN_HOME=$(mktemp -d)
+
+  for (( i=1; i<=5; i++ )); do
+    local key="genesis-acc-$i" output mnemonic address
+    if (( i == 1 )); then
+      output=$(echo "$ADMIN_MNEMONIC" | "$PCHAIND" keys add "$key" \
+        --home="$_KEYGEN_HOME" --keyring-backend=$KEYRING --algo=$KEYALGO --recover --output=json 2>&1)
+      mnemonic="$ADMIN_MNEMONIC"
+    else
+      output=$("$PCHAIND" keys add "$key" \
+        --home="$_KEYGEN_HOME" --keyring-backend=$KEYRING --algo=$KEYALGO --output=json 2>&1)
+      mnemonic=$(echo "$output" | jq -r '.mnemonic // empty' 2>/dev/null)
+      if [[ -z "$mnemonic" ]]; then
+        mnemonic=$(echo "$output" | grep -A1 "Important" | tail -1 | tr -d '\n' || true)
+      fi
+    fi
+    address=$("$PCHAIND" keys show "$key" -a --home="$_KEYGEN_HOME" --keyring-backend=$KEYRING 2>/dev/null)
+    jq --arg n "$key" --arg a "$address" --arg m "$mnemonic" \
+      '. += [{name:$n,address:$a,mnemonic:$m}]' "$GENESIS_ACCOUNTS_FILE" > "$TMP_DIR/tmp.json" \
+      && mv "$TMP_DIR/tmp.json" "$GENESIS_ACCOUNTS_FILE"
+    ok "genesis-acc-$i: $address"
+  done
+
+  local VALIDATORS_FILE="$TMP_DIR/validators.json"
+  echo "[]" > "$VALIDATORS_FILE"
+  for (( i=1; i<=4; i++ )); do
+    local key="validator-$i" output mnemonic address valoper
+    output=$("$PCHAIND" keys add "$key" \
+      --home="$_KEYGEN_HOME" --keyring-backend=$KEYRING --algo=$KEYALGO --output=json 2>&1)
+    mnemonic=$(echo "$output" | jq -r '.mnemonic // empty' 2>/dev/null)
+    if [[ -z "$mnemonic" ]]; then
+      mnemonic=$(echo "$output" | grep -A1 "Important" | tail -1 | tr -d '\n' || true)
+    fi
+    address=$("$PCHAIND" keys show "$key" -a --home="$_KEYGEN_HOME" --keyring-backend=$KEYRING 2>/dev/null)
+    valoper=$("$PCHAIND" keys show "$key" --bech val -a --home="$_KEYGEN_HOME" --keyring-backend=$KEYRING 2>/dev/null)
+    jq --argjson id "$i" --arg n "$key" --arg a "$address" --arg v "$valoper" --arg m "$mnemonic" \
+      '. += [{id:$id,name:$n,address:$a,valoper_address:$v,mnemonic:$m}]' \
+      "$VALIDATORS_FILE" > "$TMP_DIR/tmp.json" && mv "$TMP_DIR/tmp.json" "$VALIDATORS_FILE"
+    ok "validator-$i: $address (valoper: $valoper)"
+  done
+
+  local HOTKEYS_FILE="$TMP_DIR/hotkeys.json"
+  echo "[]" > "$HOTKEYS_FILE"
+  for (( i=1; i<=4; i++ )); do
+    local key="hotkey-$i" output mnemonic address
+    output=$("$PCHAIND" keys add "$key" \
+      --home="$_KEYGEN_HOME" --keyring-backend=$KEYRING --algo=$KEYALGO --output=json 2>&1)
+    mnemonic=$(echo "$output" | jq -r '.mnemonic // empty' 2>/dev/null)
+    if [[ -z "$mnemonic" ]]; then
+      mnemonic=$(echo "$output" | grep -A1 "Important" | tail -1 | tr -d '\n' || true)
+    fi
+    address=$("$PCHAIND" keys show "$key" -a --home="$_KEYGEN_HOME" --keyring-backend=$KEYRING 2>/dev/null)
+    jq --argjson id "$i" --arg n "$key" --arg a "$address" --arg m "$mnemonic" \
+      '. += [{id:$id,name:$n,address:$a,mnemonic:$m}]' \
+      "$HOTKEYS_FILE" > "$TMP_DIR/tmp.json" && mv "$TMP_DIR/tmp.json" "$HOTKEYS_FILE"
+    ok "hotkey-$i: $address"
+  done
+
+  ok "Account generation complete"
+  rm -rf "$_KEYGEN_HOME" 2>/dev/null || true
+}
+
+# ─── Core validator setup ──────────────────────────────────────────────────────
+
+setup_genesis_validator() {
+  local HOME_DIR="$DATA_DIR/validator-1"
+  local RPC_PORT=$(val_rpc 1) REST_PORT=$(val_rest 1) GRPC_PORT=$(val_grpc 1)
+  local GRPC_WEB_PORT=$(val_grpcweb 1) P2P_PORT=$(val_p2p 1)
+  local EVM_PORT=$(val_evm 1) EVM_WS_PORT=$(val_evmws 1)
+  local PPROF_PORT=$(val_pprof 1)
+  local LOG_FILE="$LOG_DIR/validator-1.log"
+
+  local TWO_BILLION="2000000000000000000000000000"
+  local ONE_MILLION="1000000000000000000000000"
+  local VALIDATOR_STAKE="100000000000000000000000"
+  local HOTKEY_FUNDING="10000000000000000000000"
+
+  mkdir -p "$HOME_DIR" "$LOG_DIR"
+  rm -rf "$HOME_DIR"/* "$HOME_DIR"/.[!.]* 2>/dev/null || true
+
+  log "Initializing genesis validator (validator-1)..."
+
+  # Load mnemonics
+  local G1_MN G2_MN G3_MN G4_MN G5_MN V1_MN V2_MN V3_MN V4_MN
+  G1_MN=$(jq -r '.[0].mnemonic' "$TMP_DIR/genesis_accounts.json")
+  G2_MN=$(jq -r '.[1].mnemonic' "$TMP_DIR/genesis_accounts.json")
+  G3_MN=$(jq -r '.[2].mnemonic' "$TMP_DIR/genesis_accounts.json")
+  G4_MN=$(jq -r '.[3].mnemonic' "$TMP_DIR/genesis_accounts.json")
+  G5_MN=$(jq -r '.[4].mnemonic' "$TMP_DIR/genesis_accounts.json")
+  V1_MN=$(jq -r '.[] | select(.id==1) | .mnemonic' "$TMP_DIR/validators.json")
+  V2_MN=$(jq -r '.[] | select(.id==2) | .mnemonic' "$TMP_DIR/validators.json")
+  V3_MN=$(jq -r '.[] | select(.id==3) | .mnemonic' "$TMP_DIR/validators.json")
+  V4_MN=$(jq -r '.[] | select(.id==4) | .mnemonic' "$TMP_DIR/validators.json")
+
+  "$PCHAIND" --home="$HOME_DIR" init genesis-validator --chain-id "$CHAIN_ID" --default-denom "$DENOM"
+
+  # Add keys
+  echo "$G1_MN" | "$PCHAIND" --home="$HOME_DIR" keys add genesis-acc-1 --keyring-backend=$KEYRING --algo=$KEYALGO --recover
+  echo "$G2_MN" | "$PCHAIND" --home="$HOME_DIR" keys add genesis-acc-2 --keyring-backend=$KEYRING --algo=$KEYALGO --recover
+  echo "$G3_MN" | "$PCHAIND" --home="$HOME_DIR" keys add genesis-acc-3 --keyring-backend=$KEYRING --algo=$KEYALGO --recover
+  echo "$G4_MN" | "$PCHAIND" --home="$HOME_DIR" keys add genesis-acc-4 --keyring-backend=$KEYRING --algo=$KEYALGO --recover
+  echo "$G5_MN" | "$PCHAIND" --home="$HOME_DIR" keys add genesis-acc-5 --keyring-backend=$KEYRING --algo=$KEYALGO --recover
+  echo "$V1_MN" | "$PCHAIND" --home="$HOME_DIR" keys add validator-1 --keyring-backend=$KEYRING --algo=$KEYALGO --recover
+  echo "$V2_MN" | "$PCHAIND" --home="$HOME_DIR" keys add validator-2 --keyring-backend=$KEYRING --algo=$KEYALGO --recover
+  echo "$V3_MN" | "$PCHAIND" --home="$HOME_DIR" keys add validator-3 --keyring-backend=$KEYRING --algo=$KEYALGO --recover
+  echo "$V4_MN" | "$PCHAIND" --home="$HOME_DIR" keys add validator-4 --keyring-backend=$KEYRING --algo=$KEYALGO --recover
+
+  local GA1 GA2 GA3 GA4 GA5 VA1 VA2 VA3 VA4
+  GA1=$("$PCHAIND" --home="$HOME_DIR" keys show genesis-acc-1 -a --keyring-backend=$KEYRING)
+  GA2=$("$PCHAIND" --home="$HOME_DIR" keys show genesis-acc-2 -a --keyring-backend=$KEYRING)
+  GA3=$("$PCHAIND" --home="$HOME_DIR" keys show genesis-acc-3 -a --keyring-backend=$KEYRING)
+  GA4=$("$PCHAIND" --home="$HOME_DIR" keys show genesis-acc-4 -a --keyring-backend=$KEYRING)
+  GA5=$("$PCHAIND" --home="$HOME_DIR" keys show genesis-acc-5 -a --keyring-backend=$KEYRING)
+  VA1=$("$PCHAIND" --home="$HOME_DIR" keys show validator-1 -a --keyring-backend=$KEYRING)
+  VA2=$("$PCHAIND" --home="$HOME_DIR" keys show validator-2 -a --keyring-backend=$KEYRING)
+  VA3=$("$PCHAIND" --home="$HOME_DIR" keys show validator-3 -a --keyring-backend=$KEYRING)
+  VA4=$("$PCHAIND" --home="$HOME_DIR" keys show validator-4 -a --keyring-backend=$KEYRING)
+
+  local HK1 HK2 HK3 HK4
+  HK1=$(jq -r '.[0].address' "$TMP_DIR/hotkeys.json")
+  HK2=$(jq -r '.[1].address' "$TMP_DIR/hotkeys.json")
+  HK3=$(jq -r '.[2].address' "$TMP_DIR/hotkeys.json")
+  HK4=$(jq -r '.[3].address' "$TMP_DIR/hotkeys.json")
+
+  # Fund genesis
+  "$PCHAIND" --home="$HOME_DIR" genesis add-genesis-account "$GA1" "${TWO_BILLION}${DENOM}"
+  "$PCHAIND" --home="$HOME_DIR" genesis add-genesis-account "$GA2" "${TWO_BILLION}${DENOM}"
+  "$PCHAIND" --home="$HOME_DIR" genesis add-genesis-account "$GA3" "${TWO_BILLION}${DENOM}"
+  "$PCHAIND" --home="$HOME_DIR" genesis add-genesis-account "$GA4" "${TWO_BILLION}${DENOM}"
+  "$PCHAIND" --home="$HOME_DIR" genesis add-genesis-account "$GA5" "${TWO_BILLION}${DENOM}"
+  "$PCHAIND" --home="$HOME_DIR" genesis add-genesis-account "$VA1" "${ONE_MILLION}${DENOM}"
+  "$PCHAIND" --home="$HOME_DIR" genesis add-genesis-account "$VA2" "${ONE_MILLION}${DENOM}"
+  "$PCHAIND" --home="$HOME_DIR" genesis add-genesis-account "$VA3" "${ONE_MILLION}${DENOM}"
+  "$PCHAIND" --home="$HOME_DIR" genesis add-genesis-account "$VA4" "${ONE_MILLION}${DENOM}"
+  "$PCHAIND" --home="$HOME_DIR" genesis add-genesis-account "$HK1" "${HOTKEY_FUNDING}${DENOM}"
+  "$PCHAIND" --home="$HOME_DIR" genesis add-genesis-account "$HK2" "${HOTKEY_FUNDING}${DENOM}"
+  "$PCHAIND" --home="$HOME_DIR" genesis add-genesis-account "$HK3" "${HOTKEY_FUNDING}${DENOM}"
+  "$PCHAIND" --home="$HOME_DIR" genesis add-genesis-account "$HK4" "${HOTKEY_FUNDING}${DENOM}"
+
+  "$PCHAIND" --home="$HOME_DIR" genesis gentx validator-1 "${VALIDATOR_STAKE}${DENOM}" \
+    --keyring-backend=$KEYRING --chain-id "$CHAIN_ID" --gas-prices "1000000000${DENOM}"
+  "$PCHAIND" --home="$HOME_DIR" genesis collect-gentxs
+  "$PCHAIND" --home="$HOME_DIR" genesis validate-genesis
+
+  # Genesis parameters
+  upd() { cat "$HOME_DIR/config/genesis.json" | jq "$1" > "$HOME_DIR/config/tmp_genesis.json" && mv "$HOME_DIR/config/tmp_genesis.json" "$HOME_DIR/config/genesis.json"; }
+  upd '.consensus["params"]["block"]["time_iota_ms"]="1000"'
+  upd ".app_state[\"gov\"][\"params\"][\"min_deposit\"]=[{\"denom\":\"$DENOM\",\"amount\":\"1000000\"}]"
+  upd '.app_state["gov"]["params"]["max_deposit_period"]="300s"'
+  upd '.app_state["gov"]["params"]["voting_period"]="300s"'
+  upd '.app_state["gov"]["params"]["expedited_voting_period"]="150s"'
+  upd ".app_state[\"evm\"][\"params\"][\"evm_denom\"]=\"$DENOM\""
+  upd '.app_state["evm"]["params"]["active_static_precompiles"]=["0x00000000000000000000000000000000000000CB","0x00000000000000000000000000000000000000ca","0x0000000000000000000000000000000000000100","0x0000000000000000000000000000000000000400","0x0000000000000000000000000000000000000800","0x0000000000000000000000000000000000000801","0x0000000000000000000000000000000000000802","0x0000000000000000000000000000000000000803","0x0000000000000000000000000000000000000804","0x0000000000000000000000000000000000000805"]'
+  upd ".app_state[\"evm\"][\"params\"][\"chain_config\"][\"chain_id\"]=$EVM_CHAIN_ID"
+  upd ".app_state[\"evm\"][\"params\"][\"chain_config\"][\"denom\"]=\"$DENOM\""
+  upd '.app_state["evm"]["params"]["chain_config"]["decimals"]="18"'
+  upd '.app_state["erc20"]["params"]["native_precompiles"]=["0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"]'
+  upd ".app_state[\"erc20\"][\"token_pairs\"]=[{contract_owner:1,erc20_address:\"0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE\",denom:\"$DENOM\",enabled:true}]"
+  upd '.app_state["feemarket"]["params"]["no_base_fee"]=false'
+  upd '.app_state["feemarket"]["params"]["base_fee"]="1000000.000000000000000000"'
+  upd '.app_state["feemarket"]["params"]["min_gas_price"]="1000000.000000000000000000"'
+  upd ".app_state[\"staking\"][\"params\"][\"bond_denom\"]=\"$DENOM\""
+  upd '.app_state["staking"]["params"]["min_commission_rate"]="0.050000000000000000"'
+  upd ".app_state[\"mint\"][\"params\"][\"mint_denom\"]=\"$DENOM\""
+  upd ".app_state[\"crisis\"][\"constant_fee\"]={\"denom\":\"$DENOM\",\"amount\":\"1000\"}"
+  upd '.app_state["distribution"]["params"]["community_tax"]="0.000000000000000000"'
+  upd '.consensus["params"]["abci"]["vote_extensions_enable_height"]="2"'
+  upd '.app_state["tokenfactory"]["params"]["denom_creation_fee"]=[]'
+  upd '.app_state["tokenfactory"]["params"]["denom_creation_gas_consume"]=100000'
+  upd ".app_state[\"uregistry\"][\"params\"][\"admin\"]=\"$GA1\""
+  upd ".app_state[\"utss\"][\"params\"][\"admin\"]=\"$GA1\""
+
+  # Config patching
+  local cfg="$HOME_DIR/config/config.toml" app="$HOME_DIR/config/app.toml"
+  sed -i '' -e "s|laddr = \"tcp://127.0.0.1:26657\"|laddr = \"tcp://0.0.0.0:${RPC_PORT}\"|g" "$cfg"
+  sed -i '' -e 's|cors_allowed_origins = \[\]|cors_allowed_origins = ["*"]|g' "$cfg"
+  sed -i '' -e "s|laddr = \"tcp://0.0.0.0:26656\"|laddr = \"tcp://0.0.0.0:${P2P_PORT}\"|g" "$cfg"
+  sed -i '' -e "s|timeout_commit = \"5s\"|timeout_commit = \"${BLOCK_TIME}\"|g" "$cfg"
+  sed -i '' -e "s|pprof_laddr = \"localhost:6060\"|pprof_laddr = \"localhost:${PPROF_PORT}\"|g" "$cfg"
+  sed -i '' -e 's|allow_duplicate_ip = false|allow_duplicate_ip = true|g' "$cfg"
+  sed -i '' -e 's|addr_book_strict = true|addr_book_strict = false|g' "$cfg"
+  sed -i '' -e "s|address = \"tcp://localhost:1317\"|address = \"tcp://0.0.0.0:${REST_PORT}\"|g" "$app"
+  sed -i '' -e 's|enable = false|enable = true|g' "$app"
+  sed -i '' -e 's|enabled-unsafe-cors = false|enabled-unsafe-cors = true|g' "$app"
+  sed -i '' -e "s|address = \"localhost:9090\"|address = \"0.0.0.0:${GRPC_PORT}\"|g" "$app"
+  sed -i '' -e "s|address = \"localhost:9091\"|address = \"0.0.0.0:${GRPC_WEB_PORT}\"|g" "$app"
+
+  # Copy genesis for other validators
+  cp "$HOME_DIR/config/genesis.json" "$TMP_DIR/genesis.json"
+  ok "Genesis prepared and shared"
+
+  # Start validator-1
+  log "Starting validator-1 (genesis) on RPC=$RPC_PORT EVM=$EVM_PORT..."
+  "$PCHAIND" start \
+    --home="$HOME_DIR" \
+    --pruning=nothing \
+    --minimum-gas-prices="1000000000${DENOM}" \
+    --rpc.laddr="tcp://0.0.0.0:${RPC_PORT}" \
+    --json-rpc.address="0.0.0.0:${EVM_PORT}" \
+    --json-rpc.ws-address="0.0.0.0:${EVM_WS_PORT}" \
+    --json-rpc.api=eth,txpool,personal,net,debug,web3 \
+    --chain-id="$CHAIN_ID" \
+    >> "$LOG_FILE" 2>&1 &
+
+  local pid=$!
+  disown $pid 2>/dev/null || true
+  write_pid "validator-1" "$pid"
+  ok "validator-1 started (pid=$pid)"
+  log "Waiting for validator-1 to produce blocks..."
+  wait_block "$RPC_PORT" "validator-1" 120
+
+  # Register UV1 + setup all AuthZ grants
+  local genesis_rpc="tcp://127.0.0.1:${RPC_PORT}"
+  sleep 5
+
+  # Register UV1 (peer_id matches ip4 multi-addr locally)
+  local PEER_UV1 MULTI_UV1 VALOPER_V1
+  PEER_UV1=$(uv_peer_id 1)
+  MULTI_UV1="/ip4/127.0.0.1/tcp/$(uv_tss 1)"
+  VALOPER_V1=$("$PCHAIND" --home="$HOME_DIR" keys show validator-1 --bech val -a --keyring-backend=$KEYRING)
+
+  log "Registering universal-validator-1..."
+  local reg_result
+  reg_result=$("$PCHAIND" --home="$HOME_DIR" tx uvalidator add-universal-validator \
+    --core-validator-address "$VALOPER_V1" \
+    --network "{\"peer_id\": \"$PEER_UV1\", \"multi_addrs\": [\"$MULTI_UV1\"]}" \
+    --from genesis-acc-1 --chain-id "$CHAIN_ID" --keyring-backend=$KEYRING \
+    --node="$genesis_rpc" --fees 1000000000000000upc --yes --output json 2>&1 || true)
+  local reg_tx; reg_tx=$(echo "$reg_result" | jq -r '.txhash // ""' 2>/dev/null || true)
+  [[ -n "$reg_tx" ]] && wait_chain_tx "$reg_tx" "$genesis_rpc" 30 || true
+  ok "UV1 registered"
+
+  # Setup AuthZ grants for all 4 validators
+  sleep 5
+  log "Creating AuthZ grants for all 4 validators..."
+  set +e
+  local total_grants=0
+  for v in 1 2 3 4; do
+    local hk_addr
+    hk_addr=$(jq -r ".[$(( v - 1 ))].address" "$TMP_DIR/hotkeys.json")
+    for msg in /uexecutor.v1.MsgVoteInbound /uexecutor.v1.MsgVoteChainMeta /uexecutor.v1.MsgVoteOutbound /utss.v1.MsgVoteTssKeyProcess; do
+      "$PCHAIND" --home="$HOME_DIR" tx authz grant "$hk_addr" generic \
+        --msg-type="$msg" \
+        --from "validator-$v" \
+        --chain-id "$CHAIN_ID" \
+        --keyring-backend=$KEYRING \
+        --node="$genesis_rpc" \
+        --gas=auto --gas-adjustment=1.5 --gas-prices="1000000000${DENOM}" \
+        --yes --broadcast-mode sync --output json >/dev/null 2>&1
+      total_grants=$(( total_grants + 1 ))
+      sleep 1
+    done
+  done
+  set -e
+  ok "Created $total_grants AuthZ grants"
+
+  # Fund test address
+  "$PCHAIND" --home="$HOME_DIR" tx bank send genesis-acc-1 \
+    push1w7xnyp3hf79vyetj3cvw8l32u6unun8yr6zn60 \
+    "1000000000000000000${DENOM}" \
+    --chain-id "$CHAIN_ID" --keyring-backend=$KEYRING \
+    --node="$genesis_rpc" --gas-prices="100000000000${DENOM}" --yes >/dev/null 2>&1 || true
+}
+
+setup_regular_validator() {
+  local ID="$1"
+  local HOME_DIR="$DATA_DIR/validator-$ID"
+  local RPC_PORT=$(val_rpc "$ID") REST_PORT=$(val_rest "$ID") GRPC_PORT=$(val_grpc "$ID")
+  local GRPC_WEB_PORT=$(val_grpcweb "$ID") P2P_PORT=$(val_p2p "$ID")
+  local EVM_PORT=$(val_evm "$ID") EVM_WS_PORT=$(val_evmws "$ID")
+  local PPROF_PORT=$(val_pprof "$ID")
+  local LOG_FILE="$LOG_DIR/validator-$ID.log"
+  local GENESIS_RPC="http://127.0.0.1:$(val_rpc 1)"
+
+  mkdir -p "$HOME_DIR" "$LOG_DIR"
+  rm -rf "$HOME_DIR"/* "$HOME_DIR"/.[!.]* 2>/dev/null || true
+
+  log "Initializing validator-$ID..."
+
+  local VALIDATOR_STAKE="100000000000000000000000"
+  local VAL_MN
+  VAL_MN=$(jq -r ".[] | select(.id==$ID) | .mnemonic" "$TMP_DIR/validators.json")
+
+  "$PCHAIND" --home="$HOME_DIR" init "validator-$ID" --chain-id "$CHAIN_ID" --default-denom "$DENOM"
+
+  # Wait for genesis file
+  local i=0
+  while [[ ! -f "$TMP_DIR/genesis.json" ]] && (( i < 60 )); do sleep 2; (( i++ )); done
+  [[ -f "$TMP_DIR/genesis.json" ]] || { err "Genesis file not found"; return 1; }
+  cp "$TMP_DIR/genesis.json" "$HOME_DIR/config/genesis.json"
+
+  echo "$VAL_MN" | "$PCHAIND" --home="$HOME_DIR" keys add "validator-$ID" \
+    --keyring-backend=$KEYRING --algo=$KEYALGO --recover
+
+  # Get genesis node_id and set peer
+  local genesis_node_id
+  genesis_node_id=$(curl -sf "$GENESIS_RPC/status" | jq -r '.result.node_info.id')
+  local persistent_peer="$genesis_node_id@127.0.0.1:$(val_p2p 1)"
+
+  # Config patching
+  local cfg="$HOME_DIR/config/config.toml" app="$HOME_DIR/config/app.toml"
+  sed -i '' -e "s|laddr = \"tcp://127.0.0.1:26657\"|laddr = \"tcp://0.0.0.0:${RPC_PORT}\"|g" "$cfg"
+  sed -i '' -e 's|cors_allowed_origins = \[\]|cors_allowed_origins = ["*"]|g' "$cfg"
+  sed -i '' -e "s|laddr = \"tcp://0.0.0.0:26656\"|laddr = \"tcp://0.0.0.0:${P2P_PORT}\"|g" "$cfg"
+  sed -i '' -e "s|^persistent_peers *=.*|persistent_peers = \"$persistent_peer\"|" "$cfg"
+  sed -i '' -e 's|timeout_commit = "5s"|timeout_commit = "1s"|g' "$cfg"
+  sed -i '' -e "s|pprof_laddr = \"localhost:6060\"|pprof_laddr = \"localhost:${PPROF_PORT}\"|g" "$cfg"
+  sed -i '' -e 's|allow_duplicate_ip = false|allow_duplicate_ip = true|g' "$cfg"
+  sed -i '' -e 's|addr_book_strict = true|addr_book_strict = false|g' "$cfg"
+  sed -i '' -e "s|address = \"tcp://localhost:1317\"|address = \"tcp://0.0.0.0:${REST_PORT}\"|g" "$app"
+  sed -i '' -e 's|enable = false|enable = true|g' "$app"
+  sed -i '' -e 's|enabled-unsafe-cors = false|enabled-unsafe-cors = true|g' "$app"
+  sed -i '' -e "s|address = \"localhost:9090\"|address = \"0.0.0.0:${GRPC_PORT}\"|g" "$app"
+  sed -i '' -e "s|address = \"localhost:9091\"|address = \"0.0.0.0:${GRPC_WEB_PORT}\"|g" "$app"
+
+  # Start
+  log "Starting validator-$ID on RPC=$RPC_PORT EVM=$EVM_PORT..."
+  "$PCHAIND" start \
+    --home="$HOME_DIR" \
+    --pruning=nothing \
+    --minimum-gas-prices="1000000000${DENOM}" \
+    --rpc.laddr="tcp://0.0.0.0:${RPC_PORT}" \
+    --json-rpc.address="0.0.0.0:${EVM_PORT}" \
+    --json-rpc.ws-address="0.0.0.0:${EVM_WS_PORT}" \
+    --json-rpc.api=eth,txpool,personal,net,debug,web3 \
+    --chain-id="$CHAIN_ID" \
+    >> "$LOG_FILE" 2>&1 &
+
+  local pid=$!
+  disown $pid 2>/dev/null || true
+  write_pid "validator-$ID" "$pid"
+  ok "validator-$ID started (pid=$pid)"
+
+  # Wait for sync
+  wait_rpc "$RPC_PORT" "validator-$ID" 180 || { warn "validator-$ID RPC slow — continuing anyway"; }
+  log "Waiting for validator-$ID to sync..."
+  local j=0
+  while (( j < 120 )); do
+    local catching_up
+    catching_up=$(curl -sf "http://127.0.0.1:$RPC_PORT/status" | jq -r '.result.sync_info.catching_up' 2>/dev/null || echo "true")
+    [[ "$catching_up" == "false" ]] && break
+    sleep 5; (( j += 5 ))
+  done
+  ok "validator-$ID synced"
+
+  # Create validator stake
+  sleep 10
+  local VALOPER
+  VALOPER=$("$PCHAIND" --home="$HOME_DIR" keys show "validator-$ID" --bech val -a --keyring-backend=$KEYRING)
+  local PUBKEY
+  PUBKEY=$("$PCHAIND" tendermint show-validator --home="$HOME_DIR")
+
+  cat > "$HOME_DIR/validator.json" <<EOF
+{
+  "pubkey": $PUBKEY,
+  "amount": "${VALIDATOR_STAKE}${DENOM}",
+  "moniker": "validator-$ID",
+  "identity": "",
+  "website": "",
+  "security": "",
+  "details": "Validator $ID",
+  "commission-rate": "0.10",
+  "commission-max-rate": "0.20",
+  "commission-max-change-rate": "0.01",
+  "min-self-delegation": "1"
+}
+EOF
+
+  sleep $(( ID * 2 ))
+  set +e
+  local create_result
+  create_result=$("$PCHAIND" --home="$HOME_DIR" tx staking create-validator "$HOME_DIR/validator.json" \
+    --from="validator-$ID" --chain-id="$CHAIN_ID" --keyring-backend=$KEYRING \
+    --node="$GENESIS_RPC" --gas=auto --gas-adjustment=1.5 \
+    --gas-prices="1000000000${DENOM}" --yes --output json 2>&1)
+  local create_tx; create_tx=$(echo "$create_result" | jq -r '.txhash // ""' 2>/dev/null || true)
+  if [[ -n "$create_tx" ]]; then
+    wait_chain_tx "$create_tx" "tcp://127.0.0.1:$(val_rpc 1)" 30 || true
+  fi
+  set -e
+
+  # Wait for bonded
+  if wait_validator_bonded "$VALOPER" 120; then
+    ok "validator-$ID is bonded (valoper: $VALOPER)"
+  else
+    warn "validator-$ID may not be bonded yet; continuing"
+  fi
+
+  # Register UV for this validator
+  local PEER MULTI genesis_rpc_tcp="tcp://127.0.0.1:$(val_rpc 1)"
+  local G1_MN
+  G1_MN=$(jq -r '.[0].mnemonic' "$TMP_DIR/genesis_accounts.json")
+  echo "$G1_MN" | "$PCHAIND" --home="$HOME_DIR" keys add genesis-acc-1 \
+    --keyring-backend=$KEYRING --algo=$KEYALGO --recover >/dev/null 2>&1 || true
+
+  PEER=$(uv_peer_id "$ID")
+  MULTI="/ip4/127.0.0.1/tcp/$(uv_tss "$ID")"
+  sleep $(( ID * 2 ))
+  set +e
+  local reg
+  reg=$("$PCHAIND" --home="$HOME_DIR" tx uvalidator add-universal-validator \
+    --core-validator-address "$VALOPER" \
+    --network "{\"peer_id\": \"$PEER\", \"multi_addrs\": [\"$MULTI\"]}" \
+    --from genesis-acc-1 --chain-id "$CHAIN_ID" --keyring-backend=$KEYRING \
+    --node="$genesis_rpc_tcp" --fees 1000000000000000upc --yes --output json 2>&1 || true)
+  local reg_tx; reg_tx=$(echo "$reg" | jq -r '.txhash // ""' 2>/dev/null || true)
+  [[ -n "$reg_tx" ]] && wait_chain_tx "$reg_tx" "$genesis_rpc_tcp" 30 || true
+  set -e
+  ok "UV$ID registered"
+}
+
+# ─── Universal validator setup ─────────────────────────────────────────────────
+
+setup_universal_validator() {
+  local ID="$1"
+  local HOME_DIR="$DATA_DIR/universal-$ID"
+  local UV_HOME="$HOME_DIR/.puniversal"
+  local QUERY_PORT=$(uv_query "$ID")
+  local TSS_PORT=$(uv_tss "$ID")
+  local CORE_GRPC=$(uv_grpc "$ID")
+  local GENESIS_RPC_HTTP="http://127.0.0.1:$(val_rpc 1)"
+  local LOG_FILE="$LOG_DIR/universal-$ID.log"
+
+  mkdir -p "$HOME_DIR" "$LOG_DIR"
+
+  # Preserve keyshares (puniversald stores them at $UV_HOME/keyshares)
+  local _ks_tmp=""
+  if [[ -d "$UV_HOME/keyshares" ]] && ls "$UV_HOME/keyshares"/* >/dev/null 2>&1; then
+    _ks_tmp=$(mktemp -d)
+    cp -r "$UV_HOME/keyshares/." "$_ks_tmp/"
+    ok "Preserved $(ls "$_ks_tmp" | wc -l | tr -d ' ') keyshare(s) for UV$ID"
+  fi
+
+  rm -rf "$UV_HOME" 2>/dev/null || true
+  HOME="$HOME_DIR" "$PUNIVERSALD" init
+
+  # Restore keyshares
+  if [[ -n "$_ks_tmp" ]] && [[ -d "$_ks_tmp" ]]; then
+    mkdir -p "$UV_HOME/keyshares"
+    cp -r "$_ks_tmp/." "$UV_HOME/keyshares/"
+    rm -rf "$_ks_tmp"
+    ok "Restored $(ls "$UV_HOME/keyshares" | wc -l | tr -d ' ') keyshare(s) for UV$ID"
+  fi
+
+  # Wait for first block
+  local BLOCK_HEIGHT=0
+  local i=0
+  while (( i < 120 )); do
+    BLOCK_HEIGHT=$(curl -sf "$GENESIS_RPC_HTTP/status" 2>/dev/null \
+      | jq -r '.result.sync_info.latest_block_height // "0"' 2>/dev/null || echo "0")
+    [[ "$BLOCK_HEIGHT" != "0" && "$BLOCK_HEIGHT" != "null" ]] && break
+    sleep 2; (( i += 2 ))
+  done
+
+  local cfg="$UV_HOME/config/pushuv_config.json"
+
+  # Set grpc + keyring
+  jq --arg grpc "$CORE_GRPC" \
+    '.push_chain_grpc_urls = [$grpc] | .keyring_backend = "test"' \
+    "$cfg" > "${cfg}.tmp" && mv "${cfg}.tmp" "$cfg"
+
+  # Debug logging
+  jq '.log_level = 0' "$cfg" > "${cfg}.tmp" && mv "${cfg}.tmp" "$cfg"
+
+  # TSS
+  local TSS_PRIVATE_KEY
+  TSS_PRIVATE_KEY=$(uv_tss_key "$ID")
+  local TSS_P2P_LISTEN="/ip4/0.0.0.0/tcp/$TSS_PORT"
+  local TSS_HOME_DIR="$UV_HOME/tss"
+
+  jq --arg pk "$TSS_PRIVATE_KEY" \
+     --arg pw "testpassword" \
+     --arg listen "$TSS_P2P_LISTEN" \
+     --arg home "$TSS_HOME_DIR" \
+     '.tss_enabled = true | .tss_p2p_private_key_hex = $pk | .tss_password = $pw | .tss_p2p_listen = $listen | .tss_home_dir = $home' \
+     "$cfg" > "${cfg}.tmp" && mv "${cfg}.tmp" "$cfg"
+
+  # Query port
+  if [[ "$QUERY_PORT" != "8080" ]]; then
+    jq --argjson p "$QUERY_PORT" '.query_server_port = $p' "$cfg" > "${cfg}.tmp" && mv "${cfg}.tmp" "$cfg"
+  fi
+
+  # RPC overrides: use localhost ports (not host.docker.internal)
+  local SEPOLIA_RPC="${SEPOLIA_RPC_URL_OVERRIDE:-http://localhost:9545}"
+  local ARBITRUM_RPC="${ARBITRUM_RPC_URL_OVERRIDE:-http://localhost:9546}"
+  local BASE_RPC="${BASE_RPC_URL_OVERRIDE:-http://localhost:9547}"
+  local BSC_RPC="${BSC_RPC_URL_OVERRIDE:-http://localhost:9548}"
+  local SOLANA_RPC="${SOLANA_RPC_URL_OVERRIDE:-http://localhost:8899}"
+  local ARBITRUM_TENDERLY="https://arbitrum-sepolia.gateway.tenderly.co"
+  local BSC_DEFAULT="https://bsc-testnet-rpc.publicnode.com"
+
+  jq --arg c "$ARBITRUM_CHAIN_ID" --arg u "$ARBITRUM_TENDERLY" \
+    '.chain_configs[$c].rpc_urls = [$u]' "$cfg" > "${cfg}.tmp" && mv "${cfg}.tmp" "$cfg"
+  jq --arg c "$BSC_CHAIN_ID" --arg u "$BSC_DEFAULT" \
+    '.chain_configs[$c].rpc_urls = [$u]' "$cfg" > "${cfg}.tmp" && mv "${cfg}.tmp" "$cfg"
+  jq --arg c "$SEPOLIA_CHAIN_ID" --arg u "$SEPOLIA_RPC" \
+    '.chain_configs[$c].rpc_urls = [$u]' "$cfg" > "${cfg}.tmp" && mv "${cfg}.tmp" "$cfg"
+  jq --arg c "$ARBITRUM_CHAIN_ID" --arg u "$ARBITRUM_RPC" \
+    '.chain_configs[$c].rpc_urls = [$u]' "$cfg" > "${cfg}.tmp" && mv "${cfg}.tmp" "$cfg"
+  jq --arg c "$BASE_CHAIN_ID" --arg u "$BASE_RPC" \
+    '.chain_configs[$c].rpc_urls = [$u]' "$cfg" > "${cfg}.tmp" && mv "${cfg}.tmp" "$cfg"
+  jq --arg c "$BSC_CHAIN_ID" --arg u "$BSC_RPC" \
+    '.chain_configs[$c].rpc_urls = [$u]' "$cfg" > "${cfg}.tmp" && mv "${cfg}.tmp" "$cfg"
+  jq --arg c "$SOLANA_CHAIN_ID" --arg u "$SOLANA_RPC" \
+    '.chain_configs[$c].rpc_urls = [$u]' "$cfg" > "${cfg}.tmp" && mv "${cfg}.tmp" "$cfg"
+
+  # Set localchain start height
+  local start_from="$BLOCK_HEIGHT"
+  (( start_from > 20 )) && start_from=$(( start_from - 20 ))
+  jq --arg c "$LOCALCHAIN_CHAIN_ID" --argjson h "$start_from" \
+    '.chain_configs[$c].event_start_from = $h' "$cfg" > "${cfg}.tmp" && mv "${cfg}.tmp" "$cfg"
+
+  # Set event_start_from for external chains from env
+  set_chain_start_from() {
+    local cid="$1" val="${2:-}"
+    [[ -z "$val" ]] && return 0
+    jq --arg c "$cid" --argjson h "$val" \
+      '.chain_configs[$c].event_start_from = $h' "$cfg" > "${cfg}.tmp" && mv "${cfg}.tmp" "$cfg"
+  }
+  set_chain_start_from "$SEPOLIA_CHAIN_ID"  "${SEPOLIA_EVENT_START_FROM:-}"
+  set_chain_start_from "$BASE_CHAIN_ID"     "${BASE_EVENT_START_FROM:-}"
+  set_chain_start_from "$ARBITRUM_CHAIN_ID" "${ARBITRUM_EVENT_START_FROM:-}"
+  set_chain_start_from "$BSC_CHAIN_ID"      "${BSC_EVENT_START_FROM:-}"
+  set_chain_start_from "$SOLANA_CHAIN_ID"   "${SOLANA_EVENT_START_FROM:-}"
+
+  # Valoper address
+  local VALOPER
+  VALOPER=$(jq -r ".[$(( ID - 1 ))].valoper_address" "$TMP_DIR/validators.json")
+  if [[ -n "$VALOPER" && "$VALOPER" != "null" ]]; then
+    jq --arg v "$VALOPER" '.push_valoper_address = $v' "$cfg" > "${cfg}.tmp" && mv "${cfg}.tmp" "$cfg"
+  fi
+
+  # Import hotkey
+  local HOTKEY_MN HOTKEY_ADDR
+  HOTKEY_MN=$(jq -r ".[$(( ID - 1 ))].mnemonic" "$TMP_DIR/hotkeys.json")
+  HOTKEY_ADDR=$(jq -r ".[$(( ID - 1 ))].address" "$TMP_DIR/hotkeys.json")
+  mkdir -p "$UV_HOME/keyring-test"
+  echo "$HOTKEY_MN" | HOME="$HOME_DIR" "$PUNIVERSALD" keys add "hotkey-$ID" \
+    --recover --keyring-backend=test >/dev/null 2>&1 || true
+  ok "UV$ID hotkey imported: $HOTKEY_ADDR"
+
+  # Wait for AuthZ grants
+  log "UV$ID: waiting for AuthZ grants for $HOTKEY_ADDR..."
+  local required_msgs='["/uexecutor.v1.MsgVoteInbound","/uexecutor.v1.MsgVoteChainMeta","/uexecutor.v1.MsgVoteOutbound","/utss.v1.MsgVoteTssKeyProcess"]'
+  local wait_max=120 waited=0 matched=0
+  while (( waited < wait_max )); do
+    matched=$(curl -sf "http://127.0.0.1:$(val_rest 1)/cosmos/authz/v1beta1/grants/grantee/$HOTKEY_ADDR" 2>/dev/null \
+      | jq -r --argjson req "$required_msgs" \
+        '[.grants[]? | (.authorization.msg // .authorization.value.msg // "") as $m | select($req | index($m))] | length' \
+        2>/dev/null || echo "0")
+    (( matched >= 4 )) && break
+    sleep 2; (( waited += 2 ))
+  done
+  if (( matched >= 4 )); then
+    ok "UV$ID: found $matched/4 AuthZ grants"
+  else
+    warn "UV$ID: only $matched/4 grants found after ${wait_max}s — continuing"
+  fi
+
+  # Wait for on-chain registration
+  local EXPECTED_PEER
+  EXPECTED_PEER=$(uv_peer_id "$ID")
+  log "UV$ID: waiting for on-chain registration (peer_id=$EXPECTED_PEER)..."
+  local reg_wait=0 found=""
+  while (( reg_wait < 120 )); do
+    found=$(curl -sf "http://127.0.0.1:$(val_rest 1)/uvalidator/v1/universal_validators" 2>/dev/null \
+      | jq -r --arg pid "$EXPECTED_PEER" \
+        '.universal_validator[]? | select(.network_info.peer_id == $pid) | .network_info.peer_id' \
+        2>/dev/null || echo "")
+    [[ -n "$found" ]] && break
+    sleep 2; (( reg_wait += 2 ))
+  done
+  if [[ -z "$found" ]]; then
+    err "UV$ID not found on-chain after 120s"; return 1
+  fi
+  ok "UV$ID confirmed on-chain"
+
+  # Start puniversald (set stack to max hard limit on macOS; ignore if already at limit)
+  log "Starting universal-validator-$ID (query=$QUERY_PORT tss=$TSS_PORT)..."
+  (
+    ulimit -s 65520 2>/dev/null || true
+    export HOME="$HOME_DIR"
+    exec "$PUNIVERSALD" start
+  ) >> "$LOG_FILE" 2>&1 &
+
+  local pid=$!
+  disown $pid 2>/dev/null || true
+  write_pid "universal-$ID" "$pid"
+  ok "universal-validator-$ID started (pid=$pid)"
+}
+
+# ─── TSS keygen ────────────────────────────────────────────────────────────────
+
+get_current_tss_key_id() {
+  local genesis_rpc="tcp://127.0.0.1:$(val_rpc 1)"
+  "$PCHAIND" query utss current-key --node="$genesis_rpc" 2>/dev/null \
+    | grep -E "^\s*key_id:" | awk '{print $2}' 2>/dev/null || echo ""
+}
+
+get_utss_admin() {
+  local genesis_rpc="tcp://127.0.0.1:$(val_rpc 1)"
+  "$PCHAIND" query utss params --node="$genesis_rpc" --output json 2>/dev/null \
+    | jq -r '.params.admin // ""' 2>/dev/null || echo ""
+}
+
+cmd_tss_keygen() {
+  header "TSS Key Generation"
+
+  # Check existing key
+  local existing
+  existing=$(get_current_tss_key_id)
+  if [[ -n "$existing" ]]; then
+    ok "TSS key already present: $existing"
+    return 0
+  fi
+
+  # Validate UVs registered
+  local genesis_rpc="tcp://127.0.0.1:$(val_rpc 1)"
+  local uv_count
+  uv_count=$("$PCHAIND" query uvalidator all-universal-validators \
+    --node="$genesis_rpc" --output json 2>/dev/null \
+    | jq -r '.universal_validator | length // 0' 2>/dev/null || echo "0")
+  if (( uv_count < 2 )); then
+    err "Need at least 2 registered universal validators (found: $uv_count)"; return 1
+  fi
+
+  # Find signer key
+  local admin_addr
+  admin_addr=$(get_utss_admin)
+  local val1_home="$DATA_DIR/validator-1"
+  local signer=""
+  while IFS= read -r key_name; do
+    local addr
+    addr=$("$PCHAIND" --home="$val1_home" keys show "$key_name" -a --keyring-backend=$KEYRING 2>/dev/null || true)
+    if [[ "$addr" == "$admin_addr" ]]; then signer="$key_name"; break; fi
+  done < <("$PCHAIND" --home="$val1_home" keys list --keyring-backend=$KEYRING --output json 2>/dev/null \
+    | jq -r '.[] | .name' 2>/dev/null || true)
+
+  if [[ -z "$signer" ]]; then
+    err "No local key matches UTSS admin: $admin_addr"; return 1
+  fi
+
+  local attempt max_attempts=5
+  for (( attempt=1; attempt<=max_attempts; attempt++ )); do
+    log "Initiating TSS keygen (attempt $attempt/$max_attempts, signer=$signer)..."
+    local result tx_hash
+    result=$("$PCHAIND" --home="$val1_home" tx utss initiate-tss-key-process \
+      --process-type tss-process-keygen \
+      --from "$signer" \
+      --chain-id "$CHAIN_ID" \
+      --keyring-backend=$KEYRING \
+      --node="$genesis_rpc" \
+      --fees 1000000000000000upc \
+      --yes --output json 2>&1 || true)
+
+    local code; code=$(echo "$result" | jq -r '.code // "0"' 2>/dev/null || echo "0")
+    tx_hash=$(echo "$result" | jq -r '.txhash // ""' 2>/dev/null || true)
+
+    if [[ "$code" != "0" ]]; then
+      warn "Keygen tx code=$code; retrying..."
+      sleep 5; continue
+    fi
+
+    if [[ -n "$tx_hash" ]]; then
+      wait_chain_tx "$tx_hash" "$genesis_rpc" 30 || true
+    fi
+
+    # Wait for key
+    log "Waiting for TSS key to materialize on-chain..."
+    local waited=0
+    while (( waited < 300 )); do
+      local kid; kid=$(get_current_tss_key_id)
+      if [[ -n "$kid" ]]; then ok "TSS key ready: $kid"; return 0; fi
+      sleep 3; (( waited += 3 ))
+    done
+    warn "Key not ready after 300s on attempt $attempt"
+  done
+
+  err "TSS keygen failed after $max_attempts attempts"
+  return 1
+}
+
+# ─── Setup uvalidators (re-registration + authz) ───────────────────────────────
+
+cmd_setup_uvalidators() {
+  header "Setting up Universal Validators"
+
+  local genesis_rpc_tcp="tcp://127.0.0.1:$(val_rpc 1)"
+  local genesis_rpc_http="http://127.0.0.1:$(val_rpc 1)"
+  local failures=0
+
+  for i in 1 2 3 4; do
+    log "Processing UV$i..."
+    local val_home="$DATA_DIR/validator-$i"
+
+    local VALOPER PEER MULTI
+    VALOPER=$("$PCHAIND" --home="$val_home" keys show "validator-$i" --bech val -a --keyring-backend=$KEYRING 2>/dev/null || true)
+    PEER=$(uv_peer_id "$i")
+    MULTI="/ip4/127.0.0.1/tcp/$(uv_tss "$i")"
+
+    if [[ -z "$VALOPER" ]]; then
+      warn "Could not get valoper for validator-$i; skipping"
+      (( failures++ )); continue
+    fi
+
+    # Wait bonded
+    if ! wait_validator_bonded "$VALOPER" 90; then
+      warn "validator-$i not bonded; skipping UV$i"; (( failures++ )); continue
+    fi
+
+    # Register / update UV
+    set +e
+    local reg_result reg_tx
+    reg_result=$("$PCHAIND" --home="$val_home" tx uvalidator add-universal-validator \
+      --core-validator-address "$VALOPER" \
+      --network "{\"peer_id\": \"$PEER\", \"multi_addrs\": [\"$MULTI\"]}" \
+      --from genesis-acc-1 --chain-id "$CHAIN_ID" --keyring-backend=$KEYRING \
+      --node="$genesis_rpc_tcp" --fees 1000000000000000upc --yes --output json 2>&1 || true)
+    reg_tx=$(echo "$reg_result" | jq -r '.txhash // ""' 2>/dev/null || true)
+    [[ -n "$reg_tx" ]] && wait_chain_tx "$reg_tx" "$genesis_rpc_tcp" 30 || true
+    set -e
+    ok "UV$i registered"
+
+    # AuthZ grants
+    local HOTKEY_ADDR
+    HOTKEY_ADDR=$(jq -r ".[$(( i - 1 ))].address" "$TMP_DIR/hotkeys.json")
+
+    set +e
+    for msg in /uexecutor.v1.MsgVoteInbound /uexecutor.v1.MsgVoteChainMeta /uexecutor.v1.MsgVoteOutbound /utss.v1.MsgVoteTssKeyProcess; do
+      "$PCHAIND" --home="$val_home" tx authz grant "$HOTKEY_ADDR" generic \
+        --msg-type="$msg" \
+        --from "validator-$i" \
+        --chain-id "$CHAIN_ID" \
+        --keyring-backend=$KEYRING \
+        --node="$genesis_rpc_tcp" \
+        --fees 200000000000000upc \
+        --yes >/dev/null 2>&1 || true
+      sleep 1
+    done
+    set -e
+    ok "UV$i AuthZ grants created for $HOTKEY_ADDR"
+  done
+
+  if (( failures > 0 )); then
+    warn "Setup completed with $failures failure(s)"
+  else
+    ok "All UV setup complete"
+  fi
+}
+
+# ─── Start command ─────────────────────────────────────────────────────────────
+
+cmd_start() {
+  local clean=false
+  for arg in "$@"; do [[ "$arg" == "--build" || "$arg" == "--clean" ]] && clean=true; done
+
+  require_cmd "$PCHAIND" "$PUNIVERSALD" jq curl nc
+
+  header "Starting Push Chain Local Network"
+  mkdir -p "$DATA_DIR" "$LOG_DIR" "$PID_DIR"
+
+  if [[ "$clean" == "true" ]]; then
+    log "Clean start: removing existing validator data..."
+    rm -rf "$DATA_DIR"/validator-* "$DATA_DIR"/universal-*
+    log "Clearing account files for fresh generation..."
+    rm -f "$TMP_DIR/genesis_accounts.json" "$TMP_DIR/validators.json" "$TMP_DIR/hotkeys.json" "$TMP_DIR/genesis.json"
+  fi
+
+  # Kill any stale processes
+  for i in 1 2 3 4; do
+    local pid
+    pid=$(read_pid "validator-$i")
+    [[ -n "$pid" ]] && is_alive "$pid" && kill "$pid" 2>/dev/null || true
+    pid=$(read_pid "universal-$i")
+    [[ -n "$pid" ]] && is_alive "$pid" && kill "$pid" 2>/dev/null || true
+  done
+  sleep 2
+
+  generate_accounts
+
+  # Genesis validator (foreground setup, background run)
+  if [[ "$clean" == "true" ]] || [[ ! -d "$DATA_DIR/validator-1" ]]; then
+    setup_genesis_validator
+  else
+    log "Reusing existing validator-1 data..."
+    local RPC_PORT=$(val_rpc 1) EVM_PORT=$(val_evm 1) EVM_WS_PORT=$(val_evmws 1)
+    local LOG_FILE="$LOG_DIR/validator-1.log"
+    "$PCHAIND" start \
+      --home="$DATA_DIR/validator-1" \
+      --pruning=nothing \
+      --minimum-gas-prices="1000000000${DENOM}" \
+      --rpc.laddr="tcp://0.0.0.0:${RPC_PORT}" \
+      --json-rpc.address="0.0.0.0:${EVM_PORT}" \
+      --json-rpc.ws-address="0.0.0.0:${EVM_WS_PORT}" \
+      --json-rpc.api=eth,txpool,personal,net,debug,web3 \
+      --chain-id="$CHAIN_ID" \
+      >> "$LOG_FILE" 2>&1 &
+    local _v1pid=$!
+    disown $_v1pid 2>/dev/null || true
+    write_pid "validator-1" "$_v1pid"
+    wait_block "$RPC_PORT" "validator-1" 120
+  fi
+
+  # Regular validators in parallel
+  log "Starting validators 2, 3, 4..."
+  for i in 2 3 4; do
+    if [[ "$clean" == "true" ]] || [[ ! -d "$DATA_DIR/validator-$i" ]]; then
+      setup_regular_validator "$i" &
+    else
+      log "Reusing existing validator-$i data..."
+      local RPC=$(val_rpc "$i") EVM=$(val_evm "$i") WS=$(val_evmws "$i")
+      "$PCHAIND" start \
+        --home="$DATA_DIR/validator-$i" \
+        --pruning=nothing \
+        --minimum-gas-prices="1000000000${DENOM}" \
+        --rpc.laddr="tcp://0.0.0.0:${RPC}" \
+        --json-rpc.address="0.0.0.0:${EVM}" \
+        --json-rpc.ws-address="0.0.0.0:${WS}" \
+        --json-rpc.api=eth,txpool,personal,net,debug,web3 \
+        --chain-id="$CHAIN_ID" \
+        >> "$LOG_DIR/validator-$i.log" 2>&1 &
+      local _vpid=$!
+      disown $_vpid 2>/dev/null || true
+      write_pid "validator-$i" "$_vpid"
+    fi
+  done
+  wait || true
+  ok "All core validators running"
+
+  # Universal validators in parallel
+  log "Starting universal validators..."
+  for i in 1 2 3 4; do
+    setup_universal_validator "$i" &
+  done
+  wait || true
+  ok "All universal validators started"
+
+  # Health checks
+  log "Waiting for universal validators to become healthy..."
+  local all_healthy=true
+  for i in 1 2 3 4; do
+    if ! wait_uv_health "$(uv_query "$i")" "universal-validator-$i" 180; then
+      all_healthy=false
+    fi
+  done
+
+  if [[ "$all_healthy" == "true" ]]; then
+    ok "All validators healthy!"
+  else
+    warn "Some validators may not be healthy — check logs in $LOG_DIR"
+  fi
+
+  cmd_status
+}
+
+# ─── Stop / Down ───────────────────────────────────────────────────────────────
+
+cmd_stop() {
+  log "Stopping all local validators..."
+  for i in 1 2 3 4; do
+    local pid
+    pid=$(read_pid "validator-$i")
+    if [[ -n "$pid" ]] && is_alive "$pid"; then
+      kill "$pid" 2>/dev/null || true
+      ok "Stopped validator-$i (pid=$pid)"
+    fi
+    pid=$(read_pid "universal-$i")
+    if [[ -n "$pid" ]] && is_alive "$pid"; then
+      kill "$pid" 2>/dev/null || true
+      ok "Stopped universal-validator-$i (pid=$pid)"
+    fi
+  done
+  # Catch any stragglers by binary name
+  pkill -f "pchaind start" 2>/dev/null || true
+  pkill -f "puniversald start" 2>/dev/null || true
+  sleep 2
+  ok "All validators stopped"
+}
+
+cmd_down() {
+  cmd_stop
+  log "Removing validator data..."
+  rm -rf "$DATA_DIR"/validator-* "$DATA_DIR"/universal-*
+  rm -f "$TMP_DIR/genesis.json"
+  ok "Data removed (accounts in /tmp/push-accounts preserved)"
+}
+
+# ─── Status ────────────────────────────────────────────────────────────────────
+
+cmd_status() {
+  header "Local Devnet Status"
+  for i in 1 2 3 4; do
+    local pid rpc_port
+    pid=$(read_pid "validator-$i")
+    rpc_port=$(val_rpc "$i")
+    if [[ -n "$pid" ]] && is_alive "$pid"; then
+      local height
+      height=$(curl -sf "http://127.0.0.1:$rpc_port/status" 2>/dev/null \
+        | jq -r '.result.sync_info.latest_block_height // "?"' 2>/dev/null || echo "?")
+      ok "validator-$i (pid=$pid) — rpc=:$rpc_port evm=:$(val_evm "$i") height=$height"
+    else
+      err "validator-$i — NOT RUNNING"
+    fi
+  done
+  for i in 1 2 3 4; do
+    local pid qport
+    pid=$(read_pid "universal-$i")
+    qport=$(uv_query "$i")
+    if [[ -n "$pid" ]] && is_alive "$pid"; then
+      local health
+      health=$(curl -sf "http://127.0.0.1:$qport/health" 2>/dev/null && echo "healthy" || echo "starting")
+      ok "universal-validator-$i (pid=$pid) — query=:$qport tss=:$(uv_tss "$i") [$health]"
+    else
+      err "universal-validator-$i — NOT RUNNING"
+    fi
+  done
+}
+
+# ─── Logs ──────────────────────────────────────────────────────────────────────
+
+cmd_logs() {
+  local name="${1:-all}"
+  mkdir -p "$LOG_DIR"
+  if [[ "$name" == "all" ]]; then
+    tail -f "$LOG_DIR"/*.log 2>/dev/null || echo "No logs found in $LOG_DIR"
+  else
+    local f="$LOG_DIR/${name}.log"
+    [[ -f "$f" ]] && tail -f "$f" || { err "Log not found: $f"; exit 1; }
+  fi
+}
+
+# ─── Main ──────────────────────────────────────────────────────────────────────
+
+case "${1:-help}" in
+  start)            shift; cmd_start "$@" ;;
+  stop)             cmd_stop ;;
+  down)             cmd_down ;;
+  status)           cmd_status ;;
+  logs)             shift; cmd_logs "${1:-all}" ;;
+  tss-keygen)       cmd_tss_keygen ;;
+  setup-uvalidators) cmd_setup_uvalidators ;;
+  *)
+    echo "Usage: $(basename "$0") <command>"
+    echo ""
+    echo "Commands:"
+    echo "  start [--build]     Start all validators (--build for clean start)"
+    echo "  stop                Stop all validators (keep data)"
+    echo "  down                Stop and remove validator data"
+    echo "  status              Show status of all validators"
+    echo "  logs [name]         Tail logs (e.g. validator-1, universal-2, all)"
+    echo "  tss-keygen          Initiate TSS key generation"
+    echo "  setup-uvalidators   Register universal validators and setup AuthZ"
+    ;;
+esac

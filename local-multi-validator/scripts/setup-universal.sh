@@ -457,4 +457,8 @@ fi
 echo "🚀 Starting universal validator $UNIVERSAL_ID..."
 echo "🔗 Connecting to core validator: $CORE_VALIDATOR_GRPC"
 
+# Increase OS thread stack size to unlimited so the Rust DKLS sign library
+# (called via CGo) does not SIGSEGV from native stack overflow during sign sessions.
+ulimit -s unlimited
+
 exec $BINARY start

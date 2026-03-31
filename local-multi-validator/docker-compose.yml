@@ -221,6 +221,8 @@ services:
     ports:
       - "8080:8080"    # Query API
       - "39000:39000"  # TSS P2P
+    ulimits:
+      stack: -1
     volumes:
       - universal1-data:/root/.puniversal
       - ./scripts:/opt/scripts
@@ -265,6 +267,8 @@ services:
     ports:
       - "8081:8080"    # Query API
       - "39001:39001"  # TSS P2P
+    ulimits:
+      stack: -1
     volumes:
       - universal2-data:/root/.puniversal
       - ./scripts:/opt/scripts
@@ -309,6 +313,8 @@ services:
     ports:
       - "8082:8080"    # Query API
       - "39002:39002"  # TSS P2P
+    ulimits:
+      stack: -1
     volumes:
       - universal3-data:/root/.puniversal
       - ./scripts:/opt/scripts
@@ -353,6 +359,8 @@ services:
     ports:
       - "8083:8080"    # Query API
       - "39003:39003"  # TSS P2P
+    ulimits:
+      stack: -1
     volumes:
       - universal4-data:/root/.puniversal
       - ./scripts:/opt/scripts

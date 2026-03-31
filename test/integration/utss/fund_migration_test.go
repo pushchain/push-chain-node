@@ -129,6 +129,8 @@ func TestInitiateFundMigration(t *testing.T) {
 		require.Equal(t, utsstypes.FundMigrationStatus_FUND_MIGRATION_STATUS_PENDING, migration.Status)
 		require.Equal(t, oldKeyId, migration.OldKeyId)
 		require.Equal(t, testChain, migration.Chain)
+		require.Equal(t, uint64(21000), migration.GasLimit)
+		require.NotEmpty(t, migration.GasPrice)
 
 		// Verify pending index
 		_, err = app.UtssKeeper.PendingMigrations.Get(ctx, migrationId)

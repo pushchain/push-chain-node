@@ -8,6 +8,8 @@ import (
 	"github.com/pushchain/push-chain-node/x/utss/types"
 )
 
+const nativeTransferGasLimit = 21000
+
 // InitiateFundMigration validates and creates a fund migration from an old TSS key vault
 // to the current TSS key vault for a specific chain.
 func (k Keeper) InitiateFundMigration(ctx context.Context, oldKeyId, chain string) (uint64, error) {
@@ -72,21 +74,29 @@ func (k Keeper) InitiateFundMigration(ctx context.Context, oldKeyId, chain strin
 		return 0, err
 	}
 
-	// 7. Create migration record
+	// 7. Fetch gas price from EVM oracle
+	gasPrice, err := k.uexecutorKeeper.GetGasPriceByChain(sdkCtx, chain)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get gas price for chain %s: %w", chain, err)
+	}
+
+	// 8. Create migration record
 	migrationId, err := k.NextMigrationId.Next(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get next migration id: %w", err)
 	}
 
 	migration := types.FundMigration{
-		Id:              migrationId,
-		OldKeyId:        oldKeyId,
-		OldTssPubkey:    oldKey.TssPubkey,
-		CurrentKeyId:    currentKey.KeyId,
+		Id:               migrationId,
+		OldKeyId:         oldKeyId,
+		OldTssPubkey:     oldKey.TssPubkey,
+		CurrentKeyId:     currentKey.KeyId,
 		CurrentTssPubkey: currentKey.TssPubkey,
-		Chain:           chain,
-		Status:          types.FundMigrationStatus_FUND_MIGRATION_STATUS_PENDING,
-		InitiatedBlock:  sdkCtx.BlockHeight(),
+		Chain:            chain,
+		Status:           types.FundMigrationStatus_FUND_MIGRATION_STATUS_PENDING,
+		InitiatedBlock:   sdkCtx.BlockHeight(),
+		GasPrice:         gasPrice.String(),
+		GasLimit:         nativeTransferGasLimit,
 	}
 
 	if err := k.FundMigrations.Set(ctx, migrationId, migration); err != nil {
@@ -105,6 +115,8 @@ func (k Keeper) InitiateFundMigration(ctx context.Context, oldKeyId, chain strin
 		CurrentTssPubkey: currentKey.TssPubkey,
 		Chain:            chain,
 		BlockHeight:      sdkCtx.BlockHeight(),
+		GasPrice:         gasPrice.String(),
+		GasLimit:         nativeTransferGasLimit,
 	})
 	if err != nil {
 		return 0, fmt.Errorf("failed to create migration event: %w", err)

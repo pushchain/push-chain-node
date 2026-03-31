@@ -2,6 +2,7 @@ package keeper_test
 
 import (
 	"context"
+	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/suite"
@@ -47,6 +48,10 @@ type mockUExecutorKeeper struct{}
 
 func (m mockUExecutorKeeper) HasPendingOutboundsForChain(_ context.Context, _ string) (bool, error) {
 	return false, nil
+}
+
+func (m mockUExecutorKeeper) GetGasPriceByChain(_ sdk.Context, _ string) (*big.Int, error) {
+	return big.NewInt(1000000000), nil // 1 gwei
 }
 
 var maccPerms = map[string][]string{

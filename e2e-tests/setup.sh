@@ -421,8 +421,179 @@ sdk_test_files() {
   done
 }
 
+sdk_rewrite_chain_endpoints_for_local() {
+  local chain_constants_file="$1"
+
+  CHAIN_CONSTANTS_FILE="$chain_constants_file" node <<'NODE'
+const fs = require('fs');
+
+const filePath = process.env.CHAIN_CONSTANTS_FILE;
+if (!filePath || !fs.existsSync(filePath)) {
+  console.error('chain.ts file not found for LOCAL endpoint rewrite');
+  process.exit(1);
+}
+
+let source = fs.readFileSync(filePath, 'utf8');
+
+const endpointMap = [
+  { chain: 'ETHEREUM_SEPOLIA', url: 'http://localhost:9545' },
+  { chain: 'ARBITRUM_SEPOLIA', url: 'http://localhost:9546' },
+  { chain: 'BASE_SEPOLIA', url: 'http://localhost:9547' },
+  { chain: 'BNB_TESTNET', url: 'http://localhost:9548' },
+  { chain: 'SOLANA_DEVNET', url: 'http://localhost:8899' },
+];
+
+function findChainBlockRange(text, chainName) {
+  const marker = `[CHAIN.${chainName}]`;
+  const markerIdx = text.indexOf(marker);
+  if (markerIdx === -1) {
+    return null;
+  }
+
+  const openBraceIdx = text.indexOf('{', markerIdx);
+  if (openBraceIdx === -1) {
+    return null;
+  }
+
+  let depth = 0;
+  for (let i = openBraceIdx; i < text.length; i += 1) {
+    const ch = text[i];
+    if (ch === '{') {
+      depth += 1;
+    } else if (ch === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        return { start: openBraceIdx, end: i };
+      }
+    }
+  }
+
+  return null;
+}
+
+function detectIndent(blockText) {
+  const match = blockText.match(/\n(\s+)[A-Za-z_\[]/);
+  return match ? match[1] : '    ';
+}
+
+function findMatchingBracket(text, openIdx) {
+  let depth = 0;
+  let quote = '';
+
+  for (let i = openIdx; i < text.length; i += 1) {
+    const ch = text[i];
+    const prev = i > 0 ? text[i - 1] : '';
+
+    if (quote) {
+      if (ch === quote && prev !== '\\') {
+        quote = '';
+      }
+      continue;
+    }
+
+    if (ch === '\'' || ch === '"' || ch === '`') {
+      quote = ch;
+      continue;
+    }
+
+    if (ch === '[') {
+      depth += 1;
+      continue;
+    }
+
+    if (ch === ']') {
+      depth -= 1;
+      if (depth === 0) {
+        return i;
+      }
+    }
+  }
+
+  return -1;
+}
+
+function upsertDefaultRpc(blockText, rpcUrl, indent) {
+  const keyRegex = /\bdefaultRPC\s*:/m;
+  const keyMatch = keyRegex.exec(blockText);
+  if (keyMatch) {
+    const arrayStart = blockText.indexOf('[', keyMatch.index);
+    if (arrayStart !== -1) {
+      const arrayEnd = findMatchingBracket(blockText, arrayStart);
+      if (arrayEnd !== -1) {
+        return {
+          text: `${blockText.slice(0, arrayStart)}['${rpcUrl}']${blockText.slice(arrayEnd + 1)}`,
+          changed: true,
+        };
+      }
+    }
+
+    return {
+      text: blockText.replace(/(defaultRPC\s*:\s*)[^\n,]+/, `$1['${rpcUrl}']`),
+      changed: true,
+    };
+  }
+
+  return {
+    text: blockText.replace(/\{\s*/, `{\n${indent}defaultRPC: ['${rpcUrl}'],\n`),
+    changed: true,
+  };
+}
+
+function upsertExplorerUrl(blockText, explorerUrl, indent) {
+  const explorerRegex = /((explorerURL|explorerUrl)\s*:\s*)['"`][^'"`\n]*['"`]/m;
+  if (explorerRegex.test(blockText)) {
+    return {
+      text: blockText.replace(explorerRegex, `$1'${explorerUrl}'`),
+      changed: true,
+    };
+  }
+
+  const defaultRpcLineRegex = /(defaultRPC\s*:\s*\[[\s\S]*?\]\s*,?)/m;
+  if (defaultRpcLineRegex.test(blockText)) {
+    return {
+      text: blockText.replace(defaultRpcLineRegex, `$1\n${indent}explorerUrl: '${explorerUrl}',`),
+      changed: true,
+    };
+  }
+
+  return {
+    text: blockText.replace(/\{\s*/, `{\n${indent}explorerUrl: '${explorerUrl}',\n`),
+    changed: true,
+  };
+}
+
+const edits = [];
+for (const entry of endpointMap) {
+  const range = findChainBlockRange(source, entry.chain);
+  if (!range) {
+    console.error(`Could not find chain block for CHAIN.${entry.chain} in ${filePath}`);
+    process.exit(1);
+  }
+
+  const originalBlock = source.slice(range.start, range.end + 1);
+  const indent = detectIndent(originalBlock);
+
+  const defaultRpcResult = upsertDefaultRpc(originalBlock, entry.url, indent);
+  const explorerResult = upsertExplorerUrl(defaultRpcResult.text, entry.url, indent);
+
+  edits.push({
+    start: range.start,
+    end: range.end,
+    text: explorerResult.text,
+  });
+}
+
+edits.sort((a, b) => b.start - a.start);
+for (const edit of edits) {
+  source = source.slice(0, edit.start) + edit.text + source.slice(edit.end + 1);
+}
+
+fs.writeFileSync(filePath, source);
+NODE
+}
+
 sdk_sync_localnet_constants() {
-  require_cmd jq perl
+  require_cmd jq perl node
 
   local chain_constants_file="$PUSH_CHAIN_SDK_DIR/$PUSH_CHAIN_SDK_CHAIN_CONSTANTS_PATH"
   local sdk_utils_file="$PUSH_CHAIN_SDK_DIR/packages/core/src/lib/utils.ts"
@@ -442,7 +613,7 @@ sdk_sync_localnet_constants() {
   pbnb="$(address_from_deploy_token "pBNB")"
   psol="$(address_from_deploy_token "pSOL")"
   usdt_eth="$(address_from_deploy_token "USDT.eth")"
-  usdt_bnb="$(address_from_deploy_token "USDT.bnb")"
+  usdt_bnb="$(address_from_deploy_token "USDT.bsc")"
 
   [[ -n "$peth" ]] || peth="0xTBD"
   [[ -n "$peth_arb" ]] || peth_arb="0xTBD"
@@ -473,18 +644,11 @@ sdk_sync_localnet_constants() {
     perl -0pi -e "s/return '\\Q0x00000000000000000000000000000000000000C0\\E';/return '0x00000000000000000000000000000000000000C1';/g" "$orchestrator_file"
   fi
 
-  # Force SDK test chains to local anvil/surfpool endpoints for LOCAL testing.
-  perl -0pi -e '
-    s#(\[CHAIN\.ETHEREUM_SEPOLIA\]:\s*\{[\s\S]*?defaultRPC:\s*)\[[\s\S]*?\],(\s*confirmations:)#$1['\''http://localhost:9545'\''],$2#s;
-    s#(\[CHAIN\.ETHEREUM_SEPOLIA\]:\s*\{[\s\S]*?explorerUrl:\s*)'\''[^'\''\n]*'\''#$1'\''http://localhost:9545'\''#s;
-    s#(\[CHAIN\.ARBITRUM_SEPOLIA\]:\s*\{[\s\S]*?defaultRPC:\s*)\[[\s\S]*?\],(\s*confirmations:)#$1['\''http://localhost:9546'\''],$2#s;
-    s#(\[CHAIN\.ARBITRUM_SEPOLIA\]:\s*\{[\s\S]*?explorerUrl:\s*)'\''[^'\''\n]*'\''#$1'\''http://localhost:9546'\''#s;
-    s#(\[CHAIN\.BASE_SEPOLIA\]:\s*\{[\s\S]*?defaultRPC:\s*)\[[\s\S]*?\],(\s*confirmations:)#$1['\''http://localhost:9547'\''],$2#s;
-    s#(\[CHAIN\.BASE_SEPOLIA\]:\s*\{[\s\S]*?explorerUrl:\s*)'\''[^'\''\n]*'\''#$1'\''http://localhost:9547'\''#s;
-    s#(\[CHAIN\.BNB_TESTNET\]:\s*\{[\s\S]*?defaultRPC:\s*)\[[\s\S]*?\],(\s*confirmations:)#$1['\''http://localhost:9548'\''],$2#s;
-    s#(\[CHAIN\.BNB_TESTNET\]:\s*\{[\s\S]*?explorerUrl:\s*)'\''[^'\''\n]*'\''#$1'\''http://localhost:9548'\''#s;
-    s#(\[CHAIN\.SOLANA_DEVNET\]:\s*\{[\s\S]*?defaultRPC:\s*)\[[\s\S]*?\],(\s*confirmations:)#$1['\''http://localhost:8899'\''],$2#s;
-  ' "$chain_constants_file"
+  # For LOCAL testing only, force selected chain endpoints to localhost RPC/explorer URLs.
+  if is_local_testing_env; then
+    sdk_rewrite_chain_endpoints_for_local "$chain_constants_file"
+    log_ok "Patched SDK chain.ts RPC/explorer endpoints for LOCAL testing"
+  fi
 
   if [[ -f "$sdk_utils_file" ]]; then
     perl -0pi -e "s/\[PUSH_NETWORK\\.LOCALNET\]:\s*\[\s*CHAIN\\.PUSH_TESTNET_DONUT,/\[PUSH_NETWORK.LOCALNET\]: [CHAIN.PUSH_LOCALNET,/g" "$sdk_utils_file"
@@ -2075,6 +2239,7 @@ cmd_all() {
   step_setup_gateway
   step_add_uregistry_configs
   step_deploy_counter_and_sync_sdk
+  sdk_sync_localnet_constants
 }
 
 cmd_show_help() {

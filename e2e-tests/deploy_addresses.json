@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-03-27T15:09:03Z",
+  "generatedAt": "2026-03-31T09:09:56Z",
   "contracts": {
-    "WPC": "0xB2cf4B3aec93F4A8F92b292d2F605591dB3e3011",
-    "Factory": "0x057931Df99f61caB5e5DbDb6224D7003E64F659e",
+    "WPC": "0xB5B1e1ADc1b8fc1066975aa09f9371a5f67C54F5",
+    "Factory": "0x140b9f84fCbccB4129AC6F32b1243ea808d18261",
     "SwapRouter": "0x140b9f84fCbccB4129AC6F32b1243ea808d18261",
     "QuoterV2": "0x7fd62fe2Aba9af8bF4d08a6cce49beA8c8Ca6d97",
     "PositionManager": "0x4dCe46Eb5909aC32B6C0ad086e74008Fdb292CB5",
@@ -51,6 +51,13 @@
       "address": "0x31F3Dcb417970EBe9AC1e254Ee42b91e49e30EE2",
       "source": "core-contracts",
       "decimals": 9
+    },
+    {
+      "name": "USDT.bsc",
+      "symbol": "USDT.bsc",
+      "address": "0xC329d4EbF8814eEFfA2Fd9612655e490b112523F",
+      "source": "core-contracts",
+      "decimals": 6
     }
   ]
 }

@@ -88,13 +88,26 @@ fi
 # === INITIALIZATION ===
 # ---------------------------
 
-# Clean start
+# Clean start — preserve keyshares across restarts if they exist
+if [ -d "$HOME_DIR/keyshares" ] && [ "$(ls -A "$HOME_DIR/keyshares" 2>/dev/null)" ]; then
+  _KEYSHARES_TMP=$(mktemp -d)
+  cp -r "$HOME_DIR/keyshares/." "$_KEYSHARES_TMP/"
+  echo "🔑 Preserved $(ls "$_KEYSHARES_TMP" | wc -l | tr -d ' ') keyshare(s) before clean"
+fi
 rm -rf "$HOME_DIR"/* "$HOME_DIR"/.[!.]* "$HOME_DIR"/..?* 2>/dev/null || true
 
 echo "🔧 Initializing universal validator..."
 
 # Initialize puniversald (creates config directory and default config)
 $BINARY init
+
+# Restore keyshares if they were preserved
+if [ -n "${_KEYSHARES_TMP:-}" ] && [ -d "$_KEYSHARES_TMP" ]; then
+  mkdir -p "$HOME_DIR/keyshares"
+  cp -r "$_KEYSHARES_TMP/." "$HOME_DIR/keyshares/"
+  rm -rf "$_KEYSHARES_TMP"
+  echo "🔑 Restored $(ls "$HOME_DIR/keyshares" | wc -l | tr -d ' ') keyshare(s)"
+fi
 
 # Update the gRPC URL and keyring backend in the config
 # The CORE_VALIDATOR_GRPC env var is already set correctly in docker-compose.yml:

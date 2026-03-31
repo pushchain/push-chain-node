@@ -135,15 +135,17 @@ func (el *EventListener) run(ctx context.Context) {
 	}
 }
 
-// poll fetches TSS events and pending outbounds, stores them, and updates latest block height.
+// poll fetches pending TSS, outbound & fund migration events, stores them, and updates latest block height.
 func (el *EventListener) poll(ctx context.Context) {
 	tssCount := el.pollTssEvents(ctx)
 	outboundCount := el.pollOutboundEvents(ctx)
+	migrationCount := el.pollFundMigrationEvents(ctx)
 
-	if total := tssCount + outboundCount; total > 0 {
+	if total := tssCount + outboundCount + migrationCount; total > 0 {
 		el.logger.Info().
 			Int("tss_events", tssCount).
 			Int("outbound_events", outboundCount).
+			Int("migration_events", migrationCount).
 			Msg("stored new events")
 	}
 
@@ -202,6 +204,29 @@ func (el *EventListener) pollOutboundEvents(ctx context.Context) int {
 		event, err := convertOutboundToEvent(entry, outbounds[i])
 		if err != nil {
 			el.logger.Warn().Err(err).Str("outbound_id", entry.OutboundId).Msg("failed to convert outbound event")
+			continue
+		}
+
+		newCount += el.storeEvent(event)
+	}
+
+	return newCount
+}
+
+// pollFundMigrationEvents fetches pending fund migrations and inserts them into the DB.
+// Returns new event count.
+func (el *EventListener) pollFundMigrationEvents(ctx context.Context) int {
+	migrations, err := el.pushCore.GetPendingFundMigrations(ctx)
+	if err != nil {
+		el.logger.Error().Err(err).Msg("failed to fetch pending fund migrations")
+		return 0
+	}
+
+	var newCount int
+	for _, m := range migrations {
+		event, err := convertFundMigrationEvent(m)
+		if err != nil {
+			el.logger.Warn().Err(err).Uint64("migration_id", m.Id).Msg("failed to convert fund migration event")
 			continue
 		}
 

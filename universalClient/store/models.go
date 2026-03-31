@@ -25,6 +25,7 @@ const (
 	EventTypeKeyrefresh   = "KEYREFRESH"
 	EventTypeQuorumChange = "QUORUM_CHANGE"
 	EventTypeSign         = "SIGN"
+	EventTypeFundMigrate  = "FUND_MIGRATE"
 	EventTypeInbound      = "INBOUND"
 	EventTypeOutbound     = "OUTBOUND"
 )

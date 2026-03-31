@@ -9,9 +9,10 @@ import (
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 )
 
-// OutboundExpiryOffset is the number of blocks after event detection
-// before an outbound event expires (~10 minutes at ~1s block time).
-const OutboundExpiryOffset = 600
+// DefaultExpiryOffset is the number of blocks after event detection
+// before an event expires (~10 minutes at ~1s block time).
+// Used for outbound and fund migration events.
+const DefaultExpiryOffset = 600
 
 // convertTssEvent converts a gRPC TssEvent to a store.Event.
 func convertTssEvent(tssEvent *utsstypes.TssEvent) (*store.Event, error) {
@@ -48,6 +49,39 @@ func convertTssEvent(tssEvent *utsstypes.TssEvent) (*store.Event, error) {
 		BlockHeight:       uint64(tssEvent.BlockHeight),
 		ExpiryBlockHeight: uint64(tssEvent.ExpiryHeight),
 		Type:              protocolType,
+		ConfirmationType:  store.ConfirmationInstant,
+		Status:            store.StatusConfirmed,
+		EventData:         eventData,
+	}, nil
+}
+
+
+// convertFundMigrationEvent converts a FundMigration to a store.Event.
+func convertFundMigrationEvent(migration *utsstypes.FundMigration) (*store.Event, error) {
+	if migration == nil {
+		return nil, fmt.Errorf("fund migration is nil")
+	}
+
+	eventData, err := json.Marshal(utsstypes.FundMigrationInitiatedEventData{
+		MigrationID:      migration.Id,
+		OldKeyID:         migration.OldKeyId,
+		OldTssPubkey:     migration.OldTssPubkey,
+		CurrentKeyID:     migration.CurrentKeyId,
+		CurrentTssPubkey: migration.CurrentTssPubkey,
+		Chain:            migration.Chain,
+		BlockHeight:      migration.InitiatedBlock,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal fund migration event data: %w", err)
+	}
+
+	blockHeight := uint64(migration.InitiatedBlock)
+
+	return &store.Event{
+		EventID:           fmt.Sprintf("fm_%d", migration.Id),
+		BlockHeight:       blockHeight,
+		ExpiryBlockHeight: blockHeight + DefaultExpiryOffset,
+		Type:              store.EventTypeFundMigrate,
 		ConfirmationType:  store.ConfirmationInstant,
 		Status:            store.StatusConfirmed,
 		EventData:         eventData,
@@ -102,7 +136,7 @@ func convertOutboundToEvent(entry *uexecutortypes.PendingOutboundEntry, outbound
 	return &store.Event{
 		EventID:           outbound.Id,
 		BlockHeight:       blockHeight,
-		ExpiryBlockHeight: blockHeight + OutboundExpiryOffset,
+		ExpiryBlockHeight: blockHeight + DefaultExpiryOffset,
 		Type:              store.EventTypeSign,
 		ConfirmationType:  store.ConfirmationInstant,
 		Status:            store.StatusConfirmed,

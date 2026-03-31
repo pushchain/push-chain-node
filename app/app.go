@@ -766,6 +766,8 @@ func NewChainApp(
 		logger,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 		app.UvalidatorKeeper,
+		app.UregistryKeeper,
+		app.UexecutorKeeper,
 	)
 
 	app.UvalidatorKeeper.SetHooks(

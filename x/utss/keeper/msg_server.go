@@ -91,3 +91,55 @@ func (ms msgServer) VoteTssKeyProcess(ctx context.Context, msg *types.MsgVoteTss
 
 	return &types.MsgVoteTssKeyProcessResponse{}, nil
 }
+
+// InitiateFundMigration implements types.MsgServer.
+func (ms msgServer) InitiateFundMigration(ctx context.Context, msg *types.MsgInitiateFundMigration) (*types.MsgInitiateFundMigrationResponse, error) {
+	// Verify admin authority
+	params, err := ms.k.Params.Get(ctx)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get params")
+	}
+	if params.Admin != msg.Signer {
+		return nil, errors.Wrapf(sdkErrors.ErrUnauthorized, "invalid authority; expected %s, got %s", params.Admin, msg.Signer)
+	}
+
+	migrationId, err := ms.k.InitiateFundMigration(ctx, msg.OldKeyId, msg.Chain)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.MsgInitiateFundMigrationResponse{MigrationId: migrationId}, nil
+}
+
+// VoteFundMigration implements types.MsgServer.
+func (ms msgServer) VoteFundMigration(ctx context.Context, msg *types.MsgVoteFundMigration) (*types.MsgVoteFundMigrationResponse, error) {
+	signerAccAddr, err := sdk.AccAddressFromBech32(msg.Signer)
+	if err != nil {
+		return nil, fmt.Errorf("invalid signer address: %w", err)
+	}
+
+	signerValAddr := sdk.ValAddress(signerAccAddr)
+
+	isBonded, err := ms.k.uvalidatorKeeper.IsBondedUniversalValidator(ctx, msg.Signer)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to check bonded status for signer %s", msg.Signer)
+	}
+	if !isBonded {
+		return nil, fmt.Errorf("universal validator for signer %s is not bonded", msg.Signer)
+	}
+
+	isTombstoned, err := ms.k.uvalidatorKeeper.IsTombstonedUniversalValidator(ctx, msg.Signer)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to check tombstoned status for signer %s", msg.Signer)
+	}
+	if isTombstoned {
+		return nil, fmt.Errorf("universal validator for signer %s is tombstoned", msg.Signer)
+	}
+
+	err = ms.k.VoteFundMigration(ctx, signerValAddr, msg.MigrationId, msg.TxHash, msg.Success)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.MsgVoteFundMigrationResponse{}, nil
+}

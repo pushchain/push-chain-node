@@ -151,6 +151,10 @@ func (ep *EventProcessor) processConfirmedEvents(ctx context.Context) error {
 
 // processOutboundEvent processes an outbound event by voting on it
 func (ep *EventProcessor) processOutboundEvent(ctx context.Context, event *store.Event) error {
+	ep.logger.Info().
+		Str("event_id", event.EventID).
+		Msg("processing outbound event")
+
 	// Parse outbound event data once
 	outboundData, err := ep.parseOutboundEventData(event)
 	if err != nil {
@@ -184,10 +188,8 @@ func (ep *EventProcessor) processOutboundEvent(ctx context.Context, event *store
 
 	ep.logger.Info().
 		Str("event_id", event.EventID).
-		Str("tx_id", txID).
-		Str("utx_id", utxID).
 		Str("vote_tx_hash", voteTxHash).
-		Msg("voted on outbound event")
+		Msg("outbound event marked as COMPLETED")
 
 	return nil
 }
@@ -196,9 +198,6 @@ func (ep *EventProcessor) processOutboundEvent(ctx context.Context, event *store
 func (ep *EventProcessor) processInboundEvent(ctx context.Context, event *store.Event) error {
 	ep.logger.Info().
 		Str("event_id", event.EventID).
-		Uint32("id", uint32(event.ID)).
-		Uint64("block", event.BlockHeight).
-		Str("current_status", event.Status).
 		Msg("processing inbound event")
 
 	// Extract inbound data from event
@@ -230,7 +229,7 @@ func (ep *EventProcessor) processInboundEvent(ctx context.Context, event *store.
 	ep.logger.Info().
 		Str("event_id", event.EventID).
 		Str("vote_tx_hash", voteTxHash).
-		Msg("inbound event processed and confirmed successfully")
+		Msg("inbound event marked as COMPLETED")
 
 	return nil
 }

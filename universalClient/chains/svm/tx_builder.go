@@ -1782,11 +1782,11 @@ func (tb *TxBuilder) buildCreateATAIdempotentInstruction(
 }
 
 // GetFundMigrationSigningRequest is not supported for SVM - funds are held by the program, not the TSS key.
-func (tb *TxBuilder) GetFundMigrationSigningRequest(ctx context.Context, from, to string, nonce uint64) (*common.UnsignedSigningReq, error) {
+func (tb *TxBuilder) GetFundMigrationSigningRequest(ctx context.Context, data *common.FundMigrationData, nonce uint64) (*common.UnsignedSigningReq, error) {
 	return nil, fmt.Errorf("fund migration not supported for SVM")
 }
 
 // BroadcastFundMigrationTx is not supported for SVM - funds are held by the program, not the TSS key.
-func (tb *TxBuilder) BroadcastFundMigrationTx(ctx context.Context, req *common.UnsignedSigningReq, from, to string, signature []byte) (string, error) {
+func (tb *TxBuilder) BroadcastFundMigrationTx(ctx context.Context, req *common.UnsignedSigningReq, data *common.FundMigrationData, signature []byte) (string, error) {
 	return "", fmt.Errorf("fund migration not supported for SVM")
 }

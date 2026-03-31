@@ -168,6 +168,19 @@ func (rc *RPCClient) GetGasPrice(ctx context.Context) (*big.Int, error) {
 	return gasPrice, err
 }
 
+// GetBalance fetches the native token balance for an address at the latest block.
+func (rc *RPCClient) GetBalance(ctx context.Context, address ethcommon.Address) (*big.Int, error) {
+	var balance *big.Int
+	err := rc.executeWithFailover(ctx, "get_balance", func(client *ethclient.Client) error {
+		callCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+		var innerErr error
+		balance, innerErr = client.BalanceAt(callCtx, address, nil)
+		return innerErr
+	})
+	return balance, err
+}
+
 // FilterLogs fetches logs matching the filter query
 func (rc *RPCClient) FilterLogs(ctx context.Context, query ethereum.FilterQuery) ([]types.Log, error) {
 	var logs []types.Log

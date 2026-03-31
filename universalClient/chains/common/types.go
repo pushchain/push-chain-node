@@ -2,6 +2,7 @@ package common
 
 import (
 	"context"
+	"math/big"
 
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
@@ -20,6 +21,15 @@ type ChainClient interface {
 	// GetTxBuilder returns the TxBuilder for this chain
 	// Returns an error if txBuilder is not supported for this chain (e.g., Push chain)
 	GetTxBuilder() (TxBuilder, error)
+}
+
+// FundMigrationData contains the data needed to build a fund migration transaction.
+// Populated by the coordinator from the migration event + derived addresses.
+type FundMigrationData struct {
+	From     string   // Old TSS address (derived from old pubkey)
+	To       string   // New TSS address (derived from current pubkey)
+	GasPrice *big.Int // Gas price from the migration event
+	GasLimit uint64   // Gas limit from the migration event
 }
 
 // UnsignedSigningReq contains the request for signing an outbound transaction
@@ -61,12 +71,12 @@ type TxBuilder interface {
 	// Returns "0" if the transaction is not found.
 	GetGasFeeUsed(ctx context.Context, txHash string) (string, error)
 
-	// GetFundMigrationSigningRequest builds a native token transfer from `from` to `to`,
+	// GetFundMigrationSigningRequest builds a native token transfer for fund migration,
 	// transferring the maximum possible balance (balance minus gas cost).
-	GetFundMigrationSigningRequest(ctx context.Context, from, to string, nonce uint64) (*UnsignedSigningReq, error)
+	GetFundMigrationSigningRequest(ctx context.Context, data *FundMigrationData, nonce uint64) (*UnsignedSigningReq, error)
 
 	// BroadcastFundMigrationTx assembles and broadcasts a signed fund migration transaction.
-	BroadcastFundMigrationTx(ctx context.Context, req *UnsignedSigningReq, from, to string, signature []byte) (string, error)
+	BroadcastFundMigrationTx(ctx context.Context, req *UnsignedSigningReq, data *FundMigrationData, signature []byte) (string, error)
 }
 
 // UniversalTx Payload

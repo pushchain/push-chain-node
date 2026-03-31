@@ -103,8 +103,8 @@ func (s *Store) GetNonExpiredConfirmedEvents(currentBlock, minBlockConfirmation 
 // would make the coordinator wait for the resolver unnecessarily.
 func (s *Store) GetInFlightSignEvents() ([]store.Event, error) {
 	var events []store.Event
-	if err := s.db.Where("type = ? AND status IN (?, ?)",
-		store.EventTypeSign, store.StatusInProgress, store.StatusSigned).
+	if err := s.db.Where("type IN (?, ?) AND status IN (?, ?)",
+		store.EventTypeSignOutbound, store.EventTypeSignFundMigrate, store.StatusInProgress, store.StatusSigned).
 		Find(&events).Error; err != nil {
 		return nil, fmt.Errorf("failed to query in-flight sign events: %w", err)
 	}
@@ -117,7 +117,7 @@ func (s *Store) GetSignedSignEvents(limit int) ([]store.Event, error) {
 		limit = 50
 	}
 	var events []store.Event
-	if err := s.db.Where("type = ? AND status = ?", store.EventTypeSign, store.StatusSigned).
+	if err := s.db.Where("type IN (?, ?) AND status = ?", store.EventTypeSignOutbound, store.EventTypeSignFundMigrate, store.StatusSigned).
 		Order("block_height ASC, created_at ASC").
 		Limit(limit).
 		Find(&events).Error; err != nil {
@@ -132,7 +132,7 @@ func (s *Store) GetBroadcastedSignEvents(limit int) ([]store.Event, error) {
 		limit = 50
 	}
 	var events []store.Event
-	if err := s.db.Where("type = ? AND status = ? AND broadcasted_tx_hash != ?", store.EventTypeSign, store.StatusBroadcasted, "").
+	if err := s.db.Where("type IN (?, ?) AND status = ? AND broadcasted_tx_hash != ?", store.EventTypeSignOutbound, store.EventTypeSignFundMigrate, store.StatusBroadcasted, "").
 		Order("block_height ASC, created_at ASC").
 		Limit(limit).
 		Find(&events).Error; err != nil {

@@ -184,13 +184,11 @@ func (ec *EventConfirmer) processPendingEvents(ctx context.Context) error {
 				confirmedCount++
 				ec.logger.Info().
 					Str("event_id", event.EventID).
-					Str("tx_signature", txSignatureStr).
-					Uint64("slot", txSlot).
-					Uint64("latest", latestSlot).
+					Str("event_type", event.Type).
 					Uint64("confirmations", confirmations).
-					Uint64("required", requiredConfirmations).
+					Uint64("required_confirmations", requiredConfirmations).
 					Str("confirmation_type", event.ConfirmationType).
-					Msg("event confirmed and marked as CONFIRMED")
+					Msg("event marked as CONFIRMED")
 			}
 		}
 	}

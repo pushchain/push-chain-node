@@ -146,8 +146,6 @@ func parseOutboundObservationEvent(log *types.Log, chainID string, logger zerolo
 }
 
 // parseUniversalTxEvent parses a UniversalTx event from log data.
-// Detects V1 (legacy) vs V2 (upgraded) format based on the payload offset:
-// V2 has 7 static words (head=224), V1 has 6 (head=192).
 func parseUniversalTxEvent(event *store.Event, log *types.Log, chainID string, logger zerolog.Logger) {
 	if len(log.Topics) < 3 {
 		logger.Warn().Msg("not enough indexed fields; nothing to do")
@@ -171,13 +169,8 @@ func parseUniversalTxEvent(event *store.Event, log *types.Log, chainID string, l
 	payload.Token = ethcommon.BytesToAddress(log.Data[0*32+12 : 0*32+32]).Hex()
 	payload.Amount = new(big.Int).SetBytes(log.Data[1*32 : 2*32]).String()
 
-	// Detect format via payload offset (Word 2): >= 224 means V2 (7-word head)
 	dataOffset := new(big.Int).SetBytes(log.Data[2*32 : 3*32]).Uint64()
-	if dataOffset >= uint64(32*7) {
-		parseUniversalTxV2(event, log, dataOffset, &payload, logger)
-	} else {
-		parseUniversalTxV1Legacy(event, log, dataOffset, &payload, logger)
-	}
+	parseUniversalTx(event, log, dataOffset, &payload, logger)
 }
 
 // readDynamicBytes decodes ABI-encoded dynamic bytes at the given absolute offset in data.
@@ -257,7 +250,7 @@ UniversalTx Event (V2 - upgraded chains):
   - signatureData (bytes)       — Word 5 (offset)
   - fromCEA (bool)              — Word 6
 */
-func parseUniversalTxV2(event *store.Event, log *types.Log, dataOffset uint64, payload *common.UniversalTx, logger zerolog.Logger) {
+func parseUniversalTx(event *store.Event, log *types.Log, dataOffset uint64, payload *common.UniversalTx, logger zerolog.Logger) {
 	data := log.Data
 
 	decodePayload(data, dataOffset, payload, logger)
@@ -285,42 +278,4 @@ func parseUniversalTxV2(event *store.Event, log *types.Log, dataOffset uint64, p
 	finalizeEvent(event, payload, logger)
 }
 
-/*
-UniversalTx Event (V1 - legacy, to be removed):
-  - sender (address, indexed)
-  - recipient (address, indexed)
-  - token (address)                — Word 0
-  - amount (uint256)               — Word 1
-  - payload (bytes)                — Word 2 (offset)
-  - revertInstructions (tuple)     — Word 3 (offset)
-  - revertRecipient (address)
-  - revertMsg (bytes)
-  - txType (uint)                  — Word 4
-  - signatureData (bytes)          — Word 5 (offset)
-*/
-func parseUniversalTxV1Legacy(event *store.Event, log *types.Log, dataOffset uint64, payload *common.UniversalTx, logger zerolog.Logger) {
-	data := log.Data
-
-	decodePayload(data, dataOffset, payload, logger)
-
-	// revertInstructions tuple offset (Word 3)
-	revertOffset := new(big.Int).SetBytes(data[3*32 : 4*32]).Uint64()
-
-	// txType (Word 4)
-	if w := readWord(data, 4); w != nil {
-		payload.TxType = uint(new(big.Int).SetBytes(w).Uint64())
-	}
-
-	// Decode revert recipient from tuple head
-	if revertOffset >= uint64(32*5) && revertOffset+64 <= uint64(len(data)) {
-		payload.RevertFundRecipient = ethcommon.BytesToAddress(data[revertOffset+12 : revertOffset+32]).Hex()
-	}
-
-	// signatureData (Word 5 offset)
-	if w := readWord(data, 5); w != nil {
-		payload.VerificationData = decodeSignatureData(data, w, uint64(32*6))
-	}
-
-	finalizeEvent(event, payload, logger)
-}
 

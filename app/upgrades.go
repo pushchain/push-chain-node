@@ -8,6 +8,7 @@ import (
 	"github.com/pushchain/push-chain-node/app/upgrades"
 	aiauditfixes "github.com/pushchain/push-chain-node/app/upgrades/ai-audit-fixes"
 	aiauditfixes2 "github.com/pushchain/push-chain-node/app/upgrades/ai-audit-fixes-2"
+	tssmigration "github.com/pushchain/push-chain-node/app/upgrades/tss-migration"
 	ueamigration "github.com/pushchain/push-chain-node/app/upgrades/uea-migration"
 	ceagasandpayload "github.com/pushchain/push-chain-node/app/upgrades/cea-gas-and-payload"
 	ceapayloadverificationfix "github.com/pushchain/push-chain-node/app/upgrades/cea-payload-verification-fix"
@@ -57,6 +58,7 @@ var Upgrades = []upgrades.Upgrade{
 	aiauditfixes.NewUpgrade(),
 	aiauditfixes2.NewUpgrade(),
 	ueamigration.NewUpgrade(),
+	tssmigration.NewUpgrade(),
 }
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers

@@ -215,3 +215,58 @@ func (k Querier) AllPendingTssEvents(goCtx context.Context, req *types.QueryAllP
 		Pagination: pageRes,
 	}, nil
 }
+
+// GetFundMigration implements types.QueryServer.
+func (k Querier) GetFundMigration(goCtx context.Context, req *types.QueryGetFundMigrationRequest) (*types.QueryGetFundMigrationResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	migration, err := k.Keeper.FundMigrations.Get(ctx, req.Id)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.QueryGetFundMigrationResponse{Migration: &migration}, nil
+}
+
+// PendingFundMigrations implements types.QueryServer.
+func (k Querier) PendingFundMigrations(goCtx context.Context, req *types.QueryPendingFundMigrationsRequest) (*types.QueryPendingFundMigrationsResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	var migrations []*types.FundMigration
+	err := k.Keeper.PendingMigrations.Walk(ctx, nil, func(migrationId uint64, _ uint64) (bool, error) {
+		m, err := k.Keeper.FundMigrations.Get(ctx, migrationId)
+		if err != nil {
+			return true, err
+		}
+		migrations = append(migrations, &m)
+		return false, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.QueryPendingFundMigrationsResponse{Migrations: migrations}, nil
+}
+
+// AllFundMigrations implements types.QueryServer.
+func (k Querier) AllFundMigrations(goCtx context.Context, req *types.QueryAllFundMigrationsRequest) (*types.QueryAllFundMigrationsResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	results, pageRes, err := query.CollectionPaginate(
+		ctx,
+		k.Keeper.FundMigrations,
+		req.Pagination,
+		func(id uint64, migration types.FundMigration) (*types.FundMigration, error) {
+			m := migration
+			return &m, nil
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.QueryAllFundMigrationsResponse{
+		Migrations: results,
+		Pagination: pageRes,
+	}, nil
+}

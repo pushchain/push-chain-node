@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"sort"
 	"strings"
 	"sync"
@@ -23,6 +24,7 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
+	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
@@ -231,6 +233,26 @@ func (c *Coordinator) GetCurrentTSSKey(ctx context.Context) (string, string, err
 	return key.KeyId, key.TssPubkey, nil
 }
 
+// DeriveEVMAddressFromPubkey derives an EVM address from a hex-encoded compressed secp256k1 public key.
+func DeriveEVMAddressFromPubkey(pubkeyHex string) (string, error) {
+	pubkeyHex = strings.TrimPrefix(strings.TrimSpace(pubkeyHex), "0x")
+	pubkeyBytes, err := hex.DecodeString(pubkeyHex)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode public key: %w", err)
+	}
+	if len(pubkeyBytes) != 33 {
+		return "", fmt.Errorf("invalid public key length: %d bytes (expected 33)", len(pubkeyBytes))
+	}
+	vkX, vkY := secp256k1.DecompressPubkey(pubkeyBytes)
+	if vkX == nil || vkY == nil {
+		return "", fmt.Errorf("failed to decompress public key")
+	}
+	xBytes := vkX.FillBytes(make([]byte, 32))
+	yBytes := vkY.FillBytes(make([]byte, 32))
+	addressBytes := crypto.Keccak256(append(xBytes, yBytes...))[12:]
+	return "0x" + hex.EncodeToString(addressBytes), nil
+}
+
 // GetTSSAddress returns the TSS ECDSA address derived from the current TSS public key (compressed secp256k1).
 func (c *Coordinator) GetTSSAddress(ctx context.Context) (string, error) {
 	key, err := c.pushCore.GetCurrentKey(ctx)
@@ -240,22 +262,7 @@ func (c *Coordinator) GetTSSAddress(ctx context.Context) (string, error) {
 	if key == nil || key.TssPubkey == "" {
 		return "", fmt.Errorf("no TSS key found")
 	}
-	pubkeyHex := strings.TrimPrefix(strings.TrimSpace(key.TssPubkey), "0x")
-	pubkeyBytes, err := hex.DecodeString(pubkeyHex)
-	if err != nil {
-		return "", fmt.Errorf("failed to decode TSS public key: %w", err)
-	}
-	if len(pubkeyBytes) != 33 {
-		return "", fmt.Errorf("invalid TSS public key length: %d bytes (expected 33)", len(pubkeyBytes))
-	}
-	vkX, vkY := secp256k1.DecompressPubkey(pubkeyBytes)
-	if vkX == nil || vkY == nil {
-		return "", fmt.Errorf("failed to decompress TSS public key")
-	}
-	xBytes := vkX.FillBytes(make([]byte, 32))
-	yBytes := vkY.FillBytes(make([]byte, 32))
-	addressBytes := crypto.Keccak256(append(xBytes, yBytes...))[12:]
-	return "0x" + hex.EncodeToString(addressBytes), nil
+	return DeriveEVMAddressFromPubkey(key.TssPubkey)
 }
 
 // GetEligibleUV returns ALL eligible validators for the given protocol type (no random selection).
@@ -396,8 +403,13 @@ func (c *Coordinator) processConfirmedEvents(ctx context.Context) error {
 
 	for _, event := range events {
 		var assignedNonce *uint64
-		if event.Type == store.EventTypeSign {
-			chain := extractDestinationChain(event.EventData)
+		if event.Type == store.EventTypeSignOutbound || event.Type == store.EventTypeSignFundMigrate {
+			var chain string
+			if event.Type == store.EventTypeSignFundMigrate {
+				chain = extractFundMigrateChain(event.EventData)
+			} else {
+				chain = extractDestinationChain(event.EventData)
+			}
 			if chain == "" {
 				continue
 			}
@@ -411,11 +423,21 @@ func (c *Coordinator) processConfirmedEvents(ctx context.Context) error {
 				continue
 			}
 
-			nonce, ok := c.assignSignNonce(ctx, event, chain, inFlightPerChain, nonceByChain, skippedChains)
-			if !ok {
-				continue
+			// For FUND_MIGRATE, use old TSS address for nonce lookup
+			if event.Type == store.EventTypeSignFundMigrate {
+				nonce, err := c.assignFundMigrateNonce(ctx, event, chain)
+				if err != nil {
+					c.logger.Error().Err(err).Str("event_id", event.EventID).Msg("failed to assign fund migration nonce")
+					continue
+				}
+				assignedNonce = &nonce
+			} else {
+				nonce, ok := c.assignSignNonce(ctx, event, chain, inFlightPerChain, nonceByChain, skippedChains)
+				if !ok {
+					continue
+				}
+				assignedNonce = &nonce
 			}
-			assignedNonce = &nonce
 		}
 
 		c.logger.Info().
@@ -423,11 +445,11 @@ func (c *Coordinator) processConfirmedEvents(ctx context.Context) error {
 			Str("type", event.Type).
 			Uint64("block_height", event.BlockHeight).
 			Msg("processing event as coordinator")
-		// For SIGN: pick a random threshold subset (>2/3 of eligible) rather than all eligible.
+		// For SIGN/FUND_MIGRATE: pick a random threshold subset (>2/3 of eligible) rather than all eligible.
 		// A threshold subset suffices for signing and is more resilient when some nodes are offline.
 		// For all other protocols (keygen, keyrefresh, quorum_change), all eligible must participate.
 		var participants []*types.UniversalValidator
-		if event.Type == store.EventTypeSign {
+		if event.Type == store.EventTypeSignOutbound || event.Type == store.EventTypeSignFundMigrate {
 			participants = getSignParticipants(allValidators)
 		} else {
 			participants = getEligibleForProtocol(event.Type, allValidators)
@@ -484,7 +506,7 @@ func (c *Coordinator) processEventAsCoordinator(ctx context.Context, event store
 
 	// Create setup message based on event type
 	var setupData []byte
-	var unsignedTxReq *common.UnSignedOutboundTxReq
+	var unsignedTxReq *common.UnsignedSigningReq
 	var err error
 	switch event.Type {
 	case store.EventTypeKeygen, store.EventTypeKeyrefresh:
@@ -492,8 +514,10 @@ func (c *Coordinator) processEventAsCoordinator(ctx context.Context, event store
 		setupData, err = c.createKeygenSetup(threshold, partyIDs)
 	case store.EventTypeQuorumChange:
 		setupData, err = c.createQcSetup(ctx, threshold, partyIDs, sortedParticipants)
-	case store.EventTypeSign:
+	case store.EventTypeSignOutbound:
 		setupData, unsignedTxReq, err = c.createSignSetup(ctx, event.EventData, partyIDs, assignedNonce)
+	case store.EventTypeSignFundMigrate:
+		setupData, unsignedTxReq, err = c.createFundMigrationSignSetup(ctx, event.EventData, partyIDs, assignedNonce)
 	default:
 		err = fmt.Errorf("unknown protocol type: %s", event.Type)
 	}
@@ -504,11 +528,11 @@ func (c *Coordinator) processEventAsCoordinator(ctx context.Context, event store
 
 	// Create and send setup message to all participants
 	setupMsg := Message{
-		Type:                  "setup",
-		EventID:               event.EventID,
-		Payload:               setupData,
-		Participants:          partyIDs,
-		UnSignedOutboundTxReq: unsignedTxReq, // nil for non-sign events
+		Type:               "setup",
+		EventID:            event.EventID,
+		Payload:            setupData,
+		Participants:       partyIDs,
+		UnsignedSigningReq: unsignedTxReq, // nil for non-sign events
 	}
 	setupMsgBytes, err := json.Marshal(setupMsg)
 	if err != nil {
@@ -653,6 +677,83 @@ func (c *Coordinator) HandleACK(ctx context.Context, senderPeerID string, eventI
 	return nil
 }
 
+// createFundMigrationSignSetup creates a sign setup message for fund migration.
+// Uses the OLD key (not the current key) to sign a transaction moving funds from old TSS to current TSS.
+func (c *Coordinator) createFundMigrationSignSetup(ctx context.Context, eventData []byte, partyIDs []string, assignedNonce *uint64) ([]byte, *common.UnsignedSigningReq, error) {
+	// Parse migration event data
+	var migrationData utsstypes.FundMigrationInitiatedEventData
+	if err := json.Unmarshal(eventData, &migrationData); err != nil {
+		return nil, nil, fmt.Errorf("failed to unmarshal fund migration event data: %w", err)
+	}
+
+	// Load old keyshare (we sign with the old key to move funds out of old TSS)
+	keyshareBytes, err := c.keyshareManager.Get(migrationData.OldKeyID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to load keyshare for old keyId %s: %w", migrationData.OldKeyID, err)
+	}
+	_ = keyshareBytes // Keyshare is loaded for validation, keyID is derived from string
+
+	// Derive key ID bytes from old key ID (SHA256 hash)
+	keyIDBytes := deriveKeyIDBytes(migrationData.OldKeyID)
+
+	// Derive old and current TSS addresses
+	oldTSSAddr, err := DeriveEVMAddressFromPubkey(migrationData.OldTssPubkey)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to derive old TSS address: %w", err)
+	}
+	currentTSSAddr, err := DeriveEVMAddressFromPubkey(migrationData.CurrentTssPubkey)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to derive current TSS address: %w", err)
+	}
+
+	// Get chain client and tx builder
+	if c.chains == nil {
+		return nil, nil, fmt.Errorf("chains manager not configured")
+	}
+	client, err := c.chains.GetClient(migrationData.Chain)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get client for chain %s: %w", migrationData.Chain, err)
+	}
+	builder, err := client.GetTxBuilder()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get tx builder for chain %s: %w", migrationData.Chain, err)
+	}
+
+	// Build fund migration signing request
+	if assignedNonce == nil {
+		return nil, nil, fmt.Errorf("assigned nonce is required for fund migration transaction")
+	}
+	gasPrice := new(big.Int)
+	gasPrice.SetString(migrationData.GasPrice, 10)
+
+	migrationFundData := &common.FundMigrationData{
+		From:     oldTSSAddr,
+		To:       currentTSSAddr,
+		GasPrice: gasPrice,
+		GasLimit: migrationData.GasLimit,
+	}
+	signingReq, err := builder.GetFundMigrationSigningRequest(ctx, migrationFundData, *assignedNonce)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get fund migration signing request: %w", err)
+	}
+
+	// Encode participant IDs (separated by null bytes)
+	participantIDs := make([]byte, 0, len(partyIDs)*10)
+	for i, partyID := range partyIDs {
+		if i > 0 {
+			participantIDs = append(participantIDs, 0) // Separator
+		}
+		participantIDs = append(participantIDs, []byte(partyID)...)
+	}
+
+	setupData, err := session.DklsSignSetupMsgNew(keyIDBytes, nil, signingReq.SigningHash, participantIDs)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create fund migration sign setup: %w", err)
+	}
+
+	return setupData, signingReq, nil
+}
+
 // createKeygenSetup creates a keygen/keyrefresh setup message.
 // Both keygen and keyrefresh use the same setup structure (keyID is nil - produces a new random keyId).
 func (c *Coordinator) createKeygenSetup(threshold int, partyIDs []string) ([]byte, error) {
@@ -673,10 +774,10 @@ func (c *Coordinator) createKeygenSetup(threshold int, partyIDs []string) ([]byt
 }
 
 // createSignSetup creates a sign setup message and returns the unsigned transaction request.
-// Uses the OutboundTxBuilder to build the actual transaction for the destination chain.
+// Uses the TxBuilder to build the actual transaction for the destination chain.
 // assignedNonce must be set for SIGN (coordinator-assigned nonce); participants use it for verification.
 // Returns the setup data, unsigned transaction request (for participant verification), and error.
-func (c *Coordinator) createSignSetup(ctx context.Context, eventData []byte, partyIDs []string, assignedNonce *uint64) ([]byte, *common.UnSignedOutboundTxReq, error) {
+func (c *Coordinator) createSignSetup(ctx context.Context, eventData []byte, partyIDs []string, assignedNonce *uint64) ([]byte, *common.UnsignedSigningReq, error) {
 	// Get current TSS keyId from pushCore
 	key, err := c.pushCore.GetCurrentKey(ctx)
 	if err != nil {
@@ -720,8 +821,8 @@ func (c *Coordinator) createSignSetup(ctx context.Context, eventData []byte, par
 	return setupData, signingReq, nil
 }
 
-// buildSignTransaction builds the outbound transaction using the appropriate OutboundTxBuilder.
-func (c *Coordinator) buildSignTransaction(ctx context.Context, eventData []byte, assignedNonce *uint64) (*common.UnSignedOutboundTxReq, error) {
+// buildSignTransaction builds the outbound transaction using the appropriate TxBuilder.
+func (c *Coordinator) buildSignTransaction(ctx context.Context, eventData []byte, assignedNonce *uint64) (*common.UnsignedSigningReq, error) {
 	if len(eventData) == 0 {
 		return nil, fmt.Errorf("event data is empty")
 	}
@@ -848,7 +949,7 @@ func getEligibleForProtocol(protocolType string, allValidators []*types.Universa
 	case store.EventTypeKeyrefresh:
 		// Active + Pending Leave
 		return getSignEligible(allValidators)
-	case store.EventTypeSign:
+	case store.EventTypeSignOutbound, store.EventTypeSignFundMigrate:
 		// Active + Pending Leave
 		return getSignEligible(allValidators)
 	default:
@@ -1066,4 +1167,47 @@ func extractDestinationChain(eventData []byte) string {
 		return ""
 	}
 	return data.DestinationChain
+}
+
+// extractFundMigrateChain extracts the chain field from FundMigrationInitiatedEventData JSON.
+func extractFundMigrateChain(eventData []byte) string {
+	if len(eventData) == 0 {
+		return ""
+	}
+	var data struct {
+		Chain string `json:"chain"`
+	}
+	if err := json.Unmarshal(eventData, &data); err != nil {
+		return ""
+	}
+	return data.Chain
+}
+
+// assignFundMigrateNonce resolves the nonce for a FUND_MIGRATE event using the old TSS address.
+// Since the chain ensures at most 1 migration per chain and no pending outbounds,
+// we simply fetch the finalized nonce for the old TSS address.
+func (c *Coordinator) assignFundMigrateNonce(ctx context.Context, event store.Event, chain string) (uint64, error) {
+	var migrationData utsstypes.FundMigrationInitiatedEventData
+	if err := json.Unmarshal(event.EventData, &migrationData); err != nil {
+		return 0, fmt.Errorf("failed to unmarshal fund migration event data: %w", err)
+	}
+
+	oldTSSAddr, err := DeriveEVMAddressFromPubkey(migrationData.OldTssPubkey)
+	if err != nil {
+		return 0, fmt.Errorf("failed to derive old TSS address: %w", err)
+	}
+
+	if c.chains == nil {
+		return 0, fmt.Errorf("chains manager not configured")
+	}
+	client, err := c.chains.GetClient(chain)
+	if err != nil {
+		return 0, err
+	}
+	builder, err := client.GetTxBuilder()
+	if err != nil {
+		return 0, err
+	}
+
+	return builder.GetNextNonce(ctx, oldTSSAddr, true)
 }

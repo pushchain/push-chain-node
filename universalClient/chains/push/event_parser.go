@@ -1,6 +1,8 @@
 package push
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 
@@ -9,9 +11,17 @@ import (
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 )
 
-// OutboundExpiryOffset is the number of blocks after event detection
-// before an outbound event expires (~10 minutes at ~1s block time).
-const OutboundExpiryOffset = 600
+// hashEventID generates a unique event ID by hashing eventType + ":" + rawID.
+// This prevents collisions between different event types that may share numeric IDs.
+func hashEventID(eventType, rawID string) string {
+	h := sha256.Sum256([]byte(eventType + ":" + rawID))
+	return hex.EncodeToString(h[:])
+}
+
+// DefaultExpiryOffset is the number of blocks after event detection
+// before an event expires (~10 minutes at ~1s block time).
+// Used for outbound and fund migration events.
+const DefaultExpiryOffset = 600
 
 // convertTssEvent converts a gRPC TssEvent to a store.Event.
 func convertTssEvent(tssEvent *utsstypes.TssEvent) (*store.Event, error) {
@@ -44,10 +54,43 @@ func convertTssEvent(tssEvent *utsstypes.TssEvent) (*store.Event, error) {
 	}
 
 	return &store.Event{
-		EventID:           fmt.Sprintf("%d", tssEvent.ProcessId),
+		EventID:           hashEventID(protocolType, fmt.Sprintf("%d", tssEvent.ProcessId)),
 		BlockHeight:       uint64(tssEvent.BlockHeight),
 		ExpiryBlockHeight: uint64(tssEvent.ExpiryHeight),
 		Type:              protocolType,
+		ConfirmationType:  store.ConfirmationInstant,
+		Status:            store.StatusConfirmed,
+		EventData:         eventData,
+	}, nil
+}
+
+
+// convertFundMigrationEvent converts a FundMigration to a store.Event.
+func convertFundMigrationEvent(migration *utsstypes.FundMigration) (*store.Event, error) {
+	if migration == nil {
+		return nil, fmt.Errorf("fund migration is nil")
+	}
+
+	eventData, err := json.Marshal(utsstypes.FundMigrationInitiatedEventData{
+		MigrationID:      migration.Id,
+		OldKeyID:         migration.OldKeyId,
+		OldTssPubkey:     migration.OldTssPubkey,
+		CurrentKeyID:     migration.CurrentKeyId,
+		CurrentTssPubkey: migration.CurrentTssPubkey,
+		Chain:            migration.Chain,
+		BlockHeight:      migration.InitiatedBlock,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal fund migration event data: %w", err)
+	}
+
+	blockHeight := uint64(migration.InitiatedBlock)
+
+	return &store.Event{
+		EventID:           hashEventID(store.EventTypeSignFundMigrate, fmt.Sprintf("%d", migration.Id)),
+		BlockHeight:       blockHeight,
+		ExpiryBlockHeight: blockHeight + DefaultExpiryOffset,
+		Type:              store.EventTypeSignFundMigrate,
 		ConfirmationType:  store.ConfirmationInstant,
 		Status:            store.StatusConfirmed,
 		EventData:         eventData,
@@ -102,8 +145,8 @@ func convertOutboundToEvent(entry *uexecutortypes.PendingOutboundEntry, outbound
 	return &store.Event{
 		EventID:           outbound.Id,
 		BlockHeight:       blockHeight,
-		ExpiryBlockHeight: blockHeight + OutboundExpiryOffset,
-		Type:              store.EventTypeSign,
+		ExpiryBlockHeight: blockHeight + DefaultExpiryOffset,
+		Type:              store.EventTypeSignOutbound,
 		ConfirmationType:  store.ConfirmationInstant,
 		Status:            store.StatusConfirmed,
 		EventData:         eventData,

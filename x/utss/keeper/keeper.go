@@ -36,8 +36,15 @@ type Keeper struct {
 	NextTssEventId   collections.Sequence                     // auto-increment counter for event IDs
 	PendingTssEvents collections.Map[uint64, uint64] // Key: process_id -> Value: event_id (ACTIVE only)
 
+	// Fund Migration Storage
+	FundMigrations    collections.Map[uint64, types.FundMigration] // migration_id -> FundMigration
+	NextMigrationId   collections.Sequence                          // auto-increment counter for migration IDs
+	PendingMigrations collections.Map[uint64, uint64]               // migration_id -> migration_id (pending index)
+
 	// keepers
 	uvalidatorKeeper types.UValidatorKeeper
+	uregistryKeeper  types.URegistryKeeper
+	uexecutorKeeper  types.UExecutorKeeper
 
 	authority string
 }
@@ -49,6 +56,8 @@ func NewKeeper(
 	logger log.Logger,
 	authority string,
 	uvalidatorKeeper types.UValidatorKeeper,
+	uregistryKeeper types.URegistryKeeper,
+	uexecutorKeeper types.UExecutorKeeper,
 ) Keeper {
 	logger = logger.With(log.ModuleKey, "x/"+types.ModuleName)
 
@@ -77,8 +86,15 @@ func NewKeeper(
 		NextTssEventId:   collections.NewSequence(sb, types.NextTssEventIdKey, types.NextTssEventIdName),
 		PendingTssEvents: collections.NewMap(sb, types.PendingTssEventsKey, types.PendingTssEventsName, collections.Uint64Key, collections.Uint64Value),
 
+		// Fund migration storage
+		FundMigrations:    collections.NewMap(sb, types.FundMigrationsKey, types.FundMigrationsName, collections.Uint64Key, codec.CollValue[types.FundMigration](cdc)),
+		NextMigrationId:   collections.NewSequence(sb, types.NextMigrationIdKey, types.NextMigrationIdName),
+		PendingMigrations: collections.NewMap(sb, types.PendingMigrationsKey, types.PendingMigrationsName, collections.Uint64Key, collections.Uint64Value),
+
 		authority:        authority,
 		uvalidatorKeeper: uvalidatorKeeper,
+		uregistryKeeper:  uregistryKeeper,
+		uexecutorKeeper:  uexecutorKeeper,
 	}
 
 	return k
@@ -144,6 +160,25 @@ func (k *Keeper) InitGenesis(ctx context.Context, data *types.GenesisState) erro
 	// Restore NextTssEventId
 	if data.NextTssEventId > 0 {
 		if err := k.NextTssEventId.Set(ctx, data.NextTssEventId); err != nil {
+			return err
+		}
+	}
+
+	// Restore FundMigrations
+	for _, entry := range data.FundMigrations {
+		if err := k.FundMigrations.Set(ctx, entry.Key, entry.Value); err != nil {
+			return err
+		}
+		if entry.Value.Status == types.FundMigrationStatus_FUND_MIGRATION_STATUS_PENDING {
+			if err := k.PendingMigrations.Set(ctx, entry.Key, entry.Key); err != nil {
+				return err
+			}
+		}
+	}
+
+	// Restore NextMigrationId
+	if data.NextMigrationId > 0 {
+		if err := k.NextMigrationId.Set(ctx, data.NextMigrationId); err != nil {
 			return err
 		}
 	}
@@ -218,6 +253,22 @@ func (k *Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 		panic(err)
 	}
 
+	// Export FundMigrations
+	var fundMigrations []types.FundMigrationEntry
+	err = k.FundMigrations.Walk(ctx, nil, func(key uint64, value types.FundMigration) (bool, error) {
+		fundMigrations = append(fundMigrations, types.FundMigrationEntry{Key: key, Value: value})
+		return false, nil
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	// Export NextMigrationId
+	nextMigrationId, err := k.NextMigrationId.Peek(ctx)
+	if err != nil {
+		panic(err)
+	}
+
 	return &types.GenesisState{
 		Params:            params,
 		CurrentTssProcess: currentTssProcess,
@@ -227,6 +278,8 @@ func (k *Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 		NextProcessId:     nextProcessId,
 		TssEvents:         tssEvents,
 		NextTssEventId:    nextTssEventId,
+		FundMigrations:    fundMigrations,
+		NextMigrationId:   nextMigrationId,
 	}
 }
 
@@ -237,3 +290,4 @@ func (k Keeper) SchemaBuilder() *collections.SchemaBuilder {
 func (k Keeper) GetUValidatorKeeper() types.UValidatorKeeper {
 	return k.uvalidatorKeeper
 }
+

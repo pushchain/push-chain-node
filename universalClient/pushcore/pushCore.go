@@ -329,6 +329,23 @@ func (c *Client) GetPendingTssEvents(ctx context.Context) ([]*utsstypes.TssEvent
 	)
 }
 
+// GetPendingFundMigrations retrieves all pending fund migrations from Push Chain.
+func (c *Client) GetPendingFundMigrations(ctx context.Context) ([]*utsstypes.FundMigration, error) {
+	return retryWithRoundRobin(
+		len(c.utssClients),
+		&c.rr,
+		func(idx int) ([]*utsstypes.FundMigration, error) {
+			resp, err := c.utssClients[idx].PendingFundMigrations(ctx, &utsstypes.QueryPendingFundMigrationsRequest{})
+			if err != nil {
+				return nil, err
+			}
+			return resp.Migrations, nil
+		},
+		"GetPendingFundMigrations",
+		c.logger,
+	)
+}
+
 // GetAllPendingOutbounds retrieves up to the first 1000 pending outbound transactions from Push Chain.
 // Sorted by created_at (block height) ascending — oldest first.
 func (c *Client) GetAllPendingOutbounds(ctx context.Context) ([]*uexecutortypes.PendingOutboundEntry, []*uexecutortypes.OutboundTx, error) {

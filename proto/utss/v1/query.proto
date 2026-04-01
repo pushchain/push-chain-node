@@ -66,6 +66,21 @@ service Query {
   rpc AllTssEvents(QueryAllTssEventsRequest) returns (QueryAllTssEventsResponse) {
     option (google.api.http).get = "/utss/v1/event";
   }
+
+  // Get a fund migration by ID
+  rpc GetFundMigration(QueryGetFundMigrationRequest) returns (QueryGetFundMigrationResponse) {
+    option (google.api.http).get = "/utss/v1/migration/{id}";
+  }
+
+  // List pending fund migrations
+  rpc PendingFundMigrations(QueryPendingFundMigrationsRequest) returns (QueryPendingFundMigrationsResponse) {
+    option (google.api.http).get = "/utss/v1/migration/pending";
+  }
+
+  // List all fund migrations (paginated)
+  rpc AllFundMigrations(QueryAllFundMigrationsRequest) returns (QueryAllFundMigrationsResponse) {
+    option (google.api.http).get = "/utss/v1/migration";
+  }
 }
 
 // Messages
@@ -142,5 +157,26 @@ message QueryAllTssEventsRequest {
 }
 message QueryAllTssEventsResponse {
   repeated TssEvent events = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// Fund Migration queries
+message QueryGetFundMigrationRequest {
+  uint64 id = 1;
+}
+message QueryGetFundMigrationResponse {
+  FundMigration migration = 1;
+}
+
+message QueryPendingFundMigrationsRequest {}
+message QueryPendingFundMigrationsResponse {
+  repeated FundMigration migrations = 1;
+}
+
+message QueryAllFundMigrationsRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+message QueryAllFundMigrationsResponse {
+  repeated FundMigration migrations = 1;
   cosmos.base.query.v1beta1.PageResponse pagination = 2;
 }

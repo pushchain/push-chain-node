@@ -46,7 +46,7 @@ func TestConvertTssEvent(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, result)
 
-		assert.Equal(t, "123", result.EventID)
+		assert.Equal(t, hashEventID(store.EventTypeKeygen, "123"), result.EventID)
 		assert.Equal(t, store.EventTypeKeygen, result.Type)
 		assert.Equal(t, uint64(500), result.BlockHeight)
 		assert.Equal(t, uint64(1000), result.ExpiryBlockHeight)
@@ -70,7 +70,7 @@ func TestConvertTssEvent(t *testing.T) {
 			BlockHeight: 600,
 		})
 		require.NoError(t, err)
-		assert.Equal(t, "456", result.EventID)
+		assert.Equal(t, hashEventID(store.EventTypeKeyrefresh, "456"), result.EventID)
 		assert.Equal(t, store.EventTypeKeyrefresh, result.Type)
 		assert.Equal(t, uint64(600), result.BlockHeight)
 		assert.Nil(t, result.EventData) // no participants
@@ -84,7 +84,7 @@ func TestConvertTssEvent(t *testing.T) {
 			BlockHeight:  700,
 		})
 		require.NoError(t, err)
-		assert.Equal(t, "789", result.EventID)
+		assert.Equal(t, hashEventID(store.EventTypeQuorumChange, "789"), result.EventID)
 		assert.Equal(t, store.EventTypeQuorumChange, result.Type)
 		assert.Equal(t, uint64(2000), result.ExpiryBlockHeight)
 	})
@@ -147,9 +147,9 @@ func TestConvertOutboundToEvent(t *testing.T) {
 
 		// Verify store.Event fields
 		assert.Equal(t, "0x123abc", result.EventID)
-		assert.Equal(t, store.EventTypeSign, result.Type)
+		assert.Equal(t, store.EventTypeSignOutbound, result.Type)
 		assert.Equal(t, uint64(1000), result.BlockHeight)
-		assert.Equal(t, uint64(1000+OutboundExpiryOffset), result.ExpiryBlockHeight)
+		assert.Equal(t, uint64(1000+DefaultExpiryOffset), result.ExpiryBlockHeight)
 		assert.Equal(t, store.StatusConfirmed, result.Status)
 		assert.Equal(t, store.ConfirmationInstant, result.ConfirmationType)
 
@@ -192,7 +192,7 @@ func TestConvertOutboundToEvent(t *testing.T) {
 
 		assert.Equal(t, "0xminimal", result.EventID)
 		assert.Equal(t, uint64(500), result.BlockHeight)
-		assert.Equal(t, uint64(500+OutboundExpiryOffset), result.ExpiryBlockHeight)
+		assert.Equal(t, uint64(500+DefaultExpiryOffset), result.ExpiryBlockHeight)
 
 		var data uexecutortypes.OutboundCreatedEvent
 		require.NoError(t, json.Unmarshal(result.EventData, &data))
@@ -247,6 +247,59 @@ func TestConvertOutboundToEvent(t *testing.T) {
 	})
 }
 
-func TestOutboundExpiryOffset(t *testing.T) {
-	assert.Equal(t, uint64(600), uint64(OutboundExpiryOffset))
+func TestDefaultExpiryOffset(t *testing.T) {
+	assert.Equal(t, uint64(600), uint64(DefaultExpiryOffset))
+}
+
+func TestConvertFundMigrationEvent(t *testing.T) {
+	t.Run("nil migration returns error", func(t *testing.T) {
+		result, err := convertFundMigrationEvent(nil)
+		require.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "fund migration is nil")
+	})
+
+	t.Run("valid migration converts correctly", func(t *testing.T) {
+		migration := &utsstypes.FundMigration{
+			Id:               1,
+			OldKeyId:         "old-key-001",
+			OldTssPubkey:     "0x02abc123",
+			CurrentKeyId:     "new-key-002",
+			CurrentTssPubkey: "0x03def456",
+			Chain:            "eip155:421614",
+			InitiatedBlock:   5000,
+		}
+
+		result, err := convertFundMigrationEvent(migration)
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		assert.Equal(t, hashEventID(store.EventTypeSignFundMigrate, "1"), result.EventID)
+		assert.Equal(t, store.EventTypeSignFundMigrate, result.Type)
+		assert.Equal(t, store.StatusConfirmed, result.Status)
+		assert.Equal(t, store.ConfirmationInstant, result.ConfirmationType)
+		assert.Equal(t, uint64(5000), result.BlockHeight)
+		assert.Equal(t, uint64(5000+DefaultExpiryOffset), result.ExpiryBlockHeight)
+
+		var data utsstypes.FundMigrationInitiatedEventData
+		require.NoError(t, json.Unmarshal(result.EventData, &data))
+		assert.Equal(t, uint64(1), data.MigrationID)
+		assert.Equal(t, "old-key-001", data.OldKeyID)
+		assert.Equal(t, "0x02abc123", data.OldTssPubkey)
+		assert.Equal(t, "new-key-002", data.CurrentKeyID)
+		assert.Equal(t, "0x03def456", data.CurrentTssPubkey)
+		assert.Equal(t, "eip155:421614", data.Chain)
+		assert.Equal(t, int64(5000), data.BlockHeight)
+	})
+
+	t.Run("event ID is hash of type and migration ID", func(t *testing.T) {
+		migration := &utsstypes.FundMigration{
+			Id:             42,
+			InitiatedBlock: 100,
+		}
+
+		result, err := convertFundMigrationEvent(migration)
+		require.NoError(t, err)
+		assert.Equal(t, hashEventID(store.EventTypeSignFundMigrate, "42"), result.EventID)
+	})
 }

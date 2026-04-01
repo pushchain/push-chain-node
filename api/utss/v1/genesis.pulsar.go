@@ -996,6 +996,489 @@ func (x *fastReflection_TssKeyEntry) ProtoMethods() *protoiface.Methods {
 	}
 }
 
+var (
+	md_FundMigrationEntry       protoreflect.MessageDescriptor
+	fd_FundMigrationEntry_key   protoreflect.FieldDescriptor
+	fd_FundMigrationEntry_value protoreflect.FieldDescriptor
+)
+
+func init() {
+	file_utss_v1_genesis_proto_init()
+	md_FundMigrationEntry = File_utss_v1_genesis_proto.Messages().ByName("FundMigrationEntry")
+	fd_FundMigrationEntry_key = md_FundMigrationEntry.Fields().ByName("key")
+	fd_FundMigrationEntry_value = md_FundMigrationEntry.Fields().ByName("value")
+}
+
+var _ protoreflect.Message = (*fastReflection_FundMigrationEntry)(nil)
+
+type fastReflection_FundMigrationEntry FundMigrationEntry
+
+func (x *FundMigrationEntry) ProtoReflect() protoreflect.Message {
+	return (*fastReflection_FundMigrationEntry)(x)
+}
+
+func (x *FundMigrationEntry) slowProtoReflect() protoreflect.Message {
+	mi := &file_utss_v1_genesis_proto_msgTypes[2]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+var _fastReflection_FundMigrationEntry_messageType fastReflection_FundMigrationEntry_messageType
+var _ protoreflect.MessageType = fastReflection_FundMigrationEntry_messageType{}
+
+type fastReflection_FundMigrationEntry_messageType struct{}
+
+func (x fastReflection_FundMigrationEntry_messageType) Zero() protoreflect.Message {
+	return (*fastReflection_FundMigrationEntry)(nil)
+}
+func (x fastReflection_FundMigrationEntry_messageType) New() protoreflect.Message {
+	return new(fastReflection_FundMigrationEntry)
+}
+func (x fastReflection_FundMigrationEntry_messageType) Descriptor() protoreflect.MessageDescriptor {
+	return md_FundMigrationEntry
+}
+
+// Descriptor returns message descriptor, which contains only the protobuf
+// type information for the message.
+func (x *fastReflection_FundMigrationEntry) Descriptor() protoreflect.MessageDescriptor {
+	return md_FundMigrationEntry
+}
+
+// Type returns the message type, which encapsulates both Go and protobuf
+// type information. If the Go type information is not needed,
+// it is recommended that the message descriptor be used instead.
+func (x *fastReflection_FundMigrationEntry) Type() protoreflect.MessageType {
+	return _fastReflection_FundMigrationEntry_messageType
+}
+
+// New returns a newly allocated and mutable empty message.
+func (x *fastReflection_FundMigrationEntry) New() protoreflect.Message {
+	return new(fastReflection_FundMigrationEntry)
+}
+
+// Interface unwraps the message reflection interface and
+// returns the underlying ProtoMessage interface.
+func (x *fastReflection_FundMigrationEntry) Interface() protoreflect.ProtoMessage {
+	return (*FundMigrationEntry)(x)
+}
+
+// Range iterates over every populated field in an undefined order,
+// calling f for each field descriptor and value encountered.
+// Range returns immediately if f returns false.
+// While iterating, mutating operations may only be performed
+// on the current field descriptor.
+func (x *fastReflection_FundMigrationEntry) Range(f func(protoreflect.FieldDescriptor, protoreflect.Value) bool) {
+	if x.Key != uint64(0) {
+		value := protoreflect.ValueOfUint64(x.Key)
+		if !f(fd_FundMigrationEntry_key, value) {
+			return
+		}
+	}
+	if x.Value != nil {
+		value := protoreflect.ValueOfMessage(x.Value.ProtoReflect())
+		if !f(fd_FundMigrationEntry_value, value) {
+			return
+		}
+	}
+}
+
+// Has reports whether a field is populated.
+//
+// Some fields have the property of nullability where it is possible to
+// distinguish between the default value of a field and whether the field
+// was explicitly populated with the default value. Singular message fields,
+// member fields of a oneof, and proto2 scalar fields are nullable. Such
+// fields are populated only if explicitly set.
+//
+// In other cases (aside from the nullable cases above),
+// a proto3 scalar field is populated if it contains a non-zero value, and
+// a repeated field is populated if it is non-empty.
+func (x *fastReflection_FundMigrationEntry) Has(fd protoreflect.FieldDescriptor) bool {
+	switch fd.FullName() {
+	case "utss.v1.FundMigrationEntry.key":
+		return x.Key != uint64(0)
+	case "utss.v1.FundMigrationEntry.value":
+		return x.Value != nil
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.FundMigrationEntry"))
+		}
+		panic(fmt.Errorf("message utss.v1.FundMigrationEntry does not contain field %s", fd.FullName()))
+	}
+}
+
+// Clear clears the field such that a subsequent Has call reports false.
+//
+// Clearing an extension field clears both the extension type and value
+// associated with the given field number.
+//
+// Clear is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_FundMigrationEntry) Clear(fd protoreflect.FieldDescriptor) {
+	switch fd.FullName() {
+	case "utss.v1.FundMigrationEntry.key":
+		x.Key = uint64(0)
+	case "utss.v1.FundMigrationEntry.value":
+		x.Value = nil
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.FundMigrationEntry"))
+		}
+		panic(fmt.Errorf("message utss.v1.FundMigrationEntry does not contain field %s", fd.FullName()))
+	}
+}
+
+// Get retrieves the value for a field.
+//
+// For unpopulated scalars, it returns the default value, where
+// the default value of a bytes scalar is guaranteed to be a copy.
+// For unpopulated composite types, it returns an empty, read-only view
+// of the value; to obtain a mutable reference, use Mutable.
+func (x *fastReflection_FundMigrationEntry) Get(descriptor protoreflect.FieldDescriptor) protoreflect.Value {
+	switch descriptor.FullName() {
+	case "utss.v1.FundMigrationEntry.key":
+		value := x.Key
+		return protoreflect.ValueOfUint64(value)
+	case "utss.v1.FundMigrationEntry.value":
+		value := x.Value
+		return protoreflect.ValueOfMessage(value.ProtoReflect())
+	default:
+		if descriptor.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.FundMigrationEntry"))
+		}
+		panic(fmt.Errorf("message utss.v1.FundMigrationEntry does not contain field %s", descriptor.FullName()))
+	}
+}
+
+// Set stores the value for a field.
+//
+// For a field belonging to a oneof, it implicitly clears any other field
+// that may be currently set within the same oneof.
+// For extension fields, it implicitly stores the provided ExtensionType.
+// When setting a composite type, it is unspecified whether the stored value
+// aliases the source's memory in any way. If the composite value is an
+// empty, read-only value, then it panics.
+//
+// Set is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_FundMigrationEntry) Set(fd protoreflect.FieldDescriptor, value protoreflect.Value) {
+	switch fd.FullName() {
+	case "utss.v1.FundMigrationEntry.key":
+		x.Key = value.Uint()
+	case "utss.v1.FundMigrationEntry.value":
+		x.Value = value.Message().Interface().(*FundMigration)
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.FundMigrationEntry"))
+		}
+		panic(fmt.Errorf("message utss.v1.FundMigrationEntry does not contain field %s", fd.FullName()))
+	}
+}
+
+// Mutable returns a mutable reference to a composite type.
+//
+// If the field is unpopulated, it may allocate a composite value.
+// For a field belonging to a oneof, it implicitly clears any other field
+// that may be currently set within the same oneof.
+// For extension fields, it implicitly stores the provided ExtensionType
+// if not already stored.
+// It panics if the field does not contain a composite type.
+//
+// Mutable is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_FundMigrationEntry) Mutable(fd protoreflect.FieldDescriptor) protoreflect.Value {
+	switch fd.FullName() {
+	case "utss.v1.FundMigrationEntry.value":
+		if x.Value == nil {
+			x.Value = new(FundMigration)
+		}
+		return protoreflect.ValueOfMessage(x.Value.ProtoReflect())
+	case "utss.v1.FundMigrationEntry.key":
+		panic(fmt.Errorf("field key of message utss.v1.FundMigrationEntry is not mutable"))
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.FundMigrationEntry"))
+		}
+		panic(fmt.Errorf("message utss.v1.FundMigrationEntry does not contain field %s", fd.FullName()))
+	}
+}
+
+// NewField returns a new value that is assignable to the field
+// for the given descriptor. For scalars, this returns the default value.
+// For lists, maps, and messages, this returns a new, empty, mutable value.
+func (x *fastReflection_FundMigrationEntry) NewField(fd protoreflect.FieldDescriptor) protoreflect.Value {
+	switch fd.FullName() {
+	case "utss.v1.FundMigrationEntry.key":
+		return protoreflect.ValueOfUint64(uint64(0))
+	case "utss.v1.FundMigrationEntry.value":
+		m := new(FundMigration)
+		return protoreflect.ValueOfMessage(m.ProtoReflect())
+	default:
+		if fd.IsExtension() {
+			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.FundMigrationEntry"))
+		}
+		panic(fmt.Errorf("message utss.v1.FundMigrationEntry does not contain field %s", fd.FullName()))
+	}
+}
+
+// WhichOneof reports which field within the oneof is populated,
+// returning nil if none are populated.
+// It panics if the oneof descriptor does not belong to this message.
+func (x *fastReflection_FundMigrationEntry) WhichOneof(d protoreflect.OneofDescriptor) protoreflect.FieldDescriptor {
+	switch d.FullName() {
+	default:
+		panic(fmt.Errorf("%s is not a oneof field in utss.v1.FundMigrationEntry", d.FullName()))
+	}
+	panic("unreachable")
+}
+
+// GetUnknown retrieves the entire list of unknown fields.
+// The caller may only mutate the contents of the RawFields
+// if the mutated bytes are stored back into the message with SetUnknown.
+func (x *fastReflection_FundMigrationEntry) GetUnknown() protoreflect.RawFields {
+	return x.unknownFields
+}
+
+// SetUnknown stores an entire list of unknown fields.
+// The raw fields must be syntactically valid according to the wire format.
+// An implementation may panic if this is not the case.
+// Once stored, the caller must not mutate the content of the RawFields.
+// An empty RawFields may be passed to clear the fields.
+//
+// SetUnknown is a mutating operation and unsafe for concurrent use.
+func (x *fastReflection_FundMigrationEntry) SetUnknown(fields protoreflect.RawFields) {
+	x.unknownFields = fields
+}
+
+// IsValid reports whether the message is valid.
+//
+// An invalid message is an empty, read-only value.
+//
+// An invalid message often corresponds to a nil pointer of the concrete
+// message type, but the details are implementation dependent.
+// Validity is not part of the protobuf data model, and may not
+// be preserved in marshaling or other operations.
+func (x *fastReflection_FundMigrationEntry) IsValid() bool {
+	return x != nil
+}
+
+// ProtoMethods returns optional fastReflectionFeature-path implementations of various operations.
+// This method may return nil.
+//
+// The returned methods type is identical to
+// "google.golang.org/protobuf/runtime/protoiface".Methods.
+// Consult the protoiface package documentation for details.
+func (x *fastReflection_FundMigrationEntry) ProtoMethods() *protoiface.Methods {
+	size := func(input protoiface.SizeInput) protoiface.SizeOutput {
+		x := input.Message.Interface().(*FundMigrationEntry)
+		if x == nil {
+			return protoiface.SizeOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Size:              0,
+			}
+		}
+		options := runtime.SizeInputToOptions(input)
+		_ = options
+		var n int
+		var l int
+		_ = l
+		if x.Key != 0 {
+			n += 1 + runtime.Sov(uint64(x.Key))
+		}
+		if x.Value != nil {
+			l = options.Size(x.Value)
+			n += 1 + l + runtime.Sov(uint64(l))
+		}
+		if x.unknownFields != nil {
+			n += len(x.unknownFields)
+		}
+		return protoiface.SizeOutput{
+			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+			Size:              n,
+		}
+	}
+
+	marshal := func(input protoiface.MarshalInput) (protoiface.MarshalOutput, error) {
+		x := input.Message.Interface().(*FundMigrationEntry)
+		if x == nil {
+			return protoiface.MarshalOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Buf:               input.Buf,
+			}, nil
+		}
+		options := runtime.MarshalInputToOptions(input)
+		_ = options
+		size := options.Size(x)
+		dAtA := make([]byte, size)
+		i := len(dAtA)
+		_ = i
+		var l int
+		_ = l
+		if x.unknownFields != nil {
+			i -= len(x.unknownFields)
+			copy(dAtA[i:], x.unknownFields)
+		}
+		if x.Value != nil {
+			encoded, err := options.Marshal(x.Value)
+			if err != nil {
+				return protoiface.MarshalOutput{
+					NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+					Buf:               input.Buf,
+				}, err
+			}
+			i -= len(encoded)
+			copy(dAtA[i:], encoded)
+			i = runtime.EncodeVarint(dAtA, i, uint64(len(encoded)))
+			i--
+			dAtA[i] = 0x12
+		}
+		if x.Key != 0 {
+			i = runtime.EncodeVarint(dAtA, i, uint64(x.Key))
+			i--
+			dAtA[i] = 0x8
+		}
+		if input.Buf != nil {
+			input.Buf = append(input.Buf, dAtA...)
+		} else {
+			input.Buf = dAtA
+		}
+		return protoiface.MarshalOutput{
+			NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+			Buf:               input.Buf,
+		}, nil
+	}
+	unmarshal := func(input protoiface.UnmarshalInput) (protoiface.UnmarshalOutput, error) {
+		x := input.Message.Interface().(*FundMigrationEntry)
+		if x == nil {
+			return protoiface.UnmarshalOutput{
+				NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+				Flags:             input.Flags,
+			}, nil
+		}
+		options := runtime.UnmarshalInputToOptions(input)
+		_ = options
+		dAtA := input.Buf
+		l := len(dAtA)
+		iNdEx := 0
+		for iNdEx < l {
+			preIndex := iNdEx
+			var wire uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+				}
+				if iNdEx >= l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				wire |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			fieldNum := int32(wire >> 3)
+			wireType := int(wire & 0x7)
+			if wireType == 4 {
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: FundMigrationEntry: wiretype end group for non-group")
+			}
+			if fieldNum <= 0 {
+				return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: FundMigrationEntry: illegal tag %d (wire type %d)", fieldNum, wire)
+			}
+			switch fieldNum {
+			case 1:
+				if wireType != 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Key", wireType)
+				}
+				x.Key = 0
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					x.Key |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+			case 2:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field Value", wireType)
+				}
+				var msglen int
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					msglen |= int(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				if msglen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + msglen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				if x.Value == nil {
+					x.Value = &FundMigration{}
+				}
+				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.Value); err != nil {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
+				}
+				iNdEx = postIndex
+			default:
+				iNdEx = preIndex
+				skippy, err := runtime.Skip(dAtA[iNdEx:])
+				if err != nil {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
+				}
+				if (skippy < 0) || (iNdEx+skippy) < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if (iNdEx + skippy) > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				if !options.DiscardUnknown {
+					x.unknownFields = append(x.unknownFields, dAtA[iNdEx:iNdEx+skippy]...)
+				}
+				iNdEx += skippy
+			}
+		}
+
+		if iNdEx > l {
+			return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+		}
+		return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, nil
+	}
+	return &protoiface.Methods{
+		NoUnkeyedLiterals: struct{}{},
+		Flags:             protoiface.SupportMarshalDeterministic | protoiface.SupportUnmarshalDiscardUnknown,
+		Size:              size,
+		Marshal:           marshal,
+		Unmarshal:         unmarshal,
+		Merge:             nil,
+		CheckInitialized:  nil,
+	}
+}
+
 var _ protoreflect.List = (*_GenesisState_3_list)(nil)
 
 type _GenesisState_3_list struct {
@@ -1149,6 +1632,57 @@ func (x *_GenesisState_7_list) IsValid() bool {
 	return x.list != nil
 }
 
+var _ protoreflect.List = (*_GenesisState_9_list)(nil)
+
+type _GenesisState_9_list struct {
+	list *[]*FundMigrationEntry
+}
+
+func (x *_GenesisState_9_list) Len() int {
+	if x.list == nil {
+		return 0
+	}
+	return len(*x.list)
+}
+
+func (x *_GenesisState_9_list) Get(i int) protoreflect.Value {
+	return protoreflect.ValueOfMessage((*x.list)[i].ProtoReflect())
+}
+
+func (x *_GenesisState_9_list) Set(i int, value protoreflect.Value) {
+	valueUnwrapped := value.Message()
+	concreteValue := valueUnwrapped.Interface().(*FundMigrationEntry)
+	(*x.list)[i] = concreteValue
+}
+
+func (x *_GenesisState_9_list) Append(value protoreflect.Value) {
+	valueUnwrapped := value.Message()
+	concreteValue := valueUnwrapped.Interface().(*FundMigrationEntry)
+	*x.list = append(*x.list, concreteValue)
+}
+
+func (x *_GenesisState_9_list) AppendMutable() protoreflect.Value {
+	v := new(FundMigrationEntry)
+	*x.list = append(*x.list, v)
+	return protoreflect.ValueOfMessage(v.ProtoReflect())
+}
+
+func (x *_GenesisState_9_list) Truncate(n int) {
+	for i := n; i < len(*x.list); i++ {
+		(*x.list)[i] = nil
+	}
+	*x.list = (*x.list)[:n]
+}
+
+func (x *_GenesisState_9_list) NewElement() protoreflect.Value {
+	v := new(FundMigrationEntry)
+	return protoreflect.ValueOfMessage(v.ProtoReflect())
+}
+
+func (x *_GenesisState_9_list) IsValid() bool {
+	return x.list != nil
+}
+
 var (
 	md_GenesisState                     protoreflect.MessageDescriptor
 	fd_GenesisState_params              protoreflect.FieldDescriptor
@@ -1159,6 +1693,8 @@ var (
 	fd_GenesisState_next_process_id     protoreflect.FieldDescriptor
 	fd_GenesisState_tss_events          protoreflect.FieldDescriptor
 	fd_GenesisState_next_tss_event_id   protoreflect.FieldDescriptor
+	fd_GenesisState_fund_migrations     protoreflect.FieldDescriptor
+	fd_GenesisState_next_migration_id   protoreflect.FieldDescriptor
 )
 
 func init() {
@@ -1172,6 +1708,8 @@ func init() {
 	fd_GenesisState_next_process_id = md_GenesisState.Fields().ByName("next_process_id")
 	fd_GenesisState_tss_events = md_GenesisState.Fields().ByName("tss_events")
 	fd_GenesisState_next_tss_event_id = md_GenesisState.Fields().ByName("next_tss_event_id")
+	fd_GenesisState_fund_migrations = md_GenesisState.Fields().ByName("fund_migrations")
+	fd_GenesisState_next_migration_id = md_GenesisState.Fields().ByName("next_migration_id")
 }
 
 var _ protoreflect.Message = (*fastReflection_GenesisState)(nil)
@@ -1183,7 +1721,7 @@ func (x *GenesisState) ProtoReflect() protoreflect.Message {
 }
 
 func (x *GenesisState) slowProtoReflect() protoreflect.Message {
-	mi := &file_utss_v1_genesis_proto_msgTypes[2]
+	mi := &file_utss_v1_genesis_proto_msgTypes[3]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1287,6 +1825,18 @@ func (x *fastReflection_GenesisState) Range(f func(protoreflect.FieldDescriptor,
 			return
 		}
 	}
+	if len(x.FundMigrations) != 0 {
+		value := protoreflect.ValueOfList(&_GenesisState_9_list{list: &x.FundMigrations})
+		if !f(fd_GenesisState_fund_migrations, value) {
+			return
+		}
+	}
+	if x.NextMigrationId != uint64(0) {
+		value := protoreflect.ValueOfUint64(x.NextMigrationId)
+		if !f(fd_GenesisState_next_migration_id, value) {
+			return
+		}
+	}
 }
 
 // Has reports whether a field is populated.
@@ -1318,6 +1868,10 @@ func (x *fastReflection_GenesisState) Has(fd protoreflect.FieldDescriptor) bool 
 		return len(x.TssEvents) != 0
 	case "utss.v1.GenesisState.next_tss_event_id":
 		return x.NextTssEventId != uint64(0)
+	case "utss.v1.GenesisState.fund_migrations":
+		return len(x.FundMigrations) != 0
+	case "utss.v1.GenesisState.next_migration_id":
+		return x.NextMigrationId != uint64(0)
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.GenesisState"))
@@ -1350,6 +1904,10 @@ func (x *fastReflection_GenesisState) Clear(fd protoreflect.FieldDescriptor) {
 		x.TssEvents = nil
 	case "utss.v1.GenesisState.next_tss_event_id":
 		x.NextTssEventId = uint64(0)
+	case "utss.v1.GenesisState.fund_migrations":
+		x.FundMigrations = nil
+	case "utss.v1.GenesisState.next_migration_id":
+		x.NextMigrationId = uint64(0)
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.GenesisState"))
@@ -1399,6 +1957,15 @@ func (x *fastReflection_GenesisState) Get(descriptor protoreflect.FieldDescripto
 	case "utss.v1.GenesisState.next_tss_event_id":
 		value := x.NextTssEventId
 		return protoreflect.ValueOfUint64(value)
+	case "utss.v1.GenesisState.fund_migrations":
+		if len(x.FundMigrations) == 0 {
+			return protoreflect.ValueOfList(&_GenesisState_9_list{})
+		}
+		listValue := &_GenesisState_9_list{list: &x.FundMigrations}
+		return protoreflect.ValueOfList(listValue)
+	case "utss.v1.GenesisState.next_migration_id":
+		value := x.NextMigrationId
+		return protoreflect.ValueOfUint64(value)
 	default:
 		if descriptor.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.GenesisState"))
@@ -1441,6 +2008,12 @@ func (x *fastReflection_GenesisState) Set(fd protoreflect.FieldDescriptor, value
 		x.TssEvents = *clv.list
 	case "utss.v1.GenesisState.next_tss_event_id":
 		x.NextTssEventId = value.Uint()
+	case "utss.v1.GenesisState.fund_migrations":
+		lv := value.List()
+		clv := lv.(*_GenesisState_9_list)
+		x.FundMigrations = *clv.list
+	case "utss.v1.GenesisState.next_migration_id":
+		x.NextMigrationId = value.Uint()
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.GenesisState"))
@@ -1494,10 +2067,18 @@ func (x *fastReflection_GenesisState) Mutable(fd protoreflect.FieldDescriptor) p
 		}
 		value := &_GenesisState_7_list{list: &x.TssEvents}
 		return protoreflect.ValueOfList(value)
+	case "utss.v1.GenesisState.fund_migrations":
+		if x.FundMigrations == nil {
+			x.FundMigrations = []*FundMigrationEntry{}
+		}
+		value := &_GenesisState_9_list{list: &x.FundMigrations}
+		return protoreflect.ValueOfList(value)
 	case "utss.v1.GenesisState.next_process_id":
 		panic(fmt.Errorf("field next_process_id of message utss.v1.GenesisState is not mutable"))
 	case "utss.v1.GenesisState.next_tss_event_id":
 		panic(fmt.Errorf("field next_tss_event_id of message utss.v1.GenesisState is not mutable"))
+	case "utss.v1.GenesisState.next_migration_id":
+		panic(fmt.Errorf("field next_migration_id of message utss.v1.GenesisState is not mutable"))
 	default:
 		if fd.IsExtension() {
 			panic(fmt.Errorf("proto3 declared messages do not support extensions: utss.v1.GenesisState"))
@@ -1532,6 +2113,11 @@ func (x *fastReflection_GenesisState) NewField(fd protoreflect.FieldDescriptor) 
 		list := []*TssEvent{}
 		return protoreflect.ValueOfList(&_GenesisState_7_list{list: &list})
 	case "utss.v1.GenesisState.next_tss_event_id":
+		return protoreflect.ValueOfUint64(uint64(0))
+	case "utss.v1.GenesisState.fund_migrations":
+		list := []*FundMigrationEntry{}
+		return protoreflect.ValueOfList(&_GenesisState_9_list{list: &list})
+	case "utss.v1.GenesisState.next_migration_id":
 		return protoreflect.ValueOfUint64(uint64(0))
 	default:
 		if fd.IsExtension() {
@@ -1638,6 +2224,15 @@ func (x *fastReflection_GenesisState) ProtoMethods() *protoiface.Methods {
 		if x.NextTssEventId != 0 {
 			n += 1 + runtime.Sov(uint64(x.NextTssEventId))
 		}
+		if len(x.FundMigrations) > 0 {
+			for _, e := range x.FundMigrations {
+				l = options.Size(e)
+				n += 1 + l + runtime.Sov(uint64(l))
+			}
+		}
+		if x.NextMigrationId != 0 {
+			n += 1 + runtime.Sov(uint64(x.NextMigrationId))
+		}
 		if x.unknownFields != nil {
 			n += len(x.unknownFields)
 		}
@@ -1666,6 +2261,27 @@ func (x *fastReflection_GenesisState) ProtoMethods() *protoiface.Methods {
 		if x.unknownFields != nil {
 			i -= len(x.unknownFields)
 			copy(dAtA[i:], x.unknownFields)
+		}
+		if x.NextMigrationId != 0 {
+			i = runtime.EncodeVarint(dAtA, i, uint64(x.NextMigrationId))
+			i--
+			dAtA[i] = 0x50
+		}
+		if len(x.FundMigrations) > 0 {
+			for iNdEx := len(x.FundMigrations) - 1; iNdEx >= 0; iNdEx-- {
+				encoded, err := options.Marshal(x.FundMigrations[iNdEx])
+				if err != nil {
+					return protoiface.MarshalOutput{
+						NoUnkeyedLiterals: input.NoUnkeyedLiterals,
+						Buf:               input.Buf,
+					}, err
+				}
+				i -= len(encoded)
+				copy(dAtA[i:], encoded)
+				i = runtime.EncodeVarint(dAtA, i, uint64(len(encoded)))
+				i--
+				dAtA[i] = 0x4a
+			}
 		}
 		if x.NextTssEventId != 0 {
 			i = runtime.EncodeVarint(dAtA, i, uint64(x.NextTssEventId))
@@ -2064,6 +2680,59 @@ func (x *fastReflection_GenesisState) ProtoMethods() *protoiface.Methods {
 						break
 					}
 				}
+			case 9:
+				if wireType != 2 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field FundMigrations", wireType)
+				}
+				var msglen int
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					msglen |= int(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				if msglen < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				postIndex := iNdEx + msglen
+				if postIndex < 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrInvalidLength
+				}
+				if postIndex > l {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+				}
+				x.FundMigrations = append(x.FundMigrations, &FundMigrationEntry{})
+				if err := options.Unmarshal(dAtA[iNdEx:postIndex], x.FundMigrations[len(x.FundMigrations)-1]); err != nil {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, err
+				}
+				iNdEx = postIndex
+			case 10:
+				if wireType != 0 {
+					return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, fmt.Errorf("proto: wrong wireType = %d for field NextMigrationId", wireType)
+				}
+				x.NextMigrationId = 0
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, runtime.ErrIntOverflow
+					}
+					if iNdEx >= l {
+						return protoiface.UnmarshalOutput{NoUnkeyedLiterals: input.NoUnkeyedLiterals, Flags: input.Flags}, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					x.NextMigrationId |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
 			default:
 				iNdEx = preIndex
 				skippy, err := runtime.Skip(dAtA[iNdEx:])
@@ -2200,6 +2869,50 @@ func (x *TssKeyEntry) GetValue() *TssKey {
 	return nil
 }
 
+// FundMigrationEntry is a key-value pair for exporting FundMigrations map state.
+type FundMigrationEntry struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Key   uint64         `protobuf:"varint,1,opt,name=key,proto3" json:"key,omitempty"`
+	Value *FundMigration `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+}
+
+func (x *FundMigrationEntry) Reset() {
+	*x = FundMigrationEntry{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_utss_v1_genesis_proto_msgTypes[2]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *FundMigrationEntry) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FundMigrationEntry) ProtoMessage() {}
+
+// Deprecated: Use FundMigrationEntry.ProtoReflect.Descriptor instead.
+func (*FundMigrationEntry) Descriptor() ([]byte, []int) {
+	return file_utss_v1_genesis_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *FundMigrationEntry) GetKey() uint64 {
+	if x != nil {
+		return x.Key
+	}
+	return 0
+}
+
+func (x *FundMigrationEntry) GetValue() *FundMigration {
+	if x != nil {
+		return x.Value
+	}
+	return nil
+}
+
 // GenesisState defines the module genesis state
 type GenesisState struct {
 	state         protoimpl.MessageState
@@ -2222,12 +2935,16 @@ type GenesisState struct {
 	TssEvents []*TssEvent `protobuf:"bytes,7,rep,name=tss_events,json=tssEvents,proto3" json:"tss_events,omitempty"`
 	// next_tss_event_id is the next auto-increment ID for TssEvents.
 	NextTssEventId uint64 `protobuf:"varint,8,opt,name=next_tss_event_id,json=nextTssEventId,proto3" json:"next_tss_event_id,omitempty"`
+	// fund_migrations are entries from the FundMigrations store.
+	FundMigrations []*FundMigrationEntry `protobuf:"bytes,9,rep,name=fund_migrations,json=fundMigrations,proto3" json:"fund_migrations,omitempty"`
+	// next_migration_id is the next auto-increment ID for FundMigrations.
+	NextMigrationId uint64 `protobuf:"varint,10,opt,name=next_migration_id,json=nextMigrationId,proto3" json:"next_migration_id,omitempty"`
 }
 
 func (x *GenesisState) Reset() {
 	*x = GenesisState{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_utss_v1_genesis_proto_msgTypes[2]
+		mi := &file_utss_v1_genesis_proto_msgTypes[3]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2241,7 +2958,7 @@ func (*GenesisState) ProtoMessage() {}
 
 // Deprecated: Use GenesisState.ProtoReflect.Descriptor instead.
 func (*GenesisState) Descriptor() ([]byte, []int) {
-	return file_utss_v1_genesis_proto_rawDescGZIP(), []int{2}
+	return file_utss_v1_genesis_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *GenesisState) GetParams() *Params {
@@ -2300,6 +3017,20 @@ func (x *GenesisState) GetNextTssEventId() uint64 {
 	return 0
 }
 
+func (x *GenesisState) GetFundMigrations() []*FundMigrationEntry {
+	if x != nil {
+		return x.FundMigrations
+	}
+	return nil
+}
+
+func (x *GenesisState) GetNextMigrationId() uint64 {
+	if x != nil {
+		return x.NextMigrationId
+	}
+	return 0
+}
+
 var File_utss_v1_genesis_proto protoreflect.FileDescriptor
 
 var file_utss_v1_genesis_proto_rawDesc = []byte{
@@ -2319,46 +3050,60 @@ var file_utss_v1_genesis_proto_rawDesc = []byte{
 	0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x2b, 0x0a, 0x05, 0x76,
 	0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x75, 0x74, 0x73,
 	0x73, 0x2e, 0x76, 0x31, 0x2e, 0x54, 0x73, 0x73, 0x4b, 0x65, 0x79, 0x42, 0x04, 0xc8, 0xde, 0x1f,
-	0x00, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x22, 0xd9, 0x03, 0x0a, 0x0c, 0x47, 0x65, 0x6e,
-	0x65, 0x73, 0x69, 0x73, 0x53, 0x74, 0x61, 0x74, 0x65, 0x12, 0x2d, 0x0a, 0x06, 0x70, 0x61, 0x72,
-	0x61, 0x6d, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x75, 0x74, 0x73, 0x73,
-	0x2e, 0x76, 0x31, 0x2e, 0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x42, 0x04, 0xc8, 0xde, 0x1f, 0x00,
-	0x52, 0x06, 0x70, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x12, 0x46, 0x0a, 0x13, 0x63, 0x75, 0x72, 0x72,
-	0x65, 0x6e, 0x74, 0x5f, 0x74, 0x73, 0x73, 0x5f, 0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x18,
-	0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x16, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e,
-	0x54, 0x73, 0x73, 0x4b, 0x65, 0x79, 0x50, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x52, 0x11, 0x63,
-	0x75, 0x72, 0x72, 0x65, 0x6e, 0x74, 0x54, 0x73, 0x73, 0x50, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73,
-	0x12, 0x4a, 0x0a, 0x0f, 0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x5f, 0x68, 0x69, 0x73, 0x74,
-	0x6f, 0x72, 0x79, 0x18, 0x03, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x1b, 0x2e, 0x75, 0x74, 0x73, 0x73,
-	0x2e, 0x76, 0x31, 0x2e, 0x54, 0x73, 0x73, 0x4b, 0x65, 0x79, 0x50, 0x72, 0x6f, 0x63, 0x65, 0x73,
-	0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x42, 0x04, 0xc8, 0xde, 0x1f, 0x00, 0x52, 0x0e, 0x70, 0x72,
-	0x6f, 0x63, 0x65, 0x73, 0x73, 0x48, 0x69, 0x73, 0x74, 0x6f, 0x72, 0x79, 0x12, 0x37, 0x0a, 0x0f,
-	0x63, 0x75, 0x72, 0x72, 0x65, 0x6e, 0x74, 0x5f, 0x74, 0x73, 0x73, 0x5f, 0x6b, 0x65, 0x79, 0x18,
-	0x04, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e,
-	0x54, 0x73, 0x73, 0x4b, 0x65, 0x79, 0x52, 0x0d, 0x63, 0x75, 0x72, 0x72, 0x65, 0x6e, 0x74, 0x54,
-	0x73, 0x73, 0x4b, 0x65, 0x79, 0x12, 0x42, 0x0a, 0x0f, 0x74, 0x73, 0x73, 0x5f, 0x6b, 0x65, 0x79,
-	0x5f, 0x68, 0x69, 0x73, 0x74, 0x6f, 0x72, 0x79, 0x18, 0x05, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x14,
-	0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e, 0x54, 0x73, 0x73, 0x4b, 0x65, 0x79, 0x45,
-	0x6e, 0x74, 0x72, 0x79, 0x42, 0x04, 0xc8, 0xde, 0x1f, 0x00, 0x52, 0x0d, 0x74, 0x73, 0x73, 0x4b,
-	0x65, 0x79, 0x48, 0x69, 0x73, 0x74, 0x6f, 0x72, 0x79, 0x12, 0x26, 0x0a, 0x0f, 0x6e, 0x65, 0x78,
-	0x74, 0x5f, 0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x5f, 0x69, 0x64, 0x18, 0x06, 0x20, 0x01,
-	0x28, 0x04, 0x52, 0x0d, 0x6e, 0x65, 0x78, 0x74, 0x50, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x49,
-	0x64, 0x12, 0x36, 0x0a, 0x0a, 0x74, 0x73, 0x73, 0x5f, 0x65, 0x76, 0x65, 0x6e, 0x74, 0x73, 0x18,
-	0x07, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x11, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e,
-	0x54, 0x73, 0x73, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x42, 0x04, 0xc8, 0xde, 0x1f, 0x00, 0x52, 0x09,
-	0x74, 0x73, 0x73, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x73, 0x12, 0x29, 0x0a, 0x11, 0x6e, 0x65, 0x78,
-	0x74, 0x5f, 0x74, 0x73, 0x73, 0x5f, 0x65, 0x76, 0x65, 0x6e, 0x74, 0x5f, 0x69, 0x64, 0x18, 0x08,
-	0x20, 0x01, 0x28, 0x04, 0x52, 0x0e, 0x6e, 0x65, 0x78, 0x74, 0x54, 0x73, 0x73, 0x45, 0x76, 0x65,
-	0x6e, 0x74, 0x49, 0x64, 0x42, 0x91, 0x01, 0x0a, 0x0b, 0x63, 0x6f, 0x6d, 0x2e, 0x75, 0x74, 0x73,
-	0x73, 0x2e, 0x76, 0x31, 0x42, 0x0c, 0x47, 0x65, 0x6e, 0x65, 0x73, 0x69, 0x73, 0x50, 0x72, 0x6f,
-	0x74, 0x6f, 0x50, 0x01, 0x5a, 0x37, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d,
-	0x2f, 0x70, 0x75, 0x73, 0x68, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2f, 0x70, 0x75, 0x73, 0x68, 0x2d,
-	0x63, 0x68, 0x61, 0x69, 0x6e, 0x2d, 0x6e, 0x6f, 0x64, 0x65, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x75,
-	0x74, 0x73, 0x73, 0x2f, 0x76, 0x31, 0x3b, 0x75, 0x74, 0x73, 0x73, 0x76, 0x31, 0xa2, 0x02, 0x03,
-	0x55, 0x58, 0x58, 0xaa, 0x02, 0x07, 0x55, 0x74, 0x73, 0x73, 0x2e, 0x56, 0x31, 0xca, 0x02, 0x07,
-	0x55, 0x74, 0x73, 0x73, 0x5c, 0x56, 0x31, 0xe2, 0x02, 0x13, 0x55, 0x74, 0x73, 0x73, 0x5c, 0x56,
-	0x31, 0x5c, 0x47, 0x50, 0x42, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0xea, 0x02, 0x08,
-	0x55, 0x74, 0x73, 0x73, 0x3a, 0x3a, 0x56, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x00, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x22, 0x5a, 0x0a, 0x12, 0x46, 0x75, 0x6e, 0x64,
+	0x4d, 0x69, 0x67, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x12, 0x10,
+	0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x04, 0x52, 0x03, 0x6b, 0x65, 0x79,
+	0x12, 0x32, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32,
+	0x16, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e, 0x46, 0x75, 0x6e, 0x64, 0x4d, 0x69,
+	0x67, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x42, 0x04, 0xc8, 0xde, 0x1f, 0x00, 0x52, 0x05, 0x76,
+	0x61, 0x6c, 0x75, 0x65, 0x22, 0xd1, 0x04, 0x0a, 0x0c, 0x47, 0x65, 0x6e, 0x65, 0x73, 0x69, 0x73,
+	0x53, 0x74, 0x61, 0x74, 0x65, 0x12, 0x2d, 0x0a, 0x06, 0x70, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x18,
+	0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e,
+	0x50, 0x61, 0x72, 0x61, 0x6d, 0x73, 0x42, 0x04, 0xc8, 0xde, 0x1f, 0x00, 0x52, 0x06, 0x70, 0x61,
+	0x72, 0x61, 0x6d, 0x73, 0x12, 0x46, 0x0a, 0x13, 0x63, 0x75, 0x72, 0x72, 0x65, 0x6e, 0x74, 0x5f,
+	0x74, 0x73, 0x73, 0x5f, 0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x18, 0x02, 0x20, 0x01, 0x28,
+	0x0b, 0x32, 0x16, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e, 0x54, 0x73, 0x73, 0x4b,
+	0x65, 0x79, 0x50, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x52, 0x11, 0x63, 0x75, 0x72, 0x72, 0x65,
+	0x6e, 0x74, 0x54, 0x73, 0x73, 0x50, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x12, 0x4a, 0x0a, 0x0f,
+	0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x5f, 0x68, 0x69, 0x73, 0x74, 0x6f, 0x72, 0x79, 0x18,
+	0x03, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x1b, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e,
+	0x54, 0x73, 0x73, 0x4b, 0x65, 0x79, 0x50, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x45, 0x6e, 0x74,
+	0x72, 0x79, 0x42, 0x04, 0xc8, 0xde, 0x1f, 0x00, 0x52, 0x0e, 0x70, 0x72, 0x6f, 0x63, 0x65, 0x73,
+	0x73, 0x48, 0x69, 0x73, 0x74, 0x6f, 0x72, 0x79, 0x12, 0x37, 0x0a, 0x0f, 0x63, 0x75, 0x72, 0x72,
+	0x65, 0x6e, 0x74, 0x5f, 0x74, 0x73, 0x73, 0x5f, 0x6b, 0x65, 0x79, 0x18, 0x04, 0x20, 0x01, 0x28,
+	0x0b, 0x32, 0x0f, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e, 0x54, 0x73, 0x73, 0x4b,
+	0x65, 0x79, 0x52, 0x0d, 0x63, 0x75, 0x72, 0x72, 0x65, 0x6e, 0x74, 0x54, 0x73, 0x73, 0x4b, 0x65,
+	0x79, 0x12, 0x42, 0x0a, 0x0f, 0x74, 0x73, 0x73, 0x5f, 0x6b, 0x65, 0x79, 0x5f, 0x68, 0x69, 0x73,
+	0x74, 0x6f, 0x72, 0x79, 0x18, 0x05, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x14, 0x2e, 0x75, 0x74, 0x73,
+	0x73, 0x2e, 0x76, 0x31, 0x2e, 0x54, 0x73, 0x73, 0x4b, 0x65, 0x79, 0x45, 0x6e, 0x74, 0x72, 0x79,
+	0x42, 0x04, 0xc8, 0xde, 0x1f, 0x00, 0x52, 0x0d, 0x74, 0x73, 0x73, 0x4b, 0x65, 0x79, 0x48, 0x69,
+	0x73, 0x74, 0x6f, 0x72, 0x79, 0x12, 0x26, 0x0a, 0x0f, 0x6e, 0x65, 0x78, 0x74, 0x5f, 0x70, 0x72,
+	0x6f, 0x63, 0x65, 0x73, 0x73, 0x5f, 0x69, 0x64, 0x18, 0x06, 0x20, 0x01, 0x28, 0x04, 0x52, 0x0d,
+	0x6e, 0x65, 0x78, 0x74, 0x50, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x49, 0x64, 0x12, 0x36, 0x0a,
+	0x0a, 0x74, 0x73, 0x73, 0x5f, 0x65, 0x76, 0x65, 0x6e, 0x74, 0x73, 0x18, 0x07, 0x20, 0x03, 0x28,
+	0x0b, 0x32, 0x11, 0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x2e, 0x54, 0x73, 0x73, 0x45,
+	0x76, 0x65, 0x6e, 0x74, 0x42, 0x04, 0xc8, 0xde, 0x1f, 0x00, 0x52, 0x09, 0x74, 0x73, 0x73, 0x45,
+	0x76, 0x65, 0x6e, 0x74, 0x73, 0x12, 0x29, 0x0a, 0x11, 0x6e, 0x65, 0x78, 0x74, 0x5f, 0x74, 0x73,
+	0x73, 0x5f, 0x65, 0x76, 0x65, 0x6e, 0x74, 0x5f, 0x69, 0x64, 0x18, 0x08, 0x20, 0x01, 0x28, 0x04,
+	0x52, 0x0e, 0x6e, 0x65, 0x78, 0x74, 0x54, 0x73, 0x73, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x49, 0x64,
+	0x12, 0x4a, 0x0a, 0x0f, 0x66, 0x75, 0x6e, 0x64, 0x5f, 0x6d, 0x69, 0x67, 0x72, 0x61, 0x74, 0x69,
+	0x6f, 0x6e, 0x73, 0x18, 0x09, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x1b, 0x2e, 0x75, 0x74, 0x73, 0x73,
+	0x2e, 0x76, 0x31, 0x2e, 0x46, 0x75, 0x6e, 0x64, 0x4d, 0x69, 0x67, 0x72, 0x61, 0x74, 0x69, 0x6f,
+	0x6e, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x42, 0x04, 0xc8, 0xde, 0x1f, 0x00, 0x52, 0x0e, 0x66, 0x75,
+	0x6e, 0x64, 0x4d, 0x69, 0x67, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x12, 0x2a, 0x0a, 0x11,
+	0x6e, 0x65, 0x78, 0x74, 0x5f, 0x6d, 0x69, 0x67, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x69,
+	0x64, 0x18, 0x0a, 0x20, 0x01, 0x28, 0x04, 0x52, 0x0f, 0x6e, 0x65, 0x78, 0x74, 0x4d, 0x69, 0x67,
+	0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x49, 0x64, 0x42, 0x91, 0x01, 0x0a, 0x0b, 0x63, 0x6f, 0x6d,
+	0x2e, 0x75, 0x74, 0x73, 0x73, 0x2e, 0x76, 0x31, 0x42, 0x0c, 0x47, 0x65, 0x6e, 0x65, 0x73, 0x69,
+	0x73, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a, 0x37, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62,
+	0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x70, 0x75, 0x73, 0x68, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2f, 0x70,
+	0x75, 0x73, 0x68, 0x2d, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2d, 0x6e, 0x6f, 0x64, 0x65, 0x2f, 0x61,
+	0x70, 0x69, 0x2f, 0x75, 0x74, 0x73, 0x73, 0x2f, 0x76, 0x31, 0x3b, 0x75, 0x74, 0x73, 0x73, 0x76,
+	0x31, 0xa2, 0x02, 0x03, 0x55, 0x58, 0x58, 0xaa, 0x02, 0x07, 0x55, 0x74, 0x73, 0x73, 0x2e, 0x56,
+	0x31, 0xca, 0x02, 0x07, 0x55, 0x74, 0x73, 0x73, 0x5c, 0x56, 0x31, 0xe2, 0x02, 0x13, 0x55, 0x74,
+	0x73, 0x73, 0x5c, 0x56, 0x31, 0x5c, 0x47, 0x50, 0x42, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74,
+	0x61, 0xea, 0x02, 0x08, 0x55, 0x74, 0x73, 0x73, 0x3a, 0x3a, 0x56, 0x31, 0x62, 0x06, 0x70, 0x72,
+	0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -2373,30 +3118,34 @@ func file_utss_v1_genesis_proto_rawDescGZIP() []byte {
 	return file_utss_v1_genesis_proto_rawDescData
 }
 
-var file_utss_v1_genesis_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_utss_v1_genesis_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_utss_v1_genesis_proto_goTypes = []interface{}{
 	(*TssKeyProcessEntry)(nil), // 0: utss.v1.TssKeyProcessEntry
 	(*TssKeyEntry)(nil),        // 1: utss.v1.TssKeyEntry
-	(*GenesisState)(nil),       // 2: utss.v1.GenesisState
-	(*TssKeyProcess)(nil),      // 3: utss.v1.TssKeyProcess
-	(*TssKey)(nil),             // 4: utss.v1.TssKey
-	(*Params)(nil),             // 5: utss.v1.Params
-	(*TssEvent)(nil),           // 6: utss.v1.TssEvent
+	(*FundMigrationEntry)(nil), // 2: utss.v1.FundMigrationEntry
+	(*GenesisState)(nil),       // 3: utss.v1.GenesisState
+	(*TssKeyProcess)(nil),      // 4: utss.v1.TssKeyProcess
+	(*TssKey)(nil),             // 5: utss.v1.TssKey
+	(*FundMigration)(nil),      // 6: utss.v1.FundMigration
+	(*Params)(nil),             // 7: utss.v1.Params
+	(*TssEvent)(nil),           // 8: utss.v1.TssEvent
 }
 var file_utss_v1_genesis_proto_depIdxs = []int32{
-	3, // 0: utss.v1.TssKeyProcessEntry.value:type_name -> utss.v1.TssKeyProcess
-	4, // 1: utss.v1.TssKeyEntry.value:type_name -> utss.v1.TssKey
-	5, // 2: utss.v1.GenesisState.params:type_name -> utss.v1.Params
-	3, // 3: utss.v1.GenesisState.current_tss_process:type_name -> utss.v1.TssKeyProcess
-	0, // 4: utss.v1.GenesisState.process_history:type_name -> utss.v1.TssKeyProcessEntry
-	4, // 5: utss.v1.GenesisState.current_tss_key:type_name -> utss.v1.TssKey
-	1, // 6: utss.v1.GenesisState.tss_key_history:type_name -> utss.v1.TssKeyEntry
-	6, // 7: utss.v1.GenesisState.tss_events:type_name -> utss.v1.TssEvent
-	8, // [8:8] is the sub-list for method output_type
-	8, // [8:8] is the sub-list for method input_type
-	8, // [8:8] is the sub-list for extension type_name
-	8, // [8:8] is the sub-list for extension extendee
-	0, // [0:8] is the sub-list for field type_name
+	4,  // 0: utss.v1.TssKeyProcessEntry.value:type_name -> utss.v1.TssKeyProcess
+	5,  // 1: utss.v1.TssKeyEntry.value:type_name -> utss.v1.TssKey
+	6,  // 2: utss.v1.FundMigrationEntry.value:type_name -> utss.v1.FundMigration
+	7,  // 3: utss.v1.GenesisState.params:type_name -> utss.v1.Params
+	4,  // 4: utss.v1.GenesisState.current_tss_process:type_name -> utss.v1.TssKeyProcess
+	0,  // 5: utss.v1.GenesisState.process_history:type_name -> utss.v1.TssKeyProcessEntry
+	5,  // 6: utss.v1.GenesisState.current_tss_key:type_name -> utss.v1.TssKey
+	1,  // 7: utss.v1.GenesisState.tss_key_history:type_name -> utss.v1.TssKeyEntry
+	8,  // 8: utss.v1.GenesisState.tss_events:type_name -> utss.v1.TssEvent
+	2,  // 9: utss.v1.GenesisState.fund_migrations:type_name -> utss.v1.FundMigrationEntry
+	10, // [10:10] is the sub-list for method output_type
+	10, // [10:10] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_utss_v1_genesis_proto_init() }
@@ -2431,6 +3180,18 @@ func file_utss_v1_genesis_proto_init() {
 			}
 		}
 		file_utss_v1_genesis_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*FundMigrationEntry); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_utss_v1_genesis_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*GenesisState); i {
 			case 0:
 				return &v.state
@@ -2449,7 +3210,7 @@ func file_utss_v1_genesis_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_utss_v1_genesis_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   3,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

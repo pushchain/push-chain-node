@@ -609,6 +609,22 @@ func TestVoteTssKeyProcess(t *testing.T) {
 	assert.Equal(t, "VOTE_OK", txHash)
 }
 
+func TestVoteFundMigration(t *testing.T) {
+	signer := createTestSigner(t, successMock(t))
+
+	txHash, err := signer.VoteFundMigration(context.Background(), 1, "0xabc123", true)
+	require.NoError(t, err)
+	assert.Equal(t, "VOTE_OK", txHash)
+}
+
+func TestVoteFundMigrationFailure(t *testing.T) {
+	signer := createTestSigner(t, successMock(t))
+
+	txHash, err := signer.VoteFundMigration(context.Background(), 2, "0xdef456", false)
+	require.NoError(t, err)
+	assert.Equal(t, "VOTE_OK", txHash)
+}
+
 func TestVoteOnChainRejection(t *testing.T) {
 	mock := &mockChainClient{
 		getAccountFn: func(ctx context.Context, address string) (*authtypes.QueryAccountResponse, error) {

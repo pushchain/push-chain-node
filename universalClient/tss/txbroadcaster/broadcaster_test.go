@@ -17,6 +17,7 @@ import (
 
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
+	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 
 	"github.com/pushchain/push-chain-node/universalClient/chains"
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
@@ -31,12 +32,12 @@ import (
 
 type mockTxBuilder struct{ mock.Mock }
 
-func (m *mockTxBuilder) GetOutboundSigningRequest(ctx context.Context, data *uexecutortypes.OutboundCreatedEvent, nonce uint64) (*common.UnSignedOutboundTxReq, error) {
+func (m *mockTxBuilder) GetOutboundSigningRequest(ctx context.Context, data *uexecutortypes.OutboundCreatedEvent, nonce uint64) (*common.UnsignedSigningReq, error) {
 	args := m.Called(ctx, data, nonce)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*common.UnSignedOutboundTxReq), args.Error(1)
+	return args.Get(0).(*common.UnsignedSigningReq), args.Error(1)
 }
 
 func (m *mockTxBuilder) GetNextNonce(ctx context.Context, addr string, useFinalized bool) (uint64, error) {
@@ -44,7 +45,7 @@ func (m *mockTxBuilder) GetNextNonce(ctx context.Context, addr string, useFinali
 	return args.Get(0).(uint64), args.Error(1)
 }
 
-func (m *mockTxBuilder) BroadcastOutboundSigningRequest(ctx context.Context, req *common.UnSignedOutboundTxReq, data *uexecutortypes.OutboundCreatedEvent, sig []byte) (string, error) {
+func (m *mockTxBuilder) BroadcastOutboundSigningRequest(ctx context.Context, req *common.UnsignedSigningReq, data *uexecutortypes.OutboundCreatedEvent, sig []byte) (string, error) {
 	args := m.Called(ctx, req, data, sig)
 	return args.String(0), args.Error(1)
 }
@@ -64,12 +65,25 @@ func (m *mockTxBuilder) GetGasFeeUsed(ctx context.Context, txHash string) (strin
 	return args.String(0), args.Error(1)
 }
 
+func (m *mockTxBuilder) GetFundMigrationSigningRequest(ctx context.Context, data *common.FundMigrationData, nonce uint64) (*common.UnsignedSigningReq, error) {
+	args := m.Called(ctx, data, nonce)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*common.UnsignedSigningReq), args.Error(1)
+}
+
+func (m *mockTxBuilder) BroadcastFundMigrationTx(ctx context.Context, req *common.UnsignedSigningReq, data *common.FundMigrationData, sig []byte) (string, error) {
+	args := m.Called(ctx, req, data, sig)
+	return args.String(0), args.Error(1)
+}
+
 type mockChainClient struct{ builder *mockTxBuilder }
 
 func (m *mockChainClient) Start(context.Context) error                     { return nil }
 func (m *mockChainClient) Stop() error                                     { return nil }
 func (m *mockChainClient) IsHealthy() bool                                 { return true }
-func (m *mockChainClient) GetTxBuilder() (common.OutboundTxBuilder, error) { return m.builder, nil }
+func (m *mockChainClient) GetTxBuilder() (common.TxBuilder, error) { return m.builder, nil }
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -108,11 +122,11 @@ func newTestChains(t *testing.T, chainID string, vmType uregistrytypes.VmType, c
 	return c
 }
 
-func makeSignedEventData(t *testing.T, destChain string, nonce uint64) []byte {
+func makeSignedOutboundData(t *testing.T, destChain string, nonce uint64) []byte {
 	t.Helper()
 	sig := hex.EncodeToString(make([]byte, 64))
 	hash := hex.EncodeToString(make([]byte, 32))
-	data := SignedEventData{
+	data := SignedOutboundData{
 		OutboundCreatedEvent: uexecutortypes.OutboundCreatedEvent{
 			TxID:             "tx-123",
 			UniversalTxId:    "utx-456",
@@ -137,10 +151,10 @@ func insertSignedEvent(t *testing.T, db *gorm.DB, eventID, destChain string, non
 		EventID:           eventID,
 		BlockHeight:       100,
 		ExpiryBlockHeight: 99999,
-		Type:              "SIGN",
+		Type:              "SIGN_OUTBOUND",
 		ConfirmationType:  "STANDARD",
 		Status:            store.StatusSigned,
-		EventData:         makeSignedEventData(t, destChain, nonce),
+		EventData:         makeSignedOutboundData(t, destChain, nonce),
 	}
 	require.NoError(t, db.Create(&event).Error)
 }
@@ -452,4 +466,110 @@ func TestMarkBroadcasted_EmptyTxHash(t *testing.T) {
 
 	updated := getEvent(t, db, "ev-1")
 	require.Equal(t, "solana:mainnet:", updated.BroadcastedTxHash)
+}
+
+// ---------------------------------------------------------------------------
+// Fund Migration EVM Tests
+// ---------------------------------------------------------------------------
+
+// testOldTSSPubkey is a valid compressed secp256k1 pubkey for testing.
+// Derived address: coordinator.DeriveEVMAddressFromPubkey will succeed with this.
+const testOldTSSPubkey = "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
+const testNewTSSPubkey = "02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5"
+
+func makeSignedFundMigrationData(t *testing.T, chainID string, nonce uint64) []byte {
+	t.Helper()
+	sig := hex.EncodeToString(make([]byte, 65))
+	hash := hex.EncodeToString(make([]byte, 32))
+	data := SignedFundMigrationData{
+		FundMigrationInitiatedEventData: utsstypes.FundMigrationInitiatedEventData{
+			MigrationID:      1,
+			OldKeyID:         "old-key",
+			OldTssPubkey:     testOldTSSPubkey,
+			CurrentKeyID:     "new-key",
+			CurrentTssPubkey: testNewTSSPubkey,
+			Chain:            chainID,
+			GasPrice:         "1000000000",
+			GasLimit:         21000,
+		},
+		SigningData: &SigningData{
+			Signature:   sig,
+			SigningHash: hash,
+			Nonce:       nonce,
+		},
+	}
+	b, err := json.Marshal(data)
+	require.NoError(t, err)
+	return b
+}
+
+func insertSignedFundMigrationEvent(t *testing.T, db *gorm.DB, eventID, chainID string, nonce uint64) {
+	t.Helper()
+	event := store.Event{
+		EventID:           eventID,
+		BlockHeight:       100,
+		ExpiryBlockHeight: 99999,
+		Type:              store.EventTypeSignFundMigrate,
+		ConfirmationType:  "INSTANT",
+		Status:            store.StatusSigned,
+		EventData:         makeSignedFundMigrationData(t, chainID, nonce),
+	}
+	require.NoError(t, db.Create(&event).Error)
+}
+
+func TestFundMigrationEVM_BroadcastSuccess(t *testing.T) {
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "eip155:1", uregistrytypes.VmType_EVM, client)
+
+	insertSignedFundMigrationEvent(t, db, "fm-1", "eip155:1", 0)
+
+	builder.On("BroadcastFundMigrationTx", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return("0xmigrate123", nil)
+
+	b := newBroadcaster(evtStore, ch, "")
+	b.processSigned(context.Background())
+
+	ev := getEvent(t, db, "fm-1")
+	require.Equal(t, store.StatusBroadcasted, ev.Status)
+	require.Equal(t, "eip155:1:0xmigrate123", ev.BroadcastedTxHash)
+}
+
+func TestFundMigrationEVM_BroadcastFails_NonceConsumed(t *testing.T) {
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "eip155:1", uregistrytypes.VmType_EVM, client)
+
+	insertSignedFundMigrationEvent(t, db, "fm-1", "eip155:1", 5)
+
+	builder.On("BroadcastFundMigrationTx", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return("0xfailed", fmt.Errorf("already known"))
+	builder.On("GetNextNonce", mock.Anything, mock.Anything, true).Return(uint64(10), nil)
+
+	b := newBroadcaster(evtStore, ch, "")
+	b.processSigned(context.Background())
+
+	ev := getEvent(t, db, "fm-1")
+	require.Equal(t, store.StatusBroadcasted, ev.Status)
+}
+
+func TestFundMigrationEVM_BroadcastFails_NonceNotConsumed_StaysSigned(t *testing.T) {
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "eip155:1", uregistrytypes.VmType_EVM, client)
+
+	insertSignedFundMigrationEvent(t, db, "fm-1", "eip155:1", 5)
+
+	builder.On("BroadcastFundMigrationTx", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return("0xfailed", fmt.Errorf("rpc error"))
+	builder.On("GetNextNonce", mock.Anything, mock.Anything, true).Return(uint64(3), nil)
+
+	b := newBroadcaster(evtStore, ch, "")
+	b.processSigned(context.Background())
+
+	ev := getEvent(t, db, "fm-1")
+	require.Equal(t, store.StatusSigned, ev.Status) // stays SIGNED for retry
 }

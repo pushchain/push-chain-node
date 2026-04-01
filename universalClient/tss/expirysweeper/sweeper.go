@@ -9,6 +9,7 @@ import (
 	"github.com/rs/zerolog"
 
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
+	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/pushsigner"
@@ -94,9 +95,14 @@ func (s *Sweeper) sweep(ctx context.Context) {
 
 	swept := 0
 	for _, event := range events {
-		if event.Type == store.EventTypeSign {
-			if err := s.voteFailureAndMarkReverted(ctx, &event, "event expired before TSS could start"); err != nil {
-				s.logger.Error().Err(err).Str("event_id", event.EventID).Msg("failed to sweep expired SIGN event")
+		if event.Type == store.EventTypeSignOutbound {
+			if err := s.voteOutboundFailureAndMarkReverted(ctx, &event, "event expired before TSS could start"); err != nil {
+				s.logger.Error().Err(err).Str("event_id", event.EventID).Msg("failed to sweep expired SIGN_OUTBOUND event")
+				continue
+			}
+		} else if event.Type == store.EventTypeSignFundMigrate {
+			if err := s.voteFundMigrationFailureAndMarkReverted(ctx, &event, "event expired before TSS could start"); err != nil {
+				s.logger.Error().Err(err).Str("event_id", event.EventID).Msg("failed to sweep expired SIGN_FUND_MIGRATE event")
 				continue
 			}
 		} else {
@@ -115,8 +121,8 @@ func (s *Sweeper) sweep(ctx context.Context) {
 		Msg("swept expired confirmed events")
 }
 
-// voteFailureAndMarkReverted submits a failure vote to Push chain and marks the event REVERTED.
-func (s *Sweeper) voteFailureAndMarkReverted(ctx context.Context, event *store.Event, errorMsg string) error {
+// voteOutboundFailureAndMarkReverted submits a failure vote for an outbound event and marks it REVERTED.
+func (s *Sweeper) voteOutboundFailureAndMarkReverted(ctx context.Context, event *store.Event, errorMsg string) error {
 	var data uexecutortypes.OutboundCreatedEvent
 	if err := json.Unmarshal(event.EventData, &data); err != nil {
 		return fmt.Errorf("failed to parse outbound event data for event %s: %w", event.EventID, err)
@@ -147,6 +153,36 @@ func (s *Sweeper) voteFailureAndMarkReverted(ctx context.Context, event *store.E
 		Str("event_id", event.EventID).
 		Str("tx_id", data.TxID).
 		Str("error_msg", errorMsg).
-		Msg("voted failure and marked REVERTED")
+		Msg("voted outbound failure and marked REVERTED")
+	return nil
+}
+
+// voteFundMigrationFailureAndMarkReverted submits a failure vote for a fund migration event and marks it REVERTED.
+func (s *Sweeper) voteFundMigrationFailureAndMarkReverted(ctx context.Context, event *store.Event, errorMsg string) error {
+	var data utsstypes.FundMigrationInitiatedEventData
+	if err := json.Unmarshal(event.EventData, &data); err != nil {
+		return fmt.Errorf("failed to parse fund migration event data for event %s: %w", event.EventID, err)
+	}
+
+	fields := map[string]any{"status": store.StatusReverted}
+
+	if s.pushSigner == nil {
+		s.logger.Warn().Str("event_id", event.EventID).Msg("pushSigner not configured, skipping failure vote")
+	} else {
+		voteTxHash, err := s.pushSigner.VoteFundMigration(ctx, data.MigrationID, "", false)
+		if err != nil {
+			return fmt.Errorf("failed to vote fund migration failure for event %s: %w", event.EventID, err)
+		}
+		fields["vote_tx_hash"] = voteTxHash
+	}
+
+	if err := s.eventStore.Update(event.EventID, fields); err != nil {
+		return fmt.Errorf("failed to mark event %s as reverted: %w", event.EventID, err)
+	}
+	s.logger.Info().
+		Str("event_id", event.EventID).
+		Uint64("migration_id", data.MigrationID).
+		Str("error_msg", errorMsg).
+		Msg("voted fund migration failure and marked REVERTED")
 	return nil
 }

@@ -89,7 +89,7 @@ func (g *ChainMetaOracle) fetchAndVoteChainMeta(ctx context.Context) {
 			}
 
 			// Log the gas price
-			g.logger.Info().
+			g.logger.Debug().
 				Str("chain", g.chainID).
 				Str("gas_price", gasPrice.String()).
 				Msg("fetched gas price")
@@ -107,7 +107,7 @@ func (g *ChainMetaOracle) fetchAndVoteChainMeta(ctx context.Context) {
 				markup.Div(markup, big.NewInt(100))
 				gasPrice.Add(gasPrice, markup)
 
-				g.logger.Info().
+				g.logger.Debug().
 					Str("chain", g.chainID).
 					Int("markup_percent", g.gasPriceMarkupPercent).
 					Str("adjusted_gas_price", gasPrice.String()).

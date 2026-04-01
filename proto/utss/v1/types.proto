@@ -83,3 +83,25 @@ message TssEvent {
   string          key_id        = 9;
   string          tss_pubkey    = 10;
 }
+
+// Fund Migration
+enum FundMigrationStatus {
+  FUND_MIGRATION_STATUS_PENDING   = 0;
+  FUND_MIGRATION_STATUS_COMPLETED = 1;
+  FUND_MIGRATION_STATUS_FAILED    = 2;
+}
+
+message FundMigration {
+  uint64 id                 = 1;
+  string old_key_id         = 2;
+  string old_tss_pubkey     = 3;
+  string current_key_id     = 4;
+  string current_tss_pubkey = 5;
+  string chain              = 6;  // CAIP-2 chain identifier
+  FundMigrationStatus status = 7;
+  int64  initiated_block    = 8;
+  int64  completed_block    = 9;
+  string tx_hash            = 10;
+  string gas_price          = 11; // gas price from oracle (wei)
+  uint64 gas_limit          = 12; // gas limit for native transfer (21000)
+}

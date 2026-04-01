@@ -54,8 +54,8 @@ func runSweepBatch(t *testing.T, s *Sweeper, currentBlock uint64) {
 	require.NoError(t, err)
 	for _, event := range events {
 		ev := event
-		if ev.Type == store.EventTypeSign {
-			require.NoError(t, s.voteFailureAndMarkReverted(ctx, &ev, "event expired before TSS could start"))
+		if ev.Type == store.EventTypeSignOutbound {
+			require.NoError(t, s.voteOutboundFailureAndMarkReverted(ctx, &ev, "event expired before TSS could start"))
 		} else {
 			require.NoError(t, s.eventStore.Update(ev.EventID, map[string]any{"status": store.StatusReverted}))
 		}
@@ -67,7 +67,7 @@ func TestSweep(t *testing.T) {
 		sweeper, evtStore, db := setupTestSweeper(t)
 
 		db.Create(&store.Event{EventID: "expired-sign", BlockHeight: 50, ExpiryBlockHeight: 90,
-			Status: "CONFIRMED", Type: "SIGN", EventData: signEventData(t, "tx-1", "utx-1")})
+			Status: "CONFIRMED", Type: "SIGN_OUTBOUND", EventData: signEventData(t, "tx-1", "utx-1")})
 
 		runSweepBatch(t, sweeper, 100)
 
@@ -94,7 +94,7 @@ func TestSweep(t *testing.T) {
 		db.Create(&store.Event{EventID: "expired-keygen", BlockHeight: 50, ExpiryBlockHeight: 90,
 			Status: "CONFIRMED", Type: "KEYGEN"})
 		db.Create(&store.Event{EventID: "expired-sign", BlockHeight: 60, ExpiryBlockHeight: 100,
-			Status: "CONFIRMED", Type: "SIGN", EventData: signEventData(t, "tx-1", "utx-1")})
+			Status: "CONFIRMED", Type: "SIGN_OUTBOUND", EventData: signEventData(t, "tx-1", "utx-1")})
 		// Non-expired CONFIRMED — unchanged
 		db.Create(&store.Event{EventID: "valid-1", BlockHeight: 50, ExpiryBlockHeight: 200,
 			Status: "CONFIRMED", Type: "KEYGEN"})
@@ -102,9 +102,9 @@ func TestSweep(t *testing.T) {
 		db.Create(&store.Event{EventID: "ip-expired", BlockHeight: 50, ExpiryBlockHeight: 90,
 			Status: "IN_PROGRESS", Type: "KEYGEN"})
 		db.Create(&store.Event{EventID: "signed-expired", BlockHeight: 50, ExpiryBlockHeight: 90,
-			Status: "SIGNED", Type: "SIGN", EventData: signEventData(t, "tx-2", "utx-2")})
+			Status: "SIGNED", Type: "SIGN_OUTBOUND", EventData: signEventData(t, "tx-2", "utx-2")})
 		db.Create(&store.Event{EventID: "broadcasted-expired", BlockHeight: 50, ExpiryBlockHeight: 90,
-			Status: "BROADCASTED", Type: "SIGN", EventData: signEventData(t, "tx-3", "utx-3")})
+			Status: "BROADCASTED", Type: "SIGN_OUTBOUND", EventData: signEventData(t, "tx-3", "utx-3")})
 
 		runSweepBatch(t, sweeper, 100)
 

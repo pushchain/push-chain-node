@@ -714,6 +714,58 @@ func TestClient_GetPendingTssEvents(t *testing.T) {
 	})
 }
 
+func TestClient_GetPendingFundMigrations(t *testing.T) {
+	logger := zerolog.Nop()
+	ctx := context.Background()
+
+	t.Run("no endpoints configured", func(t *testing.T) {
+		client := &Client{
+			logger:      logger,
+			utssClients: []utsstypes.QueryClient{},
+		}
+
+		migrations, err := client.GetPendingFundMigrations(ctx)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no endpoints configured")
+		assert.Nil(t, migrations)
+	})
+
+	t.Run("successful query with mock", func(t *testing.T) {
+		mockClient := &mockUTSSQueryClient{
+			pendingFundMigrationsResp: &utsstypes.QueryPendingFundMigrationsResponse{
+				Migrations: []*utsstypes.FundMigration{
+					{Id: 1, OldKeyId: "key-old", Chain: "eip155:1"},
+					{Id: 2, OldKeyId: "key-old", Chain: "eip155:42161"},
+				},
+			},
+		}
+
+		client := &Client{
+			logger:      logger,
+			utssClients: []utsstypes.QueryClient{mockClient},
+		}
+
+		migrations, err := client.GetPendingFundMigrations(ctx)
+		require.NoError(t, err)
+		require.Len(t, migrations, 2)
+		assert.Equal(t, uint64(1), migrations[0].Id)
+		assert.Equal(t, "eip155:42161", migrations[1].Chain)
+	})
+
+	t.Run("all endpoints fail", func(t *testing.T) {
+		client := &Client{
+			logger: logger,
+			utssClients: []utsstypes.QueryClient{
+				&mockUTSSQueryClient{err: assert.AnError},
+			},
+		}
+
+		migrations, err := client.GetPendingFundMigrations(ctx)
+		require.Error(t, err)
+		assert.Nil(t, migrations)
+	})
+}
+
 func TestClient_GetAllPendingOutbounds(t *testing.T) {
 	logger := zerolog.Nop()
 	ctx := context.Background()
@@ -845,9 +897,10 @@ func (m *mockUValidatorQueryClient) UniversalValidator(ctx context.Context, req 
 
 type mockUTSSQueryClient struct {
 	utsstypes.QueryClient
-	currentKeyResp      *utsstypes.QueryCurrentKeyResponse
-	pendingTssEventsResp *utsstypes.QueryAllPendingTssEventsResponse
-	err                 error
+	currentKeyResp              *utsstypes.QueryCurrentKeyResponse
+	pendingTssEventsResp        *utsstypes.QueryAllPendingTssEventsResponse
+	pendingFundMigrationsResp   *utsstypes.QueryPendingFundMigrationsResponse
+	err                         error
 }
 
 func (m *mockUTSSQueryClient) CurrentKey(ctx context.Context, req *utsstypes.QueryCurrentKeyRequest, opts ...grpc.CallOption) (*utsstypes.QueryCurrentKeyResponse, error) {
@@ -862,6 +915,13 @@ func (m *mockUTSSQueryClient) AllPendingTssEvents(ctx context.Context, req *utss
 		return nil, m.err
 	}
 	return m.pendingTssEventsResp, nil
+}
+
+func (m *mockUTSSQueryClient) PendingFundMigrations(ctx context.Context, req *utsstypes.QueryPendingFundMigrationsRequest, opts ...grpc.CallOption) (*utsstypes.QueryPendingFundMigrationsResponse, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.pendingFundMigrationsResp, nil
 }
 
 func (m *mockUTSSQueryClient) KeyById(ctx context.Context, req *utsstypes.QueryKeyByIdRequest, opts ...grpc.CallOption) (*utsstypes.QueryKeyByIdResponse, error) {

@@ -184,7 +184,7 @@ func TestGetEligibleUV(t *testing.T) {
 	t.Run("sign returns ALL Active+PendingLeave (no random selection here)", func(t *testing.T) {
 		// GetEligibleUV is used for validation, not coordinator setup.
 		// validator1 and validator2 are Active; validator3 is PendingJoin (not eligible for sign).
-		eligible := coord.GetEligibleUV("SIGN")
+		eligible := coord.GetEligibleUV("SIGN_OUTBOUND")
 		assert.Len(t, eligible, 2, "sign = active(2); pending_join excluded")
 		addrs := validatorAddresses(eligible)
 		assert.True(t, addrs["validator1"])
@@ -319,6 +319,71 @@ func TestExtractDestinationChain(t *testing.T) {
 	})
 }
 
+func TestExtractFundMigrateChain(t *testing.T) {
+	t.Run("valid JSON with chain field", func(t *testing.T) {
+		data := []byte(`{"migration_id":1,"chain":"eip155:421614","old_key_id":"key-1"}`)
+		assert.Equal(t, "eip155:421614", extractFundMigrateChain(data))
+	})
+
+	t.Run("missing chain field", func(t *testing.T) {
+		assert.Equal(t, "", extractFundMigrateChain([]byte(`{"migration_id":1}`)))
+	})
+
+	t.Run("nil or empty input", func(t *testing.T) {
+		assert.Equal(t, "", extractFundMigrateChain(nil))
+		assert.Equal(t, "", extractFundMigrateChain([]byte{}))
+	})
+
+	t.Run("invalid JSON", func(t *testing.T) {
+		assert.Equal(t, "", extractFundMigrateChain([]byte("not-json")))
+	})
+}
+
+func TestDeriveEVMAddressFromPubkey(t *testing.T) {
+	t.Run("valid compressed secp256k1 pubkey", func(t *testing.T) {
+		// Generator point pubkey - well-known test vector
+		addr, err := DeriveEVMAddressFromPubkey("0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798")
+		require.NoError(t, err)
+		assert.True(t, len(addr) == 42, "address should be 42 chars (0x + 40 hex)")
+		assert.Equal(t, "0x", addr[:2])
+	})
+
+	t.Run("deterministic output", func(t *testing.T) {
+		pubkey := "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
+		addr1, _ := DeriveEVMAddressFromPubkey(pubkey)
+		addr2, _ := DeriveEVMAddressFromPubkey(pubkey)
+		assert.Equal(t, addr1, addr2)
+	})
+
+	t.Run("different pubkeys produce different addresses", func(t *testing.T) {
+		addr1, _ := DeriveEVMAddressFromPubkey("0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798")
+		addr2, _ := DeriveEVMAddressFromPubkey("02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5")
+		assert.NotEqual(t, addr1, addr2)
+	})
+
+	t.Run("handles 0x prefix", func(t *testing.T) {
+		addr1, _ := DeriveEVMAddressFromPubkey("0x0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798")
+		addr2, _ := DeriveEVMAddressFromPubkey("0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798")
+		assert.Equal(t, addr1, addr2)
+	})
+
+	t.Run("invalid hex returns error", func(t *testing.T) {
+		_, err := DeriveEVMAddressFromPubkey("not-hex")
+		require.Error(t, err)
+	})
+
+	t.Run("wrong length returns error", func(t *testing.T) {
+		_, err := DeriveEVMAddressFromPubkey("0279be667ef9dc")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "expected 33")
+	})
+
+	t.Run("empty string returns error", func(t *testing.T) {
+		_, err := DeriveEVMAddressFromPubkey("")
+		require.Error(t, err)
+	})
+}
+
 func TestDeriveKeyIDBytes(t *testing.T) {
 	b := deriveKeyIDBytes("test-key-id")
 	assert.Len(t, b, 32, "SHA256 hash is always 32 bytes")
@@ -339,13 +404,13 @@ func TestGetInFlightSignCountPerChain(t *testing.T) {
 	polyData := []byte(`{"destination_chain":"polygon"}`)
 
 	// IN_PROGRESS and SIGNED both count as in-flight.
-	db.Create(&store.Event{EventID: "e1", Type: "SIGN", Status: store.StatusInProgress, EventData: ethData})
-	db.Create(&store.Event{EventID: "e2", Type: "SIGN", Status: store.StatusInProgress, EventData: ethData})
-	db.Create(&store.Event{EventID: "e3", Type: "SIGN", Status: store.StatusSigned, EventData: polyData})
+	db.Create(&store.Event{EventID: "e1", Type: "SIGN_OUTBOUND", Status: store.StatusInProgress, EventData: ethData})
+	db.Create(&store.Event{EventID: "e2", Type: "SIGN_OUTBOUND", Status: store.StatusInProgress, EventData: ethData})
+	db.Create(&store.Event{EventID: "e3", Type: "SIGN_OUTBOUND", Status: store.StatusSigned, EventData: polyData})
 
 	// These must NOT be counted.
-	db.Create(&store.Event{EventID: "e4", Type: "SIGN", Status: store.StatusConfirmed, EventData: ethData})   // not yet in-flight
-	db.Create(&store.Event{EventID: "e5", Type: "SIGN", Status: store.StatusBroadcasted, EventData: ethData}) // pending nonce RPC covers it
+	db.Create(&store.Event{EventID: "e4", Type: "SIGN_OUTBOUND", Status: store.StatusConfirmed, EventData: ethData})   // not yet in-flight
+	db.Create(&store.Event{EventID: "e5", Type: "SIGN_OUTBOUND", Status: store.StatusBroadcasted, EventData: ethData}) // pending nonce RPC covers it
 	db.Create(&store.Event{EventID: "e6", Type: "KEYGEN", Status: store.StatusInProgress})                    // not a SIGN event
 
 	perChain, err := coord.getInFlightSignCountPerChain()

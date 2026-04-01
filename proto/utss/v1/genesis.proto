@@ -19,6 +19,12 @@ message TssKeyEntry {
   TssKey value = 2 [(gogoproto.nullable) = false];
 }
 
+// FundMigrationEntry is a key-value pair for exporting FundMigrations map state.
+message FundMigrationEntry {
+  uint64 key = 1;
+  FundMigration value = 2 [(gogoproto.nullable) = false];
+}
+
 // GenesisState defines the module genesis state
 message GenesisState {
   // Params defines all the parameters of the module.
@@ -44,4 +50,10 @@ message GenesisState {
 
   // next_tss_event_id is the next auto-increment ID for TssEvents.
   uint64 next_tss_event_id = 8;
+
+  // fund_migrations are entries from the FundMigrations store.
+  repeated FundMigrationEntry fund_migrations = 9 [(gogoproto.nullable) = false];
+
+  // next_migration_id is the next auto-increment ID for FundMigrations.
+  uint64 next_migration_id = 10;
 }

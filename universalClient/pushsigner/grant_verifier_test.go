@@ -22,6 +22,7 @@ func TestVerifyGrants(t *testing.T) {
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteChainMeta", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteOutbound", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/utss.v1.MsgVoteTssKeyProcess", Expiration: &futureTime},
+			{Granter: granter, MessageType: "/utss.v1.MsgVoteFundMigration", Expiration: &futureTime},
 		}
 
 		msgs, err := verifyGrants(grants, granter)
@@ -40,6 +41,7 @@ func TestVerifyGrants(t *testing.T) {
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteChainMeta", Expiration: nil},
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteOutbound", Expiration: nil},
 			{Granter: granter, MessageType: "/utss.v1.MsgVoteTssKeyProcess", Expiration: nil},
+			{Granter: granter, MessageType: "/utss.v1.MsgVoteFundMigration", Expiration: nil},
 		}
 
 		msgs, err := verifyGrants(grants, granter)
@@ -65,6 +67,7 @@ func TestVerifyGrants(t *testing.T) {
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteChainMeta", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteOutbound", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/utss.v1.MsgVoteTssKeyProcess", Expiration: &futureTime},
+			{Granter: granter, MessageType: "/utss.v1.MsgVoteFundMigration", Expiration: &futureTime},
 		}
 
 		msgs, err := verifyGrants(grants, granter)
@@ -81,6 +84,7 @@ func TestVerifyGrants(t *testing.T) {
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteChainMeta", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteOutbound", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/utss.v1.MsgVoteTssKeyProcess", Expiration: &futureTime},
+			{Granter: granter, MessageType: "/utss.v1.MsgVoteFundMigration", Expiration: &futureTime},
 		}
 
 		msgs, err := verifyGrants(grants, granter)
@@ -105,6 +109,7 @@ func TestVerifyGrants(t *testing.T) {
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteChainMeta", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteOutbound", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/utss.v1.MsgVoteTssKeyProcess", Expiration: &futureTime},
+			{Granter: granter, MessageType: "/utss.v1.MsgVoteFundMigration", Expiration: &futureTime},
 		}
 
 		msgs, err := verifyGrants(grants, granter)
@@ -118,6 +123,7 @@ func TestVerifyGrants(t *testing.T) {
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteChainMeta", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteOutbound", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/utss.v1.MsgVoteTssKeyProcess", Expiration: &futureTime},
+			{Granter: granter, MessageType: "/utss.v1.MsgVoteFundMigration", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/some.other.v1.MsgNotRequired", Expiration: &futureTime}, // Extra grant
 		}
 

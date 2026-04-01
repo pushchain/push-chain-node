@@ -2,6 +2,7 @@ package types
 
 import (
 	"context"
+	"math/big"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	uvalidatortypes "github.com/pushchain/push-chain-node/x/uvalidator/types"
@@ -28,4 +29,15 @@ type UValidatorKeeper interface {
 	GetEligibleVoters(ctx context.Context) ([]uvalidatortypes.UniversalValidator, error)
 	GetAllUniversalValidators(ctx context.Context) ([]uvalidatortypes.UniversalValidator, error)
 	UpdateValidatorStatus(ctx context.Context, addr sdk.ValAddress, newStatus uvalidatortypes.UVStatus) error
+}
+
+// URegistryKeeper defines the expected interface for the uregistry keeper.
+type URegistryKeeper interface {
+	IsChainOutboundEnabled(ctx context.Context, chain string) (bool, error)
+}
+
+// UExecutorKeeper defines the expected interface for the uexecutor keeper.
+type UExecutorKeeper interface {
+	HasPendingOutboundsForChain(ctx context.Context, chain string) (bool, error)
+	GetGasPriceByChain(ctx sdk.Context, chainNamespace string) (*big.Int, error)
 }

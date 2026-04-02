@@ -151,7 +151,6 @@ func NewTxBuilder(
 				tb.logger.Warn().Err(err).Str("address", chainConfig.ProtocolALT).Msg("invalid protocol ALT address, skipping")
 			} else {
 				tb.protocolALT = protocolALT
-				tb.logger.Info().Str("protocol_alt", chainConfig.ProtocolALT).Msg("configured protocol ALT")
 			}
 		}
 		for mint, altAddr := range chainConfig.TokenALTs {
@@ -166,9 +165,6 @@ func NewTxBuilder(
 				continue
 			}
 			tb.tokenALTs[mintPubkey] = altPubkey
-		}
-		if len(tb.tokenALTs) > 0 {
-			tb.logger.Info().Int("count", len(tb.tokenALTs)).Msg("configured token ALTs")
 		}
 	}
 
@@ -540,7 +536,6 @@ func (tb *TxBuilder) fetchAddressTables(ctx context.Context, mintPubkey solana.P
 		addressTables[altKey] = altState.Addresses
 	}
 
-	tb.logger.Debug().Int("alt_count", len(addressTables)).Msg("fetched address lookup tables for V0 transaction")
 	return addressTables, nil
 }
 
@@ -843,14 +838,7 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 	if err != nil {
 		tb.logger.Warn().Err(err).Msg("failed to fetch ALTs, falling back to legacy tx")
 	} else if len(addressTables) > 0 {
-		totalAddrs := 0
-		for _, addrs := range addressTables {
-			totalAddrs += len(addrs)
-		}
-		tb.logger.Info().Int("alt_count", len(addressTables)).Int("total_addresses", totalAddrs).Msg("using V0 transaction with ALTs")
 		opts = append(opts, solana.TransactionAddressTables(addressTables))
-	} else {
-		tb.logger.Info().Msg("no ALTs configured, using legacy transaction")
 	}
 	tx, err := solana.NewTransaction(instructions, recentBlockhash, opts...)
 	if err != nil {
@@ -868,6 +856,17 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 	})
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to sign transaction: %w", err)
+	}
+
+	// Warn if transaction exceeds Solana's 1232-byte raw limit.
+	if txBytes, marshalErr := tx.MarshalBinary(); marshalErr == nil {
+		if len(txBytes) > 1232 {
+			tb.logger.Warn().
+				Int("raw_bytes", len(txBytes)).
+				Int("ix_data_bytes", len(ixData)).
+				Uint8("instruction_id", instructionID).
+				Msg("transaction exceeds 1232-byte Solana limit")
+		}
 	}
 
 	return tx, instructionID, nil

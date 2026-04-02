@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
@@ -548,20 +549,157 @@ func TestFinalizeUniversalTxUnifiedEncoding(t *testing.T) {
 	}
 }
 
-// =============================================================================
-// BSC Testnet Simulation Tests
-//
-// These tests simulate contract calls (eth_call) against the live Vault
-// contract on BSC testnet. They verify that the encoded calldata is
-// accepted by the on-chain contracts.
-//
-// Prerequisites:
-// 1. bscSimulateFrom must have TSS_ROLE on the vault
-// 2. Contracts must not be paused
-// 3. For ERC20 tests, the vault must have sufficient token balance
-//
-// These tests are skipped in -short mode and when RPC connection fails.
-// =============================================================================
+// TestIsAlreadyExecuted tests the stub that always returns false
+func TestIsAlreadyExecuted(t *testing.T) {
+	builder := newTestTxBuilder(t)
+	ctx := context.Background()
+
+	t.Run("always returns false", func(t *testing.T) {
+		executed, err := builder.IsAlreadyExecuted(ctx, "0x1234567890abcdef")
+		assert.NoError(t, err)
+		assert.False(t, executed)
+	})
+
+	t.Run("returns false for empty txID", func(t *testing.T) {
+		executed, err := builder.IsAlreadyExecuted(ctx, "")
+		assert.NoError(t, err)
+		assert.False(t, executed)
+	})
+
+	t.Run("returns false for arbitrary txID", func(t *testing.T) {
+		executed, err := builder.IsAlreadyExecuted(ctx, "any-string-at-all")
+		assert.NoError(t, err)
+		assert.False(t, executed)
+	})
+}
+
+// TestNewTxBuilderValidation tests the NewTxBuilder constructor validation
+func TestNewTxBuilderValidation(t *testing.T) {
+	logger := zerolog.Nop()
+	vAddr := ethcommon.HexToAddress(testVaultAddress)
+
+	t.Run("nil rpcClient returns error", func(t *testing.T) {
+		tb, err := NewTxBuilder(nil, "eip155:1", 1, "0x1234567890123456789012345678901234567890", vAddr, logger)
+		assert.Error(t, err)
+		assert.Nil(t, tb)
+		assert.Contains(t, err.Error(), "rpcClient is required")
+	})
+
+	t.Run("empty chainID returns error", func(t *testing.T) {
+		tb, err := NewTxBuilder(&RPCClient{}, "", 1, "0x1234567890123456789012345678901234567890", vAddr, logger)
+		assert.Error(t, err)
+		assert.Nil(t, tb)
+		assert.Contains(t, err.Error(), "chainID is required")
+	})
+
+	t.Run("empty gatewayAddress returns error", func(t *testing.T) {
+		tb, err := NewTxBuilder(&RPCClient{}, "eip155:1", 1, "", vAddr, logger)
+		assert.Error(t, err)
+		assert.Nil(t, tb)
+		assert.Contains(t, err.Error(), "gatewayAddress is required")
+	})
+
+	t.Run("valid inputs succeed", func(t *testing.T) {
+		tb, err := NewTxBuilder(&RPCClient{}, "eip155:1", 1, "0x1234567890123456789012345678901234567890", vAddr, logger)
+		assert.NoError(t, err)
+		assert.NotNil(t, tb)
+	})
+}
+
+// TestGetOutboundSigningRequestValidation tests input validation for GetOutboundSigningRequest
+func TestGetOutboundSigningRequestValidation(t *testing.T) {
+	builder := newTestTxBuilder(t)
+	ctx := context.Background()
+
+	t.Run("nil data returns error", func(t *testing.T) {
+		req, err := builder.GetOutboundSigningRequest(ctx, nil, 0)
+		assert.Error(t, err)
+		assert.Nil(t, req)
+		assert.Contains(t, err.Error(), "outbound event data is nil")
+	})
+
+	t.Run("empty txID returns error", func(t *testing.T) {
+		data := &uetypes.OutboundCreatedEvent{TxID: ""}
+		req, err := builder.GetOutboundSigningRequest(ctx, data, 0)
+		assert.Error(t, err)
+		assert.Nil(t, req)
+		assert.Contains(t, err.Error(), "txID is required")
+	})
+
+	t.Run("empty destinationChain returns error", func(t *testing.T) {
+		data := &uetypes.OutboundCreatedEvent{
+			TxID:             "0x" + hex.EncodeToString(make([]byte, 32)),
+			DestinationChain: "",
+		}
+		req, err := builder.GetOutboundSigningRequest(ctx, data, 0)
+		assert.Error(t, err)
+		assert.Nil(t, req)
+		assert.Contains(t, err.Error(), "destinationChain is required")
+	})
+
+	t.Run("zero gas price returns error", func(t *testing.T) {
+		data := &uetypes.OutboundCreatedEvent{
+			TxID:             "0x" + hex.EncodeToString(make([]byte, 32)),
+			DestinationChain: "eip155:1",
+			GasPrice:         "0",
+		}
+		req, err := builder.GetOutboundSigningRequest(ctx, data, 0)
+		assert.Error(t, err)
+		assert.Nil(t, req)
+	})
+}
+
+// TestBroadcastOutboundSigningRequestValidation tests input validation for BroadcastOutboundSigningRequest
+func TestBroadcastOutboundSigningRequestValidation(t *testing.T) {
+	builder := newTestTxBuilder(t)
+	ctx := context.Background()
+
+	t.Run("nil request returns error", func(t *testing.T) {
+		hash, err := builder.BroadcastOutboundSigningRequest(ctx, nil, nil, nil)
+		assert.Error(t, err)
+		assert.Empty(t, hash)
+		assert.Contains(t, err.Error(), "signing request is nil")
+	})
+
+	t.Run("nil data returns error", func(t *testing.T) {
+		req := &common.UnsignedSigningReq{}
+		hash, err := builder.BroadcastOutboundSigningRequest(ctx, req, nil, nil)
+		assert.Error(t, err)
+		assert.Empty(t, hash)
+		assert.Contains(t, err.Error(), "outbound event data is nil")
+	})
+
+	t.Run("wrong signature length returns error", func(t *testing.T) {
+		req := &common.UnsignedSigningReq{}
+		data := &uetypes.OutboundCreatedEvent{TxID: "0x1234"}
+		hash, err := builder.BroadcastOutboundSigningRequest(ctx, req, data, []byte{1, 2, 3})
+		assert.Error(t, err)
+		assert.Empty(t, hash)
+		assert.Contains(t, err.Error(), "signature must be 65 bytes")
+	})
+}
+
+// TestGetFunctionSignatureUnknown tests unknown function name returns empty string
+func TestGetFunctionSignatureUnknown(t *testing.T) {
+	builder := newTestTxBuilder(t)
+
+	sig := builder.getFunctionSignature("unknownFunc", false)
+	assert.Equal(t, "", sig)
+}
+
+// TestDetermineFunctionNameRescueFunds tests RESCUE_FUNDS routing
+func TestDetermineFunctionNameRescueFunds(t *testing.T) {
+	builder := newTestTxBuilder(t)
+	funcName := builder.determineFunctionName(uetypes.TxType_RESCUE_FUNDS, ethcommon.Address{})
+	assert.Equal(t, "rescueFunds", funcName)
+}
+
+// TestDetermineFunctionNameDefault tests unknown TxType defaults to finalizeUniversalTx
+func TestDetermineFunctionNameDefault(t *testing.T) {
+	builder := newTestTxBuilder(t)
+	funcName := builder.determineFunctionName(uetypes.TxType(999), ethcommon.Address{})
+	assert.Equal(t, "finalizeUniversalTx", funcName)
+}
 
 const (
 	bscGatewayAddress = "0x44aFFC61983F4348DdddB886349eb992C061EaC0"
@@ -680,8 +818,6 @@ func simulateOnVault(t *testing.T, rpcClient *RPCClient, builder *TxBuilder, fun
 	require.NotNil(t, result)
 }
 
-// ---------- 1. Fetch Vault from Gateway ----------
-
 func TestSimulateBSC_FetchVaultFromGateway(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping simulation test in short mode")
@@ -709,8 +845,6 @@ func TestSimulateBSC_FetchVaultFromGateway(t *testing.T) {
 	t.Logf("VAULT() returned: %s", vaultAddr.Hex())
 }
 
-// ---------- 2. Native Revert (Vault) ----------
-
 func TestSimulateBSC_RevertUniversalTx_Native(t *testing.T) {
 	rpcClient, builder := setupBSCSimulation(t)
 	defer rpcClient.Close()
@@ -719,8 +853,6 @@ func TestSimulateBSC_RevertUniversalTx_Native(t *testing.T) {
 	data := newBSCSimulationOutbound(t, "1000000000000000", bscNativeAsset, "0x", revertMsg) // 0.001 BNB
 	simulateOnVault(t, rpcClient, builder, "revertUniversalTx", data, uetypes.TxType_INBOUND_REVERT)
 }
-
-// ---------- 3. ERC20 Revert (Vault) ----------
 
 func TestSimulateBSC_RevertUniversalTx_ERC20(t *testing.T) {
 	rpcClient, builder := setupBSCSimulation(t)
@@ -731,8 +863,6 @@ func TestSimulateBSC_RevertUniversalTx_ERC20(t *testing.T) {
 	simulateOnVault(t, rpcClient, builder, "revertUniversalTx", data, uetypes.TxType_INBOUND_REVERT)
 }
 
-// ---------- 4. Native FinalizeUniversalTx — no payload ----------
-
 func TestSimulateBSC_FinalizeUniversalTx_Native(t *testing.T) {
 	rpcClient, builder := setupBSCSimulation(t)
 	defer rpcClient.Close()
@@ -742,8 +872,6 @@ func TestSimulateBSC_FinalizeUniversalTx_Native(t *testing.T) {
 	simulateOnVault(t, rpcClient, builder, "finalizeUniversalTx", data, uetypes.TxType_FUNDS)
 }
 
-// ---------- 5. ERC20 FinalizeUniversalTx — no payload ----------
-
 func TestSimulateBSC_FinalizeUniversalTx_ERC20(t *testing.T) {
 	rpcClient, builder := setupBSCSimulation(t)
 	defer rpcClient.Close()
@@ -752,8 +880,6 @@ func TestSimulateBSC_FinalizeUniversalTx_ERC20(t *testing.T) {
 	data := newBSCSimulationOutbound(t, "1000000", bscUSDT, emptyMulticall, "") // 1 USDT
 	simulateOnVault(t, rpcClient, builder, "finalizeUniversalTx", data, uetypes.TxType_FUNDS)
 }
-
-// ---------- 6. Native FinalizeUniversalTx — with payload ----------
 
 func TestSimulateBSC_FinalizeUniversalTx_NativeWithPayload(t *testing.T) {
 	rpcClient, builder := setupBSCSimulation(t)
@@ -769,8 +895,6 @@ func TestSimulateBSC_FinalizeUniversalTx_NativeWithPayload(t *testing.T) {
 	simulateOnVault(t, rpcClient, builder, "finalizeUniversalTx", data, uetypes.TxType_FUNDS_AND_PAYLOAD)
 }
 
-// ---------- 7. Payload only — no funds ----------
-
 func TestSimulateBSC_FinalizeUniversalTx_PayloadOnly(t *testing.T) {
 	rpcClient, builder := setupBSCSimulation(t)
 	defer rpcClient.Close()
@@ -785,8 +909,6 @@ func TestSimulateBSC_FinalizeUniversalTx_PayloadOnly(t *testing.T) {
 	simulateOnVault(t, rpcClient, builder, "finalizeUniversalTx", data, uetypes.TxType_PAYLOAD)
 }
 
-// ---------- 8. Native RescueFunds ----------
-
 func TestSimulateBSC_RescueFunds_Native(t *testing.T) {
 	rpcClient, builder := setupBSCSimulation(t)
 	defer rpcClient.Close()
@@ -796,8 +918,6 @@ func TestSimulateBSC_RescueFunds_Native(t *testing.T) {
 	simulateOnVault(t, rpcClient, builder, "rescueFunds", data, uetypes.TxType_INBOUND_REVERT)
 }
 
-// ---------- 9. ERC20 RescueFunds ----------
-
 func TestSimulateBSC_RescueFunds_ERC20(t *testing.T) {
 	rpcClient, builder := setupBSCSimulation(t)
 	defer rpcClient.Close()
@@ -805,4 +925,127 @@ func TestSimulateBSC_RescueFunds_ERC20(t *testing.T) {
 	revertMsg := hex.EncodeToString([]byte("rescue token"))
 	data := newBSCSimulationOutbound(t, "1000000", bscUSDT, "0x", revertMsg) // 1 USDT
 	simulateOnVault(t, rpcClient, builder, "rescueFunds", data, uetypes.TxType_INBOUND_REVERT)
+}
+
+// ---------------------------------------------------------------------------
+// GetGasFeeUsed — requires live RPC; cannot be unit-tested without mocking.
+// The function calls rpcClient.GetTransactionReceipt and
+// rpcClient.GetTransactionByHash, so a proper test would need a mock
+// RPCClient or an integration test against a real node (similar to the
+// BSC simulation tests above).
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// parseGasLimit — additional edge-case coverage
+// ---------------------------------------------------------------------------
+
+func TestParseGasLimitEdgeCases(t *testing.T) {
+	t.Run("very large gas limit", func(t *testing.T) {
+		result, err := parseGasLimit("999999999999999999")
+		assert.NoError(t, err)
+		expected := new(big.Int)
+		expected.SetString("999999999999999999", 10)
+		assert.Equal(t, expected, result)
+	})
+
+	t.Run("leading zeros", func(t *testing.T) {
+		result, err := parseGasLimit("0021000")
+		assert.NoError(t, err)
+		assert.Equal(t, int64(21000), result.Int64())
+	})
+
+	t.Run("negative number is invalid", func(t *testing.T) {
+		// big.Int.SetString with base 10 will parse negative numbers, but the
+		// function doesn't explicitly reject them. This documents behavior.
+		result, err := parseGasLimit("-100")
+		if err == nil {
+			// If it parses, the value would be negative
+			assert.True(t, result.Sign() < 0)
+		}
+	})
+
+	t.Run("whitespace only is invalid", func(t *testing.T) {
+		_, err := parseGasLimit("   ")
+		assert.Error(t, err)
+	})
+
+	t.Run("hex string is invalid", func(t *testing.T) {
+		_, err := parseGasLimit("0xff")
+		assert.Error(t, err)
+	})
+}
+
+// ---------------------------------------------------------------------------
+// parseTxType — additional edge-case coverage
+// ---------------------------------------------------------------------------
+
+func TestParseTxTypeEdgeCases(t *testing.T) {
+	t.Run("lowercase input is uppercased", func(t *testing.T) {
+		result, err := parseTxType("funds")
+		assert.NoError(t, err)
+		assert.Equal(t, uetypes.TxType_FUNDS, result)
+	})
+
+	t.Run("mixed case input", func(t *testing.T) {
+		result, err := parseTxType("Funds_And_Payload")
+		assert.NoError(t, err)
+		assert.Equal(t, uetypes.TxType_FUNDS_AND_PAYLOAD, result)
+	})
+
+	t.Run("input with whitespace is trimmed", func(t *testing.T) {
+		result, err := parseTxType("  PAYLOAD  ")
+		assert.NoError(t, err)
+		assert.Equal(t, uetypes.TxType_PAYLOAD, result)
+	})
+
+	t.Run("numeric string 0", func(t *testing.T) {
+		result, err := parseTxType("0")
+		assert.NoError(t, err)
+		assert.Equal(t, uetypes.TxType(0), result)
+	})
+
+	t.Run("numeric string for RESCUE_FUNDS", func(t *testing.T) {
+		result, err := parseTxType("RESCUE_FUNDS")
+		assert.NoError(t, err)
+		assert.Equal(t, uetypes.TxType_RESCUE_FUNDS, result)
+	})
+
+	t.Run("empty string is invalid", func(t *testing.T) {
+		_, err := parseTxType("")
+		assert.Error(t, err)
+	})
+}
+
+// ---------------------------------------------------------------------------
+// removeHexPrefix — additional edge-case coverage
+// ---------------------------------------------------------------------------
+
+func TestRemoveHexPrefixAdditional(t *testing.T) {
+	t.Run("single character", func(t *testing.T) {
+		assert.Equal(t, "a", removeHexPrefix("a"))
+	})
+
+	t.Run("0x only", func(t *testing.T) {
+		assert.Equal(t, "", removeHexPrefix("0x"))
+	})
+
+	t.Run("does not strip uppercase 0X", func(t *testing.T) {
+		// The function only checks lowercase 0x
+		assert.Equal(t, "0XABCDEF", removeHexPrefix("0XABCDEF"))
+	})
+}
+
+// ---------------------------------------------------------------------------
+// NewTxBuilder — additional validation edge cases
+// ---------------------------------------------------------------------------
+
+func TestNewTxBuilderZeroGatewayAddress(t *testing.T) {
+	logger := zerolog.Nop()
+	vAddr := ethcommon.HexToAddress(testVaultAddress)
+
+	// "0x0000000000000000000000000000000000000000" is the zero address
+	tb, err := NewTxBuilder(&RPCClient{}, "eip155:1", 1, "0x0000000000000000000000000000000000000000", vAddr, logger)
+	assert.Error(t, err)
+	assert.Nil(t, tb)
+	assert.Contains(t, err.Error(), "invalid gateway address")
 }

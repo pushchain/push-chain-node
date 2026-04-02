@@ -20,12 +20,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/pushchain/push-chain-node/universalClient/config"
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
-
-// ============================================================
-//  Constants & helpers shared across tests
-// ============================================================
 
 // testGatewayAddress is a valid base58 Solana public key used for unit tests.
 // Must NOT be SystemProgramID to avoid collisions with destinationProgram sentinel values.
@@ -141,10 +138,6 @@ func buildMockWithdrawPayload() []byte {
 	return buildMockPayload(nil, nil, 1, [32]byte{})
 }
 
-// ============================================================
-//  TestNewTxBuilder
-// ============================================================
-
 func TestNewTxBuilder(t *testing.T) {
 	logger := zerolog.Nop()
 
@@ -215,14 +208,6 @@ func TestNewTxBuilder(t *testing.T) {
 	}
 }
 
-// ============================================================
-//  TestDefaultComputeUnitLimit
-// ============================================================
-
-// ============================================================
-//  TestDeriveTSSPDA — seed must be "tsspda_v2"
-// ============================================================
-
 func TestDeriveTSSPDA(t *testing.T) {
 	builder := newTestBuilder(t)
 
@@ -240,10 +225,6 @@ func TestDeriveTSSPDA(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEqual(t, oldPDA, pda, "TSS PDA must NOT use old seed 'tsspda'")
 }
-
-// ============================================================
-//  TestFetchTSSChainID — Borsh String parsing
-// ============================================================
 
 func TestFetchTSSChainID(t *testing.T) {
 	t.Run("parses valid TssPda with short chain_id", func(t *testing.T) {
@@ -305,10 +286,6 @@ func parseTSSPDAData(accountData []byte) (string, error) {
 	return chainID, nil
 }
 
-// ============================================================
-//  TestDetermineInstructionID
-// ============================================================
-
 func TestDetermineInstructionID(t *testing.T) {
 	builder := newTestBuilder(t)
 
@@ -345,10 +322,6 @@ func TestDetermineInstructionID(t *testing.T) {
 	}
 }
 
-// ============================================================
-//  TestAnchorDiscriminator — SHA256, not Keccak
-// ============================================================
-
 func TestAnchorDiscriminator(t *testing.T) {
 	tests := []struct {
 		methodName string
@@ -373,10 +346,6 @@ func TestAnchorDiscriminator(t *testing.T) {
 		})
 	}
 }
-
-// ============================================================
-//  TestConstructTSSMessage — message format
-// ============================================================
 
 func TestConstructTSSMessage(t *testing.T) {
 	builder := newTestBuilder(t)
@@ -621,10 +590,6 @@ func TestConstructTSSMessage(t *testing.T) {
 	})
 }
 
-// ============================================================
-//  TestConstructTSSMessage_HashIsKeccak256
-// ============================================================
-
 func TestConstructTSSMessage_HashIsKeccak256(t *testing.T) {
 	builder := newTestBuilder(t)
 
@@ -649,10 +614,6 @@ func TestConstructTSSMessage_HashIsKeccak256(t *testing.T) {
 	assert.Equal(t, keccakHash, hash, "TSS message must be hashed with keccak256")
 	assert.NotEqual(t, sha256Hash[:], hash, "TSS message must NOT be hashed with SHA256")
 }
-
-// ============================================================
-//  TestDecodePayload
-// ============================================================
 
 func TestDecodePayload(t *testing.T) {
 	t.Run("decodes valid execute payload with 2 accounts", func(t *testing.T) {
@@ -721,10 +682,6 @@ func TestDecodePayload(t *testing.T) {
 	})
 }
 
-// ============================================================
-//  TestAccountsToWritableFlags
-// ============================================================
-
 func TestAccountsToWritableFlags(t *testing.T) {
 	t.Run("empty accounts → empty flags", func(t *testing.T) {
 		flags := accountsToWritableFlags(nil)
@@ -771,10 +728,6 @@ func TestAccountsToWritableFlags(t *testing.T) {
 		assert.Equal(t, []byte{0xA0}, flags)
 	})
 }
-
-// ============================================================
-//  TestBuildWithdrawAndExecuteData — Borsh layout
-// ============================================================
 
 func TestBuildWithdrawAndExecuteData(t *testing.T) {
 	builder := newTestBuilder(t)
@@ -882,10 +835,6 @@ func TestBuildWithdrawAndExecuteData(t *testing.T) {
 	})
 }
 
-// ============================================================
-//  TestBuildRevertData
-// ============================================================
-
 func TestBuildRevertData(t *testing.T) {
 	builder := newTestBuilder(t)
 	txID := makeTxID(0x01)
@@ -920,10 +869,6 @@ func TestBuildRevertData(t *testing.T) {
 	})
 }
 
-// ============================================================
-//  TestBuildRescueData
-// ============================================================
-
 func TestBuildRescueData(t *testing.T) {
 	builder := newTestBuilder(t)
 	txID := makeTxID(0x01)
@@ -956,10 +901,6 @@ func TestBuildRescueData(t *testing.T) {
 		assert.Less(t, len(rescueData), len(revertData), "rescue data should be shorter than revert data")
 	})
 }
-
-// ============================================================
-//  TestBuildWithdrawAndExecuteAccounts — accounts list
-// ============================================================
 
 func TestBuildWithdrawAndExecuteAccounts(t *testing.T) {
 	builder := newTestBuilder(t)
@@ -1059,10 +1000,6 @@ func TestBuildWithdrawAndExecuteAccounts(t *testing.T) {
 	})
 }
 
-// ============================================================
-//  TestBuildRevertAccounts
-// ============================================================
-
 func TestBuildRevertAccounts(t *testing.T) {
 	builder := newTestBuilder(t)
 
@@ -1121,10 +1058,6 @@ func TestBuildRevertAccounts(t *testing.T) {
 	})
 }
 
-// ============================================================
-//  TestBuildRescueAccounts
-// ============================================================
-
 func TestBuildRescueAccounts(t *testing.T) {
 	builder := newTestBuilder(t)
 
@@ -1160,10 +1093,6 @@ func TestBuildRescueAccounts(t *testing.T) {
 	})
 }
 
-// ============================================================
-//  TestRemoveHexPrefix
-// ============================================================
-
 func TestRemoveHexPrefix(t *testing.T) {
 	tests := []struct {
 		input    string
@@ -1179,10 +1108,6 @@ func TestRemoveHexPrefix(t *testing.T) {
 		assert.Equal(t, tt.expected, removeHexPrefix(tt.input))
 	}
 }
-
-// ============================================================
-//  TestParseTxType
-// ============================================================
 
 func TestParseTxType(t *testing.T) {
 	tests := []struct {
@@ -1214,10 +1139,6 @@ func TestParseTxType(t *testing.T) {
 	}
 }
 
-// ============================================================
-//  TestComputeUnitLimitInstruction
-// ============================================================
-
 func TestBuildSetComputeUnitLimitInstruction(t *testing.T) {
 	builder := newTestBuilder(t)
 	ix := builder.buildSetComputeUnitLimitInstruction(300000)
@@ -1234,10 +1155,6 @@ func TestBuildSetComputeUnitLimitInstruction(t *testing.T) {
 	assert.Equal(t, uint32(300000), binary.LittleEndian.Uint32(data[1:5]))
 }
 
-// ============================================================
-//  TestGatewayAccountMetaStruct
-// ============================================================
-
 func TestGatewayAccountMetaStruct(t *testing.T) {
 	var pk [32]byte
 	for i := range pk {
@@ -1247,10 +1164,6 @@ func TestGatewayAccountMetaStruct(t *testing.T) {
 	assert.Equal(t, pk, meta.Pubkey)
 	assert.True(t, meta.IsWritable)
 }
-
-// ============================================================
-//  TestEndToEndMessageAndDataConsistency
-// ============================================================
 
 func TestEndToEndWithdrawMessageAndData(t *testing.T) {
 	// Verifies that the TSS message hash (signed by TSS) ends up in the
@@ -1286,10 +1199,6 @@ func TestEndToEndWithdrawMessageAndData(t *testing.T) {
 	assert.Equal(t, msgHash, msgHashFromData, "message_hash in instruction data must match TSS message hash")
 }
 
-// ============================================================
-//  TestAnchorDiscriminatorKnownValues
-// ============================================================
-
 func TestAnchorDiscriminatorKnownValues(t *testing.T) {
 	// Verify discriminator values are deterministic and can be independently computed
 	for _, method := range []string{"finalize_universal_tx", "revert_universal_tx", "rescue_funds"} {
@@ -1298,16 +1207,6 @@ func TestAnchorDiscriminatorKnownValues(t *testing.T) {
 		assert.Equal(t, h[:8], disc, "discriminator for %s", method)
 	}
 }
-
-// ============================================================
-//  TestDetermineRecoveryID — real EVM key signing
-// ============================================================
-
-// ============================================================
-//  TestEndToEndWithRealSignature
-//  Full offline end-to-end: construct TSS message → sign with
-//  real EVM key → build instruction data → verify recovery
-// ============================================================
 
 func TestEndToEndWithRealSignature(t *testing.T) {
 	builder := newTestBuilder(t)
@@ -1434,25 +1333,6 @@ func TestEndToEndWithRealSignature(t *testing.T) {
 		assert.Len(t, instrData, 185)
 	})
 }
-
-// ============================================================
-//  Simulation Tests — live devnet end-to-end
-//
-//  Run: go test -run TestSimulate -v -count=1 -timeout 120s
-//
-//  Each test does the full pipeline:
-//    1. Connect to devnet RPC
-//    2. Generate fresh Solana relayer keypair (written to temp dir)
-//    3. Generate fresh EVM key for signing
-//    4. GetOutboundSigningRequest (fetches TSS PDA nonce from chain)
-//    5. Sign the message hash with the EVM key (secp256k1)
-//    6. BroadcastOutboundSigningRequest (assembles & sends the Solana tx)
-//
-//  Expected: Steps 1-5 always succeed. Step 6 fails with
-//  "failed to determine recovery ID" because the generated EVM key
-//  doesn't match the TSS ETH address stored on-chain. This validates
-//  the entire assembly pipeline up to the on-chain auth check.
-// ============================================================
 
 const (
 	devnetGatewayAddress = "DJoFYDpgbTfxbXBv1QYhYGc9FK4J5FUKpYXAfSkHryXp"
@@ -1591,8 +1471,6 @@ func requireSimulationSuccess(t *testing.T, result *rpc.SimulateTransactionResul
 	}
 }
 
-// ---- Withdraw ----
-
 func TestSimulate_Withdraw_NativeSOL(t *testing.T) {
 	rpcClient, builder := setupDevnetSimulation(t)
 	defer rpcClient.Close()
@@ -1619,8 +1497,6 @@ func TestSimulate_Withdraw_SPLToken(t *testing.T) {
 	require.NoError(t, err)
 	requireSimulationSuccess(t, result)
 }
-
-// ---- Execute ----
 
 func TestSimulate_Execute_NativeSOL(t *testing.T) {
 	rpcClient, builder := setupDevnetSimulation(t)
@@ -1660,8 +1536,6 @@ func TestSimulate_Execute_SPLToken(t *testing.T) {
 	requireSimulationSuccess(t, result)
 }
 
-// ---- Revert ----
-
 func TestSimulate_Revert_NativeSOL(t *testing.T) {
 	rpcClient, builder := setupDevnetSimulation(t)
 	defer rpcClient.Close()
@@ -1683,8 +1557,6 @@ func TestSimulate_Revert_SPLToken(t *testing.T) {
 	require.NoError(t, err)
 	requireSimulationSuccess(t, result)
 }
-
-// ---- Rescue ----
 
 // buildAndSimulateRescue constructs a rescue_funds transaction and simulates it on devnet.
 func buildAndSimulateRescue(t *testing.T, rpcClient *RPCClient, builder *TxBuilder, evmKey *ecdsa.PrivateKey, amount uint64, assetAddr string) *rpc.SimulateTransactionResult {
@@ -1823,4 +1695,157 @@ func TestSimulate_Rescue_SPLToken(t *testing.T) {
 
 	result := buildAndSimulateRescue(t, rpcClient, builder, evmKey, 500000, devnetSPLMint)
 	requireSimulationSuccess(t, result)
+}
+
+func TestGetNextNonce(t *testing.T) {
+	builder := newTestBuilder(t)
+
+	t.Run("returns 0 with arbitrary address and finalized=true", func(t *testing.T) {
+		nonce, err := builder.GetNextNonce(context.Background(), "SomeAddress123", true)
+		require.NoError(t, err)
+		assert.Equal(t, uint64(0), nonce)
+	})
+
+	t.Run("returns 0 with empty address and finalized=false", func(t *testing.T) {
+		nonce, err := builder.GetNextNonce(context.Background(), "", false)
+		require.NoError(t, err)
+		assert.Equal(t, uint64(0), nonce)
+	})
+}
+
+func TestGetGasFeeUsed(t *testing.T) {
+	builder := newTestBuilder(t)
+
+	t.Run("returns string zero for any tx hash", func(t *testing.T) {
+		fee, err := builder.GetGasFeeUsed(context.Background(), "5xYz...someTxHash")
+		require.NoError(t, err)
+		assert.Equal(t, "0", fee)
+	})
+
+	t.Run("returns string zero for empty tx hash", func(t *testing.T) {
+		fee, err := builder.GetGasFeeUsed(context.Background(), "")
+		require.NoError(t, err)
+		assert.Equal(t, "0", fee)
+	})
+}
+
+func TestNewTxBuilder_ChainConfig(t *testing.T) {
+	logger := zerolog.Nop()
+
+	t.Run("valid protocolALT is stored", func(t *testing.T) {
+		altKey := solana.NewWallet().PublicKey()
+		cfg := &config.ChainSpecificConfig{
+			ProtocolALT: altKey.String(),
+		}
+		builder, err := NewTxBuilder(&RPCClient{}, "solana:devnet", testGatewayAddress, "/tmp", logger, cfg)
+		require.NoError(t, err)
+		assert.Equal(t, altKey, builder.protocolALT)
+	})
+
+	t.Run("invalid protocolALT is silently skipped", func(t *testing.T) {
+		cfg := &config.ChainSpecificConfig{
+			ProtocolALT: "not-valid-base58!!!",
+		}
+		builder, err := NewTxBuilder(&RPCClient{}, "solana:devnet", testGatewayAddress, "/tmp", logger, cfg)
+		require.NoError(t, err)
+		assert.True(t, builder.protocolALT.IsZero(), "invalid ALT should result in zero pubkey")
+	})
+
+	t.Run("valid tokenALTs are stored", func(t *testing.T) {
+		mint := solana.NewWallet().PublicKey()
+		alt := solana.NewWallet().PublicKey()
+		cfg := &config.ChainSpecificConfig{
+			TokenALTs: map[string]string{
+				mint.String(): alt.String(),
+			},
+		}
+		builder, err := NewTxBuilder(&RPCClient{}, "solana:devnet", testGatewayAddress, "/tmp", logger, cfg)
+		require.NoError(t, err)
+		got, ok := builder.tokenALTs[mint]
+		require.True(t, ok, "expected token ALT entry for mint")
+		assert.Equal(t, alt, got)
+	})
+
+	t.Run("invalid tokenALT mint is skipped", func(t *testing.T) {
+		cfg := &config.ChainSpecificConfig{
+			TokenALTs: map[string]string{
+				"bad-mint": solana.NewWallet().PublicKey().String(),
+			},
+		}
+		builder, err := NewTxBuilder(&RPCClient{}, "solana:devnet", testGatewayAddress, "/tmp", logger, cfg)
+		require.NoError(t, err)
+		assert.Len(t, builder.tokenALTs, 0)
+	})
+
+	t.Run("invalid tokenALT address is skipped", func(t *testing.T) {
+		cfg := &config.ChainSpecificConfig{
+			TokenALTs: map[string]string{
+				solana.NewWallet().PublicKey().String(): "bad-alt",
+			},
+		}
+		builder, err := NewTxBuilder(&RPCClient{}, "solana:devnet", testGatewayAddress, "/tmp", logger, cfg)
+		require.NoError(t, err)
+		assert.Len(t, builder.tokenALTs, 0)
+	})
+
+	t.Run("nil chainConfig is fine", func(t *testing.T) {
+		builder, err := NewTxBuilder(&RPCClient{}, "solana:devnet", testGatewayAddress, "/tmp", logger, nil)
+		require.NoError(t, err)
+		assert.True(t, builder.protocolALT.IsZero())
+		assert.Len(t, builder.tokenALTs, 0)
+	})
+}
+
+func TestBuildCreateATAIdempotentInstruction(t *testing.T) {
+	builder := newTestBuilder(t)
+	payer := solana.NewWallet().PublicKey()
+	owner := solana.NewWallet().PublicKey()
+	mint := solana.NewWallet().PublicKey()
+
+	ix := builder.buildCreateATAIdempotentInstruction(payer, owner, mint)
+
+	t.Run("program ID is ATA program", func(t *testing.T) {
+		expected := solana.MustPublicKeyFromBase58("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
+		assert.Equal(t, expected, ix.ProgramID())
+	})
+
+	t.Run("has 6 accounts in correct order", func(t *testing.T) {
+		accounts := ix.Accounts()
+		require.Len(t, accounts, 6)
+
+		// payer (signer, writable)
+		assert.Equal(t, payer, accounts[0].PublicKey)
+		assert.True(t, accounts[0].IsSigner)
+		assert.True(t, accounts[0].IsWritable)
+
+		// ATA (writable, derived deterministically)
+		ataProgramID := solana.MustPublicKeyFromBase58("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
+		expectedATA, _, _ := solana.FindProgramAddress(
+			[][]byte{owner.Bytes(), solana.TokenProgramID.Bytes(), mint.Bytes()},
+			ataProgramID,
+		)
+		assert.Equal(t, expectedATA, accounts[1].PublicKey)
+		assert.True(t, accounts[1].IsWritable)
+		assert.False(t, accounts[1].IsSigner)
+
+		// owner
+		assert.Equal(t, owner, accounts[2].PublicKey)
+		assert.False(t, accounts[2].IsWritable)
+
+		// mint
+		assert.Equal(t, mint, accounts[3].PublicKey)
+		assert.False(t, accounts[3].IsWritable)
+
+		// system program
+		assert.Equal(t, solana.SystemProgramID, accounts[4].PublicKey)
+
+		// token program
+		assert.Equal(t, solana.TokenProgramID, accounts[5].PublicKey)
+	})
+
+	t.Run("instruction data is [1] for CreateIdempotent", func(t *testing.T) {
+		data, err := ix.Data()
+		require.NoError(t, err)
+		assert.Equal(t, []byte{1}, data)
+	})
 }

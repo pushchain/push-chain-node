@@ -239,6 +239,169 @@ func TestChainStore_UpdateVoteTxHash(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestChainStore_GetPendingEventsLimit(t *testing.T) {
+	cs := newTestChainStore(t)
+
+	// Insert 5 pending events
+	for i := 0; i < 5; i++ {
+		evt := &storemodels.Event{
+			EventID:          fmt.Sprintf("limit-evt-%d", i),
+			BlockHeight:      uint64(i + 1),
+			Type:             storemodels.EventTypeInbound,
+			ConfirmationType: storemodels.ConfirmationStandard,
+			Status:           storemodels.StatusPending,
+		}
+		inserted, err := cs.InsertEventIfNotExists(evt)
+		require.NoError(t, err)
+		assert.True(t, inserted)
+	}
+
+	t.Run("limit returns at most N events", func(t *testing.T) {
+		events, err := cs.GetPendingEvents(3)
+		require.NoError(t, err)
+		assert.Len(t, events, 3)
+	})
+
+	t.Run("limit larger than total returns all", func(t *testing.T) {
+		events, err := cs.GetPendingEvents(100)
+		require.NoError(t, err)
+		assert.Len(t, events, 5)
+	})
+
+	t.Run("limit zero returns empty", func(t *testing.T) {
+		events, err := cs.GetPendingEvents(0)
+		require.NoError(t, err)
+		assert.Len(t, events, 0)
+	})
+
+	t.Run("limit one returns exactly one", func(t *testing.T) {
+		events, err := cs.GetPendingEvents(1)
+		require.NoError(t, err)
+		assert.Len(t, events, 1)
+	})
+}
+
+func TestChainStore_GetConfirmedEventsOrdering(t *testing.T) {
+	cs := newTestChainStore(t)
+
+	// Insert events in reverse order; they should come back ordered by created_at ASC
+	for i := 4; i >= 0; i-- {
+		evt := &storemodels.Event{
+			EventID:          fmt.Sprintf("order-evt-%d", i),
+			BlockHeight:      uint64(i + 1),
+			Type:             storemodels.EventTypeInbound,
+			ConfirmationType: storemodels.ConfirmationStandard,
+			Status:           storemodels.StatusConfirmed,
+		}
+		inserted, err := cs.InsertEventIfNotExists(evt)
+		require.NoError(t, err)
+		assert.True(t, inserted)
+	}
+
+	t.Run("events ordered by created_at ASC", func(t *testing.T) {
+		events, err := cs.GetConfirmedEvents(10)
+		require.NoError(t, err)
+		require.Len(t, events, 5)
+		// Since they are inserted sequentially, created_at is monotonically increasing
+		// The first inserted (i=4) has the earliest created_at
+		assert.Equal(t, "order-evt-4", events[0].EventID)
+		assert.Equal(t, "order-evt-0", events[4].EventID)
+	})
+
+	t.Run("limit constrains confirmed events", func(t *testing.T) {
+		events, err := cs.GetConfirmedEvents(2)
+		require.NoError(t, err)
+		assert.Len(t, events, 2)
+	})
+}
+
+func TestChainStore_DeleteTerminalEventsNilDatabase(t *testing.T) {
+	cs := NewChainStore(nil)
+
+	deleted, err := cs.DeleteTerminalEvents("2099-01-01")
+	require.Error(t, err)
+	assert.Equal(t, int64(0), deleted)
+	assert.Contains(t, err.Error(), "database is nil")
+}
+
+func TestChainStore_DeleteTerminalEventsBoundary(t *testing.T) {
+	cs := newTestChainStore(t)
+
+	// Insert terminal events
+	for i, status := range []string{storemodels.StatusCompleted, storemodels.StatusReverted, storemodels.StatusReorged} {
+		evt := &storemodels.Event{
+			EventID:          fmt.Sprintf("boundary-term-%d", i),
+			BlockHeight:      uint64(i),
+			Type:             storemodels.EventTypeInbound,
+			ConfirmationType: storemodels.ConfirmationStandard,
+			Status:           status,
+		}
+		_, err := cs.InsertEventIfNotExists(evt)
+		require.NoError(t, err)
+	}
+
+	// Also insert a pending event (non-terminal)
+	pending := &storemodels.Event{
+		EventID:          "boundary-pending",
+		BlockHeight:      100,
+		Type:             storemodels.EventTypeInbound,
+		ConfirmationType: storemodels.ConfirmationStandard,
+		Status:           storemodels.StatusPending,
+	}
+	_, err := cs.InsertEventIfNotExists(pending)
+	require.NoError(t, err)
+
+	// Also insert a confirmed event (non-terminal)
+	confirmed := &storemodels.Event{
+		EventID:          "boundary-confirmed",
+		BlockHeight:      101,
+		Type:             storemodels.EventTypeInbound,
+		ConfirmationType: storemodels.ConfirmationStandard,
+		Status:           storemodels.StatusConfirmed,
+	}
+	_, err = cs.InsertEventIfNotExists(confirmed)
+	require.NoError(t, err)
+
+	t.Run("delete with past date deletes nothing", func(t *testing.T) {
+		deleted, err := cs.DeleteTerminalEvents("2000-01-01")
+		require.NoError(t, err)
+		assert.Equal(t, int64(0), deleted)
+	})
+
+	t.Run("delete with future date only deletes terminal events", func(t *testing.T) {
+		deleted, err := cs.DeleteTerminalEvents("2099-01-01")
+		require.NoError(t, err)
+		assert.Equal(t, int64(3), deleted)
+
+		// Pending and confirmed events remain
+		pendingEvents, err := cs.GetPendingEvents(10)
+		require.NoError(t, err)
+		assert.Len(t, pendingEvents, 1)
+
+		confirmedEvents, err := cs.GetConfirmedEvents(10)
+		require.NoError(t, err)
+		assert.Len(t, confirmedEvents, 1)
+	})
+}
+
+func TestChainStore_UpdateStatusAndVoteTxHashNilDatabase(t *testing.T) {
+	cs := NewChainStore(nil)
+
+	rows, err := cs.UpdateStatusAndVoteTxHash("evt-x", storemodels.StatusConfirmed, storemodels.StatusCompleted, "0xhash")
+	require.Error(t, err)
+	assert.Equal(t, int64(0), rows)
+	assert.Contains(t, err.Error(), "database is nil")
+}
+
+func TestChainStore_UpdateStatusAndEventDataNilDatabase(t *testing.T) {
+	cs := NewChainStore(nil)
+
+	rows, err := cs.UpdateStatusAndEventData("evt-x", storemodels.StatusPending, storemodels.StatusConfirmed, []byte(`{}`))
+	require.Error(t, err)
+	assert.Equal(t, int64(0), rows)
+	assert.Contains(t, err.Error(), "database is nil")
+}
+
 func TestChainStore_DeleteTerminalEvents(t *testing.T) {
 	cs := newTestChainStore(t)
 

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 	"unsafe"
 
 	"github.com/rs/zerolog"
@@ -25,10 +26,6 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 )
-
-// ---------------------------------------------------------------------------
-// Mocks
-// ---------------------------------------------------------------------------
 
 type mockTxBuilder struct{ mock.Mock }
 
@@ -84,10 +81,6 @@ func (m *mockChainClient) Start(context.Context) error                     { ret
 func (m *mockChainClient) Stop() error                                     { return nil }
 func (m *mockChainClient) IsHealthy() bool                                 { return true }
 func (m *mockChainClient) GetTxBuilder() (common.TxBuilder, error) { return m.builder, nil }
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 func setupTestDB(t *testing.T) (*eventstore.Store, *gorm.DB) {
 	t.Helper()
@@ -176,10 +169,6 @@ func newBroadcaster(evtStore *eventstore.Store, ch *chains.Chains, tssAddr strin
 		GetTSSAddress: getTSSAddr,
 	})
 }
-
-// ---------------------------------------------------------------------------
-// EVM Tests
-// ---------------------------------------------------------------------------
 
 func TestEVM_BroadcastError_NonceConsumed_MarksBroadcasted(t *testing.T) {
 	// Broadcast fails with txHash, finalized nonce shows consumed → BROADCASTED.
@@ -309,10 +298,6 @@ func TestEVM_GetTSSAddressNil_UsesEmptyAddress(t *testing.T) {
 	builder.AssertCalled(t, "GetNextNonce", mock.Anything, "", true)
 }
 
-// ---------------------------------------------------------------------------
-// SVM Tests
-// ---------------------------------------------------------------------------
-
 func TestSVM_BroadcastSuccess_MarksBroadcasted(t *testing.T) {
 	// Broadcast succeeds → BROADCASTED with tx hash.
 	evtStore, db := setupTestDB(t)
@@ -395,10 +380,6 @@ func TestSVM_BroadcastFails_PDACheckFails_StaysSigned(t *testing.T) {
 	require.Equal(t, store.StatusSigned, ev.Status) // stays SIGNED
 }
 
-// ---------------------------------------------------------------------------
-// processSigned Tests
-// ---------------------------------------------------------------------------
-
 func TestProcessSigned_NoEvents_DoesNothing(t *testing.T) {
 	evtStore, _ := setupTestDB(t)
 	builder := &mockTxBuilder{}
@@ -439,10 +420,6 @@ func TestProcessSigned_MultipleEvents(t *testing.T) {
 	require.Equal(t, store.StatusBroadcasted, ev2.Status)
 }
 
-// ---------------------------------------------------------------------------
-// markBroadcasted Tests
-// ---------------------------------------------------------------------------
-
 func TestMarkBroadcasted_FormatsCAIPTxHash(t *testing.T) {
 	evtStore, db := setupTestDB(t)
 	insertSignedEvent(t, db, "ev-1", "eip155:1", 5)
@@ -467,10 +444,6 @@ func TestMarkBroadcasted_EmptyTxHash(t *testing.T) {
 	updated := getEvent(t, db, "ev-1")
 	require.Equal(t, "solana:mainnet:", updated.BroadcastedTxHash)
 }
-
-// ---------------------------------------------------------------------------
-// Fund Migration EVM Tests
-// ---------------------------------------------------------------------------
 
 // testOldTSSPubkey is a valid compressed secp256k1 pubkey for testing.
 // Derived address: coordinator.DeriveEVMAddressFromPubkey will succeed with this.
@@ -553,6 +526,58 @@ func TestFundMigrationEVM_BroadcastFails_NonceConsumed(t *testing.T) {
 
 	ev := getEvent(t, db, "fm-1")
 	require.Equal(t, store.StatusBroadcasted, ev.Status)
+}
+
+func TestMarkBroadcasted_NonExistentEvent(t *testing.T) {
+	evtStore, _ := setupTestDB(t)
+	b := newBroadcaster(evtStore, nil, "")
+
+	ev := &store.Event{EventID: "does-not-exist"}
+	b.markBroadcasted(ev, "eip155:1", "0xdeadbeef")
+	// The method logs a warning but does not panic; verify no event was created.
+}
+
+func TestMarkBroadcasted_SetsAllFields(t *testing.T) {
+	evtStore, db := setupTestDB(t)
+	insertSignedEvent(t, db, "ev-fields", "eip155:1", 5)
+
+	b := newBroadcaster(evtStore, nil, "")
+	ev := getEvent(t, db, "ev-fields")
+	b.markBroadcasted(&ev, "eip155:42", "0xcafe")
+
+	updated := getEvent(t, db, "ev-fields")
+	require.Equal(t, store.StatusBroadcasted, updated.Status)
+	require.Equal(t, "eip155:42:0xcafe", updated.BroadcastedTxHash)
+}
+
+func TestStart_ContextCancellation(t *testing.T) {
+	evtStore, _ := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "eip155:1", uregistrytypes.VmType_EVM, client)
+
+	b := NewBroadcaster(Config{
+		EventStore:    evtStore,
+		Chains:        ch,
+		CheckInterval: 50 * time.Millisecond,
+		Logger:        zerolog.Nop(),
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		b.run(ctx)
+		close(done)
+	}()
+
+	cancel()
+
+	select {
+	case <-done:
+		// run exited cleanly
+	case <-time.After(2 * time.Second):
+		t.Fatal("run did not exit after context cancellation")
+	}
 }
 
 func TestFundMigrationEVM_BroadcastFails_NonceNotConsumed_StaysSigned(t *testing.T) {

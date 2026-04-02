@@ -328,6 +328,130 @@ func TestClientIsHealthy(t *testing.T) {
 	})
 }
 
+// TestApplyDefaults tests the applyDefaults method
+func TestApplyDefaults(t *testing.T) {
+	logger := zerolog.New(zerolog.NewTestWriter(t))
+
+	t.Run("all defaults when chainConfig is nil", func(t *testing.T) {
+		client := &Client{
+			logger:     logger,
+			chainIDStr: "eip155:1",
+		}
+
+		cfg := client.applyDefaults()
+		assert.Equal(t, 5, cfg.eventPollingInterval)
+		assert.Equal(t, 30, cfg.gasPriceInterval)
+		assert.Equal(t, 0, cfg.gasPriceMarkupPercent)
+		assert.Equal(t, uint64(2), cfg.fastConfirmations)
+		assert.Equal(t, uint64(12), cfg.standardConfirmations)
+	})
+
+	t.Run("all defaults when fields are nil", func(t *testing.T) {
+		client := &Client{
+			logger:      logger,
+			chainIDStr:  "eip155:1",
+			chainConfig: &config.ChainSpecificConfig{},
+		}
+
+		cfg := client.applyDefaults()
+		assert.Equal(t, 5, cfg.eventPollingInterval)
+		assert.Equal(t, 30, cfg.gasPriceInterval)
+		assert.Equal(t, 0, cfg.gasPriceMarkupPercent)
+	})
+
+	t.Run("custom values override defaults", func(t *testing.T) {
+		eventPoll := 10
+		gasPriceInt := 60
+		gasPriceMarkup := 15
+		client := &Client{
+			logger:     logger,
+			chainIDStr: "eip155:1",
+			chainConfig: &config.ChainSpecificConfig{
+				EventPollingIntervalSeconds: &eventPoll,
+				GasPriceIntervalSeconds:     &gasPriceInt,
+				GasPriceMarkupPercent:       &gasPriceMarkup,
+			},
+			registryConfig: &uregistrytypes.ChainConfig{
+				BlockConfirmation: &uregistrytypes.BlockConfirmation{
+					FastInbound:     5,
+					StandardInbound: 20,
+				},
+			},
+		}
+
+		cfg := client.applyDefaults()
+		assert.Equal(t, 10, cfg.eventPollingInterval)
+		assert.Equal(t, 60, cfg.gasPriceInterval)
+		assert.Equal(t, 15, cfg.gasPriceMarkupPercent)
+		assert.Equal(t, uint64(5), cfg.fastConfirmations)
+		assert.Equal(t, uint64(20), cfg.standardConfirmations)
+	})
+
+	t.Run("zero values use defaults", func(t *testing.T) {
+		zero := 0
+		client := &Client{
+			logger:     logger,
+			chainIDStr: "eip155:1",
+			chainConfig: &config.ChainSpecificConfig{
+				EventPollingIntervalSeconds: &zero,
+				GasPriceIntervalSeconds:     &zero,
+				GasPriceMarkupPercent:       &zero,
+			},
+		}
+
+		cfg := client.applyDefaults()
+		assert.Equal(t, 5, cfg.eventPollingInterval, "zero event polling should use default")
+		assert.Equal(t, 30, cfg.gasPriceInterval, "zero gas price interval should use default")
+		assert.Equal(t, 0, cfg.gasPriceMarkupPercent, "zero markup is valid default")
+	})
+
+	t.Run("registryConfig nil uses default confirmations", func(t *testing.T) {
+		client := &Client{
+			logger:     logger,
+			chainIDStr: "eip155:1",
+		}
+
+		cfg := client.applyDefaults()
+		assert.Equal(t, uint64(2), cfg.fastConfirmations)
+		assert.Equal(t, uint64(12), cfg.standardConfirmations)
+	})
+
+	t.Run("registryConfig with nil BlockConfirmation uses defaults", func(t *testing.T) {
+		client := &Client{
+			logger:     logger,
+			chainIDStr: "eip155:1",
+			registryConfig: &uregistrytypes.ChainConfig{
+				BlockConfirmation: nil,
+			},
+		}
+
+		cfg := client.applyDefaults()
+		assert.Equal(t, uint64(2), cfg.fastConfirmations)
+		assert.Equal(t, uint64(12), cfg.standardConfirmations)
+	})
+}
+
+// TestGetTxBuilderNil tests GetTxBuilder when txBuilder is not initialized
+func TestGetTxBuilderNil(t *testing.T) {
+	logger := zerolog.New(zerolog.NewTestWriter(t))
+
+	chainConfig := &uregistrytypes.ChainConfig{
+		Chain:  "eip155:1",
+		VmType: uregistrytypes.VmType_EVM,
+	}
+
+	chainSpecificConfig := testChainConfig([]string{"https://eth-mainnet.example.com"})
+	client, err := NewClient(chainConfig, nil, chainSpecificConfig, nil, logger)
+	require.NoError(t, err)
+
+	// txBuilder is nil because gateway is not configured / Start not called
+	txBuilder, err := client.GetTxBuilder()
+	assert.Error(t, err)
+	assert.Nil(t, txBuilder)
+	assert.Contains(t, err.Error(), "txBuilder not available")
+	assert.Contains(t, err.Error(), "eip155:1")
+}
+
 // TestClientGetMethods tests getter methods
 func TestClientGetMethods(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))

@@ -251,6 +251,38 @@ func TestDefaultExpiryOffset(t *testing.T) {
 	assert.Equal(t, uint64(600), uint64(DefaultExpiryOffset))
 }
 
+func TestHashEventID(t *testing.T) {
+	t.Run("deterministic output", func(t *testing.T) {
+		id1 := hashEventID("keygen", "123")
+		id2 := hashEventID("keygen", "123")
+		assert.Equal(t, id1, id2)
+	})
+
+	t.Run("different types produce different IDs", func(t *testing.T) {
+		id1 := hashEventID("keygen", "123")
+		id2 := hashEventID("refresh", "123")
+		assert.NotEqual(t, id1, id2)
+	})
+
+	t.Run("different raw IDs produce different IDs", func(t *testing.T) {
+		id1 := hashEventID("keygen", "1")
+		id2 := hashEventID("keygen", "2")
+		assert.NotEqual(t, id1, id2)
+	})
+
+	t.Run("output is hex string of sha256 length", func(t *testing.T) {
+		id := hashEventID("type", "id")
+		assert.Len(t, id, 64) // sha256 = 32 bytes = 64 hex chars
+	})
+}
+
+func TestConvertOutboundToEvent_BothNil(t *testing.T) {
+	result, err := convertOutboundToEvent(nil, nil)
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "entry or outbound is nil")
+}
+
 func TestConvertFundMigrationEvent(t *testing.T) {
 	t.Run("nil migration returns error", func(t *testing.T) {
 		result, err := convertFundMigrationEvent(nil)

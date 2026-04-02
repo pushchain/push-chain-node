@@ -9,6 +9,7 @@ import (
 	aiauditfixes "github.com/pushchain/push-chain-node/app/upgrades/ai-audit-fixes"
 	aiauditfixes2 "github.com/pushchain/push-chain-node/app/upgrades/ai-audit-fixes-2"
 	purgeexpiredoutbounds "github.com/pushchain/push-chain-node/app/upgrades/purge-expired-outbounds"
+	removeutxverifier "github.com/pushchain/push-chain-node/app/upgrades/remove-utxverifier"
 	tssmigration "github.com/pushchain/push-chain-node/app/upgrades/tss-migration"
 	ueamigration "github.com/pushchain/push-chain-node/app/upgrades/uea-migration"
 	ceagasandpayload "github.com/pushchain/push-chain-node/app/upgrades/cea-gas-and-payload"
@@ -61,6 +62,7 @@ var Upgrades = []upgrades.Upgrade{
 	ueamigration.NewUpgrade(),
 	tssmigration.NewUpgrade(),
 	purgeexpiredoutbounds.NewUpgrade(),
+	removeutxverifier.NewUpgrade(),
 }
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers
@@ -83,7 +85,6 @@ func (app *ChainApp) RegisterUpgradeHandlers() {
 
 		// Module keepers
 		UExecutorKeeper:   &app.UexecutorKeeper,
-		UTxVerifierKeeper: &app.UtxverifierKeeper,
 		URegistryKeeper:   &app.UregistryKeeper,
 		UValidatorKeeper:  &app.UvalidatorKeeper,
 		UTssKeeper:        &app.UtssKeeper,

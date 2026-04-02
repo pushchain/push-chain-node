@@ -45,9 +45,6 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 	var receipt *evmtypes.MsgEthereumTxResponse
 	var ueaAddr common.Address
 	var isSmartContract bool
-	payloadSender := utx.InboundTx.Sender      // default: inbound sender; overridden to UEA owner for CEA
-	payloadChain := utx.InboundTx.SourceChain // default: inbound source chain; overridden to UEA origin chain for CEA
-
 	// Parse amount to check for zero-amount path
 	// Amount is already validated in ValidateForExecution before reaching here
 	inboundAmount := new(big.Int)
@@ -64,13 +61,10 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 		} else {
 			ueaAddr = common.HexToAddress(utx.InboundTx.Recipient)
 
-			origin, isUEA, ueaCheckErr := k.CallFactoryGetOriginForUEA(sdkCtx, ueModuleAccAddress, factoryAddress, ueaAddr)
+			_, isUEA, ueaCheckErr := k.CallFactoryGetOriginForUEA(sdkCtx, ueModuleAccAddress, factoryAddress, ueaAddr)
 			if ueaCheckErr != nil {
 				execErr = fmt.Errorf("failed to verify UEA: %w", ueaCheckErr)
 			} else if isUEA {
-				// Use UEA owner and origin chain for payload hash verification
-				payloadSender = origin.Owner
-				payloadChain = fmt.Sprintf("%s:%s", origin.ChainNamespace, origin.ChainId)
 				// UEA path: deposit PRC20 into the UEA (if amount > 0), then execute payload via UEA
 				if inboundAmount.Sign() > 0 {
 					receipt, execErr = k.depositPRC20(
@@ -193,21 +187,7 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 	// If deposit failed, stop here.
 	if execErr != nil {
 		if shouldRevert {
-			revertOutbound := &types.OutboundTx{
-				DestinationChain: utx.InboundTx.SourceChain,
-				Recipient: func() string {
-					if utx.InboundTx.RevertInstructions != nil && utx.InboundTx.RevertInstructions.FundRecipient != "" {
-						return utx.InboundTx.RevertInstructions.FundRecipient
-					}
-					return utx.InboundTx.Sender
-				}(),
-				Amount:            utx.InboundTx.Amount,
-				ExternalAssetAddr: utx.InboundTx.AssetAddr,
-				Sender:            utx.InboundTx.Sender,
-				TxType:            types.TxType_INBOUND_REVERT,
-				OutboundStatus:    types.Status_PENDING,
-				Id:                types.GetOutboundRevertId(utx.InboundTx.SourceChain, utx.InboundTx.TxHash),
-			}
+			revertOutbound := k.buildRevertOutbound(sdkCtx, utx.InboundTx)
 			if attachErr := k.attachOutboundsToUtx(
 				sdkCtx,
 				universalTxKey,
@@ -293,25 +273,7 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 
 	ueModuleAddr, _ := k.GetUeModuleAddress(ctx)
 
-	// --- Step 3: compute and store payload hash
-	payloadHashErr := k.StoreVerifiedPayloadHash(sdkCtx, utx, ueaAddr, ueModuleAddr, payloadSender, payloadChain)
-	if payloadHashErr != nil {
-		errorPcTx := types.PCTx{
-			Sender:      ueModuleAddressStr,
-			BlockHeight: uint64(sdkCtx.BlockHeight()),
-			Status:      "FAILED",
-			ErrorMsg:    fmt.Sprintf("payload hash failed: %v", payloadHashErr),
-		}
-		if updateErr := k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
-			utx.PcTx = append(utx.PcTx, &errorPcTx)
-			return nil
-		}); updateErr != nil {
-			return updateErr
-		}
-		return nil
-	}
-
-	// --- Step 4: execute payload via UEA
+	// --- Step 3: execute payload via UEA
 	k.Logger().Debug("executing payload via UEA", "utx_key", universalTxKey, "uea", ueaAddr.Hex())
 	var payloadErr error
 	receipt, payloadErr = k.ExecutePayloadV2(ctx, ueModuleAddr, ueaAddr, utx.InboundTx.UniversalPayload, utx.InboundTx.VerificationData)

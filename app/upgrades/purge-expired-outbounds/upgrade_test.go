@@ -118,7 +118,6 @@ func setupKeepers(t *testing.T) (sdk.Context, *uexecutorkeeper.Keeper, *uvalidat
 		nil, // bankKeeper
 		authkeeper.AccountKeeper{},
 		nil, // uregistryKeeper
-		nil, // utxverifierKeeper
 		&vk,
 	)
 

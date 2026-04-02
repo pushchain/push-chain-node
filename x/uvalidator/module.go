@@ -3,7 +3,6 @@ package module
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
 	"github.com/gorilla/mux"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -20,13 +19,12 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module"
 
 	"github.com/pushchain/push-chain-node/x/uvalidator/keeper"
-	v2 "github.com/pushchain/push-chain-node/x/uvalidator/migrations/v2"
 	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
 const (
 	// ConsensusVersion defines the current x/uvalidator module consensus version.
-	ConsensusVersion = 2
+	ConsensusVersion = 1
 )
 
 var (
@@ -159,19 +157,6 @@ func (a AppModule) QuerierRoute() string {
 func (a AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImpl(a.keeper))
 	types.RegisterQueryServer(cfg.QueryServer(), keeper.NewQuerier(a.keeper))
-
-	// Register UValidator custom migration for v2 (from version 1 → 2)
-	if err := cfg.RegisterMigration(types.ModuleName, 1, a.migrateToV2()); err != nil {
-		panic(fmt.Sprintf("failed to migrate %s from version 1 to 2: %v", types.ModuleName, err))
-	}
-}
-
-func (a AppModule) migrateToV2() module.MigrationHandler {
-	return func(ctx sdk.Context) error {
-		ctx.Logger().Info("🔧 Running uvalidator module migration: v1 → v2")
-
-		return v2.MigrateUniversalValidatorSet(ctx, &a.keeper, a.AppModuleBasic.cdc)
-	}
 }
 
 // ConsensusVersion is a sequence number for state-breaking change of the

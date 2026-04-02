@@ -3,7 +3,6 @@ package module
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
 	"github.com/gorilla/mux"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -22,16 +21,11 @@ import (
 	"github.com/pushchain/push-chain-node/x/uexecutor/keeper"
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 	typesv2 "github.com/pushchain/push-chain-node/x/uexecutor/typesv2"
-
-	v2 "github.com/pushchain/push-chain-node/x/uexecutor/migrations/v2"
-	v4 "github.com/pushchain/push-chain-node/x/uexecutor/migrations/v4"
-	v5 "github.com/pushchain/push-chain-node/x/uexecutor/migrations/v5"
 )
 
 const (
 	// ConsensusVersion defines the current x/uexecutor module consensus version.
-	// Bumped to 6: added PendingOutbounds collection.
-	ConsensusVersion = 6
+	ConsensusVersion = 1
 )
 
 var (
@@ -166,67 +160,6 @@ func (a AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImpl(a.keeper))
 	types.RegisterQueryServer(cfg.QueryServer(), keeper.NewQuerier(a.keeper))
 	typesv2.RegisterQueryServer(cfg.QueryServer(), keeper.NewQuerierV2(a.keeper))
-
-	// Register UExecutor custom migration for v2 (from version 1 → 2)
-	if err := cfg.RegisterMigration(types.ModuleName, 1, a.migrateToV2()); err != nil {
-		panic(fmt.Sprintf("failed to migrate %s from version 1 to 2: %v", types.ModuleName, err))
-	}
-
-	// Register UExecutor custom migration for v2 (from version 2 -> 3)
-	if err := cfg.RegisterMigration(types.ModuleName, 2, a.migrateToV3()); err != nil {
-		panic(fmt.Sprintf("failed to migrate %s from version 2 to 3: %v", types.ModuleName, err))
-	}
-
-	// Register UExecutor custom migration for v2 (from version 3 -> 4)
-	if err := cfg.RegisterMigration(types.ModuleName, 3, a.migrateToV4()); err != nil {
-		panic(fmt.Sprintf("failed to migrate %s from version 3 to 4: %v", types.ModuleName, err))
-	}
-
-	// Register UExecutor migration from version 4 -> 5 (chain-meta upgrade)
-	// GasPrices → ChainMetas migration is handled explicitly in the upgrade handler
-	// before RunMigrations is called, so this is a no-op.
-	if err := cfg.RegisterMigration(types.ModuleName, 4, a.migrateToV5()); err != nil {
-		panic(fmt.Sprintf("failed to migrate %s from version 4 to 5: %v", types.ModuleName, err))
-	}
-
-	// Register migration from version 5 -> 6 (pending-outbounds-index)
-	// New PendingOutbounds collection starts empty; the upgrade handler backfills it.
-	if err := cfg.RegisterMigration(types.ModuleName, 5, func(ctx sdk.Context) error {
-		return nil // no-op: new collection initialized empty by schema builder
-	}); err != nil {
-		panic(fmt.Sprintf("failed to migrate %s from version 5 to 6: %v", types.ModuleName, err))
-	}
-}
-
-func (a AppModule) migrateToV2() module.MigrationHandler {
-	return func(ctx sdk.Context) error {
-		ctx.Logger().Info("🔧 Running uexecutor module migration: v1 → v2")
-
-		return v2.MigrateParamsFromAdminToBool(ctx, &a.keeper, a.AppModuleBasic.cdc)
-	}
-}
-
-func (a AppModule) migrateToV3() module.MigrationHandler {
-	return func(ctx sdk.Context) error {
-		ctx.Logger().Info("🔧 Running uexecutor module migration: v2 → v3")
-
-		return nil
-	}
-}
-
-func (a AppModule) migrateToV4() module.MigrationHandler {
-	return func(ctx sdk.Context) error {
-		ctx.Logger().Info("🔧 Running uexecutor module migration: v3 → v4")
-
-		return v4.MigrateUniversalTx(ctx, &a.keeper, a.AppModuleBasic.cdc)
-	}
-}
-
-func (a AppModule) migrateToV5() module.MigrationHandler {
-	return func(ctx sdk.Context) error {
-		ctx.Logger().Info("🔧 Running uexecutor module migration: v4 → v5 (chain-meta)")
-		return v5.MigrateGasPricesToChainMeta(ctx, &a.keeper)
-	}
 }
 
 // ConsensusVersion is a sequence number for state-breaking change of the

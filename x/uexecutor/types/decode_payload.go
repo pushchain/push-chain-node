@@ -1,10 +1,12 @@
 package types
 
 import (
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"math/big"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -101,6 +103,8 @@ func DecodeRawPayload(rawPayload string, sourceChain string) (*UniversalPayload,
 	switch namespace {
 	case "eip155":
 		return DecodeUniversalPayloadEVM(rawPayload)
+	case "solana":
+		return DecodeUniversalPayloadSolana(rawPayload)
 	default:
 		return nil, fmt.Errorf("unsupported chain namespace for payload decoding: %s", namespace)
 	}
@@ -221,6 +225,106 @@ func DecodeUniversalPayloadEVM(hexStr string) (*UniversalPayload, error) {
 		MaxPriorityFeePerGas: maxPriorityFeePerGas.String(),
 		Nonce:                nonce.String(),
 		Deadline:             deadline.String(),
+		VType:                VerificationType(vType),
+	}, nil
+}
+
+// DecodeUniversalPayloadSolana decodes a Borsh-serialized UniversalPayload from a hex string.
+// Matches the Rust Anchor/Borsh layout:
+//
+//	pub struct UniversalPayload {
+//	    pub to: [u8; 20],
+//	    pub value: u64,
+//	    pub data: Vec<u8>,
+//	    pub gas_limit: u64,
+//	    pub max_fee_per_gas: u64,
+//	    pub max_priority_fee_per_gas: u64,
+//	    pub nonce: u64,
+//	    pub deadline: i64,
+//	    pub v_type: u8,
+//	}
+//
+// Borsh encoding: fixed-size fields are little-endian, Vec<u8> is a 4-byte LE length prefix + data.
+func DecodeUniversalPayloadSolana(hexStr string) (*UniversalPayload, error) {
+	if hexStr == "" || strings.TrimSpace(hexStr) == "" {
+		return nil, nil
+	}
+
+	clean := strings.TrimPrefix(hexStr, "0x")
+	if clean == "" {
+		return nil, nil
+	}
+
+	bz, err := hex.DecodeString(clean)
+	if err != nil {
+		return nil, fmt.Errorf("hex decode: %w", err)
+	}
+
+	if len(bz) == 0 {
+		return nil, nil
+	}
+
+	// Minimum size: 20 (to) + 8 (value) + 4 (data len) + 8*4 (gasLimit..deadline) + 1 (vType) = 65
+	const minSize = 20 + 8 + 4 + 8 + 8 + 8 + 8 + 8 + 1
+	if len(bz) < minSize {
+		return nil, fmt.Errorf("borsh decode: insufficient data length: got %d, need at least %d", len(bz), minSize)
+	}
+
+	off := 0
+
+	// to: [u8; 20]
+	var to [20]byte
+	copy(to[:], bz[off:off+20])
+	off += 20
+
+	// value: u64 LE
+	value := binary.LittleEndian.Uint64(bz[off : off+8])
+	off += 8
+
+	// data: Vec<u8> = 4-byte LE u32 length + bytes
+	if off+4 > len(bz) {
+		return nil, fmt.Errorf("borsh decode: truncated data length at offset %d", off)
+	}
+	dataLen := binary.LittleEndian.Uint32(bz[off : off+4])
+	off += 4
+
+	if off+int(dataLen) > len(bz) {
+		return nil, fmt.Errorf("borsh decode: data length %d exceeds remaining bytes %d", dataLen, len(bz)-off)
+	}
+	data := bz[off : off+int(dataLen)]
+	off += int(dataLen)
+
+	// Remaining fixed fields: 5 x u64 + 1 x i64 + 1 x u8 = 41 bytes
+	if off+41 > len(bz) {
+		return nil, fmt.Errorf("borsh decode: truncated after data at offset %d, need %d more bytes", off, 41)
+	}
+
+	gasLimit := binary.LittleEndian.Uint64(bz[off : off+8])
+	off += 8
+
+	maxFeePerGas := binary.LittleEndian.Uint64(bz[off : off+8])
+	off += 8
+
+	maxPriorityFeePerGas := binary.LittleEndian.Uint64(bz[off : off+8])
+	off += 8
+
+	nonce := binary.LittleEndian.Uint64(bz[off : off+8])
+	off += 8
+
+	deadline := int64(binary.LittleEndian.Uint64(bz[off : off+8]))
+	off += 8
+
+	vType := bz[off]
+
+	return &UniversalPayload{
+		To:                   "0x" + hex.EncodeToString(to[:]),
+		Value:                strconv.FormatUint(value, 10),
+		Data:                 "0x" + hex.EncodeToString(data),
+		GasLimit:             strconv.FormatUint(gasLimit, 10),
+		MaxFeePerGas:         strconv.FormatUint(maxFeePerGas, 10),
+		MaxPriorityFeePerGas: strconv.FormatUint(maxPriorityFeePerGas, 10),
+		Nonce:                strconv.FormatUint(nonce, 10),
+		Deadline:             strconv.FormatInt(deadline, 10),
 		VType:                VerificationType(vType),
 	}, nil
 }

@@ -55,9 +55,8 @@ type AppModule struct {
 	feemarketKeeper   types.FeeMarketKeeper
 	bankKeeper        types.BankKeeper
 	accountKeeper     types.AccountKeeper
-	uregistryKeeper   types.UregistryKeeper
-	utxverifierKeeper types.UtxverifierKeeper
-	uvalidatorKeeper  types.UValidatorKeeper
+	uregistryKeeper  types.UregistryKeeper
+	uvalidatorKeeper types.UValidatorKeeper
 }
 
 // NewAppModule constructor
@@ -69,7 +68,6 @@ func NewAppModule(
 	bankKeeper types.BankKeeper,
 	accountKeeper types.AccountKeeper,
 	uregistryKeeper types.UregistryKeeper,
-	utxverifierKeeper types.UtxverifierKeeper,
 	uvalidatorKeeper types.UValidatorKeeper,
 ) *AppModule {
 	return &AppModule{
@@ -79,9 +77,8 @@ func NewAppModule(
 		feemarketKeeper:   feemarketKeeper,
 		bankKeeper:        bankKeeper,
 		accountKeeper:     accountKeeper,
-		uregistryKeeper:   uregistryKeeper,
-		utxverifierKeeper: utxverifierKeeper,
-		uvalidatorKeeper:  uvalidatorKeeper,
+		uregistryKeeper:  uregistryKeeper,
+		uvalidatorKeeper: uvalidatorKeeper,
 	}
 }
 

@@ -32,9 +32,8 @@ type Keeper struct {
 	feemarketKeeper   types.FeeMarketKeeper
 	bankKeeper        types.BankKeeper
 	accountKeeper     types.AccountKeeper
-	uregistryKeeper   types.UregistryKeeper
-	utxverifierKeeper types.UtxverifierKeeper
-	uvalidatorKeeper  types.UValidatorKeeper
+	uregistryKeeper  types.UregistryKeeper
+	uvalidatorKeeper types.UValidatorKeeper
 
 	// Inbound trackers
 	PendingInbounds collections.KeySet[string]
@@ -67,7 +66,6 @@ func NewKeeper(
 	bankKeeper types.BankKeeper,
 	accountKeeper types.AccountKeeper,
 	uregistryKeeper types.UregistryKeeper,
-	utxverifierKeeper types.UtxverifierKeeper,
 	uvalidatorKeeper types.UValidatorKeeper,
 ) Keeper {
 	logger = logger.With(log.ModuleKey, "x/"+types.ModuleName)
@@ -90,9 +88,8 @@ func NewKeeper(
 		feemarketKeeper:   feemarketKeeper,
 		bankKeeper:        bankKeeper,
 		accountKeeper:     accountKeeper,
-		uregistryKeeper:   uregistryKeeper,
-		utxverifierKeeper: utxverifierKeeper,
-		uvalidatorKeeper:  uvalidatorKeeper,
+		uregistryKeeper:  uregistryKeeper,
+		uvalidatorKeeper: uvalidatorKeeper,
 
 		PendingInbounds: collections.NewKeySet(
 			sb,

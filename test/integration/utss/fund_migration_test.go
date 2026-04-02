@@ -155,29 +155,6 @@ func TestInitiateFundMigration(t *testing.T) {
 		require.ErrorContains(t, err, "not found in TssKeyHistory")
 	})
 
-	t.Run("Fails if old key was not from keygen", func(t *testing.T) {
-		app, ctx, universalVals, _ := setupFundMigrationTest(t, 3, false)
-
-		// Initiate a refresh process and finalize it
-		err := app.UtssKeeper.InitiateTssKeyProcess(ctx, utsstypes.TssProcessType_TSS_PROCESS_REFRESH)
-		require.NoError(t, err)
-
-		refreshKeyId := "refresh-key-1"
-		refreshPubkey := "refresh-pubkey-1"
-
-		process, err := app.UtssKeeper.CurrentTssProcess.Get(ctx)
-		require.NoError(t, err)
-
-		for _, val := range universalVals {
-			valAddr, _ := sdk.ValAddressFromBech32(val)
-			_ = app.UtssKeeper.VoteTssKeyProcess(ctx, valAddr, refreshPubkey, refreshKeyId, process.Id)
-		}
-
-		// Try to migrate from the refresh key — should fail
-		_, err = app.UtssKeeper.InitiateFundMigration(ctx, refreshKeyId, testChain)
-		require.ErrorContains(t, err, "not keygen")
-	})
-
 	t.Run("Fails if old key is the current key", func(t *testing.T) {
 		app, ctx, _, _ := setupFundMigrationTest(t, 3, false)
 

@@ -21,17 +21,7 @@ func (k Keeper) InitiateFundMigration(ctx context.Context, oldKeyId, chain strin
 		return 0, fmt.Errorf("old key %s not found in TssKeyHistory: %w", oldKeyId, err)
 	}
 
-	// 2. Verify old key was produced by keygen (not refresh or quorum change)
-	process, err := k.ProcessHistory.Get(ctx, oldKey.ProcessId)
-	if err != nil {
-		return 0, fmt.Errorf("process %d for key %s not found: %w", oldKey.ProcessId, oldKeyId, err)
-	}
-	if process.ProcessType != types.TssProcessType_TSS_PROCESS_KEYGEN {
-		return 0, fmt.Errorf("key %s was produced by %s, not keygen; migration only needed after keygen",
-			oldKeyId, process.ProcessType.String())
-	}
-
-	// 3. Verify old key != current key
+	// 2. Verify old key != current key
 	currentKey, err := k.CurrentTssKey.Get(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("no current TSS key set: %w", err)

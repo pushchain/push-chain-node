@@ -842,6 +842,74 @@ func TestClient_GetGasPrice_NilResponse(t *testing.T) {
 	assert.Nil(t, price)
 }
 
+func TestClient_GetTx(t *testing.T) {
+	logger := zerolog.Nop()
+	ctx := context.Background()
+
+	t.Run("no endpoints configured", func(t *testing.T) {
+		client := &Client{
+			logger:    logger,
+			txClients: []tx.ServiceClient{},
+		}
+
+		resp, err := client.GetTx(ctx, "0xabc")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no endpoints configured")
+		assert.Nil(t, resp)
+	})
+
+	t.Run("successful get tx", func(t *testing.T) {
+		mockClient := &mockTxServiceClient{
+			getTxResp: &tx.GetTxResponse{
+				TxResponse: &sdktypes.TxResponse{TxHash: "0xabc123", Code: 0},
+			},
+		}
+
+		client := &Client{
+			logger:    logger,
+			txClients: []tx.ServiceClient{mockClient},
+		}
+
+		resp, err := client.GetTx(ctx, "0xabc123")
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Equal(t, "0xabc123", resp.TxResponse.TxHash)
+	})
+
+	t.Run("failover on first endpoint failure", func(t *testing.T) {
+		failing := &mockTxServiceClient{getTxErr: assert.AnError}
+		success := &mockTxServiceClient{
+			getTxResp: &tx.GetTxResponse{
+				TxResponse: &sdktypes.TxResponse{TxHash: "0xdef456"},
+			},
+		}
+
+		client := &Client{
+			logger:    logger,
+			txClients: []tx.ServiceClient{failing, success},
+		}
+
+		resp, err := client.GetTx(ctx, "0xdef456")
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Equal(t, "0xdef456", resp.TxResponse.TxHash)
+	})
+
+	t.Run("all endpoints fail", func(t *testing.T) {
+		failing1 := &mockTxServiceClient{getTxErr: assert.AnError}
+		failing2 := &mockTxServiceClient{getTxErr: assert.AnError}
+
+		client := &Client{
+			logger:    logger,
+			txClients: []tx.ServiceClient{failing1, failing2},
+		}
+
+		resp, err := client.GetTx(ctx, "0xabc")
+		require.Error(t, err)
+		assert.Nil(t, resp)
+	})
+}
+
 // Mock implementations
 
 type mockRegistryQueryClient struct {
@@ -931,7 +999,9 @@ func (m *mockUTSSQueryClient) KeyById(ctx context.Context, req *utsstypes.QueryK
 type mockTxServiceClient struct {
 	tx.ServiceClient
 	broadcastResp *tx.BroadcastTxResponse
+	getTxResp     *tx.GetTxResponse
 	err           error
+	getTxErr      error
 }
 
 func (m *mockTxServiceClient) BroadcastTx(ctx context.Context, req *tx.BroadcastTxRequest, opts ...grpc.CallOption) (*tx.BroadcastTxResponse, error) {
@@ -942,7 +1012,10 @@ func (m *mockTxServiceClient) BroadcastTx(ctx context.Context, req *tx.Broadcast
 }
 
 func (m *mockTxServiceClient) GetTx(ctx context.Context, req *tx.GetTxRequest, opts ...grpc.CallOption) (*tx.GetTxResponse, error) {
-	return nil, nil
+	if m.getTxErr != nil {
+		return nil, m.getTxErr
+	}
+	return m.getTxResp, nil
 }
 
 type mockUExecutorQueryClient struct {

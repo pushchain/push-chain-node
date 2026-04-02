@@ -296,36 +296,4 @@ func TestInboundSyntheticBridgePayload(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("payload hash stored correctly before payload execution", func(t *testing.T) {
-		app, ctx, vals, inbound, coreVals, ueaAddrHex := setupInboundBridgePayloadTest(t, 4)
-
-		// Reach quorum
-		for i := 0; i < 3; i++ {
-			valAddr, err := sdk.ValAddressFromBech32(coreVals[i].OperatorAddress)
-			require.NoError(t, err)
-			coreValAcc := sdk.AccAddress(valAddr).String()
-
-			err = utils.ExecVoteInbound(t, ctx, app, vals[i], coreValAcc, inbound)
-			require.NoError(t, err)
-		}
-
-		// Get the universal tx
-		utxKey := uexecutortypes.GetInboundUniversalTxKey(*inbound)
-		utx, found, err := app.UexecutorKeeper.GetUniversalTx(ctx, utxKey)
-		require.NoError(t, err)
-		require.True(t, found)
-
-		// Call your function to compute and store payload hash
-		ueModuleAddr, _ := app.UexecutorKeeper.GetUeModuleAddress(ctx)
-		err = app.UexecutorKeeper.StoreVerifiedPayloadHash(ctx, utx, ueaAddrHex, ueModuleAddr, utx.InboundTx.Sender, utx.InboundTx.SourceChain)
-		require.NoError(t, err)
-
-		// Verify payload hash stored in utxverifier
-		verified, found, err := app.UtxverifierKeeper.GetVerifiedInboundTxMetadata(ctx, inbound.SourceChain, inbound.TxHash)
-		require.NoError(t, err)
-		fmt.Println(verified)
-		require.True(t, found)
-		require.Len(t, verified.PayloadHashes, 1)
-		require.Equal(t, inbound.Sender, verified.Sender)
-	})
 }

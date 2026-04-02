@@ -414,8 +414,8 @@ func (c *Coordinator) processConfirmedEvents(ctx context.Context) error {
 				continue
 			}
 
-			// Skip if outbound is disabled for destination chain
-			if !c.chains.IsChainOutboundEnabled(chain) {
+			// Skip if outbound is disabled for destination chain (fund migrations are exempt)
+			if event.Type != store.EventTypeSignFundMigrate && !c.chains.IsChainOutboundEnabled(chain) {
 				c.logger.Warn().
 					Str("chain", chain).
 					Str("event_id", event.EventID).

@@ -492,8 +492,6 @@ func TestInboundCEAGasAndPayload(t *testing.T) {
 		chainApp, ctx, vals, _, coreVals, ueaAddrHex := setupInboundCEAGasAndPayloadTest(t, 4)
 		usdcAddress := utils.GetDefaultAddresses().ExternalUSDCAddr
 		prc20Address := utils.GetDefaultAddresses().PRC20USDCAddr
-		testAddress := utils.GetDefaultAddresses().DefaultTestAddr
-
 		// Register a second chain (eip155:97) so we can send a CEA inbound from a different chain
 		chainApp.UregistryKeeper.AddChainConfig(ctx, &uregistrytypes.ChainConfig{
 			Chain:          "eip155:97",
@@ -566,22 +564,5 @@ func TestInboundCEAGasAndPayload(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		// Payload hash should be stored under UEA origin chain (eip155:11155111), NOT source chain (eip155:97)
-		ueaOriginChain := "eip155:11155111"
-		verified, found, err := chainApp.UtxverifierKeeper.GetVerifiedInboundTxMetadata(ctx, ueaOriginChain, ceaInbound.TxHash)
-		require.NoError(t, err)
-		require.True(t, found, "verified tx metadata should be stored under UEA origin chain")
-		require.NotEmpty(t, verified.PayloadHashes, "payload hashes should be stored")
-
-		// Should NOT be found under source chain
-		_, foundUnderSource, err := chainApp.UtxverifierKeeper.GetVerifiedInboundTxMetadata(ctx, ceaInbound.SourceChain, ceaInbound.TxHash)
-		require.NoError(t, err)
-		require.False(t, foundUnderSource, "verified tx metadata should NOT be stored under inbound source chain for CEA")
-
-		// The sender should be the UEA owner (testAddress), NOT personBSender
-		require.NotEqual(t, personBSender, verified.Sender,
-			"stored sender should NOT be the CEA executor")
-		require.Equal(t, common.HexToAddress(testAddress).Hex(), common.HexToAddress(verified.Sender).Hex(),
-			"stored sender should be the UEA owner for CEA inbounds")
 	})
 }

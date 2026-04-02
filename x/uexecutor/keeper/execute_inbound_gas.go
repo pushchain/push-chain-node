@@ -190,21 +190,7 @@ func (k Keeper) ExecuteInboundGas(ctx context.Context, inbound types.Inbound) er
 	}
 
 	if execErr != nil && shouldRevert {
-		revertOutbound := &types.OutboundTx{
-			DestinationChain: inbound.SourceChain,
-			Recipient: func() string {
-				if inbound.RevertInstructions != nil && inbound.RevertInstructions.FundRecipient != "" {
-					return inbound.RevertInstructions.FundRecipient
-				}
-				return inbound.Sender
-			}(),
-			Amount:            inbound.Amount,
-			ExternalAssetAddr: inbound.AssetAddr,
-			Sender:            inbound.Sender,
-			TxType:            types.TxType_INBOUND_REVERT,
-			OutboundStatus:    types.Status_PENDING,
-			Id:                types.GetOutboundRevertId(inbound.SourceChain, inbound.TxHash),
-		}
+		revertOutbound := k.buildRevertOutbound(sdkCtx, &inbound)
 
 		if attachErr := k.attachOutboundsToUtx(
 			sdkCtx,

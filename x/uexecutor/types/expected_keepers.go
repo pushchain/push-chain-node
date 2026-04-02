@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
-	utxverifiertypes "github.com/pushchain/push-chain-node/x/utxverifier/types"
 	uvalidatortypes "github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
@@ -94,11 +93,6 @@ type BankKeeper interface {
 // AccountKeeper defines the expected interface for the auth module
 type AccountKeeper interface {
 	GetModuleAccount(ctx context.Context, moduleName string) sdk.ModuleAccountI
-}
-
-// UtxverifierKeeper defines the expected interface for the UtxverifierKeeper moduledule.
-type UtxverifierKeeper interface {
-	StoreVerifiedInboundTx(ctx context.Context, chain, txHash string, verifiedTxMetadata utxverifiertypes.VerifiedTxMetadata) error
 }
 
 type UValidatorKeeper interface {

@@ -158,7 +158,6 @@ import (
 	chainante "github.com/pushchain/push-chain-node/app/ante"
 
 	usigverifierprecompile "github.com/pushchain/push-chain-node/precompiles/usigverifier"
-	utxhashverifierprecompile "github.com/pushchain/push-chain-node/precompiles/utxhashverifier"
 	pushtypes "github.com/pushchain/push-chain-node/types"
 	uexecutor "github.com/pushchain/push-chain-node/x/uexecutor"
 	uexecutorkeeper "github.com/pushchain/push-chain-node/x/uexecutor/keeper"
@@ -169,9 +168,6 @@ import (
 	utss "github.com/pushchain/push-chain-node/x/utss"
 	utsskeeper "github.com/pushchain/push-chain-node/x/utss/keeper"
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
-	utxverifier "github.com/pushchain/push-chain-node/x/utxverifier"
-	utxverifierkeeper "github.com/pushchain/push-chain-node/x/utxverifier/keeper"
-	utxverifiertypes "github.com/pushchain/push-chain-node/x/utxverifier/types"
 	uvalidator "github.com/pushchain/push-chain-node/x/uvalidator"
 	uvalidatorkeeper "github.com/pushchain/push-chain-node/x/uvalidator/keeper"
 	uvalidatortypes "github.com/pushchain/push-chain-node/x/uvalidator/types"
@@ -319,7 +315,6 @@ type ChainApp struct {
 
 	ScopedWasmKeeper  capabilitykeeper.ScopedKeeper
 	UexecutorKeeper   uexecutorkeeper.Keeper
-	UtxverifierKeeper utxverifierkeeper.Keeper
 	UregistryKeeper   uregistrykeeper.Keeper
 	UvalidatorKeeper  uvalidatorkeeper.Keeper
 	UtssKeeper        utsskeeper.Keeper
@@ -434,7 +429,6 @@ func NewChainApp(
 		feemarkettypes.StoreKey,
 		erc20types.StoreKey,
 		uexecutortypes.StoreKey,
-		utxverifiertypes.StoreKey,
 		uregistrytypes.StoreKey,
 		uvalidatortypes.StoreKey,
 		utsstypes.StoreKey,
@@ -732,17 +726,7 @@ func NewChainApp(
 		app.BankKeeper,
 		app.AccountKeeper,
 		app.UregistryKeeper,
-		&app.UtxverifierKeeper,
 		&app.UvalidatorKeeper,
-	)
-
-	// Create the utxverifier Keeper
-	app.UtxverifierKeeper = utxverifierkeeper.NewKeeper(
-		appCodec,
-		runtime.NewKVStoreService(keys[utxverifiertypes.StoreKey]),
-		logger,
-		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
-		app.UregistryKeeper,
 	)
 
 	// Create the uvalidator Keeper
@@ -800,13 +784,6 @@ func NewChainApp(
 		panic(fmt.Errorf("failed to instantiate usigverifier precompile: %w", err))
 	}
 	corePrecompiles[usigverifierPrecompile.Address()] = usigverifierPrecompile
-
-	// Add the utxhashverifier precompile for Payload verification (old address: 0xCB)
-	utxhashverifierPrecompile, err := utxhashverifierprecompile.NewPrecompileWithUtv(&app.UtxverifierKeeper)
-	if err != nil {
-		panic(fmt.Errorf("failed to instantiate utxhashverifier precompile: %w", err))
-	}
-	corePrecompiles[utxhashverifierPrecompile.Address()] = utxhashverifierPrecompile
 
 	// New address (0xEC..01) — reserved Push precompile range.
 	// Both old and new addresses are registered simultaneously for backward compatibility
@@ -1053,8 +1030,7 @@ func NewChainApp(
 		vm.NewAppModule(app.EVMKeeper, app.AccountKeeper),
 		feemarket.NewAppModule(app.FeeMarketKeeper),
 		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper),
-		uexecutor.NewAppModule(appCodec, app.UexecutorKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper, app.AccountKeeper, app.UregistryKeeper, app.UtxverifierKeeper, app.UvalidatorKeeper),
-		utxverifier.NewAppModule(appCodec, app.UtxverifierKeeper, app.UregistryKeeper),
+		uexecutor.NewAppModule(appCodec, app.UexecutorKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper, app.AccountKeeper, app.UregistryKeeper, app.UvalidatorKeeper),
 		uregistry.NewAppModule(appCodec, app.UregistryKeeper, app.EVMKeeper),
 		uvalidator.NewAppModule(appCodec, app.UvalidatorKeeper, app.BankKeeper, app.AccountKeeper, app.DistrKeeper, app.StakingKeeper, app.SlashingKeeper, &app.UtssKeeper),
 		utss.NewAppModule(appCodec, app.UtssKeeper, app.UvalidatorKeeper),
@@ -1105,7 +1081,6 @@ func NewChainApp(
 		wasmlctypes.ModuleName,
 		ratelimittypes.ModuleName,
 		uexecutortypes.ModuleName,
-		utxverifiertypes.ModuleName,
 		uregistrytypes.ModuleName,
 		utsstypes.ModuleName,
 	)
@@ -1128,7 +1103,6 @@ func NewChainApp(
 		wasmlctypes.ModuleName,
 		ratelimittypes.ModuleName,
 		uexecutortypes.ModuleName,
-		utxverifiertypes.ModuleName,
 		uregistrytypes.ModuleName,
 		uvalidatortypes.ModuleName,
 		utsstypes.ModuleName,
@@ -1179,7 +1153,6 @@ func NewChainApp(
 		wasmlctypes.ModuleName,
 		ratelimittypes.ModuleName,
 		uexecutortypes.ModuleName,
-		utxverifiertypes.ModuleName,
 		uregistrytypes.ModuleName,
 		uvalidatortypes.ModuleName,
 		utsstypes.ModuleName,
@@ -1625,7 +1598,6 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 	paramsKeeper.Subspace(feemarkettypes.ModuleName)
 	paramsKeeper.Subspace(erc20types.ModuleName)
 	paramsKeeper.Subspace(uexecutortypes.ModuleName)
-	paramsKeeper.Subspace(utxverifiertypes.ModuleName)
 	paramsKeeper.Subspace(uregistrytypes.ModuleName)
 	paramsKeeper.Subspace(uvalidatortypes.ModuleName)
 	paramsKeeper.Subspace(utsstypes.ModuleName)

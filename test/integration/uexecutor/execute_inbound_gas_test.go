@@ -293,6 +293,11 @@ func TestInboundGas(t *testing.T) {
 					"revert outbound asset must match inbound asset")
 				require.Equal(t, uexecutortypes.Status_PENDING, ob.OutboundStatus,
 					"revert outbound should start in PENDING status")
+
+				// Gas fields are populated from UniversalCore if chain meta is set.
+				// In test env without VoteChainMeta, they may be zero/empty — that's OK,
+				// the outbound is still created (graceful degradation).
+				// When chain meta IS set, these will be populated.
 				break
 			}
 		}

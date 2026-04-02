@@ -74,22 +74,8 @@ func (k Keeper) ExecuteInboundFunds(ctx context.Context, utx types.UniversalTx) 
 	// isCEA failures never create an INBOUND_REVERT outbound
 	// (consistent with execute_inbound_funds_and_payload.go and execute_inbound_gas_and_payload.go)
 	if err != nil && !inbound.IsCEA {
-		revertOutbound := types.OutboundTx{
-			DestinationChain: inbound.SourceChain,
-			Recipient: func() string {
-				if inbound.RevertInstructions != nil && inbound.RevertInstructions.FundRecipient != "" {
-					return inbound.RevertInstructions.FundRecipient
-				}
-				return inbound.Sender
-			}(),
-			Amount:            inbound.Amount,
-			ExternalAssetAddr: inbound.AssetAddr,
-			Sender:            inbound.Sender,
-			TxType:            types.TxType_INBOUND_REVERT,
-			OutboundStatus:    types.Status_PENDING,
-			Id:                types.GetOutboundRevertId(inbound.SourceChain, inbound.TxHash),
-		}
-		if attachErr := k.attachOutboundsToUtx(sdkCtx, utx.Id, []*types.OutboundTx{&revertOutbound}, err.Error()); attachErr != nil {
+		revertOutbound := k.buildRevertOutbound(sdkCtx, inbound)
+		if attachErr := k.attachOutboundsToUtx(sdkCtx, utx.Id, []*types.OutboundTx{revertOutbound}, err.Error()); attachErr != nil {
 			if storeErr := k.UpdateUniversalTx(sdkCtx, utx.Id, func(u *types.UniversalTx) error {
 				u.RevertError = attachErr.Error()
 				return nil

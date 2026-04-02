@@ -20,6 +20,7 @@ func IsGaslessTx(tx sdk.Tx) bool {
 			sdk.MsgTypeURL(&uexecutortypes.MsgVoteInbound{}),
 			sdk.MsgTypeURL(&uexecutortypes.MsgVoteOutbound{}),
 			sdk.MsgTypeURL(&utsstypes.MsgVoteTssKeyProcess{}),
+			sdk.MsgTypeURL(&utsstypes.MsgVoteFundMigration{}),
 			sdk.MsgTypeURL(&uexecutortypes.MsgVoteChainMeta{}),
 		}
 	)

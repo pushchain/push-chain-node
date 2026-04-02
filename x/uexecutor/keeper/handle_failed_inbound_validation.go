@@ -44,21 +44,7 @@ func (k Keeper) handleFailedInboundValidation(sdkCtx sdk.Context, utx types.Univ
 			"source_chain", inbound.SourceChain,
 			"amount", inbound.Amount,
 		)
-		revertRecipient := inbound.Sender
-		if inbound.RevertInstructions != nil && inbound.RevertInstructions.FundRecipient != "" {
-			revertRecipient = inbound.RevertInstructions.FundRecipient
-		}
-
-		revertOutbound := &types.OutboundTx{
-			DestinationChain:  inbound.SourceChain,
-			Recipient:         revertRecipient,
-			Amount:            inbound.Amount,
-			ExternalAssetAddr: inbound.AssetAddr,
-			Sender:            inbound.Sender,
-			TxType:            types.TxType_INBOUND_REVERT,
-			OutboundStatus:    types.Status_PENDING,
-			Id:                types.GetOutboundRevertId(inbound.SourceChain, inbound.TxHash),
-		}
+		revertOutbound := k.buildRevertOutbound(sdkCtx, inbound)
 
 		if attachErr := k.attachOutboundsToUtx(
 			sdkCtx,

@@ -79,6 +79,8 @@ func convertFundMigrationEvent(migration *utsstypes.FundMigration) (*store.Event
 		CurrentTssPubkey: migration.CurrentTssPubkey,
 		Chain:            migration.Chain,
 		BlockHeight:      migration.InitiatedBlock,
+		GasPrice:         migration.GasPrice,
+		GasLimit:         migration.GasLimit,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal fund migration event data: %w", err)

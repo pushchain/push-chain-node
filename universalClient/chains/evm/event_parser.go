@@ -24,6 +24,7 @@ const (
 // Vault event type constants matching vault method names in chain config.
 const (
 	EventTypeFinalizeUniversalTx = "finalizeUniversalTx"
+	EventTypeFundsRescued        = "fundsRescued"
 )
 
 // ParseEvent parses a log into a store.Event based on the event type.
@@ -36,7 +37,7 @@ func ParseEvent(log *types.Log, eventType string, chainID string, logger zerolog
 	switch eventType {
 	case EventTypeSendFunds:
 		return parseSendFundsEvent(log, chainID, logger)
-	case EventTypeExecuteUniversalTx, EventTypeRevertUniversalTx, EventTypeFinalizeUniversalTx:
+	case EventTypeExecuteUniversalTx, EventTypeRevertUniversalTx, EventTypeFinalizeUniversalTx, EventTypeFundsRescued:
 		// All share the same topic layout: Topics[1]=txID, Topics[2]=universalTxID.
 		return parseOutboundObservationEvent(log, chainID, logger)
 	default:

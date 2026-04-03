@@ -22,6 +22,7 @@ const (
 	// Outbound observation events (emitted by gateway on SVM since there's no vault)
 	EventTypeFinalizeUniversalTx = "finalize_universal_tx"
 	EventTypeRevertUniversalTx   = "revert_universal_tx"
+	EventTypeFundsRescued        = "funds_rescued"
 )
 
 // base58ToHex converts a base58 encoded string to hex format (0x...)
@@ -46,7 +47,7 @@ func ParseEvent(log string, signature string, slot uint64, logIndex uint, eventT
 	switch eventType {
 	case EventTypeSendFunds:
 		return parseSendFundsEvent(log, signature, slot, logIndex, chainID, logger)
-	case EventTypeFinalizeUniversalTx, EventTypeRevertUniversalTx:
+	case EventTypeFinalizeUniversalTx, EventTypeRevertUniversalTx, EventTypeFundsRescued:
 		return parseOutboundObservationEvent(log, signature, slot, logIndex, chainID, logger)
 	default:
 		logger.Debug().

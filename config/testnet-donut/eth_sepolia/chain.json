@@ -1,6 +1,6 @@
 {
   "chain": "eip155:11155111",
-  "public_rpc_url": "https://eth-sepolia.public.blastapi.io",
+  "public_rpc_url": "https://ethereum-sepolia-rpc.publicnode.com",
   "vm_type": 1,
   "gateway_address": "0x05bD7a3D18324c1F7e216f7fBF2b15985aE5281A",
   "gas_oracle_fetch_interval": "30s",
@@ -11,8 +11,8 @@
   "gateway_methods": [
     {
       "name": "sendFunds",
-      "identifier": "0x65f4dbe1",
-      "event_identifier": "0x33e6cf63a9ddbaee9d86893573e2616fe7a78fc9b7b23acb7da8b58bd0024041",
+      "identifier": "0xd372b8b3",
+      "event_identifier": "0xd9074957cd6846aa1b09b2e676dac3b9cdeecabd643cabd3d0a0f41e2acd1c50",
       "confirmation_type": 1
     },
     {
@@ -44,6 +44,6 @@
   ],
   "enabled": {
     "isInboundEnabled": true,
-    "isOutboundEnabled": true
+    "isOutboundEnabled": false
   }
 }

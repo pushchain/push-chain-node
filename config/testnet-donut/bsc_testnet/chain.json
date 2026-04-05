@@ -11,7 +11,7 @@
   "gateway_methods": [
     {
       "name": "sendFunds",
-      "identifier": "0x65f4dbe1",
+      "identifier": "0xd372b8b3",
       "event_identifier": "0xd9074957cd6846aa1b09b2e676dac3b9cdeecabd643cabd3d0a0f41e2acd1c50",
       "confirmation_type": 1
     },

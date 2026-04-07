@@ -201,8 +201,9 @@ At every step the UTX is mutated **append-only**: new entries are added to `pc_t
 | `MsgVoteOutbound` | bonded UV | yes | Vote that an outbound was broadcast (or failed) on the destination chain |
 | `MsgVoteChainMeta` | bonded UV | yes | Vote on observed gas price + block height for a chain |
 | `MsgExecutePayload` | any | yes | Execute a payload on a UEA (the UEA itself authenticates via `verificationData`) |
-| `MsgMigrateUEA` | any | yes | Migrate a UEA to a newer implementation (also self-authenticated) |
 | `MsgUpdateParams` | gov | no | Update module params |
+
+> **UEA migration is now part of payload execution.** There used to be a separate `MsgMigrateUEA` message; that path has been removed. UEAs are upgraded by submitting a normal `MsgExecutePayload` whose payload calls the UEA's migration entry point on the EVM side. The Cosmos layer no longer has a dedicated migration message — the UEA contract is the source of truth for who is allowed to migrate it and to what implementation.
 
 Vote messages check `IsBondedUniversalValidator` and `IsTombstonedUniversalValidator` on `x/uvalidator` before accepting the vote. Tombstoned validators are silently rejected.
 
@@ -257,7 +258,7 @@ GenesisState {
 x/uexecutor/
 |-- keeper/
 |   |-- keeper.go              State + dependencies
-|   |-- msg_server.go          MsgVoteInbound, MsgVoteOutbound, MsgVoteChainMeta, ExecutePayload, MigrateUEA
+|   |-- msg_server.go          MsgVoteInbound, MsgVoteOutbound, MsgVoteChainMeta, ExecutePayload
 |   |-- query_server.go        v1 queries
 |   |-- query_server_v2.go     v2 queries
 |   +-- ...                    inbound execution, outbound creation, chain meta, derived EVM calls

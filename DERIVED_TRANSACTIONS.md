@@ -79,7 +79,7 @@ The Push Chain codebase uses two distinct call patterns. Both are visible in [`x
 
 ### 1. User-derived sender (UEA-routed user actions)
 
-When a user submits a `MsgExecutePayload` or `MsgMigrateUEA`, the Cosmos signer is converted to its derived EVM address and the EVM call is issued from that address. The UEA contract is what authenticates the request via `verificationData`.
+When a user submits a `MsgExecutePayload`, the Cosmos signer is converted to its derived EVM address and the EVM call is issued from that address. The UEA contract is what authenticates the request via `verificationData`. UEA migration takes the same path — there is no separate migration message; an upgrade is just an `executePayload` whose payload calls the UEA's migration entry point.
 
 ```go
 return k.evmKeeper.DerivedEVMCall(
@@ -177,8 +177,7 @@ Every derived call in Push Chain is in [`x/uexecutor/keeper/evm.go`](./x/uexecut
 | Helper | Sender | Why derived? |
 |---|---|---|
 | `CallFactoryToDeployUEA` | user-derived | Real tx receipt is required for the deploy; the deployer address is the source-chain user's derived EVM address. |
-| `CallUEAExecutePayload` | user-derived | Carries `gasLimit` from the payload; receipt is consumed by the Universal Validator vote-back path. |
-| `CallUEAMigrateUEA` | user-derived | Same — needs a real receipt. |
+| `CallUEAExecutePayload` | user-derived | Carries `gasLimit` from the payload; receipt is consumed by the Universal Validator vote-back path. UEA migration also flows through this path now (the migration is just a payload that calls the UEA's migrate entry point). |
 | `CallPRC20Deposit` | module | Mints PRC20 to recipient. Module account has no key. |
 | `CallPRC20DepositAutoSwap` | module | Same, but with the auto-swap leg. |
 | `CallUniversalCoreSetGasPrice` | module | Writes a single chain's gas price to the on-chain oracle. |

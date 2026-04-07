@@ -74,7 +74,7 @@ Lifecycle owner of every crosschain transaction (`UniversalTx`). Tallies inbound
 
 **Messages**
 - `MsgVoteInbound`, `MsgVoteOutbound`, `MsgVoteChainMeta` — bonded UV-only, gasless
-- `MsgExecutePayload`, `MsgMigrateUEA` — any user, gasless (the UEA itself authenticates the request)
+- `MsgExecutePayload` — any user, gasless (the UEA itself authenticates the request)
 - `MsgUpdateParams` — gov-only
 
 **State**
@@ -163,7 +163,6 @@ Push Chain extends the Cosmos AnteHandler with three custom decorators that toge
 
 ```
 /uexecutor.v1.MsgExecutePayload
-/uexecutor.v1.MsgMigrateUEA
 /uexecutor.v1.MsgVoteInbound
 /uexecutor.v1.MsgVoteOutbound
 /uexecutor.v1.MsgVoteChainMeta

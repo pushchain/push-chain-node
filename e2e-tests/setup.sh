@@ -419,6 +419,23 @@ sdk_test_files() {
   done
 }
 
+sdk_outbound_test_files() {
+  local outbound_dir="$PUSH_CHAIN_SDK_DIR/packages/core/__e2e__/evm/outbound"
+  local file
+  local requested_files=(
+    "cea-to-eoa.spec.ts"
+  )
+
+  for file in "${requested_files[@]}"; do
+    if [[ -f "$outbound_dir/$file" ]]; then
+      printf "%s\n" "$outbound_dir/$file"
+    else
+      log_err "SDK outbound test file not found: $outbound_dir/$file"
+      exit 1
+    fi
+  done
+}
+
 sdk_rewrite_chain_endpoints_for_local() {
   local chain_constants_file="$1"
 
@@ -709,6 +726,7 @@ step_setup_push_chain_sdk() {
     echo "SOLANA_RPC_URL=$sdk_solana_rpc"
     echo "SOLANA_PRIVATE_KEY=$sdk_solana_private_key"
     echo "PUSH_PRIVATE_KEY=$sdk_push_private_key"
+    [[ -n "${E2E_TARGET_CHAINS:-}" ]] && echo "E2E_TARGET_CHAINS=${E2E_TARGET_CHAINS}"
   } >"$sdk_env_path"
 
   [[ -n "$sdk_evm_private_key" ]] || log_warn "SDK env EVM_PRIVATE_KEY is empty (set EVM_PRIVATE_KEY or PRIVATE_KEY in e2e-tests/.env)"
@@ -775,8 +793,7 @@ step_run_sdk_test_file() {
   local test_basename="$1"
   local test_file=""
 
-  sdk_prepare_test_files_for_localnet
-
+  # Search inbound test files first
   while IFS= read -r candidate; do
     [[ -n "$candidate" ]] || continue
     if [[ "$(basename "$candidate")" == "$test_basename" ]]; then
@@ -785,15 +802,55 @@ step_run_sdk_test_file() {
     fi
   done < <(sdk_test_files)
 
+  if [[ -n "$test_file" ]]; then
+    # Inbound file — use full prepare (TESTNET→LOCALNET for all inbound files)
+    sdk_prepare_test_files_for_localnet
+  else
+    # Search outbound test files
+    while IFS= read -r candidate; do
+      [[ -n "$candidate" ]] || continue
+      if [[ "$(basename "$candidate")" == "$test_basename" ]]; then
+        test_file="$candidate"
+        break
+      fi
+    done < <(sdk_outbound_test_files)
+
+    if [[ -n "$test_file" ]]; then
+      # Outbound file — sync localnet constants and apply TESTNET→LOCALNET to outbound files only
+      sdk_sync_localnet_constants
+      perl -0pi -e 's/\bPUSH_NETWORK\.TESTNET_DONUT\b/PUSH_NETWORK.LOCALNET/g; s/\bPUSH_NETWORK\.TESTNET\b/PUSH_NETWORK.LOCALNET/g; s/\bCHAIN\.PUSH_TESTNET_DONUT\b/CHAIN.PUSH_LOCALNET/g' "$test_file"
+      log_ok "Prepared LOCALNET network replacement in $test_basename"
+      # Also patch shared evm-client.ts default network
+      local evm_client_file="$PUSH_CHAIN_SDK_DIR/packages/core/__e2e__/shared/evm-client.ts"
+      if [[ -f "$evm_client_file" ]]; then
+        perl -0pi -e 's/\bPUSH_NETWORK\.TESTNET_DONUT\b/PUSH_NETWORK.LOCALNET/g' "$evm_client_file"
+        log_ok "Patched evm-client.ts default network to PUSH_NETWORK.LOCALNET"
+      fi
+      # Patch utils.ts: fix TESTNET_DONUT default in getPRC20Address
+      local utils_file="$PUSH_CHAIN_SDK_DIR/packages/core/src/lib/utils.ts"
+      if [[ -f "$utils_file" ]]; then
+        perl -0pi -e 's/(const network = options\?\.network \?\?)\s*PUSH_NETWORK\.TESTNET_DONUT/$1 PUSH_NETWORK.LOCALNET/' "$utils_file"
+        log_ok "Patched utils.ts getPRC20Address default network to PUSH_NETWORK.LOCALNET"
+      fi
+      # Patch tokens.ts: fix TESTNET_DONUT in buildPushChainMoveableTokenAccessor
+      local tokens_file="$PUSH_CHAIN_SDK_DIR/packages/core/src/lib/constants/tokens.ts"
+      if [[ -f "$tokens_file" ]]; then
+        perl -0pi -e 's/(const s = SYNTHETIC_PUSH_ERC20\[)PUSH_NETWORK\.TESTNET_DONUT(\])/$1PUSH_NETWORK.LOCALNET$2/' "$tokens_file"
+        log_ok "Patched tokens.ts buildPushChainMoveableTokenAccessor default network to PUSH_NETWORK.LOCALNET"
+      fi
+    fi
+  fi
+
   if [[ -z "$test_file" ]]; then
     log_err "Requested SDK test file not in configured list: $test_basename"
     exit 1
   fi
 
   log_info "Running SDK test: $test_basename"
+  local rel_pattern="${test_file##*/packages/core/}"
   (
     cd "$PUSH_CHAIN_SDK_DIR"
-    npx nx test core --runInBand --testPathPattern="$(basename "$test_file")"
+    npx nx test core --runInBand --testPathPattern="$rel_pattern"
   )
 
   log_ok "Completed SDK test: $test_basename"
@@ -814,6 +871,55 @@ step_run_sdk_tests_all() {
   done < <(sdk_test_files)
 
   log_ok "Completed all configured SDK E2E tests"
+}
+
+step_run_sdk_outbound_tests_all() {
+  local test_file
+  local evm_client_file="$PUSH_CHAIN_SDK_DIR/packages/core/__e2e__/shared/evm-client.ts"
+
+  # Sync localnet constants (rewrites chain.ts defaultRPC for LOCAL mode) and
+  # apply TESTNET_DONUT → LOCALNET replacement in outbound spec files.
+  sdk_sync_localnet_constants
+
+  while IFS= read -r outbound_file; do
+    [[ -n "$outbound_file" ]] || continue
+    perl -0pi -e 's/\bPUSH_NETWORK\.TESTNET_DONUT\b/PUSH_NETWORK.LOCALNET/g; s/\bPUSH_NETWORK\.TESTNET\b/PUSH_NETWORK.LOCALNET/g; s/\bCHAIN\.PUSH_TESTNET_DONUT\b/CHAIN.PUSH_LOCALNET/g' "$outbound_file"
+    log_ok "Prepared LOCALNET network replacement in $(basename "$outbound_file")"
+  done < <(find "$PUSH_CHAIN_SDK_DIR/packages/core/__e2e__/evm/outbound" -type f -name '*.spec.ts' | sort)
+
+  # Also patch shared evm-client.ts default network so PushChain.initialize uses LOCALNET
+  if [[ -f "$evm_client_file" ]]; then
+    perl -0pi -e 's/\bPUSH_NETWORK\.TESTNET_DONUT\b/PUSH_NETWORK.LOCALNET/g' "$evm_client_file"
+    log_ok "Patched evm-client.ts default network to PUSH_NETWORK.LOCALNET"
+  fi
+
+  # Patch utils.ts: fix TESTNET_DONUT default in getPRC20Address (used for PRC20 token lookup)
+  local utils_file="$PUSH_CHAIN_SDK_DIR/packages/core/src/lib/utils.ts"
+  if [[ -f "$utils_file" ]]; then
+    perl -0pi -e 's/(const network = options\?\.network \?\?)\s*PUSH_NETWORK\.TESTNET_DONUT/$1 PUSH_NETWORK.LOCALNET/' "$utils_file"
+    log_ok "Patched utils.ts getPRC20Address default network to PUSH_NETWORK.LOCALNET"
+  fi
+
+  # Patch tokens.ts: fix TESTNET_DONUT in buildPushChainMoveableTokenAccessor
+  local tokens_file="$PUSH_CHAIN_SDK_DIR/packages/core/src/lib/constants/tokens.ts"
+  if [[ -f "$tokens_file" ]]; then
+    perl -0pi -e 's/(const s = SYNTHETIC_PUSH_ERC20\[)PUSH_NETWORK\.TESTNET_DONUT(\])/$1PUSH_NETWORK.LOCALNET$2/' "$tokens_file"
+    log_ok "Patched tokens.ts buildPushChainMoveableTokenAccessor default network to PUSH_NETWORK.LOCALNET"
+  fi
+
+  while IFS= read -r test_file; do
+    [[ -n "$test_file" ]] || continue
+    log_info "Running SDK outbound test: $(basename "$test_file")"
+    # Strip everything up to and including "packages/core/" to get a relative path
+    # that Jest can match against canonical absolute paths (avoids ".." in the pattern)
+    local rel_pattern="${test_file##*/packages/core/}"
+    (
+      cd "$PUSH_CHAIN_SDK_DIR"
+      npx nx test core --runInBand --testPathPattern="$rel_pattern"
+    )
+  done < <(sdk_outbound_test_files)
+
+  log_ok "Completed all configured SDK outbound E2E tests"
 }
 
 step_devnet() {
@@ -1157,7 +1263,7 @@ step_setup_environment() {
 
   if is_local_testing_env; then
     # Upstream RPCs that the local anvil forks are derived from.
-    local sepolia_fork_rpc="https://ethereum-sepolia-rpc.publicnode.com"
+    local sepolia_fork_rpc="https://sepolia.drpc.org"
     local arbitrum_fork_rpc="https://arbitrum-sepolia.gateway.tenderly.co"
     local base_fork_rpc="https://sepolia.base.org"
     local bsc_fork_rpc="https://bnb-testnet.g.alchemy.com/v2/peQmTO8MjpoK5Czw4HwRp"
@@ -1294,6 +1400,192 @@ step_stop_running_nodes() {
   pkill -f "$PUSH_CHAIN_DIR/build/puniversald" >/dev/null 2>&1 || true
 
   log_ok "Running nodes stopped"
+}
+
+step_fund_uv_broadcasters_on_anvil() {
+  if ! is_local_testing_env; then
+    log_info "step_fund_uv_broadcasters_on_anvil: skipping (non-LOCAL environment)"
+    return 0
+  fi
+  require_cmd cast
+  local anvil_rpc="${ANVIL_SEPOLIA_HOST_RPC_URL:-http://localhost:9545}"
+  # Anvil default account 0 — always seeded with 10,000 ETH in any anvil fork (mnemonic: "test test ... junk")
+  local funder_pk="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+  local fund_amount="10ether"
+  local funded=0
+  for addr_file in "$LOCAL_DEVNET_DIR/data"/universal*/.puniversal/keyring-test/*.address; do
+    [[ -f "$addr_file" ]] || continue
+    local addr_hex
+    addr_hex="$(basename "$addr_file" .address)"
+    local addr="0x${addr_hex}"
+    local balance
+    balance="$(cast balance "$addr" --rpc-url "$anvil_rpc" 2>/dev/null || echo "0")"
+    if [[ "$balance" == "0" ]]; then
+      log_info "Funding UV broadcaster $addr with $fund_amount on Anvil Sepolia"
+      if cast send "$addr" --value "$fund_amount" --private-key "$funder_pk" \
+           --rpc-url "$anvil_rpc" >/dev/null 2>&1; then
+        funded=$((funded + 1))
+      else
+        log_warn "Failed to fund UV broadcaster $addr on Anvil Sepolia"
+      fi
+    else
+      log_info "UV broadcaster $addr already has ETH on Anvil Sepolia: $balance wei"
+    fi
+  done
+  log_ok "UV broadcaster funding done (funded $funded new address(es))"
+}
+
+# Sync every EVM vault's TSS_ADDRESS to the current local TSS key so that
+# AccessControlUnauthorizedAccount (0xe2517d3f) never blocks outbound txs.
+# Also funds the TSS signer on each Anvil chain so it can pay gas.
+step_sync_vault_tss_on_anvil() {
+  if ! is_local_testing_env; then
+    log_info "step_sync_vault_tss_on_anvil: skipping (non-LOCAL environment)"
+    return 0
+  fi
+  require_cmd cast jq python3
+
+  # Derive the TSS EVM address from the on-chain TSS public key.
+  # 1. Query compressed secp256k1 pubkey from the utss module.
+  # 2. Decompress it using pure Python3 math (stdlib only, no extra packages).
+  # 3. keccak256(x || y) via `cast keccak`, last 20 bytes = EVM address.
+  local tss_pubkey tss_addr
+  tss_pubkey="$("$PUSH_CHAIN_DIR/build/pchaind" query utss current-key \
+    --node tcp://127.0.0.1:26657 --output json 2>/dev/null \
+    | jq -r '.key.tss_pubkey // empty' 2>/dev/null || true)"
+
+  if [[ -z "$tss_pubkey" ]]; then
+    log_warn "step_sync_vault_tss_on_anvil: TSS key not found on chain yet, skipping"
+    return 0
+  fi
+
+  # Decompress pubkey → 64-byte uncompressed (x||y) hex using Python3 stdlib.
+  local uncompressed_hex
+  uncompressed_hex="$(python3 -c "
+prefix = int('${tss_pubkey:0:2}', 16)
+x = int('${tss_pubkey:2}', 16)
+p = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F
+y_sq = (pow(x, 3, p) + 7) % p
+y = pow(y_sq, (p + 1) // 4, p)
+if (y % 2) != (prefix % 2):
+    y = p - y
+print(format(x, '064x') + format(y, '064x'))
+" 2>/dev/null || true)"
+
+  if [[ -z "$uncompressed_hex" ]]; then
+    log_warn "step_sync_vault_tss_on_anvil: failed to decompress TSS pubkey, skipping"
+    return 0
+  fi
+
+  local keccak_hash
+  keccak_hash="$(cast keccak "0x$uncompressed_hex" 2>/dev/null || true)"
+  tss_addr="0x${keccak_hash: -40}"
+
+  if [[ -z "$tss_addr" || ${#tss_addr} -ne 42 ]]; then
+    log_warn "step_sync_vault_tss_on_anvil: failed to derive TSS EVM address, skipping"
+    return 0
+  fi
+
+  log_info "Syncing vault TSS address to $tss_addr on all local Anvil EVM chains"
+
+  local DEF_ADMIN_ROLE="0x0000000000000000000000000000000000000000000000000000000000000000"
+  # Anvil default account 0 — always seeded with 10,000 ETH in every fork
+  local funder_pk="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+  # Known deployer addresses for the forge localSetup scripts — these never change
+  # between runs since it is the same forge wallet that deploys the vault contracts.
+  local KNOWN_ADMINS=(
+    "0x35b84d6848d16415177c64d64504663b998a6ab4"
+    "0xe520d4A985A2356Fa615935a822Ce4eFAcA24aB6"
+    "0xd854dde7c58ec1b405e6577f48a7cc5b5e6ef317"
+  )
+
+  # cfg_name:anvil_rpc pairs — mirrors the Anvil forks started in step_devnet.
+  local CHAIN_INFO=(
+    "eth_sepolia:${ANVIL_SEPOLIA_HOST_RPC_URL:-http://localhost:9545}"
+    "arb_sepolia:${ANVIL_ARBITRUM_HOST_RPC_URL:-http://localhost:9546}"
+    "base_sepolia:${ANVIL_BASE_HOST_RPC_URL:-http://localhost:9547}"
+    "bsc_testnet:${ANVIL_BSC_HOST_RPC_URL:-http://localhost:9548}"
+  )
+
+  for entry in "${CHAIN_INFO[@]}"; do
+    local cfg_name="${entry%%:*}"
+    local rpc="${entry#*:}"
+    local chain_cfg="$TOKENS_CONFIG_DIR/$cfg_name/chain.json"
+
+    if [[ ! -f "$chain_cfg" ]]; then
+      log_warn "step_sync_vault_tss_on_anvil: no chain config at $chain_cfg, skipping"
+      continue
+    fi
+
+    # Fund the TSS signer so it can pay gas for outbound vault txs.
+    local tss_bal
+    tss_bal="$(cast balance "$tss_addr" --rpc-url "$rpc" 2>/dev/null || echo "0")"
+    if [[ "$tss_bal" == "0" ]]; then
+      if cast send "$tss_addr" --value "10ether" --private-key "$funder_pk" --rpc-url "$rpc" >/dev/null 2>&1; then
+        log_ok "  $cfg_name: funded TSS signer $tss_addr with 10 ETH"
+      else
+        log_warn "  $cfg_name: failed to fund TSS signer $tss_addr"
+      fi
+    else
+      log_info "  $cfg_name: TSS signer $tss_addr already has ETH (bal=$tss_bal)"
+    fi
+
+    local gateway
+    gateway="$(jq -r '.gateway_address // empty' "$chain_cfg" 2>/dev/null || true)"
+    if [[ -z "$gateway" || "$gateway" == "null" ]]; then
+      log_warn "step_sync_vault_tss_on_anvil: no gateway_address in $chain_cfg, skipping"
+      continue
+    fi
+
+    local vault
+    vault="$(cast call "$gateway" 'VAULT()(address)' --rpc-url "$rpc" 2>/dev/null || true)"
+    if [[ -z "$vault" || "$vault" == "0x0000000000000000000000000000000000000000" ]]; then
+      log_warn "step_sync_vault_tss_on_anvil: VAULT() empty for gateway $gateway ($cfg_name), skipping"
+      continue
+    fi
+
+    # Skip only if the vault's stored TSS_ADDRESS already matches the current key.
+    # Checking TSS_ADDRESS (not just hasRole) ensures we update after every re-keying,
+    # because setTSS atomically revokes the old role and grants the new one.
+    local vault_tss
+    vault_tss="$(cast call "$vault" 'TSS_ADDRESS()(address)' --rpc-url "$rpc" 2>/dev/null || true)"
+    if [[ "$(echo "$vault_tss" | tr '[:upper:]' '[:lower:]')" == "$(echo "$tss_addr" | tr '[:upper:]' '[:lower:]')" ]]; then
+      log_info "  $cfg_name vault $vault TSS_ADDRESS already matches $tss_addr"
+      continue
+    fi
+
+    # Find the DEFAULT_ADMIN_ROLE holder among known candidates.
+    local vault_admin=""
+    for candidate in "${KNOWN_ADMINS[@]}"; do
+      local is_admin
+      is_admin="$(cast call "$vault" 'hasRole(bytes32,address)(bool)' "$DEF_ADMIN_ROLE" "$candidate" \
+        --rpc-url "$rpc" 2>/dev/null || echo "false")"
+      if [[ "$is_admin" == "true" ]]; then
+        vault_admin="$candidate"
+        break
+      fi
+    done
+
+    if [[ -z "$vault_admin" ]]; then
+      log_warn "step_sync_vault_tss_on_anvil: no known admin for vault $vault ($cfg_name), skipping"
+      continue
+    fi
+
+    # Impersonate the admin on the Anvil fork (no private key needed) and call setTSS.
+    cast rpc anvil_impersonateAccount "$vault_admin" --rpc-url "$rpc" >/dev/null 2>&1 || true
+    cast rpc anvil_setBalance "$vault_admin" "0x56BC75E2D63100000" --rpc-url "$rpc" >/dev/null 2>&1 || true
+
+    if cast send "$vault" "setTSS(address)" "$tss_addr" \
+        --rpc-url "$rpc" \
+        --from "$vault_admin" \
+        --unlocked >/dev/null 2>&1; then
+      log_ok "  $cfg_name vault $vault: TSS updated to $tss_addr"
+    else
+      log_warn "  step_sync_vault_tss_on_anvil: setTSS failed on vault $vault ($cfg_name)"
+    fi
+  done
+
+  log_ok "Vault TSS sync complete"
 }
 
 step_print_genesis() {
@@ -1980,7 +2272,7 @@ step_setup_gateway() {
     log_warn "UniversalCore BASE_GAS_LIMIT is 0. Applying local defaults for outbound chains"
 
     for ns in "eip155:11155111" "eip155:421614" "eip155:84532" "eip155:97" "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"; do
-      cast send "$C0" 'setBaseGasLimitByChain(string,uint256)' "$ns" 21000 \
+      cast send "$C0" 'setBaseGasLimitByChain(string,uint256)' "$ns" 2000000 \
         --rpc-url "$PUSH_RPC_URL" \
         --private-key "$PRIVATE_KEY" >/dev/null || true
     done
@@ -2488,6 +2780,7 @@ cmd_all() {
   step_add_uregistry_configs
   step_deploy_counter_and_sync_sdk
   sdk_sync_localnet_constants
+  step_sync_vault_tss_on_anvil
 }
 
 cmd_show_help() {
@@ -2509,16 +2802,19 @@ Commands:
   write-core-env         Create core-contracts .env from deploy_addresses.json
   update-token-config    Update eth_sepolia_eth.json contract_address using deployed token
   setup-gateway          Clone/setup gateway repo and run forge localSetup (with --resume retry)
+  sync-vault-tss         Grant TSS_ROLE on each Anvil EVM vault to the current local TSS key (LOCAL only)
   bootstrap-cea-sdk      Ensure CEA is deployed for SDK signer on BSC testnet fork (Route 2 bootstrap)
   deploy-counter-sdk     Deploy CounterPayable on Push localnet and sync SDK COUNTER_ADDRESS_PAYABLE
   setup-sdk              Clone/setup push-chain-sdk, generate SDK .env from e2e .env, and install dependencies
   sdk-test-all           Replace PUSH_NETWORK TESTNET variants with LOCALNET and run all configured SDK E2E tests
+  sdk-test-outbound-all  Replace PUSH_NETWORK TESTNET variants with LOCALNET and run all configured SDK outbound E2E tests (TESTING_ENV=LOCAL)
   sdk-test-pctx-last-transaction  Run pctx-last-transaction.spec.ts
   sdk-test-send-to-self  Run send-to-self.spec.ts
   sdk-test-progress-hook Run progress-hook-per-tx.spec.ts
   sdk-test-bridge-multicall  Run bridge-multicall.spec.ts
   sdk-test-pushchain     Run pushchain.spec.ts
   sdk-test-bridge-hooks  Run bridge-hooks.spec.ts
+  sdk-test-cea-to-eoa    Run cea-to-eoa.spec.ts (outbound Route 3; requires TESTING_ENV=LOCAL)
   add-uregistry-configs  Submit chain + token config txs via local-multi-validator validator1
   record-contract K A    Manually record contract key/address
   record-token N S A     Manually record token name/symbol/address
@@ -2563,16 +2859,19 @@ main() {
     write-core-env) step_write_core_env ;;
     update-token-config) step_update_deployed_token_configs ;;
     setup-gateway) step_setup_gateway ;;
+    sync-vault-tss) step_sync_vault_tss_on_anvil ;;
     bootstrap-cea-sdk) step_bootstrap_cea_for_sdk_signer ;;
     deploy-counter-sdk) step_deploy_counter_and_sync_sdk ;;
     setup-sdk) step_setup_push_chain_sdk ;;
     sdk-test-all) step_run_sdk_tests_all ;;
+    sdk-test-outbound-all) step_run_sdk_outbound_tests_all ;;
     sdk-test-pctx-last-transaction) step_run_sdk_test_file "pctx-last-transaction.spec.ts" ;;
     sdk-test-send-to-self) step_run_sdk_test_file "send-to-self.spec.ts" ;;
     sdk-test-progress-hook) step_run_sdk_test_file "progress-hook-per-tx.spec.ts" ;;
     sdk-test-bridge-multicall) step_run_sdk_test_file "bridge-multicall.spec.ts" ;;
     sdk-test-pushchain) step_run_sdk_test_file "pushchain.spec.ts" ;;
     sdk-test-bridge-hooks) step_run_sdk_test_file "bridge-hooks.spec.ts" ;;
+    sdk-test-cea-to-eoa) step_run_sdk_test_file "cea-to-eoa.spec.ts" ;;
     add-uregistry-configs) step_add_uregistry_configs ;;
     record-contract)
       ensure_deploy_file

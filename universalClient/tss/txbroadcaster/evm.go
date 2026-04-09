@@ -42,6 +42,25 @@ func (b *Broadcaster) broadcastEVM(ctx context.Context, event *store.Event, data
 		return
 	}
 
+	// Resolve TSS address for logging before broadcast
+	tssAddress := ""
+	if b.getTSSAddress != nil {
+		if addr, addrErr := b.getTSSAddress(ctx); addrErr == nil {
+			tssAddress = addr
+		}
+	}
+
+	b.logger.Info().
+		Str("event_id", event.EventID).
+		Str("chain", chainID).
+		Str("tss_sender", tssAddress).
+		Str("vault", data.OutboundCreatedEvent.AssetAddr). // log something identifiable
+		Str("amount", data.OutboundCreatedEvent.Amount).
+		Str("gas_price", data.OutboundCreatedEvent.GasPrice).
+		Str("gas_limit", data.OutboundCreatedEvent.GasLimit).
+		Uint64("nonce", data.SigningData.Nonce).
+		Msg("broadcasting EVM vault tx")
+
 	// Broadcast — tx hash is computed before sending, so it's returned even on RPC error
 	outboundData := data.OutboundCreatedEvent
 	txHash, broadcastErr := builder.BroadcastOutboundSigningRequest(ctx, signingReq, &outboundData, signature)
@@ -60,16 +79,6 @@ func (b *Broadcaster) broadcastEVM(ctx context.Context, event *store.Event, data
 	}
 
 	eventNonce := data.SigningData.Nonce
-	tssAddress := ""
-	if b.getTSSAddress != nil {
-		var addrErr error
-		tssAddress, addrErr = b.getTSSAddress(ctx)
-		if addrErr != nil {
-			b.logger.Warn().Err(addrErr).Str("event_id", event.EventID).
-				Msg("failed to get TSS address for nonce check, will retry next tick")
-			return
-		}
-	}
 
 	finalizedNonce, err := builder.GetNextNonce(ctx, tssAddress, true)
 	if err == nil && eventNonce < finalizedNonce {
@@ -84,6 +93,11 @@ func (b *Broadcaster) broadcastEVM(ctx context.Context, event *store.Event, data
 
 	// Nonce not consumed — transient error (RPC down, gas issues, etc.).
 	// Keep as SIGNED and retry next tick.
-	b.logger.Debug().Err(broadcastErr).Str("event_id", event.EventID).Str("chain", chainID).
+	b.logger.Warn().Err(broadcastErr).
+		Str("event_id", event.EventID).
+		Str("chain", chainID).
+		Str("tss_sender", tssAddress).
+		Str("tx_hash", txHash).
+		Uint64("nonce", eventNonce).
 		Msg("broadcast failed, will retry next tick")
 }

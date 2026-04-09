@@ -22,8 +22,8 @@ It covers:
 
 ## What gets created
 
-- `local-setup-e2e/data/` — validator + universal-validator home directories
-- `local-setup-e2e/logs/` — per-process log files
+- `local-native/data/` — validator + universal-validator home directories
+- `local-native/logs/` — per-process log files
 - `e2e-tests/logs/` — logs for each deployment step
 - `e2e-tests/deploy_addresses.json` — contract/token address source-of-truth
 
@@ -71,18 +71,28 @@ Edit `e2e-tests/.env`. Key variables:
 
 | Variable | Default | Description |
 |---|---|---|
-| `TESTING_ENV` | _(empty)_ | Set to `LOCAL` for local devnet |
+| `TESTING_ENV` | _(empty)_ | Set to `LOCAL` for local anvil/surfpool mode |
 | `PUSH_RPC_URL` | `http://localhost:8545` | Push Chain EVM JSON-RPC |
 | `PRIVATE_KEY` | — | EVM deployer private key (forge/hardhat) |
 | `EVM_PRIVATE_KEY` | ← `PRIVATE_KEY` | SDK EVM signer key |
+| `EVM_RPC` | ← `PUSH_RPC_URL` | SDK EVM RPC endpoint |
 | `PUSH_PRIVATE_KEY` | ← `PRIVATE_KEY` | SDK Push Chain signer key |
-| `FUND_TO_ADDRESS` | — | Address to top up from genesis account |
+| `SOLANA_PRIVATE_KEY` | — | SDK Solana signer key (also `SVM_PRIVATE_KEY` / `SOL_PRIVATE_KEY`) |
+| `SOLANA_RPC_URL` | `https://api.devnet.solana.com` | SDK Solana RPC |
+| `FUND_TO_ADDRESS` | _(auto-derived from `PRIVATE_KEY`)_ | Address to top up from genesis account |
+| `GENESIS_MNEMONIC` | _(read from `genesis_accounts.json`)_ | Override genesis mnemonic directly |
 | `POOL_CREATION_TOPUP_AMOUNT` | `50000000000000000000upc` | Deployer top-up before pool creation |
+| `LOCAL_DEVNET_DIR` | `./local-native` | Path to local devnet management directory |
 | `CORE_CONTRACTS_BRANCH` | `e2e-push-node` | |
 | `SWAP_AMM_BRANCH` | `e2e-push-node` | |
 | `GATEWAY_BRANCH` | `e2e-push-node` | |
 | `PUSH_CHAIN_SDK_BRANCH` | `outbound_changes` | |
 | `PUSH_CHAIN_SDK_E2E_DIR` | `packages/core/__e2e__/evm/inbound` | Test directory inside SDK |
+| `PREFER_SIBLING_REPO_DIRS` | `true` | Prefer sibling dirs for core/gateway repos over cloning fresh |
+| `E2E_TARGET_CHAINS` | — | Restrict SDK E2E chains (passed through to SDK `.env`) |
+| `CORE_RESUME_MAX_ATTEMPTS` | `0` (unlimited) | Max `--resume` retry count for core forge script |
+| `GATEWAY_RESUME_MAX_ATTEMPTS` | `0` (unlimited) | Max `--resume` retry count for gateway forge script |
+| `CORE_CONFIGURE_RESUME_MAX_ATTEMPTS` | `0` (unlimited) | Max `--resume` retry count for `configureUniversalCore` |
 
 ### TESTING_ENV=LOCAL
 
@@ -98,11 +108,16 @@ Default local fork URLs (override in `.env`):
 
 | Variable | Default |
 |---|---|
-| `ANVIL_SEPOLIA_HOST_RPC_URL` | `http://localhost:9545` |
-| `ANVIL_ARBITRUM_HOST_RPC_URL` | `http://localhost:9546` |
-| `ANVIL_BASE_HOST_RPC_URL` | `http://localhost:9547` |
-| `ANVIL_BSC_HOST_RPC_URL` | `http://localhost:9548` |
-| `SURFPOOL_SOLANA_HOST_RPC_URL` | `http://localhost:8899` |
+| `ANVIL_SEPOLIA_HOST_RPC_URL` | `http://localhost:9545` | Anvil Sepolia host URL (used by forge/cast and chain config patch) |
+| `ANVIL_ARBITRUM_HOST_RPC_URL` | `http://localhost:9546` | |
+| `ANVIL_BASE_HOST_RPC_URL` | `http://localhost:9547` | |
+| `ANVIL_BSC_HOST_RPC_URL` | `http://localhost:9548` | |
+| `SURFPOOL_SOLANA_HOST_RPC_URL` | `http://localhost:8899` | |
+| `LOCAL_SEPOLIA_UV_RPC_URL` | ← `ANVIL_SEPOLIA_HOST_RPC_URL` | RPC URL written into UV `pushuv_config.json` (can differ from host if using Docker networking) |
+| `LOCAL_ARBITRUM_UV_RPC_URL` | ← `ANVIL_ARBITRUM_HOST_RPC_URL` | |
+| `LOCAL_BASE_UV_RPC_URL` | ← `ANVIL_BASE_HOST_RPC_URL` | |
+| `LOCAL_BSC_UV_RPC_URL` | ← `ANVIL_BSC_HOST_RPC_URL` | |
+| `LOCAL_SOLANA_UV_RPC_URL` | ← `SURFPOOL_SOLANA_HOST_RPC_URL` | |
 
 ---
 
@@ -116,31 +131,37 @@ TESTING_ENV=LOCAL bash e2e-tests/setup.sh all
 
 The `all` pipeline runs in order:
 
-1. `setup-environment` — start anvil/surfpool + patch chain RPC configs
+1. `setup-environment` — start anvil/surfpool + patch chain RPC configs (LOCAL) or sync testnet RPCs
 2. Build binaries (`make replace-addresses` + `make build`)
-3. `devnet` — start 4 validators + 4 universal validators (clean)
-4. `tss-keygen` — TSS key generation (via `./local-setup-e2e/devnet tss-keygen`)
-5. `recover-genesis-key` — import genesis mnemonic into local keyring
-6. `fund` — top up deployer address from genesis account
-7. `setup-core` — deploy core contracts (forge, auto-resume)
-8. `setup-swap` — deploy WPC + Uniswap V3 (hardhat)
-9. `sync-addresses` — copy addresses into swap `test-addresses.json`
-10. `create-pool` — create WPC liquidity pools for all tokens
-11. `write-core-env` — generate core contracts `.env`
-12. `configure-core` — run `configureUniversalCore.s.sol` (forge, auto-resume)
-13. `update-token-config` — patch token config JSON files
-14. `setup-gateway` — deploy gateway contracts (forge, auto-resume)
-15. `add-uregistry-configs` — submit chain + token config txs
-16. `deploy-counter-sdk` — deploy CounterPayable + sync SDK constants
+3. Auto-derive `FUND_TO_ADDRESS` from `PRIVATE_KEY` (writes to `.env`)
+4. Stop any running nodes cleanly
+5. `devnet` — start 4 validators + register + start 4 universal validators
+6. `tss-keygen` — TSS key generation (via `./local-native/devnet tss-keygen`)
+7. `setup-environment` (second run — patches UV `pushuv_config.json` with `event_start_from` after devnet data exists)
+8. `recover-genesis-key` — import genesis mnemonic into local keyring
+9. `fund` — top up deployer address from genesis account
+10. `setup-core` — deploy core contracts (forge, auto-resume)
+11. `setup-swap` — deploy WPC + Uniswap V3 (hardhat)
+12. `sync-addresses` — copy addresses into swap `test-addresses.json`
+13. `create-pool` — create WPC liquidity pools for all tokens
+14. `check-addresses` — assert required contract addresses are recorded
+15. `write-core-env` — generate core contracts `.env`
+16. `configure-core` — run `configureUniversalCore.s.sol` (forge, auto-resume; internally re-generates core `.env`)
+17. `update-token-config` — patch token config JSON files
+18. `setup-gateway` — deploy gateway contracts (forge, auto-resume)
+19. `add-uregistry-configs` — submit chain + token config txs
+20. `deploy-counter-sdk` — deploy CounterPayable + sync SDK constants
+21. Sync SDK LOCALNET synthetic token constants from `deploy_addresses.json`
+22. `sync-vault-tss` — sync vault TSS addresses on all local Anvil EVM chains (LOCAL only)
 
 ---
 
-## Local devnet (`local-setup-e2e/devnet`)
+## Local devnet (`local-native/devnet`)
 
 The `devnet` script manages 4 `pchaind` validators and 4 `puniversald` universal validators as local OS processes (no Docker).
 
 ```
-local-setup-e2e/
+local-native/
   devnet          # management script
   data/           # validator home dirs + PID file (gitignored)
   logs/           # per-process log files (gitignored)
@@ -149,14 +170,14 @@ local-setup-e2e/
 ### Devnet commands
 
 ```bash
-./local-setup-e2e/devnet start [--build]   # Start all 4 validators + 4 UVs
-                                            # --build for clean start (wipes data)
-./local-setup-e2e/devnet stop              # Stop all processes (keep data)
-./local-setup-e2e/devnet down              # Stop and remove data
-./local-setup-e2e/devnet status            # Show running processes + block heights
-./local-setup-e2e/devnet logs [name]       # Tail logs (validator-1, universal-2, all, …)
-./local-setup-e2e/devnet tss-keygen        # Initiate TSS key generation
-./local-setup-e2e/devnet setup-uvalidators # Register UVs + create AuthZ grants
+./local-native/devnet start 4              # Start 4 core validators
+./local-native/devnet setup-uvalidators    # Register UVs on-chain + create AuthZ grants
+./local-native/devnet start-uv 2          # Start 2 universal validators (or 4 for full set)
+./local-native/devnet stop                # Stop all processes (keep data)
+./local-native/devnet down                # Stop and remove data
+./local-native/devnet status              # Show running processes + block heights
+./local-native/devnet logs [name]         # Tail logs (validator-1, universal-2, all, …)
+./local-native/devnet tss-keygen          # Initiate TSS key generation
 ```
 
 Port layout:
@@ -178,8 +199,10 @@ Port layout:
 ### Clean devnet restart
 
 ```bash
-./local-setup-e2e/devnet down
-./local-setup-e2e/devnet start --build
+./local-native/devnet down
+./local-native/devnet start 4
+./local-native/devnet setup-uvalidators
+./local-native/devnet start-uv 4
 ```
 
 ---
@@ -202,22 +225,26 @@ TESTING_ENV=LOCAL bash e2e-tests/setup.sh <command>
 | `setup-swap` | Build + deploy WPC + Uniswap V3 |
 | `sync-addresses` | Copy `deploy_addresses.json` into swap `test-addresses.json` |
 | `create-pool` | Create WPC pools for all deployed core tokens |
+| `fund-uea-prc20` | Transfer PRC20 tokens from deployer to the test UEA address |
 | `configure-core` | Run `configureUniversalCore.s.sol` (auto-resume) |
 | `check-addresses` | Assert required contract addresses are recorded |
 | `write-core-env` | Generate core contracts `.env` |
 | `update-token-config` | Patch token config JSON contract addresses |
 | `setup-gateway` | Build + deploy gateway contracts (auto-resume) |
+| `sync-vault-tss` | Sync vault `TSS_ADDRESS` to current TSS key on all local Anvil chains (LOCAL only) |
 | `add-uregistry-configs` | Submit chain + token configs to uregistry |
 | `deploy-counter-sdk` | Deploy CounterPayable + sync SDK `COUNTER_ADDRESS_PAYABLE` |
-| `bootstrap-cea-sdk` | Ensure CEA is deployed for SDK signer (Route 2 bootstrap) |
-| `setup-sdk` | Install SDK dependencies + generate SDK `.env` |
-| `sdk-test-all` | Run all configured SDK E2E test files |
+| `bootstrap-cea-sdk` | Ensure CEA is deployed for SDK signer on BSC testnet fork (Route 2 bootstrap) |
+| `setup-sdk` | Clone/install SDK, generate SDK `.env`, sync LOCALNET constants |
+| `sdk-test-all` | Run all configured inbound SDK E2E test files |
+| `sdk-test-outbound-all` | Run all configured outbound SDK E2E test files (LOCAL only) |
 | `sdk-test-pctx-last-transaction` | Run `pctx-last-transaction.spec.ts` |
 | `sdk-test-send-to-self` | Run `send-to-self.spec.ts` |
 | `sdk-test-progress-hook` | Run `progress-hook-per-tx.spec.ts` |
 | `sdk-test-bridge-multicall` | Run `bridge-multicall.spec.ts` |
 | `sdk-test-pushchain` | Run `pushchain.spec.ts` |
 | `sdk-test-bridge-hooks` | Run `bridge-hooks.spec.ts` |
+| `sdk-test-cea-to-eoa` | Run `cea-to-eoa.spec.ts` (outbound Route 3; requires `TESTING_ENV=LOCAL`) |
 | `record-contract K A` | Manually record contract key + address |
 | `record-token N S A` | Manually record token name, symbol, address |
 | `help` | Show help |
@@ -234,7 +261,7 @@ TESTING_ENV=LOCAL bash e2e-tests/setup.sh <command>
 - `contracts.Factory`
 - `contracts.QuoterV2`
 - `contracts.SwapRouter`
-- `contracts.UEA_PROXY_IMPLEMENTATION`
+- `contracts.UEA_PROXY_IMPLEMENTATION` (resolved from on-chain precompile during `setup-sdk`)
 - `contracts.COUNTER_ADDRESS_PAYABLE`
 
 ### Token entries
@@ -263,7 +290,10 @@ Manual helpers:
 
 - Stale broadcast cache from previous runs is cleared automatically before each fresh deploy.
 - If the initial `forge script --broadcast` fails (e.g., receipt timeout), retries with `--resume` until success.
-- Optional cap: `CORE_RESUME_MAX_ATTEMPTS=5` (default `0` = unlimited).
+- Caps (all default `0` = unlimited retries):
+  - `CORE_RESUME_MAX_ATTEMPTS` — core contracts deploy
+  - `GATEWAY_RESUME_MAX_ATTEMPTS` — gateway contracts deploy
+  - `CORE_CONFIGURE_RESUME_MAX_ATTEMPTS` — `configureUniversalCore.s.sol`
 
 ### uregistry tx submission
 
@@ -278,8 +308,8 @@ Manual helpers:
 |---|---|
 | `e2e-tests/deploy_addresses.json` | Contract/token address registry |
 | `e2e-tests/logs/` | Per-step deployment logs |
-| `local-setup-e2e/data/` | Validator + UV home directories |
-| `local-setup-e2e/logs/` | Per-process stdout/stderr |
+| `local-native/data/` | Validator + UV home directories |
+| `local-native/logs/` | Per-process stdout/stderr |
 | `<SWAP_AMM_DIR>/test-addresses.json` | Swap repo address file (synced from deploy_addresses.json) |
 | `<CORE_CONTRACTS_DIR>/.env` | Core contracts env (generated by `write-core-env`) |
 | `config/testnet-donut/*/tokens/*.json` | Token config files (updated contract addresses) |
@@ -290,7 +320,7 @@ Manual helpers:
 
 ```bash
 # Stop + wipe devnet
-./local-setup-e2e/devnet down
+./local-native/devnet down
 
 # Reset state
 rm -f e2e-tests/deploy_addresses.json
@@ -311,11 +341,11 @@ Check that `make build` completed successfully and `build/pchaind` / `build/puni
 
 ### 2) Validators stuck at height 0
 
-P2P peer connections failing. The devnet script sets `allow_duplicate_ip = true` and `addr_book_strict = false` automatically for all-localhost setups. If reusing old data, run `./local-setup-e2e/devnet down` to wipe and restart clean.
+P2P peer connections failing. The devnet script sets `allow_duplicate_ip = true` and `addr_book_strict = false` automatically for all-localhost setups. If reusing old data, run `./local-native/devnet down` to wipe and restart clean.
 
 ### 3) TSS keygen not completing
 
-Check UV logs (`./local-setup-e2e/devnet logs universal-1`). UVs need:
+Check UV logs (`./local-native/devnet logs universal-1`). UVs need:
 - All 4 validators bonded
 - All 4 UVs registered with AuthZ grants
 - External chain RPC endpoints configured (set by `setup-environment`)

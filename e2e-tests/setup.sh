@@ -1266,7 +1266,7 @@ step_setup_environment() {
     local sepolia_fork_rpc="https://sepolia.drpc.org"
     local arbitrum_fork_rpc="https://arbitrum-sepolia.gateway.tenderly.co"
     local base_fork_rpc="https://sepolia.base.org"
-    local bsc_fork_rpc="https://bnb-testnet.g.alchemy.com/v2/peQmTO8MjpoK5Czw4HwRp"
+    local bsc_fork_rpc="wss://bsc-testnet-rpc.publicnode.com"
     local solana_upstream_rpc="https://api.devnet.solana.com"
 
     # Fetch event_start_from from the upstream RPCs BEFORE starting local forks.
@@ -2458,6 +2458,62 @@ step_sync_test_addresses() {
   log_ok "Updated $TEST_ADDRESSES_PATH"
 }
 
+step_fund_uea_prc20() {
+  require_cmd cast jq
+  ensure_deploy_file
+
+  local sdk_evm_private_key
+  sdk_evm_private_key="${EVM_PRIVATE_KEY:-${PRIVATE_KEY:-}}"
+  if [[ -z "$sdk_evm_private_key" ]]; then
+    log_warn "No EVM_PRIVATE_KEY found; skipping UEA PRC20 funding"
+    return 0
+  fi
+
+  local evm_addr
+  evm_addr="$(cast wallet address "$sdk_evm_private_key" 2>/dev/null || true)"
+  if ! validate_eth_address "$evm_addr"; then
+    log_warn "Could not derive EVM address from EVM_PRIVATE_KEY; skipping UEA PRC20 funding"
+    return 0
+  fi
+
+  local factory_addr="0x00000000000000000000000000000000000000eA"
+  local uea_addr
+  uea_addr="$(cast call "$factory_addr" "computeUEA((string,string,bytes))(address)" \
+    "(eip155,11155111,$evm_addr)" \
+    --rpc-url "$PUSH_RPC_URL" 2>/dev/null | grep -Eo '0x[a-fA-F0-9]{40}' | head -1 || true)"
+
+  if ! validate_eth_address "$uea_addr"; then
+    log_warn "Could not compute UEA address for $evm_addr; skipping UEA PRC20 funding"
+    return 0
+  fi
+
+  log_info "Funding UEA $uea_addr (signer: $evm_addr) with PRC20 tokens from deployer"
+
+  local token_count
+  token_count="$(jq -r '.tokens | length' "$DEPLOY_ADDRESSES_FILE")"
+  if [[ "$token_count" == "0" ]]; then
+    log_warn "No tokens in deploy addresses to fund UEA with"
+    return 0
+  fi
+
+  local token_symbol token_addr token_decimals fund_amount
+  while IFS=$'\t' read -r token_symbol token_addr token_decimals; do
+    [[ -n "$token_addr" ]] || continue
+    # 1e9 for tokens with <=9 decimals (e.g. USDT×1000, pSOL×1), 1e18 for 18-decimal tokens (e.g. 1 pETH)
+    if [[ "${token_decimals:-18}" -le 9 ]]; then
+      fund_amount="1000000000"
+    else
+      fund_amount="1000000000000000000"
+    fi
+    log_info "  Sending $fund_amount of $token_symbol ($token_addr) to UEA $uea_addr"
+    cast send --private-key "$PRIVATE_KEY" "$token_addr" \
+      "transfer(address,uint256)(bool)" "$uea_addr" "$fund_amount" \
+      --rpc-url "$PUSH_RPC_URL" 2>&1 | grep -E "^status" || true
+  done < <(jq -r '.tokens[]? | [.symbol, .address, (.decimals // 18)] | @tsv' "$DEPLOY_ADDRESSES_FILE")
+
+  log_ok "UEA PRC20 funding complete"
+}
+
 step_create_all_wpc_pools() {
   require_cmd node cast "$PUSH_CHAIN_DIR/build/pchaind"
   ensure_deploy_file
@@ -2797,6 +2853,7 @@ Commands:
   setup-swap             Clone/install/deploy swap AMM contracts
   sync-addresses         Apply deploy_addresses.json into test-addresses.json
   create-pool            Create WPC pools for all deployed core tokens
+  fund-uea-prc20         Transfer PRC20 tokens (pETH/pUSDT/pSOL etc.) from deployer to test UEA
   configure-core         Run configureUniversalCore.s.sol (auto --resume retries)
   check-addresses        Check/report deploy addresses (WPC/Factory/QuoterV2/SwapRouter)
   write-core-env         Create core-contracts .env from deploy_addresses.json
@@ -2854,6 +2911,7 @@ main() {
     setup-swap) step_setup_swap_amm ;;
     sync-addresses) step_sync_test_addresses ;;
     create-pool) step_create_all_wpc_pools ;;
+    fund-uea-prc20) step_fund_uea_prc20 ;;
     configure-core) step_configure_universal_core ;;
     check-addresses) assert_required_addresses ;;
     write-core-env) step_write_core_env ;;

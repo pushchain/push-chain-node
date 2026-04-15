@@ -20,6 +20,44 @@ It covers:
 
 ---
 
+## Quick testing setup
+
+Three commands from a clean checkout. Make sure the prerequisites below are installed first.
+
+**1. Set up `.env`**
+
+```bash
+cp e2e-tests/.env.example e2e-tests/.env
+```
+
+Edit `e2e-tests/.env` and set at minimum:
+
+- `TESTING_ENV=LOCAL` — enables anvil + surfpool forks
+- `PRIVATE_KEY=0x...` — EVM deployer key (used by forge/hardhat and mirrored into SDK `.env`)
+- `SOLANA_PRIVATE_KEY=...` — only needed if you plan to run Solana SDK tests
+
+`FUND_TO_ADDRESS`, `EVM_PRIVATE_KEY`, `EVM_RPC`, and `PUSH_PRIVATE_KEY` are auto-derived from `PRIVATE_KEY` / `PUSH_RPC_URL` if left blank.
+
+**2. Bootstrap the local Push network**
+
+```bash
+TESTING_ENV=LOCAL bash e2e-tests/setup.sh all
+```
+
+Runs the full pipeline: starts anvil/surfpool forks, boots 4 validators + 2 universal validators, generates the TSS key, deploys core/swap/gateway contracts, submits uregistry configs, and syncs addresses into `deploy_addresses.json`. See [One-command full run](#one-command-full-run) for the detailed step list.
+
+**3. Set up the SDK**
+
+```bash
+TESTING_ENV=LOCAL bash e2e-tests/setup.sh setup-sdk
+```
+
+Clones `push-chain-sdk`, writes `packages/core/.env` from your e2e `.env`, syncs the LOCALNET synthetic token addresses into the SDK's chain constants, resolves `UEA_PROXY_IMPLEMENTATION` from the local chain, and installs dependencies.
+
+After this you can run SDK E2E tests — see [Running SDK E2E tests](#running-sdk-e2e-tests).
+
+---
+
 ## What gets created
 
 - `local-native/data/` — validator + universal-validator home directories
@@ -44,10 +82,10 @@ Override any of these with env vars (`CORE_CONTRACTS_DIR`, `SWAP_AMM_DIR`, `GATE
 
 Required tools:
 
-- `git`, `make`
-- `jq`
-- `node`, `npm`, `npx`
+- `git`, `make`, `curl`, `jq`, `perl`, `python3`, `lsof`
+- `node`, `npm`, `npx`, `yarn`
 - `forge`, `cast` (Foundry)
+- `anvil` + `surfpool` — only for `TESTING_ENV=LOCAL`
 - `pchaind` and `puniversald` binaries in `build/` (built by `make build`)
 
 Build the binaries first:
@@ -102,22 +140,22 @@ When set in `.env`, the `setup-environment` step (also called by `all`) does:
    - `anvil` for Ethereum Sepolia, Arbitrum Sepolia, Base Sepolia, BSC Testnet
    - `surfpool` for Solana
 2. Rewrites `public_rpc_url` in `config/testnet-donut/*/chain.json` to local fork URLs
-3. Patches `puniversald` chain RPC config (`local-setup-e2e/data/universal-N/.puniversal/config/pushuv_config.json`) to use local fork endpoints
+3. Patches `puniversald` chain RPC config (`local-native/data/universal-N/.puniversal/config/pushuv_config.json`) to use local fork endpoints
 
 Default local fork URLs (override in `.env`):
 
-| Variable | Default |
-|---|---|
-| `ANVIL_SEPOLIA_HOST_RPC_URL` | `http://localhost:9545` | Anvil Sepolia host URL (used by forge/cast and chain config patch) |
-| `ANVIL_ARBITRUM_HOST_RPC_URL` | `http://localhost:9546` | |
-| `ANVIL_BASE_HOST_RPC_URL` | `http://localhost:9547` | |
-| `ANVIL_BSC_HOST_RPC_URL` | `http://localhost:9548` | |
-| `SURFPOOL_SOLANA_HOST_RPC_URL` | `http://localhost:8899` | |
-| `LOCAL_SEPOLIA_UV_RPC_URL` | ← `ANVIL_SEPOLIA_HOST_RPC_URL` | RPC URL written into UV `pushuv_config.json` (can differ from host if using Docker networking) |
-| `LOCAL_ARBITRUM_UV_RPC_URL` | ← `ANVIL_ARBITRUM_HOST_RPC_URL` | |
-| `LOCAL_BASE_UV_RPC_URL` | ← `ANVIL_BASE_HOST_RPC_URL` | |
-| `LOCAL_BSC_UV_RPC_URL` | ← `ANVIL_BSC_HOST_RPC_URL` | |
-| `LOCAL_SOLANA_UV_RPC_URL` | ← `SURFPOOL_SOLANA_HOST_RPC_URL` | |
+| Variable | Default | Description |
+|---|---|---|
+| `ANVIL_SEPOLIA_HOST_RPC_URL` | `http://localhost:9545` | Anvil Sepolia host URL (forge/cast + chain config patch) |
+| `ANVIL_ARBITRUM_HOST_RPC_URL` | `http://localhost:9546` | Anvil Arbitrum Sepolia host URL |
+| `ANVIL_BASE_HOST_RPC_URL` | `http://localhost:9547` | Anvil Base Sepolia host URL |
+| `ANVIL_BSC_HOST_RPC_URL` | `http://localhost:9548` | Anvil BSC Testnet host URL |
+| `SURFPOOL_SOLANA_HOST_RPC_URL` | `http://localhost:8899` | Surfpool Solana devnet host URL |
+| `LOCAL_SEPOLIA_UV_RPC_URL` | ← `ANVIL_SEPOLIA_HOST_RPC_URL` | RPC written into UV `pushuv_config.json` (can differ from host if using Docker networking) |
+| `LOCAL_ARBITRUM_UV_RPC_URL` | ← `ANVIL_ARBITRUM_HOST_RPC_URL` | UV-side Arbitrum RPC |
+| `LOCAL_BASE_UV_RPC_URL` | ← `ANVIL_BASE_HOST_RPC_URL` | UV-side Base RPC |
+| `LOCAL_BSC_UV_RPC_URL` | ← `ANVIL_BSC_HOST_RPC_URL` | UV-side BSC RPC |
+| `LOCAL_SOLANA_UV_RPC_URL` | ← `SURFPOOL_SOLANA_HOST_RPC_URL` | UV-side Solana RPC |
 
 ---
 
@@ -135,7 +173,7 @@ The `all` pipeline runs in order:
 2. Build binaries (`make replace-addresses` + `make build`)
 3. Auto-derive `FUND_TO_ADDRESS` from `PRIVATE_KEY` (writes to `.env`)
 4. Stop any running nodes cleanly
-5. `devnet` — start 4 validators + register + start 4 universal validators
+5. `devnet` — start 4 validators, register 4 universal validators, start 2 (edit `./devnet start-uv N` to start more)
 6. `tss-keygen` — TSS key generation (via `./local-native/devnet tss-keygen`)
 7. `setup-environment` (second run — patches UV `pushuv_config.json` with `event_start_from` after devnet data exists)
 8. `recover-genesis-key` — import genesis mnemonic into local keyring
@@ -153,6 +191,35 @@ The `all` pipeline runs in order:
 20. `deploy-counter-sdk` — deploy CounterPayable + sync SDK constants
 21. Sync SDK LOCALNET synthetic token constants from `deploy_addresses.json`
 22. `sync-vault-tss` — sync vault TSS addresses on all local Anvil EVM chains (LOCAL only)
+
+> `setup-sdk` is **not** included in `all`. Run it separately before any `sdk-test-*` command (see [Running SDK E2E tests](#running-sdk-e2e-tests)).
+
+---
+
+## Running SDK E2E tests
+
+The SDK repo is cloned/installed and patched to point at the local deployment only when `setup-sdk` runs. After `all` finishes:
+
+```bash
+# Clone push-chain-sdk, generate its .env, install deps, sync LOCALNET constants
+TESTING_ENV=LOCAL bash e2e-tests/setup.sh setup-sdk
+
+# Inbound test suite (TESTNET_DONUT → LOCALNET rewrite applied to spec files)
+TESTING_ENV=LOCAL bash e2e-tests/setup.sh sdk-test-all
+
+# Outbound test suite (requires TESTING_ENV=LOCAL; also funds TSS signer + vault TSS sync)
+TESTING_ENV=LOCAL bash e2e-tests/setup.sh sdk-test-outbound-all
+
+# Single inbound file
+TESTING_ENV=LOCAL bash e2e-tests/setup.sh sdk-test-send-to-self
+```
+
+Route-2 outbound tests (`cea-to-eoa.spec.ts`) additionally require a bootstrapped CEA on the BSC testnet fork:
+
+```bash
+TESTING_ENV=LOCAL bash e2e-tests/setup.sh bootstrap-cea-sdk
+TESTING_ENV=LOCAL bash e2e-tests/setup.sh sdk-test-cea-to-eoa
+```
 
 ---
 

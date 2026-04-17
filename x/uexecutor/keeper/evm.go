@@ -410,6 +410,55 @@ func (k Keeper) GetGasPriceByChain(ctx sdk.Context, chainNamespace string) (*big
 	return results[0].(*big.Int), nil
 }
 
+// GetL1GasFeeByChain reads the L1 gas fee (in gas-token units) for a chain from UniversalCore.
+// This is the data-availability fee added on top of L2 execution for chains like Optimism/Base.
+func (k Keeper) GetL1GasFeeByChain(ctx sdk.Context, chainNamespace string) (*big.Int, error) {
+	handlerAddr := common.HexToAddress(uregistrytypes.SYSTEM_CONTRACTS["UNIVERSAL_CORE"].Address)
+
+	abi, err := types.ParseUniversalCoreABI()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse UniversalCore ABI")
+	}
+
+	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
+
+	receipt, err := k.evmKeeper.CallEVM(ctx, abi, ueModuleAccAddress, handlerAddr, false, "l1GasFeeByChainNamespace", chainNamespace)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to call l1GasFeeByChainNamespace")
+	}
+
+	results, err := abi.Methods["l1GasFeeByChainNamespace"].Outputs.Unpack(receipt.Ret)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to unpack l1GasFeeByChainNamespace result")
+	}
+
+	return results[0].(*big.Int), nil
+}
+
+// GetTssFundMigrationGasLimitByChain reads the TSS fund-migration gas limit for a chain from UniversalCore.
+func (k Keeper) GetTssFundMigrationGasLimitByChain(ctx sdk.Context, chainNamespace string) (*big.Int, error) {
+	handlerAddr := common.HexToAddress(uregistrytypes.SYSTEM_CONTRACTS["UNIVERSAL_CORE"].Address)
+
+	abi, err := types.ParseUniversalCoreABI()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse UniversalCore ABI")
+	}
+
+	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
+
+	receipt, err := k.evmKeeper.CallEVM(ctx, abi, ueModuleAccAddress, handlerAddr, false, "tssFundMigrationGasLimitByChainNamespace", chainNamespace)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to call tssFundMigrationGasLimitByChainNamespace")
+	}
+
+	results, err := abi.Methods["tssFundMigrationGasLimitByChainNamespace"].Outputs.Unpack(receipt.Ret)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to unpack tssFundMigrationGasLimitByChainNamespace result")
+	}
+
+	return results[0].(*big.Int), nil
+}
+
 // GetUniversalCoreQuoterAddress reads the uniswapV3Quoter address stored in UniversalCore.
 func (k Keeper) GetUniversalCoreQuoterAddress(ctx sdk.Context) (common.Address, error) {
 	handlerAddr := common.HexToAddress(uregistrytypes.SYSTEM_CONTRACTS["UNIVERSAL_CORE"].Address)

@@ -20,13 +20,15 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module"
 
 	"github.com/pushchain/push-chain-node/x/utss/keeper"
+	v4 "github.com/pushchain/push-chain-node/x/utss/migrations/v4"
 	"github.com/pushchain/push-chain-node/x/utss/types"
 )
 
 const (
 	// ConsensusVersion defines the current x/utss module consensus version.
-	// Bumped to 3: added FundMigrations, NextMigrationId, PendingMigrations collections.
-	ConsensusVersion = 3
+	// Bumped to 4: FundMigration proto adds l1_gas_fee (field 13); existing
+	// records are backfilled with "0" by the v3 → v4 migration.
+	ConsensusVersion = 4
 )
 
 var (
@@ -157,6 +159,14 @@ func (a AppModule) RegisterServices(cfg module.Configurator) {
 		return nil // no-op: new collections are initialized empty by the schema builder
 	}); err != nil {
 		panic(fmt.Sprintf("failed to register utss v2->v3 migration: %v", err))
+	}
+
+	// Register migration from v3 → v4 (added FundMigration.l1_gas_fee).
+	if err := cfg.RegisterMigration(types.ModuleName, 3, func(ctx sdk.Context) error {
+		ctx.Logger().Info("🔧 Running utss module migration: v3 → v4 (fund-migration l1_gas_fee)")
+		return v4.MigrateFundMigrationsL1GasFee(ctx, &a.keeper)
+	}); err != nil {
+		panic(fmt.Sprintf("failed to register utss v3->v4 migration: %v", err))
 	}
 }
 

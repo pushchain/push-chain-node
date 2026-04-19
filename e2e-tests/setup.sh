@@ -950,6 +950,58 @@ step_run_sdk_outbound_tests_all() {
   log_ok "Completed all configured SDK outbound E2E tests"
 }
 
+step_run_sdk_quick_testing_outbound() {
+  local outbound_dir="$PUSH_CHAIN_SDK_DIR/packages/core/__e2e__/evm/outbound"
+  local quick_files=(
+    "cea-to-eoa.spec.ts"
+    "cea-to-uea.spec.ts"
+  )
+  local evm_client_file="$PUSH_CHAIN_SDK_DIR/packages/core/__e2e__/shared/evm-client.ts"
+  local utils_file="$PUSH_CHAIN_SDK_DIR/packages/core/src/lib/utils.ts"
+  local tokens_file="$PUSH_CHAIN_SDK_DIR/packages/core/src/lib/constants/tokens.ts"
+  local file full_path
+
+  step_setup_push_chain_sdk
+  step_fund_uea_prc20
+
+  sdk_sync_localnet_constants
+
+  for file in "${quick_files[@]}"; do
+    full_path="$outbound_dir/$file"
+    if [[ ! -f "$full_path" ]]; then
+      log_err "SDK outbound test file not found: $full_path"
+      exit 1
+    fi
+    perl -0pi -e 's/\bPUSH_NETWORK\.TESTNET_DONUT\b/PUSH_NETWORK.LOCALNET/g; s/\bPUSH_NETWORK\.TESTNET\b/PUSH_NETWORK.LOCALNET/g; s/\bCHAIN\.PUSH_TESTNET_DONUT\b/CHAIN.PUSH_LOCALNET/g' "$full_path"
+    log_ok "Prepared LOCALNET network replacement in $file"
+  done
+
+  if [[ -f "$evm_client_file" ]]; then
+    perl -0pi -e 's/\bPUSH_NETWORK\.TESTNET_DONUT\b/PUSH_NETWORK.LOCALNET/g' "$evm_client_file"
+    log_ok "Patched evm-client.ts default network to PUSH_NETWORK.LOCALNET"
+  fi
+  if [[ -f "$utils_file" ]]; then
+    perl -0pi -e 's/(const network = options\?\.network \?\?)\s*PUSH_NETWORK\.TESTNET_DONUT/$1 PUSH_NETWORK.LOCALNET/' "$utils_file"
+    log_ok "Patched utils.ts getPRC20Address default network to PUSH_NETWORK.LOCALNET"
+  fi
+  if [[ -f "$tokens_file" ]]; then
+    perl -0pi -e 's/(const s = SYNTHETIC_PUSH_ERC20\[)PUSH_NETWORK\.TESTNET_DONUT(\])/$1PUSH_NETWORK.LOCALNET$2/' "$tokens_file"
+    log_ok "Patched tokens.ts buildPushChainMoveableTokenAccessor default network to PUSH_NETWORK.LOCALNET"
+  fi
+
+  for file in "${quick_files[@]}"; do
+    full_path="$outbound_dir/$file"
+    log_info "Running SDK outbound test: $file"
+    local rel_pattern="${full_path##*/packages/core/}"
+    (
+      cd "$PUSH_CHAIN_SDK_DIR"
+      npx nx test core --runInBand --testPathPattern="$rel_pattern"
+    )
+  done
+
+  log_ok "Completed quick-testing-outbound SDK E2E tests"
+}
+
 step_devnet() {
   require_cmd bash jq
 
@@ -2895,6 +2947,7 @@ Commands:
   setup-sdk              Setup push-chain-sdk (requires clone-sdk first): generate .env, replace TESTNET→LOCALNET in __e2e__ files, install deps
   sdk-test-all           Replace PUSH_NETWORK TESTNET variants with LOCALNET and run all configured SDK E2E tests
   sdk-test-outbound-all  Replace PUSH_NETWORK TESTNET variants with LOCALNET and run all configured SDK outbound E2E tests (TESTING_ENV=LOCAL)
+  quick-testing-outbound Run setup-sdk + fund-uea-prc20, then execute cea-to-eoa.spec.ts and cea-to-uea.spec.ts only
   sdk-test-pctx-last-transaction  Run pctx-last-transaction.spec.ts
   sdk-test-send-to-self  Run send-to-self.spec.ts
   sdk-test-progress-hook Run progress-hook-per-tx.spec.ts
@@ -2954,6 +3007,7 @@ main() {
     setup-sdk) step_setup_push_chain_sdk ;;
     sdk-test-all) step_run_sdk_tests_all ;;
     sdk-test-outbound-all) step_run_sdk_outbound_tests_all ;;
+    quick-testing-outbound) step_run_sdk_quick_testing_outbound ;;
     sdk-test-pctx-last-transaction) step_run_sdk_test_file "pctx-last-transaction.spec.ts" ;;
     sdk-test-send-to-self) step_run_sdk_test_file "send-to-self.spec.ts" ;;
     sdk-test-progress-hook) step_run_sdk_test_file "progress-hook-per-tx.spec.ts" ;;

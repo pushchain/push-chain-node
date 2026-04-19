@@ -699,6 +699,12 @@ sdk_prepare_test_files_for_localnet() {
   done < <(find "$PUSH_CHAIN_SDK_DIR/packages/core/__e2e__/evm/outbound" -type f -name '*.spec.ts' | sort)
 }
 
+step_clone_push_chain_sdk() {
+  require_cmd git
+  clone_or_update_repo "$PUSH_CHAIN_SDK_REPO" "$PUSH_CHAIN_SDK_BRANCH" "$PUSH_CHAIN_SDK_DIR"
+  log_ok "push-chain-sdk ready at $PUSH_CHAIN_SDK_DIR"
+}
+
 step_setup_push_chain_sdk() {
   require_cmd git yarn npm cast jq perl
 
@@ -706,7 +712,11 @@ step_setup_push_chain_sdk() {
   local sdk_account_file="$PUSH_CHAIN_SDK_DIR/$PUSH_CHAIN_SDK_ACCOUNT_TS_PATH"
   local uea_impl_raw uea_impl synced_localnet_uea
 
-  clone_or_update_repo "$PUSH_CHAIN_SDK_REPO" "$PUSH_CHAIN_SDK_BRANCH" "$PUSH_CHAIN_SDK_DIR"
+  if [[ ! -d "$PUSH_CHAIN_SDK_DIR/.git" ]]; then
+    log_err "SDK repo not found at $PUSH_CHAIN_SDK_DIR"
+    log_err "Run: $0 clone-sdk (or 'setup all' which clones it automatically)"
+    exit 1
+  fi
 
   local sdk_env_path="$PUSH_CHAIN_SDK_DIR/$PUSH_CHAIN_SDK_CORE_ENV_PATH"
   local sdk_evm_private_key sdk_evm_rpc sdk_solana_rpc sdk_solana_private_key sdk_push_private_key
@@ -778,12 +788,30 @@ step_setup_push_chain_sdk() {
   ' "$sdk_account_file"
   log_ok "Replaced CHAIN.PUSH_TESTNET_DONUT with CHAIN.PUSH_LOCALNET only in convertExecutorToOriginAccount() in $sdk_account_file"
 
+  local sdk_e2e_root="$PUSH_CHAIN_SDK_DIR/packages/core/__e2e__"
+  if [[ -d "$sdk_e2e_root" ]]; then
+    log_info "Replacing TESTNET/TESTNET_DONUT with LOCALNET across all SDK __e2e__ test files"
+    local patched_count=0
+    while IFS= read -r -d '' e2e_file; do
+      perl -0pi -e '
+        s/\bPUSH_NETWORK\.TESTNET_DONUT\b/PUSH_NETWORK.LOCALNET/g;
+        s/\bPUSH_NETWORK\.TESTNET\b/PUSH_NETWORK.LOCALNET/g;
+        s/\bCHAIN\.PUSH_TESTNET_DONUT\b/CHAIN.PUSH_LOCALNET/g;
+      ' "$e2e_file"
+      patched_count=$((patched_count + 1))
+    done < <(find "$sdk_e2e_root" -type f \( -name '*.ts' -o -name '*.tsx' \) -print0)
+    log_ok "Applied LOCALNET replacement to $patched_count file(s) under $sdk_e2e_root"
+  else
+    log_warn "SDK __e2e__ directory not found at $sdk_e2e_root; skipping TESTNET→LOCALNET replacement"
+  fi
+
   log_info "Installing push-chain-sdk dependencies"
   (
     cd "$PUSH_CHAIN_SDK_DIR"
     yarn install
     npm install
     npm i --save-dev @types/bs58
+    npm i tweetnacl
   )
 
   log_ok "push-chain-sdk setup complete"
@@ -2834,6 +2862,7 @@ cmd_all() {
   step_update_eth_token_config
   step_setup_gateway
   step_add_uregistry_configs
+  step_clone_push_chain_sdk
   step_deploy_counter_and_sync_sdk
   sdk_sync_localnet_constants
   step_sync_vault_tss_on_anvil
@@ -2862,7 +2891,8 @@ Commands:
   sync-vault-tss         Grant TSS_ROLE on each Anvil EVM vault to the current local TSS key (LOCAL only)
   bootstrap-cea-sdk      Ensure CEA is deployed for SDK signer on BSC testnet fork (Route 2 bootstrap)
   deploy-counter-sdk     Deploy CounterPayable on Push localnet and sync SDK COUNTER_ADDRESS_PAYABLE
-  setup-sdk              Clone/setup push-chain-sdk, generate SDK .env from e2e .env, and install dependencies
+  clone-sdk              Clone/update push-chain-sdk repo only (no env/deps setup)
+  setup-sdk              Setup push-chain-sdk (requires clone-sdk first): generate .env, replace TESTNET→LOCALNET in __e2e__ files, install deps
   sdk-test-all           Replace PUSH_NETWORK TESTNET variants with LOCALNET and run all configured SDK E2E tests
   sdk-test-outbound-all  Replace PUSH_NETWORK TESTNET variants with LOCALNET and run all configured SDK outbound E2E tests (TESTING_ENV=LOCAL)
   sdk-test-pctx-last-transaction  Run pctx-last-transaction.spec.ts
@@ -2920,6 +2950,7 @@ main() {
     sync-vault-tss) step_sync_vault_tss_on_anvil ;;
     bootstrap-cea-sdk) step_bootstrap_cea_for_sdk_signer ;;
     deploy-counter-sdk) step_deploy_counter_and_sync_sdk ;;
+    clone-sdk) step_clone_push_chain_sdk ;;
     setup-sdk) step_setup_push_chain_sdk ;;
     sdk-test-all) step_run_sdk_tests_all ;;
     sdk-test-outbound-all) step_run_sdk_outbound_tests_all ;;

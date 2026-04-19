@@ -351,6 +351,14 @@ Manual helpers:
 
 ---
 
+## Adding a new token to the setup
+
+To register a new synthetic token in the local bootstrap, edit `../push-chain-core-contracts/scripts/localSetup/setup.s.sol` and add the token there. The `all` pipeline will deploy it and automatically create a WPC ↔ token liquidity pool as part of `create-pool`.
+
+Note: this only handles pools paired with WPC. If you need a pool between two non-WPC tokens, additional adjustments are required (extra pool-creation logic in the swap setup and matching entries in the token/uregistry configs).
+
+---
+
 ## Auto-retry and resilience behavior
 
 ### Forge scripts (core, gateway, configureUniversalCore)

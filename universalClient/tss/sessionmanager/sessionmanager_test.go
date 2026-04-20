@@ -592,12 +592,15 @@ func TestVerifyFundMigrationSigningRequest_Validation(t *testing.T) {
 		// Use the well-known secp256k1 generator point (valid compressed pubkey)
 		genPoint := "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
 
+		// Include L1GasFee to assert the new proto field survives JSON roundtrip
+		// through the event data on its way into verifyFundMigrationSigningRequest.
 		migrationData := utsstypes.FundMigrationInitiatedEventData{
 			OldTssPubkey:     genPoint,
 			CurrentTssPubkey: genPoint,
-			Chain:            "eip155:1",
+			Chain:            "eip155:10",
 			GasPrice:         "1000000000",
-			GasLimit:         21000,
+			GasLimit:         21100,
+			L1GasFee:         "150",
 		}
 		eventDataBytes, _ := json.Marshal(migrationData)
 		event := &store.Event{

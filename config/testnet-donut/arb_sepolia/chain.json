@@ -1,6 +1,6 @@
 {
   "chain": "eip155:421614",
-  "public_rpc_url": "https://arbitrum-sepolia.gateway.tenderly.co",
+  "public_rpc_url": "http://localhost:9546",
   "vm_type": 1,
   "gateway_address": "0x2cd870e0166Ba458dEC615168Fd659AacD795f34",
   "block_confirmation": {

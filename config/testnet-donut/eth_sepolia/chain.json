@@ -1,6 +1,6 @@
 {
   "chain": "eip155:11155111",
-  "public_rpc_url": "https://ethereum-sepolia-rpc.publicnode.com",
+  "public_rpc_url": "http://localhost:9545",
   "vm_type": 1,
   "gateway_address": "0x05bD7a3D18324c1F7e216f7fBF2b15985aE5281A",
   "gas_oracle_fetch_interval": "30s",
@@ -44,6 +44,6 @@
   ],
   "enabled": {
     "isInboundEnabled": true,
-    "isOutboundEnabled": false
+    "isOutboundEnabled": true
   }
 }

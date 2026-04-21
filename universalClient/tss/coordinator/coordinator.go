@@ -281,12 +281,6 @@ func (c *Coordinator) GetEligibleUV(protocolType string) []*types.UniversalValid
 	return result
 }
 
-// RefreshValidators forces an immediate refresh of the validator cache from pushCore.
-// Session setup uses this to recover from short-lived cache staleness between nodes.
-func (c *Coordinator) RefreshValidators(ctx context.Context) {
-	c.updateValidators(ctx)
-}
-
 // Start starts the coordinator loop.
 func (c *Coordinator) Start(ctx context.Context) {
 	c.mu.Lock()

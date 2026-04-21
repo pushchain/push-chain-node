@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
-
 	"sync"
 	"time"
 
@@ -891,15 +890,21 @@ func (sm *SessionManager) verifyFundMigrationSigningRequest(ctx context.Context,
 			req.Nonce, finalizedNonce, oldTSSAddr)
 	}
 
-	// Rebuild fund migration signing request with coordinator's nonce
+	// Rebuild fund migration signing request with coordinator's nonce.
+	// Parsing must match what the coordinator did; otherwise the reconstructed
+	// hash on OP-stack chains diverges and the verification below rejects it.
 	gasPrice := new(big.Int)
 	gasPrice.SetString(migrationData.GasPrice, 10)
+
+	l1GasFee := new(big.Int)
+	l1GasFee.SetString(migrationData.L1GasFee, 10)
 
 	migrationFundData := &common.FundMigrationData{
 		From:     oldTSSAddr,
 		To:       currentTSSAddr,
 		GasPrice: gasPrice,
 		GasLimit: migrationData.GasLimit,
+		L1GasFee: l1GasFee,
 	}
 	signingReq, err := builder.GetFundMigrationSigningRequest(ctx, migrationFundData, req.Nonce)
 	if err != nil {

@@ -103,5 +103,6 @@ message FundMigration {
   int64  completed_block    = 9;
   string tx_hash            = 10;
   string gas_price          = 11; // gas price from oracle (wei)
-  uint64 gas_limit          = 12; // gas limit for native transfer (21000)
+  uint64 gas_limit          = 12; // gas limit sourced from UniversalCore per chain namespace
+  string l1_gas_fee         = 13; // L1 data-availability fee (wei) from UniversalCore; 0 for non-L2 chains
 }

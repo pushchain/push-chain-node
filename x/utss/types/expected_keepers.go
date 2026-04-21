@@ -40,4 +40,6 @@ type URegistryKeeper interface {
 type UExecutorKeeper interface {
 	HasPendingOutboundsForChain(ctx context.Context, chain string) (bool, error)
 	GetGasPriceByChain(ctx sdk.Context, chainNamespace string) (*big.Int, error)
+	GetL1GasFeeByChain(ctx sdk.Context, chainNamespace string) (*big.Int, error)
+	GetTssFundMigrationGasLimitByChain(ctx sdk.Context, chainNamespace string) (*big.Int, error)
 }

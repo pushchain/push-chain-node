@@ -10,6 +10,7 @@ import (
 	aiauditfixes2 "github.com/pushchain/push-chain-node/app/upgrades/ai-audit-fixes-2"
 	purgeexpiredoutbounds "github.com/pushchain/push-chain-node/app/upgrades/purge-expired-outbounds"
 	removeutxverifier "github.com/pushchain/push-chain-node/app/upgrades/remove-utxverifier"
+	tssfundmigrationfixes "github.com/pushchain/push-chain-node/app/upgrades/tss-fund-migration-fixes"
 	tssmigration "github.com/pushchain/push-chain-node/app/upgrades/tss-migration"
 	ueamigration "github.com/pushchain/push-chain-node/app/upgrades/uea-migration"
 	ceagasandpayload "github.com/pushchain/push-chain-node/app/upgrades/cea-gas-and-payload"
@@ -63,6 +64,7 @@ var Upgrades = []upgrades.Upgrade{
 	tssmigration.NewUpgrade(),
 	purgeexpiredoutbounds.NewUpgrade(),
 	removeutxverifier.NewUpgrade(),
+	tssfundmigrationfixes.NewUpgrade(),
 }
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers

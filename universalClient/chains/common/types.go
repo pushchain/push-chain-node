@@ -30,6 +30,7 @@ type FundMigrationData struct {
 	To       string   // New TSS address (derived from current pubkey)
 	GasPrice *big.Int // Gas price from the migration event
 	GasLimit uint64   // Gas limit from the migration event
+	L1GasFee *big.Int // Extra L1 data-availability fee (wei); 0 for non-L2 chains
 }
 
 // UnsignedSigningReq contains the request for signing an outbound transaction

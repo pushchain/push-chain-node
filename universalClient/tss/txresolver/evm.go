@@ -6,7 +6,6 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
-	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
 // resolveEVM checks the on-chain receipt and moves the event to COMPLETED or REVERTED.
@@ -32,15 +31,9 @@ func (r *Resolver) resolveEVM(ctx context.Context, event *store.Event, chainID, 
 		r.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to extract outbound IDs")
 		return
 	}
-	r.logger.Debug().
-		Str("event_id", event.EventID).
-		Str("chain", chainID).
-		Str("tx_hash", rawTxHash).
-		Msg("resolving EVM broadcasted tx")
-
 	found, blockHeight, confirmations, status, err := r.verifyTxOnChain(ctx, chainID, rawTxHash)
 	if err != nil {
-		r.logger.Debug().Err(err).Str("event_id", event.EventID).Str("tx_hash", rawTxHash).Msg("tx verification error")
+		r.logger.Debug().Err(err).Str("event_id", event.EventID).Msg("tx verification error")
 		return
 	}
 	if !found {
@@ -62,15 +55,6 @@ func (r *Resolver) resolveEVM(ctx context.Context, event *store.Event, chainID, 
 	delete(r.notFoundCounts, event.EventID)
 
 	requiredConfs := r.chains.GetStandardConfirmations(chainID)
-	r.logger.Debug().
-		Str("event_id", event.EventID).
-		Str("chain", chainID).
-		Str("tx_hash", rawTxHash).
-		Uint64("block_height", blockHeight).
-		Uint64("confirmations", confirmations).
-		Uint64("required_confs", requiredConfs).
-		Uint8("status", status).
-		Msg("tx found on chain")
 	if confirmations < requiredConfs {
 		return // not enough confirmations yet, retry next tick
 	}
@@ -89,33 +73,9 @@ func (r *Resolver) resolveEVM(ctx context.Context, event *store.Event, chainID, 
 	}
 
 	// status == 1 (success)
-	if r.pushSigner != nil {
-		gasFeeUsed := "0"
-		if builder, err := r.getBuilder(chainID); err == nil {
-			if fee, err := builder.GetGasFeeUsed(ctx, rawTxHash); err == nil {
-				gasFeeUsed = fee
-			}
-		}
-		observation := &uexecutortypes.OutboundObservation{
-			Success:     true,
-			BlockHeight: blockHeight,
-			TxHash:      rawTxHash,
-			GasFeeUsed:  gasFeeUsed,
-		}
-		voteTxHash, err := r.pushSigner.VoteOutbound(ctx, txID, utxID, observation)
-		if err != nil {
-			r.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to vote success for EVM tx")
-			return
-		}
-		if err := r.eventStore.Update(event.EventID, map[string]any{"status": eventstore.StatusCompleted, "vote_tx_hash": voteTxHash}); err != nil {
-			r.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to mark event COMPLETED")
-			return
-		}
-	} else {
-		if err := r.eventStore.Update(event.EventID, map[string]any{"status": eventstore.StatusCompleted}); err != nil {
-			r.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to mark event COMPLETED")
-			return
-		}
+	if err := r.eventStore.Update(event.EventID, map[string]any{"status": eventstore.StatusCompleted}); err != nil {
+		r.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to mark event COMPLETED")
+		return
 	}
 	r.logger.Info().
 		Str("event_id", event.EventID).Str("tx_hash", rawTxHash).

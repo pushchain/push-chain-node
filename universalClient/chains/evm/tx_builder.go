@@ -233,40 +233,12 @@ func (tb *TxBuilder) BroadcastOutboundSigningRequest(
 
 	txHashStr := signedTx.Hash().Hex()
 
-	// Recover and log sender address from the signed tx for diagnostics
-	senderAddr, senderErr := signer.Sender(signedTx)
-	senderStr := "(unknown)"
-	if senderErr == nil {
-		senderStr = senderAddr.Hex()
-	}
-
-	tb.logger.Info().
-		Str("tx_hash", txHashStr).
-		Str("sender", senderStr).
-		Str("to", tb.vaultAddress.Hex()).
-		Str("chain", tb.chainID).
-		Uint64("nonce", req.Nonce).
-		Str("gas_price", gasPrice.String()).
-		Uint64("gas_limit", gasLimitForTx.Uint64()).
-		Str("value", txValue.String()).
-		Str("func", funcName).
-		Msg("submitting vault tx to EVM chain")
-
 	if _, err := tb.rpcClient.BroadcastTransaction(ctx, signedTx); err != nil {
-		tb.logger.Warn().
-			Err(err).
-			Str("sender", senderStr).
-			Str("to", tb.vaultAddress.Hex()).
-			Str("chain", tb.chainID).
-			Uint64("nonce", req.Nonce).
-			Msg("BroadcastTransaction failed")
 		return txHashStr, fmt.Errorf("failed to broadcast transaction: %w", err)
 	}
 
 	tb.logger.Info().
 		Str("tx_hash", txHashStr).
-		Str("sender", senderStr).
-		Str("to", tb.vaultAddress.Hex()).
 		Msg("transaction broadcast successfully")
 
 	return txHashStr, nil

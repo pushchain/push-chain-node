@@ -21,7 +21,7 @@ func (k Keeper) buildRevertOutbound(sdkCtx sdk.Context, inbound *types.Inbound) 
 		Sender:            inbound.Sender,
 		TxType:            types.TxType_INBOUND_REVERT,
 		OutboundStatus:    types.Status_PENDING,
-		Id:                types.GetOutboundRevertId(inbound.SourceChain, inbound.TxHash),
+		Id:                types.GetOutboundRevertId(inbound.SourceChain, inbound.TxHash, inbound.LogIndex),
 	}
 
 	// Look up the PRC20 address for this external token

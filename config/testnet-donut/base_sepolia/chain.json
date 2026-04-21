@@ -1,6 +1,6 @@
 {
   "chain": "eip155:84532",
-  "public_rpc_url": "http://localhost:9547",
+  "public_rpc_url": "https://sepolia.base.org",
   "vm_type": 1,
   "gateway_address": "0xFD4fef1F43aFEc8b5bcdEEc47f35a1431479aC16",
   "block_confirmation": {

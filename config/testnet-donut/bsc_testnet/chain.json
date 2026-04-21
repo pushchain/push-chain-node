@@ -1,6 +1,6 @@
 {
   "chain": "eip155:97",
-  "public_rpc_url": "http://localhost:9548",
+  "public_rpc_url": "https://bsc-testnet-rpc.publicnode.com",
   "vm_type": 1,
   "gateway_address": "0x44aFFC61983F4348DdddB886349eb992C061EaC0",
   "block_confirmation": {

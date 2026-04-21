@@ -109,6 +109,7 @@ type FundMigrationInitiatedEventData struct {
 	BlockHeight      int64  `json:"block_height"`
 	GasPrice         string `json:"gas_price"`
 	GasLimit         uint64 `json:"gas_limit"`
+	L1GasFee         string `json:"l1_gas_fee"`
 }
 
 // NewFundMigrationInitiatedEvent creates and returns a Cosmos SDK event.
@@ -128,6 +129,7 @@ func NewFundMigrationInitiatedEvent(e FundMigrationInitiatedEventData) (sdk.Even
 		sdk.NewAttribute("chain", e.Chain),
 		sdk.NewAttribute("gas_price", e.GasPrice),
 		sdk.NewAttribute("gas_limit", fmt.Sprintf("%d", e.GasLimit)),
+		sdk.NewAttribute("l1_gas_fee", e.L1GasFee),
 		sdk.NewAttribute("data", string(bz)),
 	)
 

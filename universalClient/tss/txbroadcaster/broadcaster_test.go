@@ -463,7 +463,8 @@ func makeSignedFundMigrationData(t *testing.T, chainID string, nonce uint64) []b
 			CurrentTssPubkey: testNewTSSPubkey,
 			Chain:            chainID,
 			GasPrice:         "1000000000",
-			GasLimit:         21000,
+			GasLimit:         21100,
+			L1GasFee:         "150",
 		},
 		SigningData: &SigningData{
 			Signature:   sig,
@@ -498,7 +499,18 @@ func TestFundMigrationEVM_BroadcastSuccess(t *testing.T) {
 
 	insertSignedFundMigrationEvent(t, db, "fm-1", "eip155:1", 0)
 
-	builder.On("BroadcastFundMigrationTx", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+	// Assert the broadcaster forwards gas-limit and L1 gas fee from the signed
+	// event payload into FundMigrationData; otherwise sweep math diverges
+	// from what the signer hashed.
+	builder.On("BroadcastFundMigrationTx",
+		mock.Anything,
+		mock.Anything,
+		mock.MatchedBy(func(d *common.FundMigrationData) bool {
+			return d.GasLimit == 21100 &&
+				d.L1GasFee != nil && d.L1GasFee.String() == "150" &&
+				d.GasPrice != nil && d.GasPrice.String() == "1000000000"
+		}),
+		mock.Anything).
 		Return("0xmigrate123", nil)
 
 	b := newBroadcaster(evtStore, ch, "")
@@ -507,6 +519,7 @@ func TestFundMigrationEVM_BroadcastSuccess(t *testing.T) {
 	ev := getEvent(t, db, "fm-1")
 	require.Equal(t, store.StatusBroadcasted, ev.Status)
 	require.Equal(t, "eip155:1:0xmigrate123", ev.BroadcastedTxHash)
+	builder.AssertExpectations(t)
 }
 
 func TestFundMigrationEVM_BroadcastFails_NonceConsumed(t *testing.T) {

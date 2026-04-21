@@ -102,11 +102,15 @@ func (b *Broadcaster) broadcastFundMigrationEVM(ctx context.Context, event *stor
 	gasPrice := new(big.Int)
 	gasPrice.SetString(data.GasPrice, 10)
 
+	l1GasFee := new(big.Int)
+	l1GasFee.SetString(data.L1GasFee, 10)
+
 	migrationData := &common.FundMigrationData{
 		From:     oldTSSAddr,
 		To:       currentTSSAddr,
 		GasPrice: gasPrice,
 		GasLimit: data.GasLimit,
+		L1GasFee: l1GasFee,
 	}
 
 	txHash, broadcastErr := builder.BroadcastFundMigrationTx(ctx, signingReq, migrationData, signature)

@@ -119,7 +119,7 @@ func (ep *EventProcessor) processConfirmedEvents(ctx context.Context) error {
 	}
 
 	for _, event := range events {
-		if event.Type == EventTypeInbound {
+		if event.Type == store.EventTypeInbound {
 			if !ep.inboundEnabled {
 				ep.logger.Warn().Str("event_id", event.EventID).Msg("inbound disabled, skipping inbound event processing")
 				continue
@@ -131,7 +131,7 @@ func (ep *EventProcessor) processConfirmedEvents(ctx context.Context) error {
 					Msg("failed to vote on inbound event")
 				continue
 			}
-		} else if event.Type == EventTypeOutbound {
+		} else if event.Type == store.EventTypeOutbound {
 			if !ep.outboundEnabled {
 				ep.logger.Warn().Str("event_id", event.EventID).Msg("outbound disabled, skipping outbound event processing")
 				continue
@@ -151,6 +151,10 @@ func (ep *EventProcessor) processConfirmedEvents(ctx context.Context) error {
 
 // processOutboundEvent processes an outbound event by voting on it
 func (ep *EventProcessor) processOutboundEvent(ctx context.Context, event *store.Event) error {
+	ep.logger.Info().
+		Str("event_id", event.EventID).
+		Msg("processing outbound event")
+
 	// Parse outbound event data once
 	outboundData, err := ep.parseOutboundEventData(event)
 	if err != nil {
@@ -173,7 +177,7 @@ func (ep *EventProcessor) processOutboundEvent(ctx context.Context, event *store
 	}
 
 	// Atomically record vote hash and flip status in one DB write
-	rowsAffected, err := ep.chainStore.UpdateStatusAndVoteTxHash(event.EventID, "CONFIRMED", "COMPLETED", voteTxHash)
+	rowsAffected, err := ep.chainStore.UpdateStatusAndVoteTxHash(event.EventID, store.StatusConfirmed, store.StatusCompleted, voteTxHash)
 	if err != nil {
 		return fmt.Errorf("failed to update event status and vote_tx_hash: %w", err)
 	}
@@ -184,10 +188,8 @@ func (ep *EventProcessor) processOutboundEvent(ctx context.Context, event *store
 
 	ep.logger.Info().
 		Str("event_id", event.EventID).
-		Str("tx_id", txID).
-		Str("utx_id", utxID).
 		Str("vote_tx_hash", voteTxHash).
-		Msg("voted on outbound event")
+		Msg("outbound event marked as COMPLETED")
 
 	return nil
 }
@@ -196,9 +198,6 @@ func (ep *EventProcessor) processOutboundEvent(ctx context.Context, event *store
 func (ep *EventProcessor) processInboundEvent(ctx context.Context, event *store.Event) error {
 	ep.logger.Info().
 		Str("event_id", event.EventID).
-		Uint32("id", uint32(event.ID)).
-		Uint64("block", event.BlockHeight).
-		Str("current_status", event.Status).
 		Msg("processing inbound event")
 
 	// Extract inbound data from event
@@ -218,7 +217,7 @@ func (ep *EventProcessor) processInboundEvent(ctx context.Context, event *store.
 	}
 
 	// Atomically record vote hash and flip status in one DB write
-	rowsAffected, err := ep.chainStore.UpdateStatusAndVoteTxHash(event.EventID, "CONFIRMED", "COMPLETED", voteTxHash)
+	rowsAffected, err := ep.chainStore.UpdateStatusAndVoteTxHash(event.EventID, store.StatusConfirmed, store.StatusCompleted, voteTxHash)
 	if err != nil {
 		return fmt.Errorf("failed to update event status after successful vote: %w", err)
 	}
@@ -230,7 +229,7 @@ func (ep *EventProcessor) processInboundEvent(ctx context.Context, event *store.
 	ep.logger.Info().
 		Str("event_id", event.EventID).
 		Str("vote_tx_hash", voteTxHash).
-		Msg("inbound event processed and confirmed successfully")
+		Msg("inbound event marked as COMPLETED")
 
 	return nil
 }
@@ -287,21 +286,13 @@ func (ep *EventProcessor) constructInbound(event *store.Event) (*uexecutortypes.
 		SourceChain: eventData.SourceChain,
 		TxHash:      txHashHex,
 		Sender:      eventData.Sender,
+		Recipient:   eventData.Recipient,
 		Amount:      eventData.Amount,
 		AssetAddr:   eventData.Token,
 		LogIndex:    strconv.FormatUint(uint64(eventData.LogIndex), 10),
 		TxType:      txType,
 		IsCEA:       eventData.FromCEA,
-	}
-
-	if txType == uexecutortypes.TxType_FUNDS_AND_PAYLOAD || txType == uexecutortypes.TxType_GAS_AND_PAYLOAD {
-		inboundMsg.UniversalPayload = &eventData.Payload
-	}
-
-	// Set recipient for transactions that involve funds
-	if txType == uexecutortypes.TxType_FUNDS || txType == uexecutortypes.TxType_GAS ||
-		(txType == uexecutortypes.TxType_FUNDS_AND_PAYLOAD && eventData.FromCEA) {
-		inboundMsg.Recipient = eventData.Recipient
+		RawPayload:  eventData.RawPayload,
 	}
 
 	// Set revert instructions if revert fund recipient is present
@@ -311,8 +302,8 @@ func (ep *EventProcessor) constructInbound(event *store.Event) (*uexecutortypes.
 		}
 	}
 
-	// Check if VerificationData is 0x and replace with TxHash
-	if inboundMsg.UniversalPayload != nil && inboundMsg.UniversalPayload.VType == uexecutortypes.VerificationType_universalTxVerification {
+	// Use event's VerificationData if present, otherwise fall back to txHash
+	if eventData.VerificationData == "" || eventData.VerificationData == "0x" {
 		inboundMsg.VerificationData = txHashHex
 	} else {
 		inboundMsg.VerificationData = eventData.VerificationData

@@ -2,7 +2,6 @@ package txbroadcaster
 
 import (
 	"context"
-	"encoding/hex"
 
 	"github.com/pushchain/push-chain-node/universalClient/store"
 )
@@ -20,21 +19,9 @@ import (
 //  3. Error → check if ExecutedTx PDA exists on-chain:
 //     - PDA exists (another relayer already processed it) → BROADCASTED
 //     - PDA not found (permanent failure: bad payload, simulation error) → BROADCASTED
-//       with empty tx hash, resolver will verify and REVERT
+//     with empty tx hash, resolver will verify and REVERT
 //     - PDA check fails (RPC truly down) → stay SIGNED, retry next tick
-func (b *Broadcaster) broadcastSVM(ctx context.Context, event *store.Event, data *SignedEventData, chainID string) {
-	signingReq, err := reconstructSigningReq(data.SigningData)
-	if err != nil {
-		b.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to reconstruct signing request")
-		return
-	}
-
-	signature, err := hex.DecodeString(data.SigningData.Signature)
-	if err != nil {
-		b.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to decode signature")
-		return
-	}
-
+func (b *Broadcaster) broadcastSVM(ctx context.Context, event *store.Event, data *SignedOutboundData, chainID string) {
 	client, err := b.chains.GetClient(chainID)
 	if err != nil {
 		b.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to get chain client")
@@ -43,6 +30,12 @@ func (b *Broadcaster) broadcastSVM(ctx context.Context, event *store.Event, data
 	builder, err := client.GetTxBuilder()
 	if err != nil {
 		b.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to get tx builder")
+		return
+	}
+
+	signingReq, signature, err := decodeSigningData(data.SigningData)
+	if err != nil {
+		b.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to decode signing data")
 		return
 	}
 

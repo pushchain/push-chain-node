@@ -53,6 +53,29 @@ func TestNewVariants(t *testing.T) {
 		require.Contains(t, logOutput, "env=test")
 	})
 
+	t.Run("invalid log level falls back to info", func(t *testing.T) {
+		r, w, _ := os.Pipe()
+		defer r.Close()
+
+		stdout := os.Stdout
+		os.Stdout = w
+		defer func() { os.Stdout = stdout }()
+
+		logger := New(99, "json", false)
+
+		// Debug should be filtered out at info level
+		logger.Debug().Msg("should_not_appear")
+		logger.Info().Msg("should_appear")
+
+		_ = w.Close()
+		buf := make([]byte, 1024)
+		n, _ := r.Read(buf)
+
+		logOutput := string(buf[:n])
+		require.NotContains(t, logOutput, "should_not_appear")
+		require.Contains(t, logOutput, "should_appear")
+	})
+
 	t.Run("sampler reduces output frequency", func(t *testing.T) {
 		r, w, _ := os.Pipe()
 		defer r.Close()

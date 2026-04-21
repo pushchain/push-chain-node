@@ -24,6 +24,8 @@ func NewMsgServerImpl(keeper Keeper) types.MsgServer {
 // UpdateParams handles MsgUpdateParams for updating module parameters.
 // Only authorized governance account can execute this.
 func (ms msgServer) UpdateParams(ctx context.Context, msg *types.MsgUpdateParams) (*types.MsgUpdateParamsResponse, error) {
+	ms.k.Logger().Info("msg update params received", "authority", msg.Authority)
+
 	if ms.k.authority != msg.Authority {
 		return nil, errors.Wrapf(govtypes.ErrInvalidSigner, "invalid authority; expected %s, got %s", ms.k.authority, msg.Authority)
 	}
@@ -38,6 +40,8 @@ func (ms msgServer) UpdateParams(ctx context.Context, msg *types.MsgUpdateParams
 
 // AddChainConfig enables the addition of a new chain configuration - Admin restricted.
 func (ms msgServer) AddChainConfig(ctx context.Context, msg *types.MsgAddChainConfig) (*types.MsgAddChainConfigResponse, error) {
+	ms.k.Logger().Info("msg add chain config received", "signer", msg.Signer, "chain", msg.ChainConfig.Chain)
+
 	// Retrieve the current Params
 	params, err := ms.k.Params.Get(ctx)
 	if err != nil {
@@ -58,6 +62,8 @@ func (ms msgServer) AddChainConfig(ctx context.Context, msg *types.MsgAddChainCo
 
 // UpdateChainConfig enables the update of an existing chain configuration - Admin restricted.
 func (ms msgServer) UpdateChainConfig(ctx context.Context, msg *types.MsgUpdateChainConfig) (*types.MsgUpdateChainConfigResponse, error) {
+	ms.k.Logger().Info("msg update chain config received", "signer", msg.Signer, "chain", msg.ChainConfig.Chain)
+
 	// Retrieve the current Params
 	params, err := ms.k.Params.Get(ctx)
 	if err != nil {
@@ -78,6 +84,12 @@ func (ms msgServer) UpdateChainConfig(ctx context.Context, msg *types.MsgUpdateC
 
 // AddTokenConfig implements types.MsgServer.
 func (ms msgServer) AddTokenConfig(ctx context.Context, msg *types.MsgAddTokenConfig) (*types.MsgAddTokenConfigResponse, error) {
+	ms.k.Logger().Info("msg add token config received",
+		"signer", msg.Signer,
+		"chain", msg.TokenConfig.Chain,
+		"token_address", msg.TokenConfig.Address,
+	)
+
 	// Retrieve the current Params
 	params, err := ms.k.Params.Get(ctx)
 	if err != nil {
@@ -98,6 +110,12 @@ func (ms msgServer) AddTokenConfig(ctx context.Context, msg *types.MsgAddTokenCo
 
 // UpdateTokenConfig implements types.MsgServer.
 func (ms msgServer) UpdateTokenConfig(ctx context.Context, msg *types.MsgUpdateTokenConfig) (*types.MsgUpdateTokenConfigResponse, error) {
+	ms.k.Logger().Info("msg update token config received",
+		"signer", msg.Signer,
+		"chain", msg.TokenConfig.Chain,
+		"token_address", msg.TokenConfig.Address,
+	)
+
 	// Retrieve the current Params
 	params, err := ms.k.Params.Get(ctx)
 	if err != nil {
@@ -118,6 +136,12 @@ func (ms msgServer) UpdateTokenConfig(ctx context.Context, msg *types.MsgUpdateT
 
 // RemoveTokenConfig implements types.MsgServer.
 func (ms msgServer) RemoveTokenConfig(ctx context.Context, msg *types.MsgRemoveTokenConfig) (*types.MsgRemoveTokenConfigResponse, error) {
+	ms.k.Logger().Info("msg remove token config received",
+		"signer", msg.Signer,
+		"chain", msg.Chain,
+		"token_address", msg.TokenAddress,
+	)
+
 	// Retrieve the current Params
 	params, err := ms.k.Params.Get(ctx)
 	if err != nil {

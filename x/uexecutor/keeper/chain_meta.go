@@ -53,6 +53,12 @@ func (k Keeper) VoteChainMeta(ctx context.Context, universalValidator sdk.ValAdd
 
 	if !found {
 		// First vote for this chain — no height check needed yet.
+		k.Logger().Info("chain meta first vote, initializing entry",
+			"chain_id", observedChainId,
+			"validator", universalValidator.String(),
+			"price", price,
+			"block_number", blockNumber,
+		)
 		priceBig := math.NewUint(price).BigInt()
 		chainHeightBig := math.NewUint(blockNumber).BigInt()
 		if _, evmErr := k.CallUniversalCoreSetChainMeta(sdkCtx, observedChainId, priceBig, chainHeightBig); evmErr != nil {
@@ -77,6 +83,12 @@ func (k Keeper) VoteChainMeta(ctx context.Context, universalValidator sdk.ValAdd
 
 	// Reject votes whose chain height has already been committed to the contract.
 	if blockNumber <= entry.LastAppliedChainHeight {
+		k.Logger().Warn("chain meta vote rejected: stale block height",
+			"chain_id", observedChainId,
+			"validator", universalValidator.String(),
+			"vote_height", blockNumber,
+			"last_applied_height", entry.LastAppliedChainHeight,
+		)
 		return fmt.Errorf(
 			"vote chain height %d is not greater than last applied chain height %d; re-vote with a newer block",
 			blockNumber, entry.LastAppliedChainHeight,
@@ -109,6 +121,9 @@ func (k Keeper) VoteChainMeta(ctx context.Context, universalValidator sdk.ValAdd
 	}
 	var fresh []voteSnapshot
 	for i := range entry.Signers {
+		if entry.StoredAts[i] > now {
+			continue // clock skew guard — skip future-stamped votes
+		}
 		age := now - entry.StoredAts[i]
 		if age <= chainMetaVoteStalenessSeconds {
 			fresh = append(fresh, voteSnapshot{
@@ -119,6 +134,10 @@ func (k Keeper) VoteChainMeta(ctx context.Context, universalValidator sdk.ValAdd
 	}
 
 	if len(fresh) == 0 {
+		k.Logger().Debug("chain meta vote recorded, no fresh votes for EVM update",
+			"chain_id", observedChainId,
+			"validator", universalValidator.String(),
+		)
 		// No fresh votes — persist the updated entry but skip EVM call.
 		if err := k.SetChainMeta(ctx, observedChainId, entry); err != nil {
 			return sdkerrors.Wrap(err, "failed to set updated chain meta entry")
@@ -129,6 +148,13 @@ func (k Keeper) VoteChainMeta(ctx context.Context, universalValidator sdk.ValAdd
 	// Compute independent upper medians (len/2) for price and chain height.
 	medianPrice := upperMedianUint64(fresh, func(v voteSnapshot) uint64 { return v.price })
 	medianChainHeight := upperMedianUint64(fresh, func(v voteSnapshot) uint64 { return v.chainHeight })
+
+	k.Logger().Debug("chain meta medians computed",
+		"chain_id", observedChainId,
+		"fresh_votes", len(fresh),
+		"median_price", medianPrice,
+		"median_chain_height", medianChainHeight,
+	)
 
 	// Update MedianIndex to reflect the price median position in the full slice
 	// (best-effort; used for storage/querying only).
@@ -144,6 +170,12 @@ func (k Keeper) VoteChainMeta(ctx context.Context, universalValidator sdk.ValAdd
 	if err := k.SetChainMeta(ctx, observedChainId, entry); err != nil {
 		return sdkerrors.Wrap(err, "failed to set updated chain meta entry")
 	}
+
+	k.Logger().Info("chain meta updated",
+		"chain_id", observedChainId,
+		"median_price", medianPrice,
+		"median_chain_height", medianChainHeight,
+	)
 
 	return nil
 }
@@ -164,10 +196,12 @@ func upperMedianUint64[T any](items []T, key func(T) uint64) uint64 {
 // Called once during the chain-meta upgrade. Existing gas price data (prices, block_nums, median_index)
 // is carried over; StoredAts defaults to zero (treated as stale until validators re-vote).
 func (k Keeper) MigrateGasPricesToChainMeta(ctx context.Context) error {
+	k.Logger().Info("migrating gas prices to chain metas")
 	return k.GasPrices.Walk(ctx, nil, func(chainID string, gp types.GasPrice) (bool, error) {
 		// Skip if already migrated
 		existing, err := k.ChainMetas.Get(ctx, chainID)
 		if err == nil && existing.ObservedChainId != "" {
+			k.Logger().Debug("chain meta migration skipped: already exists", "chain_id", chainID)
 			return false, nil // already exists, skip
 		}
 
@@ -187,6 +221,7 @@ func (k Keeper) MigrateGasPricesToChainMeta(ctx context.Context) error {
 			return true, err
 		}
 
+		k.Logger().Info("chain meta migrated from gas price", "chain_id", chainID, "signer_count", len(gp.Signers))
 		return false, nil
 	})
 }

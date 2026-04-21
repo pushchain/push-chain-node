@@ -88,3 +88,76 @@ func (e TssKeyFinalizedEvent) String() string {
 		e.ProcessID, e.KeyID, e.TssPubKey,
 	)
 }
+
+// -----------------------------------------------------------------------------
+// Fund Migration Events
+// -----------------------------------------------------------------------------
+
+const (
+	EventTypeFundMigrationInitiated = "fund_migration_initiated"
+	EventTypeFundMigrationCompleted = "fund_migration_completed"
+)
+
+// FundMigrationInitiatedEventData represents the emitted event when fund migration is initiated.
+type FundMigrationInitiatedEventData struct {
+	MigrationID      uint64 `json:"migration_id"`
+	OldKeyID         string `json:"old_key_id"`
+	OldTssPubkey     string `json:"old_tss_pubkey"`
+	CurrentKeyID     string `json:"current_key_id"`
+	CurrentTssPubkey string `json:"current_tss_pubkey"`
+	Chain            string `json:"chain"`
+	BlockHeight      int64  `json:"block_height"`
+	GasPrice         string `json:"gas_price"`
+	GasLimit         uint64 `json:"gas_limit"`
+}
+
+// NewFundMigrationInitiatedEvent creates and returns a Cosmos SDK event.
+func NewFundMigrationInitiatedEvent(e FundMigrationInitiatedEventData) (sdk.Event, error) {
+	bz, err := json.Marshal(e)
+	if err != nil {
+		return sdk.Event{}, fmt.Errorf("failed to marshal event: %w", err)
+	}
+
+	event := sdk.NewEvent(
+		EventTypeFundMigrationInitiated,
+		sdk.NewAttribute("migration_id", fmt.Sprintf("%d", e.MigrationID)),
+		sdk.NewAttribute("old_key_id", e.OldKeyID),
+		sdk.NewAttribute("old_tss_pubkey", e.OldTssPubkey),
+		sdk.NewAttribute("current_key_id", e.CurrentKeyID),
+		sdk.NewAttribute("current_tss_pubkey", e.CurrentTssPubkey),
+		sdk.NewAttribute("chain", e.Chain),
+		sdk.NewAttribute("gas_price", e.GasPrice),
+		sdk.NewAttribute("gas_limit", fmt.Sprintf("%d", e.GasLimit)),
+		sdk.NewAttribute("data", string(bz)),
+	)
+
+	return event, nil
+}
+
+// FundMigrationCompletedEventData represents the emitted event when fund migration completes.
+type FundMigrationCompletedEventData struct {
+	MigrationID uint64 `json:"migration_id"`
+	Chain       string `json:"chain"`
+	TxHash      string `json:"tx_hash"`
+	Success     bool   `json:"success"`
+	BlockHeight int64  `json:"block_height"`
+}
+
+// NewFundMigrationCompletedEvent creates and returns a Cosmos SDK event.
+func NewFundMigrationCompletedEvent(e FundMigrationCompletedEventData) (sdk.Event, error) {
+	bz, err := json.Marshal(e)
+	if err != nil {
+		return sdk.Event{}, fmt.Errorf("failed to marshal event: %w", err)
+	}
+
+	event := sdk.NewEvent(
+		EventTypeFundMigrationCompleted,
+		sdk.NewAttribute("migration_id", fmt.Sprintf("%d", e.MigrationID)),
+		sdk.NewAttribute("chain", e.Chain),
+		sdk.NewAttribute("tx_hash", e.TxHash),
+		sdk.NewAttribute("success", fmt.Sprintf("%t", e.Success)),
+		sdk.NewAttribute("data", string(bz)),
+	)
+
+	return event, nil
+}

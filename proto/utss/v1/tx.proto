@@ -24,6 +24,12 @@ service Msg {
 
   // VoteTssKeyProcess defines a operation for voting on an existing tss key process
   rpc VoteTssKeyProcess(MsgVoteTssKeyProcess) returns (MsgVoteTssKeyProcessResponse);
+
+  // InitiateFundMigration initiates fund migration from an old TSS key vault to the current one
+  rpc InitiateFundMigration(MsgInitiateFundMigration) returns (MsgInitiateFundMigrationResponse);
+
+  // VoteFundMigration allows validators to vote on an observed fund migration tx
+  rpc VoteFundMigration(MsgVoteFundMigration) returns (MsgVoteFundMigrationResponse);
 }
 
 // MsgUpdateParams is the Msg/UpdateParams request type.
@@ -71,3 +77,31 @@ message MsgVoteTssKeyProcess {
 }
 
 message MsgVoteTssKeyProcessResponse {}
+
+// MsgInitiateFundMigration initiates fund migration from old vault to current vault for a chain.
+// Admin-only. One message per chain.
+message MsgInitiateFundMigration {
+  option (amino.name) = "utss/MsgInitiateFundMigration";
+  option (cosmos.msg.v1.signer) = "signer";
+
+  string signer     = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string old_key_id = 2;
+  string chain      = 3;  // CAIP-2 chain identifier
+}
+
+message MsgInitiateFundMigrationResponse {
+  uint64 migration_id = 1;
+}
+
+// MsgVoteFundMigration allows validators to vote on observed fund migration tx on external chain.
+message MsgVoteFundMigration {
+  option (amino.name) = "utss/MsgVoteFundMigration";
+  option (cosmos.msg.v1.signer) = "signer";
+
+  string signer       = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  uint64 migration_id = 2;
+  string tx_hash      = 3;
+  bool   success      = 4;
+}
+
+message MsgVoteFundMigrationResponse {}

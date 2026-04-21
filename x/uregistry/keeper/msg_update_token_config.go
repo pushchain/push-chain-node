@@ -18,5 +18,12 @@ func (k Keeper) UpdateTokenConfig(ctx context.Context, tokenConfig *types.TokenC
 		return fmt.Errorf("token config for %s on chain %s does not exist", tokenConfig.Address, tokenConfig.Chain)
 	}
 
-	return k.TokenConfigs.Set(ctx, storageKey, *tokenConfig)
+	if err := k.TokenConfigs.Set(ctx, storageKey, *tokenConfig); err != nil {
+		return err
+	}
+	k.Logger().Info("token config updated",
+		"chain", tokenConfig.Chain,
+		"token_address", tokenConfig.Address,
+	)
+	return nil
 }

@@ -1,10 +1,9 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
@@ -34,19 +33,13 @@ func TestServerStartStop(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
 
 	t.Run("Start and stop server", func(t *testing.T) {
-		// Use a random port to avoid conflicts
 		server := NewServer(logger, 0)
 
-		// Start server
 		err := server.Start()
 		require.NoError(t, err)
+		defer server.Stop()
 
-		// Give server time to start
-		time.Sleep(200 * time.Millisecond)
-
-		// Stop server
-		err = server.Stop()
-		assert.NoError(t, err)
+		assert.NotEmpty(t, server.Addr())
 	})
 
 	t.Run("Start with nil server", func(t *testing.T) {
@@ -69,47 +62,46 @@ func TestServerStartStop(t *testing.T) {
 	})
 }
 
+func TestAddrBeforeStart(t *testing.T) {
+	logger := zerolog.New(zerolog.NewTestWriter(t))
+	server := NewServer(logger, 0)
+
+	// Before Start, listener is nil — Addr returns empty
+	assert.Empty(t, server.Addr())
+}
+
+func TestStartBindFailure(t *testing.T) {
+	logger := zerolog.New(zerolog.NewTestWriter(t))
+
+	// Start first server on a port
+	s1 := NewServer(logger, 0)
+	require.NoError(t, s1.Start())
+	defer s1.Stop()
+
+	// Try to start second server on the same port — should fail
+	addr := s1.Addr()
+	s2 := NewServer(logger, 0)
+	s2.server.Addr = addr // force same address
+	err := s2.Start()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to bind")
+}
+
 func TestServerIntegration(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
 
 	t.Run("Server lifecycle with HTTP client", func(t *testing.T) {
-		// Create server on a specific port
-		server := NewServer(logger, 18080)
+		server := NewServer(logger, 0)
 
-		// Start server
 		err := server.Start()
 		require.NoError(t, err)
 		defer server.Stop()
 
-		// Wait for server to be ready
-		time.Sleep(200 * time.Millisecond)
+		resp, err := http.Get(fmt.Sprintf("http://%s/health", server.Addr()))
+		require.NoError(t, err)
+		defer resp.Body.Close()
 
-		// Test health endpoint
-		resp, err := http.Get("http://localhost:18080/health")
-		if err == nil {
-			defer resp.Body.Close()
-			assert.Equal(t, http.StatusOK, resp.StatusCode)
-		}
-	})
-}
-
-// Test handler functions directly using httptest
-func TestHealthHandler(t *testing.T) {
-	logger := zerolog.New(zerolog.NewTestWriter(t))
-	server := &Server{
-		logger: logger,
-	}
-
-	handler := http.HandlerFunc(server.handleHealth)
-
-	t.Run("Health check returns OK", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/health", nil)
-		w := httptest.NewRecorder()
-
-		handler(w, req)
-
-		assert.Equal(t, http.StatusOK, w.Code)
-		// handleHealth just returns "OK" as plain text
-		assert.Equal(t, "OK", w.Body.String())
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		assert.Equal(t, "text/plain", resp.Header.Get("Content-Type"))
 	})
 }

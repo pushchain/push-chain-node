@@ -77,10 +77,31 @@ func (k *Keeper) InitGenesis(ctx context.Context, data *types.GenesisState) erro
 		return err
 	}
 
-	// deploy system contracts
-	deploySystemContracts(ctx, k.evmKeeper, types.SYSTEM_CONTRACTS)
+	// Only deploy system contracts on fresh genesis, not on import from export.
+	// Re-deploying on import would overwrite existing EVM state or cause nonce collisions.
+	if !data.Exported {
+		deploySystemContracts(ctx, k.evmKeeper, types.SYSTEM_CONTRACTS)
+	}
 
-	return k.Params.Set(ctx, data.Params)
+	if err := k.Params.Set(ctx, data.Params); err != nil {
+		return err
+	}
+
+	// Restore ChainConfigs
+	for _, entry := range data.ChainConfigs {
+		if err := k.ChainConfigs.Set(ctx, entry.Key, entry.Value); err != nil {
+			return err
+		}
+	}
+
+	// Restore TokenConfigs
+	for _, entry := range data.TokenConfigs {
+		if err := k.TokenConfigs.Set(ctx, entry.Key, entry.Value); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // ExportGenesis exports the module's state to a genesis state.
@@ -90,8 +111,31 @@ func (k *Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 		panic(err)
 	}
 
+	// Export ChainConfigs
+	var chainConfigs []types.ChainConfigEntry
+	err = k.ChainConfigs.Walk(ctx, nil, func(key string, value types.ChainConfig) (bool, error) {
+		chainConfigs = append(chainConfigs, types.ChainConfigEntry{Key: key, Value: value})
+		return false, nil
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	// Export TokenConfigs
+	var tokenConfigs []types.TokenConfigEntry
+	err = k.TokenConfigs.Walk(ctx, nil, func(key string, value types.TokenConfig) (bool, error) {
+		tokenConfigs = append(tokenConfigs, types.TokenConfigEntry{Key: key, Value: value})
+		return false, nil
+	})
+	if err != nil {
+		panic(err)
+	}
+
 	return &types.GenesisState{
-		Params: params,
+		Params:       params,
+		ChainConfigs: chainConfigs,
+		TokenConfigs: tokenConfigs,
+		Exported:     true,
 	}
 }
 
@@ -113,6 +157,9 @@ func (k Keeper) IsChainInboundEnabled(ctx context.Context, chain string) (bool, 
 		}
 		return false, err
 	}
+	if config.Enabled == nil {
+		return false, nil
+	}
 	return config.Enabled.IsInboundEnabled, nil
 }
 
@@ -125,6 +172,9 @@ func (k Keeper) IsChainOutboundEnabled(ctx context.Context, chain string) (bool,
 			return false, nil
 		}
 		return false, err
+	}
+	if config.Enabled == nil {
+		return false, nil
 	}
 	return config.Enabled.IsOutboundEnabled, nil
 }

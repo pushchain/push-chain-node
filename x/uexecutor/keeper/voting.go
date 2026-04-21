@@ -32,6 +32,13 @@ func (k Keeper) VoteOnInboundBallot(
 	// >2/3 quorum similar to tendermint
 	votesNeeded := (types.VotesThresholdNumerator*totalValidators)/types.VotesThresholdDenominator + 1
 
+	k.Logger().Debug("voting on inbound ballot",
+		"ballot_key", ballotKey,
+		"validator", universalValidator.String(),
+		"total_validators", totalValidators,
+		"votes_needed", votesNeeded,
+	)
+
 	// Convert []sdk.ValAddress → []string
 	universalValidatorSetStrs := make([]string, len(universalValidatorSet))
 	for i, v := range universalValidatorSet {
@@ -51,6 +58,13 @@ func (k Keeper) VoteOnInboundBallot(
 	)
 	if err != nil {
 		return false, false, err
+	}
+
+	if isNew {
+		k.Logger().Debug("inbound ballot created", "ballot_key", ballotKey)
+	}
+	if isFinalized {
+		k.Logger().Info("inbound ballot finalized", "ballot_key", ballotKey, "source_chain", inbound.SourceChain)
 	}
 
 	return isFinalized, isNew, nil
@@ -82,6 +96,15 @@ func (k Keeper) VoteOnOutboundBallot(
 	// >2/3 quorum similar to tendermint
 	votesNeeded := (types.VotesThresholdNumerator*totalValidators)/types.VotesThresholdDenominator + 1
 
+	k.Logger().Debug("voting on outbound ballot",
+		"ballot_key", ballotKey,
+		"validator", universalValidator.String(),
+		"utx_id", utxId,
+		"outbound_id", outboundId,
+		"total_validators", totalValidators,
+		"votes_needed", votesNeeded,
+	)
+
 	// Convert []sdk.ValAddress → []string
 	universalValidatorSetStrs := make([]string, len(universalValidatorSet))
 	for i, v := range universalValidatorSet {
@@ -101,6 +124,17 @@ func (k Keeper) VoteOnOutboundBallot(
 	)
 	if err != nil {
 		return false, false, err
+	}
+
+	if isNew {
+		k.Logger().Debug("outbound ballot created", "ballot_key", ballotKey, "utx_id", utxId)
+	}
+	if isFinalized {
+		k.Logger().Info("outbound ballot finalized",
+			"ballot_key", ballotKey,
+			"utx_id", utxId,
+			"outbound_id", outboundId,
+		)
 	}
 
 	return isFinalized, isNew, nil

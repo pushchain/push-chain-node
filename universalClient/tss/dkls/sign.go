@@ -6,7 +6,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
-	"github.com/pkg/errors"
 
 	session "go-wrapper/go-dkls/sessions"
 )
@@ -168,7 +167,7 @@ func (s *signSession) GetResult() (*Result, error) {
 		return nil, fmt.Errorf("signature verification error: %w", verifyErr)
 	}
 	if !verified {
-		return nil, errors.New("signature verification failed")
+		return nil, fmt.Errorf("signature verification failed")
 	}
 
 	// Return participants list (copy to avoid mutation)
@@ -189,13 +188,13 @@ func (s *signSession) GetResult() (*Result, error) {
 // messageHash: SHA256 hash of the message (32 bytes)
 func (s *signSession) verifySignature(publicKey, signature, messageHash []byte) (bool, error) {
 	if len(publicKey) != 33 {
-		return false, errors.Errorf("public key must be 33 bytes (compressed), got %d bytes", len(publicKey))
+		return false, fmt.Errorf("public key must be 33 bytes (compressed), got %d bytes", len(publicKey))
 	}
 	if len(signature) != 64 && len(signature) != 65 {
-		return false, errors.Errorf("signature must be 64 or 65 bytes (r || s [|| recovery_id]), got %d bytes", len(signature))
+		return false, fmt.Errorf("signature must be 64 or 65 bytes (r || s [|| recovery_id]), got %d bytes", len(signature))
 	}
 	if len(messageHash) != 32 {
-		return false, errors.Errorf("message hash must be 32 bytes, got %d bytes", len(messageHash))
+		return false, fmt.Errorf("message hash must be 32 bytes, got %d bytes", len(messageHash))
 	}
 
 	// Use only first 64 bytes (r || s), ignore recovery ID if present
@@ -207,7 +206,7 @@ func (s *signSession) verifySignature(publicKey, signature, messageHash []byte) 
 	// Decompress public key
 	vkX, vkY := secp256k1.DecompressPubkey(publicKey)
 	if vkX == nil || vkY == nil {
-		return false, errors.New("failed to decompress public key")
+		return false, fmt.Errorf("failed to decompress public key")
 	}
 
 	// Create ECDSA public key

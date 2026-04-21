@@ -12,7 +12,7 @@ import (
 	cosmosevmkeyring "github.com/cosmos/evm/crypto/keyring"
 	"github.com/pushchain/push-chain-node/app"
 	"github.com/pushchain/push-chain-node/app/params"
-	"github.com/pushchain/push-chain-node/universalClient/constant"
+	uvconfig "github.com/pushchain/push-chain-node/universalClient/config"
 	"github.com/spf13/cobra"
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
 	"cosmossdk.io/log"
@@ -39,7 +39,7 @@ func NewRootCmd() *cobra.Command {
 		WithLegacyAmino(encodingConfig.Amino).
 		WithInput(os.Stdin).
 		WithAccountRetriever(authtypes.AccountRetriever{}).
-		WithHomeDir(constant.DefaultNodeHome).
+		WithHomeDir(uvconfig.DefaultNodeHome()).
 		WithBroadcastMode(flags.FlagBroadcastMode).
 		WithKeyringOptions(cosmosevmkeyring.Option()).
 		WithLedgerHasProtobuf(true).

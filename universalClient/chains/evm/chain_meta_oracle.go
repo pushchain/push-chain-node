@@ -2,6 +2,7 @@ package evm
 
 import (
 	"context"
+	"math/big"
 	"sync"
 	"time"
 
@@ -15,6 +16,7 @@ type ChainMetaOracle struct {
 	pushSigner              *pushsigner.Signer
 	chainID                 string
 	gasPriceIntervalSeconds int
+	gasPriceMarkupPercent   int
 	logger                  zerolog.Logger
 	stopCh                  chan struct{}
 	wg                      sync.WaitGroup
@@ -26,6 +28,7 @@ func NewChainMetaOracle(
 	pushSigner *pushsigner.Signer,
 	chainID string,
 	gasPriceIntervalSeconds int,
+	gasPriceMarkupPercent int,
 	logger zerolog.Logger,
 ) *ChainMetaOracle {
 	return &ChainMetaOracle{
@@ -33,7 +36,8 @@ func NewChainMetaOracle(
 		pushSigner:              pushSigner,
 		chainID:                 chainID,
 		gasPriceIntervalSeconds: gasPriceIntervalSeconds,
-		logger:                  logger.With().Str("component", "evm_gas_oracle").Logger(),
+		gasPriceMarkupPercent:   gasPriceMarkupPercent,
+		logger:                  logger.With().Str("component", "evm_chain_meta_oracle").Logger(),
 		stopCh:                  make(chan struct{}),
 	}
 }
@@ -85,7 +89,7 @@ func (g *ChainMetaOracle) fetchAndVoteChainMeta(ctx context.Context) {
 			}
 
 			// Log the gas price
-			g.logger.Info().
+			g.logger.Debug().
 				Str("chain", g.chainID).
 				Str("gas_price", gasPrice.String()).
 				Msg("fetched gas price")
@@ -95,6 +99,19 @@ func (g *ChainMetaOracle) fetchAndVoteChainMeta(ctx context.Context) {
 			if err != nil {
 				g.logger.Error().Err(err).Msg("failed to get latest block number")
 				continue
+			}
+
+			// Apply markup to gas price to handle spikes
+			if g.gasPriceMarkupPercent > 0 {
+				markup := new(big.Int).Mul(gasPrice, big.NewInt(int64(g.gasPriceMarkupPercent)))
+				markup.Div(markup, big.NewInt(100))
+				gasPrice.Add(gasPrice, markup)
+
+				g.logger.Debug().
+					Str("chain", g.chainID).
+					Int("markup_percent", g.gasPriceMarkupPercent).
+					Str("adjusted_gas_price", gasPrice.String()).
+					Msg("applied gas price markup")
 			}
 
 			// Vote on chain meta (gas price + block height)

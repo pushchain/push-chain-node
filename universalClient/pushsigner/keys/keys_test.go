@@ -1,4 +1,4 @@
-package keysv2
+package keys
 
 import (
 	"os"
@@ -8,209 +8,167 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/pushchain/push-chain-node/universalClient/config"
 )
 
 func TestMain(m *testing.M) {
-	// Initialize SDK config for tests
-	config := sdk.GetConfig()
-	config.SetBech32PrefixForAccount("push", "pushpub")
-	config.SetBech32PrefixForValidator("pushvaloper", "pushvaloperpub")
-	config.SetBech32PrefixForConsensusNode("pushvalcons", "pushvalconspub")
-	config.Seal()
+	sdkConfig := sdk.GetConfig()
+	func() {
+		defer func() { _ = recover() }()
+		sdkConfig.SetBech32PrefixForAccount("push", "pushpub")
+		sdkConfig.SetBech32PrefixForValidator("pushvaloper", "pushvaloperpub")
+		sdkConfig.SetBech32PrefixForConsensusNode("pushvalcons", "pushvalconspub")
+		sdkConfig.Seal()
+	}()
 
 	os.Exit(m.Run())
 }
 
 func TestNewKeys(t *testing.T) {
-	// Create temporary directory for test keyring
-	tempDir, err := os.MkdirTemp("", "test-keyring")
-	require.NoError(t, err)
-	defer func() { _ = os.RemoveAll(tempDir) }()
-
-	// Create test keyring
-	kb, err := CreateKeyring(tempDir, nil, KeyringBackendTest)
+	tempDir := t.TempDir()
+	kb, err := CreateKeyring(tempDir, nil, config.KeyringBackendTest)
 	require.NoError(t, err)
 
-	// Create basic Keys instance
-	keys := NewKeys(kb, "test-hotkey", "")
+	k := NewKeys(kb, "test-hotkey")
 
-	require.NotNil(t, keys)
-	require.Equal(t, "test-hotkey", keys.keyName)
-	require.NotNil(t, keys.keyring)
-
-	// Test methods that should work without requiring actual key
-	assert.NotNil(t, keys.keyring)
-	// Password is not exposed - signing uses keyring directly
-	assert.Equal(t, "test-hotkey", keys.GetKeyName())
+	require.NotNil(t, k)
+	assert.Equal(t, "test-hotkey", k.GetKeyName())
 }
 
 func TestKeyringBackends(t *testing.T) {
-	tests := []struct {
-		name    string
-		backend KeyringBackend
-		wantErr bool
-	}{
-		{
-			name:    "test backend",
-			backend: KeyringBackendTest,
-			wantErr: false,
-		},
-		{
-			name:    "file backend",
-			backend: KeyringBackendFile,
-			wantErr: false,
-		},
-	}
+	t.Run("test backend", func(t *testing.T) {
+		kb, err := CreateKeyring(t.TempDir(), nil, config.KeyringBackendTest)
+		require.NoError(t, err)
+		assert.Equal(t, "test", kb.Backend())
+	})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tempDir, err := os.MkdirTemp("", "keyring-test")
-			require.NoError(t, err)
-			defer func() { _ = os.RemoveAll(tempDir) }()
+	t.Run("file backend", func(t *testing.T) {
+		kb, err := CreateKeyring(t.TempDir(), nil, config.KeyringBackendFile)
+		require.NoError(t, err)
+		assert.Equal(t, "file", kb.Backend())
+	})
 
-			kb, err := CreateKeyring(tempDir, nil, tt.backend)
-			if tt.wantErr {
-				require.Error(t, err)
-				require.Nil(t, kb)
-			} else {
-				require.NoError(t, err)
-				require.NotNil(t, kb)
-			}
-		})
-	}
+	t.Run("empty home dir", func(t *testing.T) {
+		_, err := CreateKeyring("", nil, config.KeyringBackendTest)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "home directory is empty")
+	})
 }
 
-// TestPasswordFailureScenarios tests various password failure scenarios
-func TestPasswordFailureScenarios(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "test-keyring")
-	require.NoError(t, err)
-	defer func() { _ = os.RemoveAll(tempDir) }()
+func TestKeysWithFileBackend(t *testing.T) {
+	tempDir := t.TempDir()
 
-	// Test with file backend requiring password
-	// For file backend, we need a password reader
 	passwordReader := strings.NewReader("testpass\ntestpass\n")
-	kb, err := CreateKeyring(tempDir, passwordReader, KeyringBackendFile)
+	kb, err := CreateKeyring(tempDir, passwordReader, config.KeyringBackendFile)
 	require.NoError(t, err)
 
-	// Create a key first with password
 	_, _, err = CreateNewKey(kb, "test-key", "", "testpass")
 	require.NoError(t, err)
 
-	keys := NewKeys(kb, "test-key", "")
+	k := NewKeys(kb, "test-key")
 
-	// Test GetKeyring returns the keyring and validates key exists
-	kr, err := keys.GetKeyring()
+	kr, err := k.GetKeyring()
 	require.NoError(t, err)
-	assert.NotNil(t, kr)
-	// Verify it's the same backend type
 	assert.Equal(t, kb.Backend(), kr.Backend())
-
-	// Test with test backend
-	kbTest, err := CreateKeyring(tempDir, nil, KeyringBackendTest)
-	require.NoError(t, err)
-
-	keysTest := NewKeys(kbTest, "test-key", "")
-	// Password is not exposed - signing uses keyring directly
-	// The keyring handles password internally when needed
-	assert.NotNil(t, keysTest)
 }
 
-// TestKeyringBackendSwitching tests switching between keyring backends
-func TestKeyringBackendSwitching(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "test-keyring")
+func TestCreateNewKey(t *testing.T) {
+	tempDir := t.TempDir()
+	kb, err := CreateKeyring(tempDir, nil, config.KeyringBackendTest)
 	require.NoError(t, err)
-	defer func() { _ = os.RemoveAll(tempDir) }()
 
-	tests := []struct {
-		name     string
-		backend1 KeyringBackend
-		backend2 KeyringBackend
-	}{
-		{
-			name:     "test to file",
-			backend1: KeyringBackendTest,
-			backend2: KeyringBackendFile,
-		},
-		{
-			name:     "file to test",
-			backend1: KeyringBackendFile,
-			backend2: KeyringBackendTest,
-		},
-	}
+	t.Run("generate new key", func(t *testing.T) {
+		record, mnemonic, err := CreateNewKey(kb, "new-key", "", "")
+		require.NoError(t, err)
+		assert.NotNil(t, record)
+		assert.Equal(t, "new-key", record.Name)
+		assert.NotEmpty(t, mnemonic)
+	})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Create keyring with first backend
-			kb1, err := CreateKeyring(tempDir+"1", nil, tt.backend1)
-			require.NoError(t, err)
+	t.Run("import from mnemonic", func(t *testing.T) {
+		mnemonic := "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+		record, returnedMnemonic, err := CreateNewKey(kb, "mnemonic-key", mnemonic, "")
+		require.NoError(t, err)
+		assert.Equal(t, "mnemonic-key", record.Name)
+		assert.Equal(t, mnemonic, returnedMnemonic)
+	})
 
-			// Create keyring with second backend
-			kb2, err := CreateKeyring(tempDir+"2", nil, tt.backend2)
-			require.NoError(t, err)
-
-			// Both should be valid
-			assert.NotNil(t, kb1)
-			assert.NotNil(t, kb2)
-			assert.Equal(t, string(tt.backend1), kb1.Backend())
-			assert.Equal(t, string(tt.backend2), kb2.Backend())
-		})
-	}
+	t.Run("invalid mnemonic", func(t *testing.T) {
+		_, _, err := CreateNewKey(kb, "bad-key", "invalid mnemonic words", "")
+		require.Error(t, err)
+	})
 }
 
-// TestConcurrentKeyAccess tests concurrent access to keys
+func TestGetAddress(t *testing.T) {
+	tempDir := t.TempDir()
+	kb, err := CreateKeyring(tempDir, nil, config.KeyringBackendTest)
+	require.NoError(t, err)
+
+	record, _, err := CreateNewKey(kb, "addr-test", "", "")
+	require.NoError(t, err)
+
+	t.Run("valid key", func(t *testing.T) {
+		k := NewKeys(kb, record.Name)
+		addr, err := k.GetAddress()
+		require.NoError(t, err)
+		assert.NotEmpty(t, addr)
+	})
+
+	t.Run("non-existent key", func(t *testing.T) {
+		k := NewKeys(kb, "non-existent")
+		_, err := k.GetAddress()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to get key")
+	})
+}
+
+func TestGetKeyring(t *testing.T) {
+	tempDir := t.TempDir()
+	kb, err := CreateKeyring(tempDir, nil, config.KeyringBackendTest)
+	require.NoError(t, err)
+
+	record, _, err := CreateNewKey(kb, "kr-test", "", "")
+	require.NoError(t, err)
+
+	t.Run("valid key", func(t *testing.T) {
+		k := NewKeys(kb, record.Name)
+		kr, err := k.GetKeyring()
+		require.NoError(t, err)
+		assert.NotNil(t, kr)
+	})
+
+	t.Run("non-existent key", func(t *testing.T) {
+		k := NewKeys(kb, "non-existent")
+		kr, err := k.GetKeyring()
+		require.Error(t, err)
+		assert.Nil(t, kr)
+		assert.Contains(t, err.Error(), "not found in keyring")
+	})
+}
+
 func TestConcurrentKeyAccess(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "test-keyring")
-	require.NoError(t, err)
-	defer func() { _ = os.RemoveAll(tempDir) }()
-
-	// Create test keyring and key
-	kb, err := CreateKeyring(tempDir, nil, KeyringBackendTest)
+	tempDir := t.TempDir()
+	kb, err := CreateKeyring(tempDir, nil, config.KeyringBackendTest)
 	require.NoError(t, err)
 
-	keyName := "concurrent-test-key"
-	_, _, err = CreateNewKey(kb, keyName, "", "")
+	_, _, err = CreateNewKey(kb, "concurrent-key", "", "")
 	require.NoError(t, err)
 
-	keys := NewKeys(kb, keyName, "")
+	k := NewKeys(kb, "concurrent-key")
 
-	// Test concurrent GetAddress calls
 	const numGoroutines = 10
 	results := make(chan error, numGoroutines)
 
-	for i := 0; i < numGoroutines; i++ {
+	for i := range numGoroutines {
+		_ = i
 		go func() {
-			_, err := keys.GetAddress()
+			_, err := k.GetAddress()
 			results <- err
 		}()
 	}
 
-	// Collect results
-	for i := 0; i < numGoroutines; i++ {
-		err := <-results
-		assert.NoError(t, err)
+	for range numGoroutines {
+		assert.NoError(t, <-results)
 	}
-}
-
-// TestErrorConditions tests various error conditions
-func TestErrorConditions(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "test-keyring")
-	require.NoError(t, err)
-	defer func() { _ = os.RemoveAll(tempDir) }()
-
-	// Create test keyring
-	kb, err := CreateKeyring(tempDir, nil, KeyringBackendTest)
-	require.NoError(t, err)
-
-	keys := NewKeys(kb, "non-existent-key", "")
-
-	// Test GetAddress with non-existent key
-	_, err = keys.GetAddress()
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to get key")
-
-	// Test GetKeyring validates key exists and returns error for non-existent key
-	kr, err := keys.GetKeyring()
-	assert.Error(t, err)
-	assert.Nil(t, kr)
-	assert.Contains(t, err.Error(), "not found in keyring")
 }

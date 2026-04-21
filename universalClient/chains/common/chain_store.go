@@ -2,6 +2,7 @@ package common
 
 import (
 	"fmt"
+	"strings"
 
 	"gorm.io/gorm"
 
@@ -21,58 +22,34 @@ func NewChainStore(database *db.DB) *ChainStore {
 	}
 }
 
-// GetChainHeight returns the last processed block height for the chain
-// Creates a new entry with height 0 if it doesn't exist
+// GetChainHeight returns the last processed block height for the chain.
+// Creates a new entry with height 0 if one doesn't exist (atomic via FirstOrCreate).
 func (cs *ChainStore) GetChainHeight() (uint64, error) {
 	if cs.database == nil {
 		return 0, fmt.Errorf("database is nil")
 	}
 
 	var state store.State
-	result := cs.database.Client().First(&state)
-
-	if result.Error != nil {
-		if result.Error == gorm.ErrRecordNotFound {
-			// Create new entry with height 0
-			state = store.State{
-				BlockHeight: 0,
-			}
-			if err := cs.database.Client().Create(&state).Error; err != nil {
-				return 0, fmt.Errorf("failed to create chain state: %w", err)
-			}
-			return 0, nil
-		}
-		return 0, fmt.Errorf("failed to get chain height: %w", result.Error)
+	if err := cs.database.Client().FirstOrCreate(&state, store.State{}).Error; err != nil {
+		return 0, fmt.Errorf("failed to get or create chain state: %w", err)
 	}
 
 	return state.BlockHeight, nil
 }
 
-// UpdateChainHeight updates the last processed block height for the chain
-// Creates a new entry if it doesn't exist
+// UpdateChainHeight updates the last processed block height for the chain.
+// Creates a new entry if one doesn't exist (atomic via FirstOrCreate).
+// Only updates if the new height is greater than the current one.
 func (cs *ChainStore) UpdateChainHeight(blockHeight uint64) error {
 	if cs.database == nil {
 		return fmt.Errorf("database is nil")
 	}
 
 	var state store.State
-	result := cs.database.Client().First(&state)
-
-	if result.Error != nil {
-		if result.Error == gorm.ErrRecordNotFound {
-			// Create new entry
-			state = store.State{
-				BlockHeight: blockHeight,
-			}
-			if err := cs.database.Client().Create(&state).Error; err != nil {
-				return fmt.Errorf("failed to create chain state: %w", err)
-			}
-			return nil
-		}
-		return fmt.Errorf("failed to query chain state: %w", result.Error)
+	if err := cs.database.Client().FirstOrCreate(&state, store.State{}).Error; err != nil {
+		return fmt.Errorf("failed to get or create chain state: %w", err)
 	}
 
-	// Update existing record only if new block is higher
 	if blockHeight > state.BlockHeight {
 		state.BlockHeight = blockHeight
 		if err := cs.database.Client().Save(&state).Error; err != nil {
@@ -91,7 +68,7 @@ func (cs *ChainStore) GetPendingEvents(limit int) ([]store.Event, error) {
 
 	var events []store.Event
 	if err := cs.database.Client().
-		Where("status = ?", "PENDING").
+		Where("status = ?", store.StatusPending).
 		Order("created_at ASC").
 		Limit(limit).
 		Find(&events).Error; err != nil {
@@ -109,7 +86,7 @@ func (cs *ChainStore) GetConfirmedEvents(limit int) ([]store.Event, error) {
 
 	var events []store.Event
 	if err := cs.database.Client().
-		Where("status = ?", "CONFIRMED").
+		Where("status = ?", store.StatusConfirmed).
 		Order("created_at ASC").
 		Limit(limit).
 		Find(&events).Error; err != nil {
@@ -197,14 +174,14 @@ func (cs *ChainStore) UpdateVoteTxHash(eventID string, voteTxHash string) error 
 
 // DeleteTerminalEvents deletes events in terminal states (COMPLETED, REVERTED, EXPIRED)
 // that were updated before the given time
-func (cs *ChainStore) DeleteTerminalEvents(updatedBefore interface{}) (int64, error) {
+func (cs *ChainStore) DeleteTerminalEvents(updatedBefore any) (int64, error) {
 	if cs.database == nil {
 		return 0, fmt.Errorf("database is nil")
 	}
 
 	res := cs.database.Client().
 		Where("status IN ? AND updated_at < ?",
-			[]string{"COMPLETED", "REORGED", "REVERTED"}, updatedBefore).
+			[]string{store.StatusCompleted, store.StatusReorged, store.StatusReverted}, updatedBefore).
 		Delete(&store.Event{})
 
 	if res.Error != nil {
@@ -235,6 +212,11 @@ func (cs *ChainStore) InsertEventIfNotExists(event *store.Event) (bool, error) {
 
 	// Store new event
 	if err := cs.database.Client().Create(event).Error; err != nil {
+		// UNIQUE constraint violation means another goroutine or poll cycle already
+		// inserted this event between our check and insert — treat as duplicate.
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+			return false, nil
+		}
 		return false, fmt.Errorf("failed to create event: %w", err)
 	}
 

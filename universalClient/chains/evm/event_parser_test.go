@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"math/big"
 	"testing"
@@ -230,9 +231,9 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 				// TxHash.Hex() returns full 32-byte hex representation
 				assert.Equal(t, "0x0000000000000000000000000000000000000000000000000000abc123def456:5", event.EventID)
 				assert.Equal(t, uint64(98765), event.BlockHeight)
-				assert.Equal(t, common.EventTypeOutbound, event.Type)
-				assert.Equal(t, "PENDING", event.Status)
-				assert.Equal(t, "STANDARD", event.ConfirmationType)
+				assert.Equal(t, store.EventTypeOutbound, event.Type)
+				assert.Equal(t, store.StatusPending, event.Status)
+				assert.Equal(t, store.ConfirmationStandard, event.ConfirmationType)
 
 				// Verify event data contains tx_id and universal_tx_id
 				assert.NotNil(t, event.EventData)
@@ -357,8 +358,8 @@ func TestParseGatewayEvent_OutboundObservation(t *testing.T) {
 		event := ParseEvent(log, EventTypeFinalizeUniversalTx, config.Chain, logger)
 		require.NotNil(t, event)
 
-		assert.Equal(t, common.EventTypeOutbound, event.Type)
-		assert.Equal(t, "STANDARD", event.ConfirmationType)
+		assert.Equal(t, store.EventTypeOutbound, event.Type)
+		assert.Equal(t, store.ConfirmationStandard, event.ConfirmationType)
 		assert.Equal(t, uint64(77777), event.BlockHeight)
 
 		var outboundData map[string]interface{}
@@ -367,5 +368,291 @@ func TestParseGatewayEvent_OutboundObservation(t *testing.T) {
 
 		assert.Contains(t, outboundData["tx_id"], "0xaaaa")
 		assert.Contains(t, outboundData["universal_tx_id"], "0xbbbb")
+	})
+}
+
+// ---------------------------------------------------------------------------
+// readDynamicBytes
+// ---------------------------------------------------------------------------
+
+func TestReadDynamicBytes(t *testing.T) {
+	t.Run("valid offset with normal bytes", func(t *testing.T) {
+		// Build ABI-encoded dynamic bytes: first 32 bytes = length, then the data.
+		inner := []byte{0xca, 0xfe, 0xba, 0xbe}
+		data := make([]byte, 64) // 32 (length) + 32 (padded data)
+		big.NewInt(int64(len(inner))).FillBytes(data[0:32])
+		copy(data[32:36], inner)
+
+		hexStr, ok := readDynamicBytes(data, 0)
+		assert.True(t, ok)
+		assert.Equal(t, "0xcafebabe", hexStr)
+	})
+
+	t.Run("zero-length bytes", func(t *testing.T) {
+		data := make([]byte, 32) // length = 0
+		hexStr, ok := readDynamicBytes(data, 0)
+		assert.True(t, ok)
+		assert.Equal(t, "0x", hexStr)
+	})
+
+	t.Run("offset exactly at boundary", func(t *testing.T) {
+		// data has 64 bytes; offset 32 points to second word which encodes length=0
+		data := make([]byte, 64)
+		hexStr, ok := readDynamicBytes(data, 32)
+		assert.True(t, ok)
+		assert.Equal(t, "0x", hexStr)
+	})
+
+	t.Run("out-of-bounds offset past data length", func(t *testing.T) {
+		data := make([]byte, 16) // too short for a 32-byte length word
+		_, ok := readDynamicBytes(data, 0)
+		assert.False(t, ok)
+	})
+
+	t.Run("offset beyond data", func(t *testing.T) {
+		data := make([]byte, 32)
+		_, ok := readDynamicBytes(data, 64)
+		assert.False(t, ok)
+	})
+
+	t.Run("length exceeds remaining data", func(t *testing.T) {
+		// length says 100, but only 4 bytes of actual data follow
+		data := make([]byte, 64)
+		big.NewInt(100).FillBytes(data[0:32])
+		_, ok := readDynamicBytes(data, 0)
+		assert.False(t, ok)
+	})
+
+	t.Run("multi-word data extraction", func(t *testing.T) {
+		inner := make([]byte, 40) // spans more than one 32-byte word
+		for i := range inner {
+			inner[i] = byte(i)
+		}
+		data := make([]byte, 32+64) // length word + 2 padded words
+		big.NewInt(int64(len(inner))).FillBytes(data[0:32])
+		copy(data[32:], inner)
+
+		hexStr, ok := readDynamicBytes(data, 0)
+		assert.True(t, ok)
+		expected := "0x" + hex.EncodeToString(inner)
+		assert.Equal(t, expected, hexStr)
+	})
+}
+
+// ---------------------------------------------------------------------------
+// readWord
+// ---------------------------------------------------------------------------
+
+func TestReadWord(t *testing.T) {
+	data := make([]byte, 96) // 3 words
+	for i := range data {
+		data[i] = byte(i)
+	}
+
+	t.Run("first word", func(t *testing.T) {
+		w := readWord(data, 0)
+		require.NotNil(t, w)
+		assert.Len(t, w, 32)
+		assert.Equal(t, byte(0), w[0])
+	})
+
+	t.Run("second word", func(t *testing.T) {
+		w := readWord(data, 1)
+		require.NotNil(t, w)
+		assert.Equal(t, byte(32), w[0])
+	})
+
+	t.Run("third word", func(t *testing.T) {
+		w := readWord(data, 2)
+		require.NotNil(t, w)
+		assert.Equal(t, byte(64), w[0])
+	})
+
+	t.Run("out of bounds returns nil", func(t *testing.T) {
+		w := readWord(data, 3)
+		assert.Nil(t, w)
+	})
+
+	t.Run("negative index returns nil", func(t *testing.T) {
+		w := readWord(data, -1)
+		assert.Nil(t, w)
+	})
+
+	t.Run("empty data returns nil", func(t *testing.T) {
+		w := readWord([]byte{}, 0)
+		assert.Nil(t, w)
+	})
+}
+
+// ---------------------------------------------------------------------------
+// decodePayload
+// ---------------------------------------------------------------------------
+
+func TestDecodePayload(t *testing.T) {
+	logger := zerolog.New(nil).Level(zerolog.Disabled)
+
+	t.Run("valid payload at correct offset", func(t *testing.T) {
+		// Build data large enough: need dataOffset >= 32*5 = 160
+		// At dataOffset, place ABI-encoded dynamic bytes (length + data).
+		inner := []byte{0xde, 0xad, 0xbe, 0xef}
+		data := make([]byte, 224) // 7 words
+		// Place dynamic bytes at offset 160 (word 5)
+		big.NewInt(int64(len(inner))).FillBytes(data[160:192])
+		copy(data[192:196], inner)
+
+		payload := &common.UniversalTx{}
+		decodePayload(data, 160, payload, logger)
+		assert.Equal(t, "0xdeadbeef", payload.RawPayload)
+	})
+
+	t.Run("offset too small is ignored", func(t *testing.T) {
+		data := make([]byte, 256)
+		payload := &common.UniversalTx{}
+		decodePayload(data, 32, payload, logger) // < 32*5
+		assert.Empty(t, payload.RawPayload)
+	})
+
+	t.Run("offset zero is ignored", func(t *testing.T) {
+		data := make([]byte, 256)
+		payload := &common.UniversalTx{}
+		decodePayload(data, 0, payload, logger)
+		assert.Empty(t, payload.RawPayload)
+	})
+
+	t.Run("readDynamicBytes fails gracefully", func(t *testing.T) {
+		// Data is too short for the length word at the offset
+		data := make([]byte, 168) // offset 160 + only 8 bytes; need 32 for length
+		payload := &common.UniversalTx{}
+		decodePayload(data, 160, payload, logger)
+		assert.Empty(t, payload.RawPayload)
+	})
+}
+
+// ---------------------------------------------------------------------------
+// decodeSignatureData
+// ---------------------------------------------------------------------------
+
+func TestDecodeSignatureData(t *testing.T) {
+	t.Run("dynamic bytes at valid offset", func(t *testing.T) {
+		// Build data with dynamic bytes at offset 224 (word 7)
+		data := make([]byte, 288) // 9 words
+		inner := []byte{0x01, 0x02, 0x03}
+		big.NewInt(int64(len(inner))).FillBytes(data[224:256])
+		copy(data[256:259], inner)
+
+		// w encodes offset 224
+		w := make([]byte, 32)
+		big.NewInt(224).FillBytes(w)
+
+		result := decodeSignatureData(data, w, 224)
+		assert.Equal(t, "0x010203", result)
+	})
+
+	t.Run("offset below minOffset falls back to fixed bytes32", func(t *testing.T) {
+		data := make([]byte, 256)
+		w := make([]byte, 32)
+		big.NewInt(100).FillBytes(w) // offset 100 < minOffset 224
+
+		result := decodeSignatureData(data, w, 224)
+		// Fallback: treat w as fixed bytes32
+		assert.Equal(t, "0x"+hex.EncodeToString(w), result)
+	})
+
+	t.Run("offset beyond data falls back to fixed bytes32", func(t *testing.T) {
+		data := make([]byte, 64)
+		w := make([]byte, 32)
+		big.NewInt(1000).FillBytes(w) // offset 1000 > len(data)
+
+		result := decodeSignatureData(data, w, 0)
+		assert.Equal(t, "0x"+hex.EncodeToString(w), result)
+	})
+
+	t.Run("readDynamicBytes fails falls back to fixed bytes32", func(t *testing.T) {
+		// Offset is valid range but the dynamic bytes at that offset are malformed
+		data := make([]byte, 256)
+		// At offset 224, set length to a huge number that exceeds data
+		big.NewInt(9999).FillBytes(data[224:256])
+
+		w := make([]byte, 32)
+		big.NewInt(224).FillBytes(w)
+
+		result := decodeSignatureData(data, w, 224)
+		assert.Equal(t, "0x"+hex.EncodeToString(w), result)
+	})
+}
+
+// ---------------------------------------------------------------------------
+// finalizeEvent
+// ---------------------------------------------------------------------------
+
+func TestFinalizeEvent(t *testing.T) {
+	logger := zerolog.New(nil).Level(zerolog.Disabled)
+
+	t.Run("txType 0 sets FAST confirmation", func(t *testing.T) {
+		event := &store.Event{}
+		payload := &common.UniversalTx{TxType: 0, Sender: "0xabc"}
+		finalizeEvent(event, payload, logger)
+
+		assert.Equal(t, store.ConfirmationFast, event.ConfirmationType)
+		assert.NotNil(t, event.EventData)
+
+		var decoded common.UniversalTx
+		err := json.Unmarshal(event.EventData, &decoded)
+		require.NoError(t, err)
+		assert.Equal(t, "0xabc", decoded.Sender)
+	})
+
+	t.Run("txType 1 sets FAST confirmation", func(t *testing.T) {
+		event := &store.Event{}
+		payload := &common.UniversalTx{TxType: 1}
+		finalizeEvent(event, payload, logger)
+
+		assert.Equal(t, store.ConfirmationFast, event.ConfirmationType)
+	})
+
+	t.Run("txType 2 sets STANDARD confirmation", func(t *testing.T) {
+		event := &store.Event{}
+		payload := &common.UniversalTx{TxType: 2}
+		finalizeEvent(event, payload, logger)
+
+		assert.Equal(t, store.ConfirmationStandard, event.ConfirmationType)
+	})
+
+	t.Run("txType 3 sets STANDARD confirmation", func(t *testing.T) {
+		event := &store.Event{}
+		payload := &common.UniversalTx{TxType: 3}
+		finalizeEvent(event, payload, logger)
+
+		assert.Equal(t, store.ConfirmationStandard, event.ConfirmationType)
+	})
+
+	t.Run("high txType sets STANDARD confirmation", func(t *testing.T) {
+		event := &store.Event{}
+		payload := &common.UniversalTx{TxType: 255}
+		finalizeEvent(event, payload, logger)
+
+		assert.Equal(t, store.ConfirmationStandard, event.ConfirmationType)
+	})
+
+	t.Run("event data is valid JSON", func(t *testing.T) {
+		event := &store.Event{}
+		payload := &common.UniversalTx{
+			SourceChain: "eip155:1",
+			Sender:      "0xsender",
+			Recipient:   "0xrecipient",
+			Token:       "0xtoken",
+			Amount:      "1000",
+			TxType:      0,
+		}
+		finalizeEvent(event, payload, logger)
+
+		var decoded common.UniversalTx
+		err := json.Unmarshal(event.EventData, &decoded)
+		require.NoError(t, err)
+		assert.Equal(t, "eip155:1", decoded.SourceChain)
+		assert.Equal(t, "0xsender", decoded.Sender)
+		assert.Equal(t, "0xrecipient", decoded.Recipient)
+		assert.Equal(t, "0xtoken", decoded.Token)
+		assert.Equal(t, "1000", decoded.Amount)
 	})
 }

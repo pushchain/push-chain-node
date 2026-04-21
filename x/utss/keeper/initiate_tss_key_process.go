@@ -91,6 +91,29 @@ func (k Keeper) InitiateTssKeyProcess(
 
 	sdkCtx.EventManager().EmitEvent(event)
 
+	// Persist TSS event to the events store
+	eventId, err := k.NextTssEventId.Next(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to generate tss event id: %w", err)
+	}
+	tssEvent := types.TssEvent{
+		Id:           eventId,
+		EventType:    types.TssEventType_TSS_EVENT_PROCESS_INITIATED,
+		Status:       types.TssEventStatus_TSS_EVENT_ACTIVE,
+		ProcessId:    process.Id,
+		ProcessType:  process.ProcessType.String(),
+		Participants: process.Participants,
+		ExpiryHeight: process.ExpiryHeight,
+		BlockHeight:  sdkCtx.BlockHeight(),
+	}
+	if err := k.TssEvents.Set(ctx, eventId, tssEvent); err != nil {
+		return fmt.Errorf("failed to store tss event: %w", err)
+	}
+	// Add to pending index (keyed by process_id, stores event_id for lookup)
+	if err := k.PendingTssEvents.Set(ctx, process.Id, eventId); err != nil {
+		return fmt.Errorf("failed to index pending tss event: %w", err)
+	}
+
 	k.Logger().Info("New TSS process initiated",
 		"id", process.Id,
 		"type", process.ProcessType,

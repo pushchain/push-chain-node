@@ -25,7 +25,12 @@ func (k Keeper) SetCurrentTssKey(ctx context.Context, key types.TssKey) error {
 		return fmt.Errorf("failed to record tss key history: %w", err)
 	}
 
-	k.Logger().Info("New TSS key finalized", "key_id", key.KeyId, "pubkey", key.TssPubkey)
+	k.Logger().Info("tss key stored",
+		"key_id", key.KeyId,
+		"process_id", key.ProcessId,
+		"pubkey", key.TssPubkey,
+		"participant_count", len(key.Participants),
+	)
 	return nil
 }
 

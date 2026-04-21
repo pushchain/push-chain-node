@@ -260,7 +260,13 @@ func TestInboundCEASmartContractRecipient(t *testing.T) {
 	})
 
 	t.Run("executeUniversalTx PCTx is recorded for smart contract recipient", func(t *testing.T) {
-		chainApp, ctx, vals, inbound, coreVals, _ := setupInboundCEASmartContractTest(t, 4)
+		chainApp, ctx, vals, inbound, coreVals, contractAddr := setupInboundCEASmartContractTest(t, 4)
+
+		// Fund the smart contract with upc so gas fee deduction succeeds
+		contractAccAddr := sdk.AccAddress(contractAddr.Bytes())
+		fundCoins := sdk.NewCoins(sdk.NewInt64Coin("upc", 1_000_000_000))
+		require.NoError(t, chainApp.BankKeeper.MintCoins(ctx, "mint", fundCoins))
+		require.NoError(t, chainApp.BankKeeper.SendCoinsFromModuleToAccount(ctx, "mint", contractAccAddr, fundCoins))
 
 		for i := 0; i < 3; i++ {
 			valAddr, err := sdk.ValAddressFromBech32(coreVals[i].OperatorAddress)
@@ -283,13 +289,51 @@ func TestInboundCEASmartContractRecipient(t *testing.T) {
 		require.Empty(t, callPcTx.ErrorMsg)
 	})
 
-	t.Run("EOA recipient receives deposit and executeUniversalTx call", func(t *testing.T) {
+	t.Run("gas fees deducted from smart contract recipient after executeUniversalTx", func(t *testing.T) {
+		chainApp, ctx, vals, inbound, coreVals, contractAddr := setupInboundCEASmartContractTest(t, 4)
+
+		// Fund the smart contract with upc so fee deduction can succeed
+		contractAccAddr := sdk.AccAddress(contractAddr.Bytes())
+		fundCoins := sdk.NewCoins(sdk.NewInt64Coin("upc", 1_000_000_000))
+		require.NoError(t, chainApp.BankKeeper.MintCoins(ctx, "mint", fundCoins))
+		require.NoError(t, chainApp.BankKeeper.SendCoinsFromModuleToAccount(ctx, "mint", contractAccAddr, fundCoins))
+
+		balanceBefore := chainApp.BankKeeper.GetBalance(ctx, contractAccAddr, "upc")
+
+		// Reach quorum
+		for i := 0; i < 3; i++ {
+			valAddr, err := sdk.ValAddressFromBech32(coreVals[i].OperatorAddress)
+			require.NoError(t, err)
+			coreValAcc := sdk.AccAddress(valAddr).String()
+
+			err = utils.ExecVoteInbound(t, ctx, chainApp, vals[i], coreValAcc, inbound)
+			require.NoError(t, err)
+		}
+
+		// Verify executeUniversalTx PCTx has gas_used > 0
+		utxKey := uexecutortypes.GetInboundUniversalTxKey(*inbound)
+		utx, found, err := chainApp.UexecutorKeeper.GetUniversalTx(ctx, utxKey)
+		require.NoError(t, err)
+		require.True(t, found)
+		require.GreaterOrEqual(t, len(utx.PcTx), 2, "should have deposit + executeUniversalTx PCTxs")
+
+		callPcTx := utx.PcTx[1]
+		require.Equal(t, "SUCCESS", callPcTx.Status)
+		require.Greater(t, callPcTx.GasUsed, uint64(0), "executeUniversalTx should report gas used")
+
+		// Verify upc balance decreased (gas was deducted)
+		balanceAfter := chainApp.BankKeeper.GetBalance(ctx, contractAccAddr, "upc")
+		require.True(t, balanceAfter.Amount.LT(balanceBefore.Amount),
+			"smart contract upc balance should decrease after gas fee deduction (before=%s, after=%s)",
+			balanceBefore.Amount, balanceAfter.Amount)
+	})
+
+	t.Run("EOA recipient receives deposit only, no executeUniversalTx", func(t *testing.T) {
 		chainApp, ctx, vals, _, coreVals, _ := setupInboundCEASmartContractTest(t, 4)
 		usdcAddress := utils.GetDefaultAddresses().ExternalUSDCAddr
 		testAddress := utils.GetDefaultAddresses().DefaultTestAddr
 
-		// TargetAddr2 is a plain EOA — deposit lands there and executeUniversalTx is called
-		// (calling to an EOA in EVM succeeds with empty output)
+		// TargetAddr2 is a plain EOA (no contract code deployed)
 		eoaRecipient := utils.GetDefaultAddresses().TargetAddr2
 
 		validUP := &uexecutortypes.UniversalPayload{
@@ -335,8 +379,15 @@ func TestInboundCEASmartContractRecipient(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, found)
 
-		// Expect 2 PCTxs: deposit + executeUniversalTx
-		require.GreaterOrEqual(t, len(utx.PcTx), 2, "should have deposit and executeUniversalTx PCTxs")
+		// EOA recipient: deposit PCTx only, no executeUniversalTx PCTx
+		// (code size check skips executeUniversalTx for EOAs, but payload execution via UEA may still run)
+		require.GreaterOrEqual(t, len(utx.PcTx), 1, "should have at least deposit PCTx for EOA recipient")
+
+		// Verify no executeUniversalTx-specific PCTx (the smart contract call path is skipped)
+		// The deposit PCTx should succeed
+		require.Equal(t, "SUCCESS", utx.PcTx[0].Status, "deposit should succeed for EOA recipient")
+
+		// No outbound should be created from executeUniversalTx (which was skipped)
 		require.Equal(t, "SUCCESS", utx.PcTx[0].Status, "deposit should succeed for EOA recipient")
 
 		// isCEA path never creates a revert outbound

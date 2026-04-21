@@ -25,7 +25,7 @@ type RevertInstructions struct {
 	RevertMsg       []byte
 }
 
-// TxBuilder implements OutboundTxBuilder for EVM chains using the Vault contract.
+// TxBuilder implements TxBuilder for EVM chains using the Vault contract.
 type TxBuilder struct {
 	rpcClient      *RPCClient
 	chainID        string
@@ -82,7 +82,7 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 	ctx context.Context,
 	data *uetypes.OutboundCreatedEvent,
 	nonce uint64,
-) (*common.UnSignedOutboundTxReq, error) {
+) (*common.UnsignedSigningReq, error) {
 	if data == nil {
 		return nil, fmt.Errorf("outbound event data is nil")
 	}
@@ -145,7 +145,7 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 	signer := types.NewEIP155Signer(big.NewInt(tb.chainIDInt))
 	txHash := signer.Hash(tx).Bytes()
 
-	return &common.UnSignedOutboundTxReq{
+	return &common.UnsignedSigningReq{
 		SigningHash: txHash,
 		Nonce:       nonce,
 	}, nil
@@ -166,7 +166,7 @@ func (tb *TxBuilder) GetNextNonce(ctx context.Context, signerAddress string, use
 // BroadcastOutboundSigningRequest assembles and broadcasts a signed transaction
 func (tb *TxBuilder) BroadcastOutboundSigningRequest(
 	ctx context.Context,
-	req *common.UnSignedOutboundTxReq,
+	req *common.UnsignedSigningReq,
 	data *uetypes.OutboundCreatedEvent,
 	signature []byte,
 ) (string, error) {
@@ -468,4 +468,109 @@ func (tb *TxBuilder) GetGasFeeUsed(ctx context.Context, txHash string) (string, 
 
 	gasFeeUsed := new(big.Int).Mul(gasUsed, gasPrice)
 	return gasFeeUsed.String(), nil
+}
+
+// GetFundMigrationSigningRequest builds a native token transfer for fund migration,
+// transferring the maximum possible balance (balance minus gas cost).
+// Fund migration only triggers when outbound is disabled and no pending outbounds remain,
+// so the balance at signing time will equal the balance at broadcast time.
+func (tb *TxBuilder) GetFundMigrationSigningRequest(ctx context.Context, data *common.FundMigrationData, nonce uint64) (*common.UnsignedSigningReq, error) {
+	fromAddr := ethcommon.HexToAddress(data.From)
+	toAddr := ethcommon.HexToAddress(data.To)
+
+	if data.GasPrice == nil || data.GasPrice.Sign() == 0 {
+		return nil, fmt.Errorf("gas price must be provided for fund migration")
+	}
+
+	balance, err := tb.rpcClient.GetBalance(ctx, fromAddr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get balance of %s: %w", data.From, err)
+	}
+
+	gasCost := new(big.Int).Mul(data.GasPrice, new(big.Int).SetUint64(data.GasLimit))
+	maxTransfer := new(big.Int).Sub(balance, gasCost)
+	if maxTransfer.Sign() <= 0 {
+		return nil, fmt.Errorf("insufficient balance for gas: balance=%s gasCost=%s", balance.String(), gasCost.String())
+	}
+
+	tb.logger.Info().
+		Str("from", data.From).
+		Str("to", data.To).
+		Str("balance", balance.String()).
+		Str("gas_price", data.GasPrice.String()).
+		Uint64("gas_limit", data.GasLimit).
+		Str("transfer_amount", maxTransfer.String()).
+		Msg("building fund migration tx")
+
+	tx := types.NewTransaction(
+		nonce,
+		toAddr,
+		maxTransfer,
+		data.GasLimit,
+		data.GasPrice,
+		nil, // no calldata for simple transfer
+	)
+
+	signer := types.NewEIP155Signer(big.NewInt(tb.chainIDInt))
+	txHash := signer.Hash(tx).Bytes()
+
+	return &common.UnsignedSigningReq{
+		SigningHash: txHash,
+		Nonce:      nonce,
+	}, nil
+}
+
+// BroadcastFundMigrationTx assembles and broadcasts a signed fund migration transaction.
+func (tb *TxBuilder) BroadcastFundMigrationTx(ctx context.Context, req *common.UnsignedSigningReq, data *common.FundMigrationData, signature []byte) (string, error) {
+	if len(signature) != 65 {
+		return "", fmt.Errorf("signature must be 65 bytes [r(32)|s(32)|v(1)], got %d", len(signature))
+	}
+
+	if data.GasPrice == nil || data.GasPrice.Sign() == 0 {
+		return "", fmt.Errorf("gas price must be provided for fund migration")
+	}
+
+	fromAddr := ethcommon.HexToAddress(data.From)
+	toAddr := ethcommon.HexToAddress(data.To)
+
+	balance, err := tb.rpcClient.GetBalance(ctx, fromAddr)
+	if err != nil {
+		return "", fmt.Errorf("failed to get balance of %s: %w", data.From, err)
+	}
+
+	gasCost := new(big.Int).Mul(data.GasPrice, new(big.Int).SetUint64(data.GasLimit))
+	maxTransfer := new(big.Int).Sub(balance, gasCost)
+	if maxTransfer.Sign() <= 0 {
+		return "", fmt.Errorf("insufficient balance for gas during broadcast")
+	}
+
+	tx := types.NewTransaction(
+		req.Nonce,
+		toAddr,
+		maxTransfer,
+		data.GasLimit,
+		data.GasPrice,
+		nil,
+	)
+
+	signer := types.NewEIP155Signer(big.NewInt(tb.chainIDInt))
+	signedTx, err := tx.WithSignature(signer, signature)
+	if err != nil {
+		return "", fmt.Errorf("failed to apply signature: %w", err)
+	}
+
+	txHashStr := signedTx.Hash().Hex()
+
+	if _, err := tb.rpcClient.BroadcastTransaction(ctx, signedTx); err != nil {
+		return txHashStr, fmt.Errorf("failed to broadcast fund migration tx: %w", err)
+	}
+
+	tb.logger.Info().
+		Str("tx_hash", txHashStr).
+		Str("from", data.From).
+		Str("to", data.To).
+		Str("amount", maxTransfer.String()).
+		Msg("fund migration tx broadcast successfully")
+
+	return txHashStr, nil
 }

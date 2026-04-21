@@ -18,7 +18,7 @@ import (
 	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
 	uexecutorkeeper "github.com/pushchain/push-chain-node/x/uexecutor/keeper"
 	uregistrykeeper "github.com/pushchain/push-chain-node/x/uregistry/keeper"
-	utxverifierkeeper "github.com/pushchain/push-chain-node/x/utxverifier/keeper"
+	utsskeeper "github.com/pushchain/push-chain-node/x/utss/keeper"
 	uvalidatorkeeper "github.com/pushchain/push-chain-node/x/uvalidator/keeper"
 )
 
@@ -34,10 +34,10 @@ type AppKeepers struct {
 	BankKeeper            bankkeeper.BaseKeeper
 
 	// Module keepers
-	UExecutorKeeper   *uexecutorkeeper.Keeper
-	UTxVerifierKeeper *utxverifierkeeper.Keeper
-	URegistryKeeper   *uregistrykeeper.Keeper
+	UExecutorKeeper *uexecutorkeeper.Keeper
+	URegistryKeeper *uregistrykeeper.Keeper
 	UValidatorKeeper  *uvalidatorkeeper.Keeper
+	UTssKeeper        *utsskeeper.Keeper
 }
 type ModuleManager interface {
 	RunMigrations(ctx context.Context, cfg module.Configurator, fromVM module.VersionMap) (module.VersionMap, error)

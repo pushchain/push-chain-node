@@ -14,6 +14,7 @@ import (
 
 	"github.com/pushchain/push-chain-node/universalClient/db"
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
+	"github.com/pushchain/push-chain-node/universalClient/tss/coordinator"
 )
 
 // generateTestPrivateKey generates a random Ed25519 private key for testing.
@@ -195,4 +196,150 @@ func TestNode_PeerID_ListenAddrs(t *testing.T) {
 		assert.NotEmpty(t, node.PeerID())
 		assert.NotEmpty(t, node.ListenAddrs())
 	})
+}
+
+func TestConvertPrivateKeyHexToBase64(t *testing.T) {
+	t.Run("valid 32-byte hex key", func(t *testing.T) {
+		seed := make([]byte, 32)
+		_, err := rand.Read(seed)
+		require.NoError(t, err)
+
+		hexKey := hex.EncodeToString(seed)
+		result, err := convertPrivateKeyHexToBase64(hexKey)
+		require.NoError(t, err)
+		assert.NotEmpty(t, result)
+	})
+
+	t.Run("invalid hex characters", func(t *testing.T) {
+		_, err := convertPrivateKeyHexToBase64("zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "hex decode failed")
+	})
+
+	t.Run("wrong length 16 bytes", func(t *testing.T) {
+		shortKey := hex.EncodeToString(make([]byte, 16))
+		_, err := convertPrivateKeyHexToBase64(shortKey)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "wrong key length")
+	})
+
+	t.Run("wrong length 64 bytes", func(t *testing.T) {
+		longKey := hex.EncodeToString(make([]byte, 64))
+		_, err := convertPrivateKeyHexToBase64(longKey)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "wrong key length")
+	})
+
+	t.Run("empty string", func(t *testing.T) {
+		_, err := convertPrivateKeyHexToBase64("")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "wrong key length")
+	})
+
+	t.Run("key with whitespace is trimmed", func(t *testing.T) {
+		seed := make([]byte, 32)
+		_, err := rand.Read(seed)
+		require.NoError(t, err)
+
+		hexKey := hex.EncodeToString(seed)
+		paddedKey := "  " + hexKey + "  \n"
+
+		result, err := convertPrivateKeyHexToBase64(paddedKey)
+		require.NoError(t, err)
+		assert.NotEmpty(t, result)
+
+		expected, err := convertPrivateKeyHexToBase64(hexKey)
+		require.NoError(t, err)
+		assert.Equal(t, expected, result)
+	})
+}
+
+func TestHandleACKMessage_CoordinatorNil(t *testing.T) {
+	t.Run("coordinator is nil", func(t *testing.T) {
+		node, _, _ := setupTestNode(t)
+		// Node is not started, so coordinator is nil
+		err := node.HandleACKMessage(context.Background(), "sender-peer", &coordinator.Message{
+			Type:    "ack",
+			EventID: "event-123",
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "coordinator not initialized")
+	})
+
+	t.Run("node not started coordinator nil", func(t *testing.T) {
+		node, _, _ := setupTestNode(t)
+		assert.Nil(t, node.coordinator)
+		err := node.HandleACKMessage(context.Background(), "peer-abc", &coordinator.Message{
+			Type:    "ack",
+			EventID: "event-456",
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "coordinator not initialized")
+	})
+}
+
+func TestNewNode_DefaultValues(t *testing.T) {
+	database, err := db.OpenInMemoryDB(true)
+	require.NoError(t, err)
+	testClient := &pushcore.Client{}
+
+	t.Run("defaults are applied when optional fields are zero", func(t *testing.T) {
+		cfg := Config{
+			ValidatorAddress: "validator1",
+			P2PPrivateKeyHex: generateTestPrivateKey(t),
+			LibP2PListen:     "/ip4/127.0.0.1/tcp/0",
+			HomeDir:          t.TempDir(),
+			Password:         "test-password",
+			Database:         database,
+			PushCore:         testClient,
+			Logger:           zerolog.Nop(),
+		}
+
+		node, err := NewNode(context.Background(), cfg)
+		require.NoError(t, err)
+
+		assert.Equal(t, 10*time.Second, node.coordinatorPollInterval)
+		assert.Equal(t, uint64(1000), node.coordinatorRange)
+		assert.Equal(t, 2*time.Minute, node.sessionExpiryTime)
+		assert.Equal(t, 30*time.Second, node.sessionExpiryCheckInterval)
+		assert.Equal(t, uint64(60), node.sessionExpiryBlockDelay)
+	})
+
+	t.Run("custom values override defaults", func(t *testing.T) {
+		cfg := Config{
+			ValidatorAddress:           "validator1",
+			P2PPrivateKeyHex:           generateTestPrivateKey(t),
+			LibP2PListen:               "/ip4/127.0.0.1/tcp/0",
+			HomeDir:                    t.TempDir(),
+			Password:                   "test-password",
+			Database:                   database,
+			PushCore:                   testClient,
+			Logger:                     zerolog.Nop(),
+			PollInterval:               5 * time.Second,
+			CoordinatorRange:           500,
+			SessionExpiryTime:          10 * time.Minute,
+			SessionExpiryCheckInterval: 1 * time.Minute,
+			SessionExpiryBlockDelay:    120,
+		}
+
+		node, err := NewNode(context.Background(), cfg)
+		require.NoError(t, err)
+
+		assert.Equal(t, 5*time.Second, node.coordinatorPollInterval)
+		assert.Equal(t, uint64(500), node.coordinatorRange)
+		assert.Equal(t, 10*time.Minute, node.sessionExpiryTime)
+		assert.Equal(t, 1*time.Minute, node.sessionExpiryCheckInterval)
+		assert.Equal(t, uint64(120), node.sessionExpiryBlockDelay)
+	})
+}
+
+func TestNode_SendToUnknownPeer(t *testing.T) {
+	node, _, _ := setupTestNode(t)
+	ctx := context.Background()
+
+	require.NoError(t, node.Start(ctx))
+	defer node.Stop()
+
+	err := node.Send(ctx, "12D3KooWFakeUnknownPeerIDxxxxxxxxxxxxxxxxx", []byte("hello"))
+	require.Error(t, err)
 }

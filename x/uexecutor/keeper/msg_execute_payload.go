@@ -3,12 +3,11 @@ package keeper
 import (
 	"context"
 	"fmt"
-	"math/big"
 
 	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	sdkErrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/ethereum/go-ethereum/common"
+	pchaintypes "github.com/pushchain/push-chain-node/types"
 	"github.com/pushchain/push-chain-node/utils"
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
@@ -20,9 +19,14 @@ func (k Keeper) ExecutePayload(ctx context.Context, evmFrom common.Address, univ
 	// Get Caip2Identifier for the universal account
 	caip2Identifier := universalAccountId.GetCAIP2()
 
-	// Step 1: Parse and validate payload and verificationData
-	payload, err := types.NewAbiUniversalPayload(universalPayload)
-	if err != nil {
+	k.Logger().Info("execute payload",
+		"from", evmFrom.Hex(),
+		"chain", caip2Identifier,
+		"owner", universalAccountId.Owner,
+	)
+
+	// Step 1: Validate payload and verificationData early (fast-fail before EVM work)
+	if _, err := types.NewAbiUniversalPayload(universalPayload); err != nil {
 		return errors.Wrapf(err, "invalid universal payload")
 	}
 
@@ -37,6 +41,7 @@ func (k Keeper) ExecutePayload(ctx context.Context, evmFrom common.Address, univ
 	}
 
 	if !chainConfig.Enabled.IsInboundEnabled {
+		k.Logger().Warn("execute payload rejected: chain inbound disabled", "chain", caip2Identifier)
 		return fmt.Errorf("inbound is disabled for chain %s", caip2Identifier)
 	}
 
@@ -50,16 +55,55 @@ func (k Keeper) ExecutePayload(ctx context.Context, evmFrom common.Address, univ
 	}
 
 	if !isDeployed {
-		return fmt.Errorf("UEA is not deployed")
+		// only deploy if the UEA address has funds and not deployed yet
+		ueaAccAddr := sdk.AccAddress(ueaAddr.Bytes())
+		balance := k.bankKeeper.GetBalance(sdkCtx, ueaAccAddr, pchaintypes.BaseDenom)
+		if balance.Amount.Sign() == 0 {
+			k.Logger().Warn("execute payload rejected: UEA not deployed and has no balance",
+				"chain", caip2Identifier,
+				"owner", universalAccountId.Owner,
+			)
+			return fmt.Errorf("UEA is not deployed")
+		}
+
+		k.Logger().Info("auto-deploying UEA before execute (pre-funded address)",
+			"uea", ueaAddr.Hex(),
+			"balance", balance.Amount.String(),
+			"chain", caip2Identifier,
+			"owner", universalAccountId.Owner,
+		)
+		if _, err := k.DeployUEAV2(ctx, evmFrom, universalAccountId); err != nil {
+			return errors.Wrapf(err, "failed to auto-deploy pre-funded UEA")
+		}
 	}
+
+	k.Logger().Debug("executing payload via UEA",
+		"uea", ueaAddr.Hex(),
+		"chain", caip2Identifier,
+		"from", evmFrom.Hex(),
+	)
 
 	// Step 3: Execute payload through UEA
-	receipt, err := k.CallUEAExecutePayload(sdkCtx, evmFrom, ueaAddr, universalPayload, verificationDataVal)
-	if err != nil {
-		return err
+	receipt, execErr := k.CallUEAExecutePayload(sdkCtx, evmFrom, ueaAddr, universalPayload, verificationDataVal)
+
+	// Step 4: Deduct gas fees regardless of success/failure.
+	// If deduction fails, return error so the entire Cosmos tx rolls back (including EVM state).
+	if feeErr := k.DeductGasFeesFromReceipt(ctx, sdkCtx, ueaAddr, receipt, universalPayload); feeErr != nil {
+		return fmt.Errorf("gas fee deduction failed: %w", feeErr)
 	}
 
-	// Step 4
+	if execErr != nil {
+		return execErr
+	}
+
+	k.Logger().Info("payload executed via direct msg",
+		"chain", caip2Identifier,
+		"uea", ueaAddr.Hex(),
+		"tx_hash", receipt.Hash,
+		"gas_used", receipt.GasUsed,
+	)
+
+	// Step 5
 	pcTx := types.PCTx{
 		Sender:      evmFrom.Hex(),
 		TxHash:      receipt.Hash,
@@ -68,36 +112,12 @@ func (k Keeper) ExecutePayload(ctx context.Context, evmFrom common.Address, univ
 		Status:      "SUCCESS",
 	}
 
-	// Step 5: create outbound + UTX only if needed
+	// Step 6: create outbound + UTX only if needed
 	if err := k.CreateUniversalTxFromReceiptIfOutbound(sdkCtx, receipt, pcTx); err != nil {
 		return err
 	}
 	if err := k.AttachRescueOutboundFromReceipt(sdkCtx, receipt, pcTx); err != nil {
 		return err
-	}
-
-	gasUnitsUsed := receipt.GasUsed
-	gasUnitsUsedBig := new(big.Int).SetUint64(gasUnitsUsed)
-
-	// Step 6: Handle fee calculation and deduction
-	ueaAccAddr := sdk.AccAddress(ueaAddr.Bytes())
-
-	baseFee := k.feemarketKeeper.GetBaseFee(sdkCtx)
-	if baseFee.IsNil() {
-		return errors.Wrapf(sdkErrors.ErrLogic, "base fee not found")
-	}
-
-	gasCost, err := k.CalculateGasCost(baseFee, payload.MaxFeePerGas, payload.MaxPriorityFeePerGas, gasUnitsUsed)
-	if err != nil {
-		return errors.Wrapf(err, "failed to calculate gas cost")
-	}
-
-	if gasUnitsUsedBig.Cmp(payload.GasLimit) > 0 {
-		return errors.Wrapf(sdkErrors.ErrOutOfGas, "gas cost (%d) exceeds limit (%d)", gasCost, payload.GasLimit)
-	}
-
-	if err = k.DeductAndBurnFees(ctx, ueaAccAddr, gasCost); err != nil {
-		return errors.Wrapf(err, "failed to deduct fees from %s", ueaAccAddr)
 	}
 
 	return nil

@@ -3,6 +3,7 @@ package module
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/gorilla/mux"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -24,7 +25,8 @@ import (
 
 const (
 	// ConsensusVersion defines the current x/utss module consensus version.
-	ConsensusVersion = 1
+	// Bumped to 3: added FundMigrations, NextMigrationId, PendingMigrations collections.
+	ConsensusVersion = 3
 )
 
 var (
@@ -142,6 +144,20 @@ func (a AppModule) QuerierRoute() string {
 func (a AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImpl(a.keeper))
 	types.RegisterQueryServer(cfg.QueryServer(), keeper.NewQuerier(a.keeper))
+
+	// Register migration from v1 → v2 (added TssEvents + NextTssEventId collections).
+	if err := cfg.RegisterMigration(types.ModuleName, 1, func(ctx sdk.Context) error {
+		return nil // no-op: new collections are initialized empty by the schema builder
+	}); err != nil {
+		panic(fmt.Sprintf("failed to register utss v1->v2 migration: %v", err))
+	}
+
+	// Register migration from v2 → v3 (added FundMigrations, NextMigrationId, PendingMigrations).
+	if err := cfg.RegisterMigration(types.ModuleName, 2, func(ctx sdk.Context) error {
+		return nil // no-op: new collections are initialized empty by the schema builder
+	}); err != nil {
+		panic(fmt.Sprintf("failed to register utss v2->v3 migration: %v", err))
+	}
 }
 
 // ConsensusVersion is a sequence number for state-breaking change of the

@@ -518,9 +518,12 @@ func (tb *TxBuilder) GetFundMigrationSigningRequest(ctx context.Context, data *c
 	signer := types.NewEIP155Signer(big.NewInt(tb.chainIDInt))
 	txHash := signer.Hash(tx).Bytes()
 
+	// TSSFundMigrationAmount rides alongside Nonce in the req — both are signing-time-decided
+	// values that must reach broadcast unchanged so the signed tx is reproduced exactly.
 	return &common.UnsignedSigningReq{
-		SigningHash: txHash,
-		Nonce:      nonce,
+		SigningHash:            txHash,
+		Nonce:                  nonce,
+		TSSFundMigrationAmount: new(big.Int).Set(maxTransfer),
 	}, nil
 }
 
@@ -540,18 +543,13 @@ func (tb *TxBuilder) BroadcastFundMigrationTx(ctx context.Context, req *common.U
 		return "", fmt.Errorf("gas limit must be provided for fund migration")
 	}
 
-	fromAddr := ethcommon.HexToAddress(data.From)
+	// Use the exact amount fixed at signing time. Re-querying balance here would race
+	// with a successful broadcast from another validator (balance goes to 0 post-sweep).
+	if req.TSSFundMigrationAmount == nil || req.TSSFundMigrationAmount.Sign() <= 0 {
+		return "", fmt.Errorf("req.TSSFundMigrationAmount must be set for fund migration broadcast")
+	}
 	toAddr := ethcommon.HexToAddress(data.To)
-
-	balance, err := tb.rpcClient.GetBalance(ctx, fromAddr)
-	if err != nil {
-		return "", fmt.Errorf("failed to get balance of %s: %w", data.From, err)
-	}
-
-	maxTransfer, err := computeFundMigrationTransfer(balance, data.GasPrice, data.GasLimit, data.L1GasFee)
-	if err != nil {
-		return "", err
-	}
+	maxTransfer := new(big.Int).Set(req.TSSFundMigrationAmount)
 
 	tx := types.NewTransaction(
 		req.Nonce,

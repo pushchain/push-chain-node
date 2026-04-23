@@ -966,7 +966,7 @@ func (sm *SessionManager) handleSigningComplete(_ context.Context, eventID strin
 		"nonce":        signingReq.Nonce,
 	}
 	if signingReq.TSSFundMigrationAmount != nil && signingReq.TSSFundMigrationAmount.Sign() > 0 {
-		signingData["tss_fund_migration_amount"] = signingReq.TSSFundMigrationAmount.String()
+		signingData["tss_fund_migration_amount"] = signingReq.TSSFundMigrationAmount
 	}
 
 	// Unmarshal original event data, add signing_data, re-marshal

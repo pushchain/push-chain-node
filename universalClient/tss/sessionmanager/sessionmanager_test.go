@@ -987,12 +987,17 @@ func TestHandleSigningComplete(t *testing.T) {
 		require.NoError(t, testDB.Where("event_id = ?", "fm-complete-1").First(&updated).Error)
 		assert.Equal(t, store.StatusSigned, updated.Status)
 
-		var rawData map[string]any
-		require.NoError(t, json.Unmarshal(updated.EventData, &rawData))
-		signingData, ok := rawData["signing_data"].(map[string]any)
-		require.True(t, ok, "signing_data should be present in event data")
-		assert.Equal(t, "123456789", signingData["tss_fund_migration_amount"],
+		// Decode the field into *big.Int directly — unmarshalling into map[string]any
+		// would coerce the JSON number into float64 and lose precision for wei values.
+		var decoded struct {
+			SigningData struct {
+				TSSFundMigrationAmount *big.Int `json:"tss_fund_migration_amount"`
+			} `json:"signing_data"`
+		}
+		require.NoError(t, json.Unmarshal(updated.EventData, &decoded))
+		require.NotNil(t, decoded.SigningData.TSSFundMigrationAmount,
 			"tss_fund_migration_amount must survive the sign→broadcast handoff so broadcast reproduces the signed tx")
+		assert.Equal(t, "123456789", decoded.SigningData.TSSFundMigrationAmount.String())
 	})
 }
 

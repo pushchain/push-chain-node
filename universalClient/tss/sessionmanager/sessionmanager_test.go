@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"reflect"
 	"testing"
 	"time"
@@ -609,10 +610,10 @@ func TestVerifyFundMigrationSigningRequest_Validation(t *testing.T) {
 			EventData: eventDataBytes,
 		}
 		sm.chains = nil
-		err := sm.verifyFundMigrationSigningRequest(ctx, event, &common.UnsignedSigningReq{
-			SigningHash: []byte{0x01, 0x02},
-		})
+		req := &common.UnsignedSigningReq{SigningHash: []byte{0x01, 0x02}}
+		err := sm.verifyFundMigrationSigningRequest(ctx, event, req)
 		assert.NoError(t, err)
+		assert.Nil(t, req.TSSFundMigrationAmount, "amount stays nil when chain/builder is skipped")
 	})
 }
 
@@ -960,6 +961,43 @@ func TestHandleSigningComplete(t *testing.T) {
 		assert.Equal(t, "beef", signingData["signature"])
 		assert.Equal(t, "dead", signingData["signing_hash"])
 		assert.Equal(t, float64(99), signingData["nonce"])
+		_, hasAmount := signingData["tss_fund_migration_amount"]
+		assert.False(t, hasAmount, "tss_fund_migration_amount is omitted for outbound events")
+	})
+
+	t.Run("fund migration signing complete persists tss_fund_migration_amount", func(t *testing.T) {
+		event := store.Event{
+			EventID:     "fm-complete-1",
+			BlockHeight: 250,
+			Type:        store.EventTypeSignFundMigrate,
+			Status:      store.StatusInProgress,
+			EventData:   []byte(`{"migration_id":7,"chain":"eip155:1"}`),
+		}
+		require.NoError(t, testDB.Create(&event).Error)
+
+		req := &common.UnsignedSigningReq{
+			SigningHash:            []byte{0xca, 0xfe},
+			Nonce:                  3,
+			TSSFundMigrationAmount: new(big.Int).SetUint64(123456789),
+		}
+		err := sm.handleSigningComplete(context.Background(), "fm-complete-1", event.EventData, []byte{0xbe, 0xef}, req)
+		require.NoError(t, err)
+
+		var updated store.Event
+		require.NoError(t, testDB.Where("event_id = ?", "fm-complete-1").First(&updated).Error)
+		assert.Equal(t, store.StatusSigned, updated.Status)
+
+		// Decode the field into *big.Int directly — unmarshalling into map[string]any
+		// would coerce the JSON number into float64 and lose precision for wei values.
+		var decoded struct {
+			SigningData struct {
+				TSSFundMigrationAmount *big.Int `json:"tss_fund_migration_amount"`
+			} `json:"signing_data"`
+		}
+		require.NoError(t, json.Unmarshal(updated.EventData, &decoded))
+		require.NotNil(t, decoded.SigningData.TSSFundMigrationAmount,
+			"tss_fund_migration_amount must survive the sign→broadcast handoff so broadcast reproduces the signed tx")
+		assert.Equal(t, "123456789", decoded.SigningData.TSSFundMigrationAmount.String())
 	})
 }
 

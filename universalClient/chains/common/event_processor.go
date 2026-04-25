@@ -151,6 +151,12 @@ func (ep *EventProcessor) processConfirmedEvents(ctx context.Context) error {
 
 // processOutboundEvent processes an outbound event by voting on it
 func (ep *EventProcessor) processOutboundEvent(ctx context.Context, event *store.Event) error {
+	ep.logger.Warn().
+		Str("event_id", event.EventID).
+		Str("chain", ep.chainID).
+		Uint64("block", event.BlockHeight).
+		Msg("DIAG: event_processor processOutboundEvent called — will VoteOutbound")
+
 	// Parse outbound event data once
 	outboundData, err := ep.parseOutboundEventData(event)
 	if err != nil {

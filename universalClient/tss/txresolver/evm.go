@@ -3,6 +3,8 @@ package txresolver
 import (
 	"context"
 
+	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
+
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
@@ -72,14 +74,36 @@ func (r *Resolver) resolveEVM(ctx context.Context, event *store.Event, chainID, 
 		return
 	}
 
-	// status == 1 (success)
-	if err := r.eventStore.Update(event.EventID, map[string]any{"status": eventstore.StatusCompleted}); err != nil {
+	// status == 1 (success) — vote on Push Chain and mark COMPLETED
+	gasFeeUsed := "0"
+	if builder, err := r.getBuilder(chainID); err == nil {
+		if fee, err := builder.GetGasFeeUsed(ctx, rawTxHash); err == nil {
+			gasFeeUsed = fee
+		}
+	}
+	if r.pushSigner == nil {
+		r.logger.Warn().Str("event_id", event.EventID).Msg("pushSigner not configured, cannot vote success")
+		return
+	}
+	observation := &uexecutortypes.OutboundObservation{
+		Success:     true,
+		BlockHeight: blockHeight,
+		TxHash:      rawTxHash,
+		GasFeeUsed:  gasFeeUsed,
+	}
+	voteTxHash, err := r.pushSigner.VoteOutbound(ctx, txID, utxID, observation)
+	if err != nil {
+		r.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to vote outbound success, will retry next tick")
+		return
+	}
+	if err := r.eventStore.Update(event.EventID, map[string]any{"status": eventstore.StatusCompleted, "vote_tx_hash": voteTxHash}); err != nil {
 		r.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to mark event COMPLETED")
 		return
 	}
 	r.logger.Info().
 		Str("event_id", event.EventID).Str("tx_hash", rawTxHash).
-		Uint64("confirmations", confirmations).Msg("broadcasted EVM tx marked COMPLETED")
+		Str("vote_tx_hash", voteTxHash).
+		Uint64("confirmations", confirmations).Msg("broadcasted EVM tx confirmed success — voted and marked COMPLETED")
 }
 
 func (r *Resolver) verifyTxOnChain(ctx context.Context, chainID, txHash string) (bool, uint64, uint64, uint8, error) {

@@ -43,10 +43,22 @@ func (b *Broadcaster) broadcastEVM(ctx context.Context, event *store.Event, data
 	}
 
 	// Broadcast — tx hash is computed before sending, so it's returned even on RPC error
+	b.logger.Warn().
+		Str("event_id", event.EventID).
+		Str("chain", chainID).
+		Str("asset", data.OutboundCreatedEvent.AssetAddr).
+		Str("amount", data.OutboundCreatedEvent.Amount).
+		Uint64("nonce", data.SigningData.Nonce).
+		Msg("DIAG: txbroadcaster about to BroadcastOutboundSigningRequest")
 	outboundData := data.OutboundCreatedEvent
 	txHash, broadcastErr := builder.BroadcastOutboundSigningRequest(ctx, signingReq, &outboundData, signature)
 
 	if broadcastErr == nil {
+		b.logger.Warn().
+			Str("event_id", event.EventID).
+			Str("chain", chainID).
+			Str("tx_hash", txHash).
+			Msg("DIAG: txbroadcaster broadcast SUCCESS — tx sent to external chain")
 		b.markBroadcasted(event, chainID, txHash)
 		return
 	}

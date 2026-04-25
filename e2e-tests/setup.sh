@@ -808,7 +808,7 @@ step_setup_push_chain_sdk() {
   log_info "Installing push-chain-sdk dependencies"
   (
     cd "$PUSH_CHAIN_SDK_DIR"
-    yarn install
+    yarn install || true
     npm install
     npm i --save-dev @types/bs58
     npm i tweetnacl
@@ -1111,6 +1111,26 @@ step_devnet() {
     [[ -n "$devnet_base_start" ]]     && _uv_env+=(BASE_EVENT_START_FROM="$devnet_base_start")
     [[ -n "$devnet_bsc_start" ]]      && _uv_env+=(BSC_EVENT_START_FROM="$devnet_bsc_start")
     [[ -n "$devnet_solana_start" ]]   && _uv_env+=(SOLANA_EVENT_START_FROM="$devnet_solana_start")
+
+    # Wait for all core validators to be bonded before registering UVs.
+    # setup-validator-auto.sh runs in the background; without this wait,
+    # MsgAddUniversalValidator fails with "core validator not found" for
+    # validators 2+ because their MsgCreateValidator hasn't landed yet.
+    local _wait_elapsed=0
+    local _wait_max=180
+    local _num_bonded
+    log_info "Waiting for core validators to be bonded (needed before UV registration)..."
+    while [ "$_wait_elapsed" -lt "$_wait_max" ]; do
+      _num_bonded=$(curl -s "http://127.0.0.1:26657/validators" 2>/dev/null \
+        | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('result',{}).get('total','0'))" 2>/dev/null || echo "0")
+      if [ "${_num_bonded:-0}" -ge 2 ]; then
+        log_ok "Core validators bonded: $_num_bonded — proceeding with UV registration"
+        break
+      fi
+      sleep 5
+      _wait_elapsed=$((_wait_elapsed + 5))
+      log_info "Core validators bonded so far: ${_num_bonded:-0}/2 (${_wait_elapsed}s elapsed)"
+    done
 
     # Register universal validators on-chain and create authz grants
     env "${_uv_env[@]}" ./devnet setup-uvalidators
@@ -2893,6 +2913,50 @@ NODE
   log_ok "CEA bootstrap complete"
 }
 
+step_wait_for_gas_oracle() {
+  require_cmd cast jq
+
+  local C0="0x00000000000000000000000000000000000000C0"
+  # EVM outbound-enabled chain namespaces (Solana is not EVM, skip)
+  local namespaces=("eip155:11155111" "eip155:421614" "eip155:84532" "eip155:97")
+  local timeout_seconds="${GAS_ORACLE_WAIT_TIMEOUT:-120}"
+  local poll_interval=5
+
+  log_info "Waiting for gas oracle to populate UNIVERSAL_CORE gas prices (timeout ${timeout_seconds}s)..."
+
+  local deadline=$(( $(date +%s) + timeout_seconds ))
+
+  while true; do
+    local all_ready=true
+    for ns in "${namespaces[@]}"; do
+      local price
+      price="$(cast call "$C0" 'gasPriceByChainNamespace(string)(uint256)' "$ns" \
+        --rpc-url "$PUSH_RPC_URL" 2>/dev/null || echo "0")"
+      # strip leading zeros / whitespace; treat blank as 0
+      price="${price//[[:space:]]/}"
+      price="${price#0x}"
+      if [[ -z "$price" || "$price" == "0" ]]; then
+        all_ready=false
+        log_info "  gas price not yet set for $ns, waiting..."
+        break
+      fi
+      log_info "  gas price ready for $ns: $price"
+    done
+
+    if $all_ready; then
+      log_ok "Gas oracle has voted — all outbound chain gas prices are non-zero"
+      return 0
+    fi
+
+    if [[ $(date +%s) -ge $deadline ]]; then
+      log_warn "Timed out waiting for gas oracle to vote (${timeout_seconds}s). Proceeding anyway — outbound txs may fail if triggered immediately."
+      return 0
+    fi
+
+    sleep "$poll_interval"
+  done
+}
+
 cmd_all() {
   step_setup_environment
   (cd "$PUSH_CHAIN_DIR" && make replace-addresses)
@@ -2918,6 +2982,7 @@ cmd_all() {
   step_deploy_counter_and_sync_sdk
   sdk_sync_localnet_constants
   step_sync_vault_tss_on_anvil
+  step_wait_for_gas_oracle
 }
 
 cmd_show_help() {
@@ -3001,6 +3066,7 @@ main() {
     update-token-config) step_update_deployed_token_configs ;;
     setup-gateway) step_setup_gateway ;;
     sync-vault-tss) step_sync_vault_tss_on_anvil ;;
+    wait-for-gas-oracle) step_wait_for_gas_oracle ;;
     bootstrap-cea-sdk) step_bootstrap_cea_for_sdk_signer ;;
     deploy-counter-sdk) step_deploy_counter_and_sync_sdk ;;
     clone-sdk) step_clone_push_chain_sdk ;;

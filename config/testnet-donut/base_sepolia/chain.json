@@ -1,6 +1,6 @@
 {
   "chain": "eip155:84532",
-  "public_rpc_url": "https://sepolia.base.org",
+  "public_rpc_url": "http://localhost:9547",
   "vm_type": 1,
   "gateway_address": "0xFD4fef1F43aFEc8b5bcdEEc47f35a1431479aC16",
   "block_confirmation": {
@@ -38,7 +38,7 @@
     {
       "name": "finalizeUniversalTx",
       "identifier": "0x",
-      "event_identifier": "0x593e82a42137d3f939a9002c055384d6c5231185731a4706bf59a0919b674327",
+      "event_identifier": "0xb689a5db58af5de77bfea50b6d5844e1c1aeed8b24edd7996a9f8b18ac133819",
       "confirmation_type": 1
     }
   ],

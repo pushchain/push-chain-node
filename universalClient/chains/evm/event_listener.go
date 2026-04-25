@@ -287,14 +287,14 @@ func (el *EventListener) processBlockChunk(
 		return fmt.Errorf("failed to get logs: %w", err)
 	}
 
-	// Log when events are found
-	if len(logs) > 0 {
-		el.logger.Info().
-			Uint64("from_block", fromBlock).
-			Uint64("to_block", toBlock).
-			Int("logs_found", len(logs)).
-			Msg("found contract events")
-	}
+	// DIAG: log every chunk result to see if vault/gateway addresses are matching
+	el.logger.Info().
+		Uint64("from_block", fromBlock).
+		Uint64("to_block", toBlock).
+		Int("logs_found", len(logs)).
+		Str("gateway", el.gatewayAddress).
+		Str("vault", el.vaultAddress).
+		Msg("DIAG: processBlockChunk result")
 
 	// Process each log
 	for _, log := range logs {
@@ -344,9 +344,31 @@ func (el *EventListener) getStartBlock(ctx context.Context) (uint64, error) {
 		return el.getStartBlockFromConfig(ctx)
 	}
 
-	el.logger.Info().
-		Uint64("block", blockHeight).
-		Msg("resuming from last processed block")
+	// If configured start is a specific block (>= 0) and is ahead of stored state,
+	// prefer the configured value. This prevents stale DB state from causing the
+	// listener to re-scan from an old Anvil fork point on repeated runs.
+	if el.eventStartFrom != nil && *el.eventStartFrom >= 0 {
+		configuredStart := uint64(*el.eventStartFrom)
+		if configuredStart > blockHeight {
+			el.logger.Info().
+				Uint64("stored_block", blockHeight).
+				Uint64("configured_start", configuredStart).
+				Msg("configured event_start_from is ahead of stored state, using configured value")
+			return configuredStart, nil
+		}
+	}
+
+	// DIAG: log both stored state and configured start so we can detect stale state
+	configuredStart := int64(-999)
+	if el.eventStartFrom != nil {
+		configuredStart = *el.eventStartFrom
+	}
+	el.logger.Warn().
+		Uint64("stored_block", blockHeight).
+		Int64("configured_event_start_from", configuredStart).
+		Str("gateway", el.gatewayAddress).
+		Str("vault", el.vaultAddress).
+		Msg("DIAG: getStartBlock — using stored state (not config)")
 
 	return blockHeight, nil
 }

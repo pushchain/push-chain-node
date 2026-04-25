@@ -86,6 +86,48 @@ jq --argjson port "$QUERY_PORT" '.query_server_port = $port' \
     "$HOME_DIR/config/pushuv_config.json" > "$HOME_DIR/config/pushuv_config.json.tmp" && \
     mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
 
+# Optionally override Sepolia event start height (set by ./devnet start-uv)
+if [ -n "${SEPOLIA_EVENT_START_FROM:-}" ]; then
+    jq --argjson height "$SEPOLIA_EVENT_START_FROM" \
+       '.chain_configs["eip155:11155111"].event_start_from = $height' \
+       "$HOME_DIR/config/pushuv_config.json" > "$HOME_DIR/config/pushuv_config.json.tmp" && \
+       mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
+fi
+
+# Apply chain RPC URL overrides if set (e.g. for LOCAL anvil forks)
+apply_rpc_override() {
+    local chain_id="$1" rpc_url="$2"
+    [ -n "$rpc_url" ] || return 0
+    jq --arg c "$chain_id" --arg u "$rpc_url" \
+       '.chain_configs[$c].rpc_urls = [$u]' \
+       "$HOME_DIR/config/pushuv_config.json" > "$HOME_DIR/config/pushuv_config.json.tmp" && \
+       mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
+}
+
+apply_event_start_override() {
+    local chain_id="$1" height="$2"
+    [ -n "$height" ] && [[ "$height" =~ ^[0-9]+$ ]] || return 0
+    jq --arg c "$chain_id" --argjson h "$height" \
+       '.chain_configs[$c].event_start_from = $h' \
+       "$HOME_DIR/config/pushuv_config.json" > "$HOME_DIR/config/pushuv_config.json.tmp" && \
+       mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
+}
+
+apply_rpc_override "eip155:11155111"                              "${SEPOLIA_RPC_URL_OVERRIDE:-}"
+apply_rpc_override "eip155:421614"                               "${ARBITRUM_RPC_URL_OVERRIDE:-}"
+apply_rpc_override "eip155:84532"                                "${BASE_RPC_URL_OVERRIDE:-}"
+apply_rpc_override "eip155:97"                                   "${BSC_RPC_URL_OVERRIDE:-}"
+apply_rpc_override "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"    "${SOLANA_RPC_URL_OVERRIDE:-}"
+
+apply_event_start_override "eip155:421614"                               "${ARBITRUM_EVENT_START_FROM:-}"
+apply_event_start_override "eip155:84532"                                "${BASE_EVENT_START_FROM:-}"
+apply_event_start_override "eip155:97"                                   "${BSC_EVENT_START_FROM:-}"
+apply_event_start_override "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"    "${SOLANA_EVENT_START_FROM:-}"
+
+# Always start from block 1 for the local devnet chain so UVs see TSS key processes immediately
+apply_event_start_override "localchain_9000-1" "1"
+apply_event_start_override "push_42101-1" "1"
+
 # Enable TSS
 TSS_PRIVATE_KEY=$(printf '%02x' $UNIVERSAL_ID | head -c 2)
 TSS_PRIVATE_KEY=$(yes $TSS_PRIVATE_KEY | head -32 | tr -d '\n')

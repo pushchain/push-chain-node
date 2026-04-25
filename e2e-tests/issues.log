@@ -1,0 +1,179 @@
+# Push Chain E2E Test Issues Log
+# Created: 2026-04-24
+
+================================================================================
+ISSUE 1: Outbound test times out — VoteOutbound removed from txresolver
+================================================================================
+
+FILE:    universalClient/tss/txresolver/evm.go
+COMMIT:  1586c709 ("reverted all the additional file changes for e2e-tests")
+SEVERITY: CRITICAL — causes all Route 3 outbound tests to fail
+
+SYMPTOM:
+  - `waitForOutboundTx` polls Push Chain for 180s, status stays
+    UNIVERSAL_TX_STATUS_UNSPECIFIED (0), then times out
+  - receipt.externalTxHash is undefined
+  - Test error: "expect(received).toBeDefined() — Received: undefined"
+
+ROOT CAUSE:
+  Commit 1586c709 removed the `pushSigner.VoteOutbound` call from the EVM
+  success path in txresolver. When the broadcasted tx is confirmed on Anvil
+  (receipt status=1), txresolver was only marking the event COMPLETED locally
+  in its own DB, without informing Push Chain. Push Chain never received
+  the MsgVoteOutbound, so the universal TX status stayed at 0 and
+  `tx.wait()` always timed out.
+
+  The removed code was:
+    observation := &uexecutortypes.OutboundObservation{Success: true, ...}
+    voteTxHash, err := r.pushSigner.VoteOutbound(ctx, txID, utxID, observation)
+
+  The replacement comment said "relying on event listener" — but the event
+  listener path also fails (see Issues 2 and 3 below).
+
+FIX APPLIED:
+  Restored pushSigner.VoteOutbound call in the status==1 branch of
+  resolveEVM(). The resolver now:
+    1. Gets gas fee used from the chain
+    2. Builds OutboundObservation{Success: true, BlockHeight, TxHash, GasFeeUsed}
+    3. Calls pushSigner.VoteOutbound → sends MsgVoteOutbound to Push Chain
+    4. Marks event COMPLETED with vote_tx_hash in local DB
+
+
+================================================================================
+ISSUE 2: Event listener misses vault FinalizeUniversalTx event — timing race
+================================================================================
+
+FILE:    universalClient/chains/evm/event_listener.go
+SEVERITY: HIGH — part of why event-listener-based completion fails
+
+SYMPTOM:
+  DIAG logs show "DIAG: processBlockChunk result logs_found=0" for ALL
+  blocks scanned after startup, even for blocks that contain the vault tx.
+
+ROOT CAUSE:
+  The event listener polls every 5 seconds and advances `currentBlock` past
+  the latest scanned block. When the outbound tx is broadcast to Anvil
+  (~1 block/sec), the listener scans the block JUST BEFORE the tx is included
+  (because the tx is still in the mempool), advances `currentBlock`, and on
+  the next poll starts from the block AFTER the vault tx's block — permanently
+  missing it.
+
+  Specifically:
+    - TX broadcast at 11:33:57 → included in Anvil block 10,721,705
+    - Event listener's prior tick scanned up to block ~10,721,704 (empty)
+    - `currentBlock` advanced to 10,721,705
+    - TX lands in block 10,721,705 AFTER the tick completed
+    - Next tick scans from 10,721,706 onward → block 10,721,705 never rescanned
+
+FIX NOTE:
+  Issue 1's fix (restoring VoteOutbound in txresolver) makes the event
+  listener path non-critical for outbound completion. However, the timing
+  race remains a latent bug if the event listener path is ever relied on.
+
+
+================================================================================
+ISSUE 3: Wrong FinalizeUniversalTx event topic in chain configs
+================================================================================
+
+FILES:
+  config/testnet-donut/eth_sepolia/chain.json
+  config/testnet-donut/arb_sepolia/chain.json
+  config/testnet-donut/base_sepolia/chain.json
+
+SEVERITY: HIGH — event listener cannot catch vault FinalizeUniversalTx events
+
+SYMPTOM:
+  Even if Issue 2 (timing race) were fixed, the event listener's eth_getLogs
+  filter would still not match the vault's FinalizeUniversalTx event because
+  the registered topic hash is wrong.
+
+ROOT CAUSE:
+  Vault contract on Sepolia (0xD019Eb12D0d6eF8D299661f22B4B7d262eD4b965)
+  emits FinalizeUniversalTx with topic:
+    0xb689a5db58af5de77bfea50b6d5844e1c1aeed8b24edd7996a9f8b18ac133819
+
+  But eth_sepolia/chain.json (and arb_sepolia, base_sepolia) had:
+    "event_identifier": "0x593e82a42137d3f939a9002c055384d6c5231185731a4706bf59a0919b674327"
+
+  bsc_testnet/chain.json already had the correct hash.
+
+FIX APPLIED:
+  Updated event_identifier in eth_sepolia, arb_sepolia, and base_sepolia
+  chain.json files to:
+    0xb689a5db58af5de77bfea50b6d5844e1c1aeed8b24edd7996a9f8b18ac133819
+
+  Verified against the actual vault tx receipt (tx hash:
+  0x058c95f220d9e896d72e56cc3d9a1d2bca26e0de2952bf113b89903ddc9771bf,
+  block 10,721,705, logIndex 8).
+
+
+================================================================================
+ISSUE 4: Stale stored block causes event listener to scan wrong range
+================================================================================
+
+FILE:    universalClient/chains/evm/event_listener.go
+COMMIT:  1586c709
+SEVERITY: MEDIUM — affects repeat `setup all` runs
+
+SYMPTOM:
+  On the second (or later) `setup all` run, the event listener starts from
+  the stored DB block height (e.g. 10,721,138 from a previous Anvil fork),
+  not from the current fresh fork's start block. This causes:
+    - Scanning thousands of historical Sepolia blocks (unnecessary/slow)
+    - Potentially replaying old inbound events as duplicates
+
+ROOT CAUSE:
+  Commit 1586c709 removed the `eventStartFrom` override logic that preferred
+  the configured block over stale stored state when the configured value was
+  newer. Without it, getStartBlock() always used the stored DB value when
+  non-zero, ignoring the fresh fork start block passed via SEPOLIA_EVENT_START_FROM.
+
+FIX APPLIED:
+  Restored the override in getStartBlock(): if eventStartFrom is configured
+  (>= 0) and is GREATER than the stored block height, the configured value
+  takes precedence. This ensures a fresh setup always starts from the correct
+  Anvil fork point, not a stale previous run's block.
+
+
+================================================================================
+ISSUE 5: UV2 registration race — "core validator not found"
+================================================================================
+
+FILE:    e2e-tests/setup.sh  (step_devnet function)
+SEVERITY: MEDIUM — causes UV2 registration to fail intermittently at startup
+
+SYMPTOM:
+  UV2 fails during TSS keygen with:
+    "Need at least 2 registered universal validators (found: 1)"
+  UV logs show:
+    "core validator not found: validator does not exist"
+
+ROOT CAUSE:
+  setup-validator-auto.sh for validators 2-4 runs in the background.
+  `./devnet setup-uvalidators` was called immediately after `./devnet start 4`
+  returned, before validator 2's MsgCreateValidator transaction was confirmed
+  on-chain. UV2 was registered against a validator that Push Chain didn't
+  know about yet.
+
+FIX APPLIED:
+  Added a polling loop in step_devnet (setup.sh) that queries
+  GET /validators and waits up to 180s for total >= 2 validators to be
+  bonded before calling `./devnet setup-uvalidators`. This gives validator 2
+  (and 3, 4) time to complete their MsgCreateValidator.
+
+
+================================================================================
+ISSUE 6: yarn install failure aborts step_setup_push_chain_sdk
+================================================================================
+
+FILE:    e2e-tests/setup.sh  (step_setup_push_chain_sdk function)
+SEVERITY: LOW — non-fatal, @reown/appkit postinstall fails but SDK still works
+
+SYMPTOM:
+  `yarn install` exits non-zero due to @reown/appkit postinstall script
+  failure, which causes set -e to abort the step.
+
+FIX APPLIED:
+  Changed `yarn install` to `yarn install || true` so the failure is
+  non-fatal. The SDK's core packages install correctly; @reown/appkit
+  is not used in the e2e test path.

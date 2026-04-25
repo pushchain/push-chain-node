@@ -83,6 +83,9 @@ sed -i.bak "s/address = \"localhost:9090\"/address = \"0.0.0.0:${GRPC_PORT}\"/g"
 sed -i.bak "s/laddr = \"tcp:\/\/0.0.0.0:26656\"/laddr = \"tcp:\/\/0.0.0.0:${P2P_PORT}\"/g" "$HOME_DIR/config/config.toml"
 sed -i.bak 's/timeout_commit = "5s"/timeout_commit = "1s"/g' "$HOME_DIR/config/config.toml"
 
+# Pre-create WAL directory to prevent CometBFT panic when transitioning to active validator
+mkdir -p "$HOME_DIR/data/cs.wal"
+
 # Start node
 echo "🚀 Starting validator $VALIDATOR_ID..."
 "$PCHAIND_BIN" start \

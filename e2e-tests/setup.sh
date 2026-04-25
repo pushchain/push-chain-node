@@ -1499,6 +1499,16 @@ step_stop_running_nodes() {
   pkill -f "$PUSH_CHAIN_DIR/build/pchaind start" >/dev/null 2>&1 || true
   pkill -f "$PUSH_CHAIN_DIR/build/puniversald" >/dev/null 2>&1 || true
 
+  # Wipe devnet data so validators start from a clean slate. Without this,
+  # previously-killed runs leave corrupt LevelDB blockstore files that cause
+  # CometBFT panics on the next start (e.g. "no such file or directory" for
+  # a .sst block that was partially written before the kill).
+  if [[ -d "$LOCAL_DEVNET_DIR/data" ]]; then
+    log_info "Clearing devnet data directory for clean restart..."
+    rm -rf "$LOCAL_DEVNET_DIR/data"
+    log_ok "Devnet data cleared"
+  fi
+
   log_ok "Running nodes stopped"
 }
 

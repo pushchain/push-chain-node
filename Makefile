@@ -158,6 +158,10 @@ clean:
 distclean: clean
 	rm -rf vendor/
 
+.PHONY: replace-addresses
+replace-addresses:
+	bash scripts/replace_addresses.sh
+
 ########################################
 ### Testing
 

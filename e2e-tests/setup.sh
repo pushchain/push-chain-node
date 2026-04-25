@@ -1121,8 +1121,8 @@ step_devnet() {
     local _num_bonded
     log_info "Waiting for core validators to be bonded (needed before UV registration)..."
     while [ "$_wait_elapsed" -lt "$_wait_max" ]; do
-      _num_bonded=$(curl -s "http://127.0.0.1:26657/validators" 2>/dev/null \
-        | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('result',{}).get('total','0'))" 2>/dev/null || echo "0")
+      _num_bonded=$(curl -s "http://127.0.0.1:1317/cosmos/staking/v1beta1/validators?status=BOND_STATUS_BONDED" 2>/dev/null \
+        | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('validators',[])))" 2>/dev/null || echo "0")
       if [ "${_num_bonded:-0}" -ge 2 ]; then
         log_ok "Core validators bonded: $_num_bonded — proceeding with UV registration"
         break

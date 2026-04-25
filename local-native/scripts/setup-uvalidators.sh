@@ -282,13 +282,14 @@ rm -rf "$TEMP_DIR"
 set -e
 
 echo ""
+EXPECTED_GRANTS=$(( ${NUM_UV:-2} * ${#MSG_TYPES[@]} ))
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "📊 Total AuthZ grants created: $TOTAL_GRANTS/20"
+echo "📊 Total AuthZ grants created: $TOTAL_GRANTS/$EXPECTED_GRANTS"
 
-if [ "$TOTAL_GRANTS" -ge 20 ]; then
+if [ "$TOTAL_GRANTS" -ge "$EXPECTED_GRANTS" ]; then
     echo "✅ All grants created successfully!"
 else
-    echo "⚠️ Some grants may be missing ($TOTAL_GRANTS/20)"
+    echo "⚠️ Some grants may be missing ($TOTAL_GRANTS/$EXPECTED_GRANTS)"
 fi
 
 echo ""

@@ -144,7 +144,7 @@ done
 echo ""
 echo "🔐 Setting up AuthZ grants (batched)..."
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "📋 Creating grants: validator-N → hotkey-N (4 msg types per tx)"
+echo "📋 Creating grants: validator-N → hotkey-N (5 msg types per tx)"
 
 # Disable exit on error for authz commands (some may already exist)
 set +e
@@ -157,6 +157,7 @@ MSG_TYPES=(
     "/uexecutor.v1.MsgVoteChainMeta"
     "/uexecutor.v1.MsgVoteOutbound"
     "/utss.v1.MsgVoteTssKeyProcess"
+    "/utss.v1.MsgVoteFundMigration"
 )
 
 for i in $(seq 1 ${NUM_UV:-2}); do
@@ -282,12 +283,12 @@ set -e
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "📊 Total AuthZ grants created: $TOTAL_GRANTS/16"
+echo "📊 Total AuthZ grants created: $TOTAL_GRANTS/20"
 
-if [ "$TOTAL_GRANTS" -ge 16 ]; then
+if [ "$TOTAL_GRANTS" -ge 20 ]; then
     echo "✅ All grants created successfully!"
 else
-    echo "⚠️ Some grants may be missing ($TOTAL_GRANTS/16)"
+    echo "⚠️ Some grants may be missing ($TOTAL_GRANTS/20)"
 fi
 
 echo ""

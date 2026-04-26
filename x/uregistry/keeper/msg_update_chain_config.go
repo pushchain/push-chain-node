@@ -16,5 +16,9 @@ func (k Keeper) UpdateChainConfig(ctx context.Context, chainConfig *types.ChainC
 		return fmt.Errorf("chain config for %s does not exist", chainConfig.Chain)
 	}
 
-	return k.ChainConfigs.Set(ctx, chainConfig.Chain, *chainConfig)
+	if err := k.ChainConfigs.Set(ctx, chainConfig.Chain, *chainConfig); err != nil {
+		return err
+	}
+	k.Logger().Info("chain config updated", "chain", chainConfig.Chain)
+	return nil
 }

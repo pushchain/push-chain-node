@@ -3,46 +3,28 @@ package txresolver
 import (
 	"context"
 
-	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/store"
-	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
-	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
-// resolveEVM checks the on-chain receipt and moves the event to COMPLETED or REVERTED.
-//
-// EVM resolution flow:
-//  1. Look up the tx receipt by hash on the destination chain.
-//  2. If NOT FOUND for maxNotFoundRetries consecutive polls (~5 min): vote failure and REVERT.
-//     This covers cases where the tx was dropped from the mempool (gas spike, nonce replaced).
-//  3. If FOUND but not enough confirmations yet: wait (retry next tick).
-//  4. If FOUND with enough confirmations and receipt status == 0 (reverted): vote failure and REVERT
-//     with the receipt's block height and tx hash.
-//  5. If FOUND with enough confirmations and receipt status == 1 (success): mark COMPLETED,
-//     success vote will be done by destination chain event listening.
-//
-// The failure vote triggers a refund of user funds on Push chain.
-//
-// Observation semantics for the user:
-//   - txHash + blockHeight → tx landed on chain (success or revert)
-//   - no txHash + no blockHeight → protocol issue (tx dropped, invalid hash, etc.)
-func (r *Resolver) resolveEVM(ctx context.Context, event *store.Event, chainID, rawTxHash string) {
-	txID, utxID, err := extractOutboundIDs(event)
-	if err != nil {
-		r.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to extract outbound IDs")
-		return
-	}
-	r.logger.Debug().
-		Str("event_id", event.EventID).
-		Str("chain", chainID).
-		Str("tx_hash", rawTxHash).
-		Msg("resolving EVM broadcasted tx")
+// txCheckResult represents the outcome of verifying a tx on chain with not-found retry handling.
+type txCheckResult int
 
+const (
+	txCheckRetry        txCheckResult = iota // tx not found or not enough confirmations, retry later
+	txCheckMaxRetries                        // tx not found after max retries
+	txCheckReverted                          // tx found, confirmed, status=0
+	txCheckSuccess                           // tx found, confirmed, status=1
+)
+
+// checkEVMTx verifies a tx on chain and handles the not-found retry counter.
+// Returns the check result, block height, and raw tx hash for further processing.
+func (r *Resolver) checkEVMTx(ctx context.Context, event *store.Event, chainID, rawTxHash string) (txCheckResult, uint64) {
 	found, blockHeight, confirmations, status, err := r.verifyTxOnChain(ctx, chainID, rawTxHash)
 	if err != nil {
-		r.logger.Debug().Err(err).Str("event_id", event.EventID).Str("tx_hash", rawTxHash).Msg("tx verification error")
-		return
+		r.logger.Debug().Err(err).Str("event_id", event.EventID).Msg("tx verification error")
+		return txCheckRetry, 0
 	}
+
 	if !found {
 		r.notFoundCounts[event.EventID]++
 		count := r.notFoundCounts[event.EventID]
@@ -52,88 +34,79 @@ func (r *Resolver) resolveEVM(ctx context.Context, event *store.Event, chainID, 
 
 		if count >= maxNotFoundRetries {
 			delete(r.notFoundCounts, event.EventID)
-			// Protocol issue: tx dropped/not found — no txHash, no height, no gas used
-			_ = r.voteFailureAndMarkReverted(ctx, event, txID, utxID, "", 0, "0", "tx not found on destination chain after max retries")
+			return txCheckMaxRetries, 0
 		}
-		return
+		return txCheckRetry, 0
 	}
 
-	// Tx found — clear any not-found tracking
 	delete(r.notFoundCounts, event.EventID)
 
 	requiredConfs := r.chains.GetStandardConfirmations(chainID)
-	r.logger.Debug().
-		Str("event_id", event.EventID).
-		Str("chain", chainID).
-		Str("tx_hash", rawTxHash).
-		Uint64("block_height", blockHeight).
-		Uint64("confirmations", confirmations).
-		Uint64("required_confs", requiredConfs).
-		Uint8("status", status).
-		Msg("tx found on chain")
 	if confirmations < requiredConfs {
-		return // not enough confirmations yet, retry next tick
+		return txCheckRetry, 0
 	}
 
-	// Enough confirmations: finalize based on status
 	if status == 0 {
-		// Destination chain revert — fetch gas used and attach receipt info
-		gasFeeUsed := "0"
-		if builder, err := r.getBuilder(chainID); err == nil {
-			if fee, err := builder.GetGasFeeUsed(ctx, rawTxHash); err == nil {
-				gasFeeUsed = fee
-			}
-		}
-		_ = r.voteFailureAndMarkReverted(ctx, event, txID, utxID, rawTxHash, blockHeight, gasFeeUsed, "tx execution reverted on destination chain")
+		return txCheckReverted, blockHeight
+	}
+
+	return txCheckSuccess, blockHeight
+}
+
+// resolveOutboundEVM checks the on-chain receipt for an outbound EVM tx.
+// Success vote is done by destination chain event listener, not here.
+func (r *Resolver) resolveOutboundEVM(ctx context.Context, event *store.Event, chainID, rawTxHash string) {
+	txID, utxID, err := extractOutboundIDs(event)
+	if err != nil {
+		r.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to extract outbound IDs")
 		return
 	}
 
-	// status == 1 (success)
-	if r.pushSigner != nil {
+	result, blockHeight := r.checkEVMTx(ctx, event, chainID, rawTxHash)
+
+	switch result {
+	case txCheckRetry:
+		return
+
+	case txCheckMaxRetries:
+		_ = r.voteOutboundFailureAndMarkReverted(ctx, event, txID, utxID, "", 0, "0",
+			"tx not found on destination chain after max retries")
+
+	case txCheckReverted:
 		gasFeeUsed := "0"
 		if builder, err := r.getBuilder(chainID); err == nil {
 			if fee, err := builder.GetGasFeeUsed(ctx, rawTxHash); err == nil {
 				gasFeeUsed = fee
 			}
 		}
-		observation := &uexecutortypes.OutboundObservation{
-			Success:     true,
-			BlockHeight: blockHeight,
-			TxHash:      rawTxHash,
-			GasFeeUsed:  gasFeeUsed,
-		}
-		voteTxHash, err := r.pushSigner.VoteOutbound(ctx, txID, utxID, observation)
-		if err != nil {
-			r.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to vote success for EVM tx")
-			return
-		}
-		if err := r.eventStore.Update(event.EventID, map[string]any{"status": eventstore.StatusCompleted, "vote_tx_hash": voteTxHash}); err != nil {
+		_ = r.voteOutboundFailureAndMarkReverted(ctx, event, txID, utxID, rawTxHash, blockHeight, gasFeeUsed,
+			"tx execution reverted on destination chain")
+
+	case txCheckSuccess:
+		// Success vote done by destination chain event listener
+		if err := r.eventStore.Update(event.EventID, map[string]any{"status": store.StatusCompleted}); err != nil {
 			r.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to mark event COMPLETED")
 			return
 		}
-	} else {
-		if err := r.eventStore.Update(event.EventID, map[string]any{"status": eventstore.StatusCompleted}); err != nil {
-			r.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to mark event COMPLETED")
-			return
-		}
+		r.logger.Info().
+			Str("event_id", event.EventID).Str("tx_hash", rawTxHash).
+			Msg("outbound EVM tx marked COMPLETED")
 	}
-	r.logger.Info().
-		Str("event_id", event.EventID).Str("tx_hash", rawTxHash).
-		Uint64("confirmations", confirmations).Msg("broadcasted EVM tx marked COMPLETED")
 }
 
-func (r *Resolver) verifyTxOnChain(ctx context.Context, chainID, txHash string) (bool, uint64, uint64, uint8, error) {
-	builder, err := r.getBuilder(chainID)
-	if err != nil {
-		return false, 0, 0, 0, err
-	}
-	return builder.VerifyBroadcastedTx(ctx, txHash)
-}
+// resolveFundMigrationEVM checks the on-chain receipt for a fund migration EVM tx.
+// Votes success/failure explicitly since there is no gateway event listener for native transfers.
+func (r *Resolver) resolveFundMigrationEVM(ctx context.Context, event *store.Event, chainID, rawTxHash string, migrationID uint64) {
+	result, _ := r.checkEVMTx(ctx, event, chainID, rawTxHash)
 
-func (r *Resolver) getBuilder(chainID string) (common.OutboundTxBuilder, error) {
-	client, err := r.chains.GetClient(chainID)
-	if err != nil {
-		return nil, err
+	switch result {
+	case txCheckRetry:
+		return
+	case txCheckMaxRetries:
+		r.voteFundMigrationAndMark(ctx, event, migrationID, "", false)
+	case txCheckReverted:
+		r.voteFundMigrationAndMark(ctx, event, migrationID, rawTxHash, false)
+	case txCheckSuccess:
+		r.voteFundMigrationAndMark(ctx, event, migrationID, rawTxHash, true)
 	}
-	return client.GetTxBuilder()
 }

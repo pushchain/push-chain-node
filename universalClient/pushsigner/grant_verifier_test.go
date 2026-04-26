@@ -1,16 +1,19 @@
 package pushsigner
 
 import (
+	"context"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
-	"github.com/cosmos/cosmos-sdk/x/authz"
+	cosmosauthz "github.com/cosmos/cosmos-sdk/x/authz"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/pushchain/push-chain-node/universalClient/constant"
+	"github.com/pushchain/push-chain-node/universalClient/config"
+	"github.com/pushchain/push-chain-node/universalClient/pushsigner/keys"
 )
 
 func TestVerifyGrants(t *testing.T) {
@@ -24,14 +27,15 @@ func TestVerifyGrants(t *testing.T) {
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteChainMeta", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteOutbound", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/utss.v1.MsgVoteTssKeyProcess", Expiration: &futureTime},
+			{Granter: granter, MessageType: "/utss.v1.MsgVoteFundMigration", Expiration: &futureTime},
 		}
 
 		msgs, err := verifyGrants(grants, granter)
 		require.NoError(t, err)
-		assert.Len(t, msgs, len(constant.RequiredMsgGrants))
+		assert.Len(t, msgs, len(requiredMsgGrants))
 
 		// Verify all required messages are returned
-		for _, req := range constant.RequiredMsgGrants {
+		for _, req := range requiredMsgGrants {
 			assert.Contains(t, msgs, req)
 		}
 	})
@@ -42,11 +46,12 @@ func TestVerifyGrants(t *testing.T) {
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteChainMeta", Expiration: nil},
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteOutbound", Expiration: nil},
 			{Granter: granter, MessageType: "/utss.v1.MsgVoteTssKeyProcess", Expiration: nil},
+			{Granter: granter, MessageType: "/utss.v1.MsgVoteFundMigration", Expiration: nil},
 		}
 
 		msgs, err := verifyGrants(grants, granter)
 		require.NoError(t, err)
-		assert.Len(t, msgs, len(constant.RequiredMsgGrants))
+		assert.Len(t, msgs, len(requiredMsgGrants))
 	})
 
 	t.Run("missing required grant", func(t *testing.T) {
@@ -67,6 +72,7 @@ func TestVerifyGrants(t *testing.T) {
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteChainMeta", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteOutbound", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/utss.v1.MsgVoteTssKeyProcess", Expiration: &futureTime},
+			{Granter: granter, MessageType: "/utss.v1.MsgVoteFundMigration", Expiration: &futureTime},
 		}
 
 		msgs, err := verifyGrants(grants, granter)
@@ -83,6 +89,7 @@ func TestVerifyGrants(t *testing.T) {
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteChainMeta", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteOutbound", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/utss.v1.MsgVoteTssKeyProcess", Expiration: &futureTime},
+			{Granter: granter, MessageType: "/utss.v1.MsgVoteFundMigration", Expiration: &futureTime},
 		}
 
 		msgs, err := verifyGrants(grants, granter)
@@ -107,11 +114,12 @@ func TestVerifyGrants(t *testing.T) {
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteChainMeta", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteOutbound", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/utss.v1.MsgVoteTssKeyProcess", Expiration: &futureTime},
+			{Granter: granter, MessageType: "/utss.v1.MsgVoteFundMigration", Expiration: &futureTime},
 		}
 
 		msgs, err := verifyGrants(grants, granter)
 		require.NoError(t, err)
-		assert.Len(t, msgs, len(constant.RequiredMsgGrants))
+		assert.Len(t, msgs, len(requiredMsgGrants))
 	})
 
 	t.Run("extra non-required grants are ignored", func(t *testing.T) {
@@ -120,30 +128,31 @@ func TestVerifyGrants(t *testing.T) {
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteChainMeta", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/uexecutor.v1.MsgVoteOutbound", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/utss.v1.MsgVoteTssKeyProcess", Expiration: &futureTime},
+			{Granter: granter, MessageType: "/utss.v1.MsgVoteFundMigration", Expiration: &futureTime},
 			{Granter: granter, MessageType: "/some.other.v1.MsgNotRequired", Expiration: &futureTime}, // Extra grant
 		}
 
 		msgs, err := verifyGrants(grants, granter)
 		require.NoError(t, err)
-		assert.Len(t, msgs, len(constant.RequiredMsgGrants))
+		assert.Len(t, msgs, len(requiredMsgGrants))
 		assert.NotContains(t, msgs, "/some.other.v1.MsgNotRequired")
 	})
 }
 
 func TestExtractGrantInfo(t *testing.T) {
 	interfaceRegistry := codectypes.NewInterfaceRegistry()
-	authz.RegisterInterfaces(interfaceRegistry)
+	cosmosauthz.RegisterInterfaces(interfaceRegistry)
 	cdc := codec.NewProtoCodec(interfaceRegistry)
 
 	futureTime := time.Now().Add(24 * time.Hour)
 
 	t.Run("extract valid generic authorization grants", func(t *testing.T) {
-		ga := &authz.GenericAuthorization{Msg: "/uexecutor.v1.MsgVoteInbound"}
+		ga := &cosmosauthz.GenericAuthorization{Msg: "/uexecutor.v1.MsgVoteInbound"}
 		gaAny, err := codectypes.NewAnyWithValue(ga)
 		require.NoError(t, err)
 
-		resp := &authz.QueryGranteeGrantsResponse{
-			Grants: []*authz.GrantAuthorization{
+		resp := &cosmosauthz.QueryGranteeGrantsResponse{
+			Grants: []*cosmosauthz.GrantAuthorization{
 				{
 					Granter:       "push1granter123",
 					Authorization: gaAny,
@@ -162,12 +171,12 @@ func TestExtractGrantInfo(t *testing.T) {
 	t.Run("skip non-generic authorization types", func(t *testing.T) {
 		// Create an Any with a different type URL
 		wrongTypeAny := &codectypes.Any{
-			TypeUrl: "/cosmos.authz.v1beta1.SendAuthorization",
+			TypeUrl: "/cosmos.cosmosauthz.v1beta1.SendAuthorization",
 			Value:   []byte{},
 		}
 
-		resp := &authz.QueryGranteeGrantsResponse{
-			Grants: []*authz.GrantAuthorization{
+		resp := &cosmosauthz.QueryGranteeGrantsResponse{
+			Grants: []*cosmosauthz.GrantAuthorization{
 				{
 					Granter:       "push1granter123",
 					Authorization: wrongTypeAny,
@@ -181,8 +190,8 @@ func TestExtractGrantInfo(t *testing.T) {
 	})
 
 	t.Run("skip grants with nil authorization", func(t *testing.T) {
-		resp := &authz.QueryGranteeGrantsResponse{
-			Grants: []*authz.GrantAuthorization{
+		resp := &cosmosauthz.QueryGranteeGrantsResponse{
+			Grants: []*cosmosauthz.GrantAuthorization{
 				{
 					Granter:       "push1granter123",
 					Authorization: nil,
@@ -196,8 +205,8 @@ func TestExtractGrantInfo(t *testing.T) {
 	})
 
 	t.Run("empty grants response", func(t *testing.T) {
-		resp := &authz.QueryGranteeGrantsResponse{
-			Grants: []*authz.GrantAuthorization{},
+		resp := &cosmosauthz.QueryGranteeGrantsResponse{
+			Grants: []*cosmosauthz.GrantAuthorization{},
 		}
 
 		grants := extractGrantInfo(resp, cdc)
@@ -205,16 +214,16 @@ func TestExtractGrantInfo(t *testing.T) {
 	})
 
 	t.Run("multiple valid grants", func(t *testing.T) {
-		ga1 := &authz.GenericAuthorization{Msg: "/uexecutor.v1.MsgVoteInbound"}
+		ga1 := &cosmosauthz.GenericAuthorization{Msg: "/uexecutor.v1.MsgVoteInbound"}
 		ga1Any, err := codectypes.NewAnyWithValue(ga1)
 		require.NoError(t, err)
 
-		ga2 := &authz.GenericAuthorization{Msg: "/uexecutor.v1.MsgVoteChainMeta"}
+		ga2 := &cosmosauthz.GenericAuthorization{Msg: "/uexecutor.v1.MsgVoteChainMeta"}
 		ga2Any, err := codectypes.NewAnyWithValue(ga2)
 		require.NoError(t, err)
 
-		resp := &authz.QueryGranteeGrantsResponse{
-			Grants: []*authz.GrantAuthorization{
+		resp := &cosmosauthz.QueryGranteeGrantsResponse{
+			Grants: []*cosmosauthz.GrantAuthorization{
 				{
 					Granter:       "push1granter123",
 					Authorization: ga1Any,
@@ -237,11 +246,11 @@ func TestExtractGrantInfo(t *testing.T) {
 
 func TestExtractMessageType(t *testing.T) {
 	interfaceRegistry := codectypes.NewInterfaceRegistry()
-	authz.RegisterInterfaces(interfaceRegistry)
+	cosmosauthz.RegisterInterfaces(interfaceRegistry)
 	cdc := codec.NewProtoCodec(interfaceRegistry)
 
 	t.Run("extract message type from valid generic authorization", func(t *testing.T) {
-		ga := &authz.GenericAuthorization{Msg: "/uexecutor.v1.MsgVoteInbound"}
+		ga := &cosmosauthz.GenericAuthorization{Msg: "/uexecutor.v1.MsgVoteInbound"}
 		gaAny, err := codectypes.NewAnyWithValue(ga)
 		require.NoError(t, err)
 
@@ -252,7 +261,7 @@ func TestExtractMessageType(t *testing.T) {
 
 	t.Run("error on invalid proto data", func(t *testing.T) {
 		invalidAny := &codectypes.Any{
-			TypeUrl: "/cosmos.authz.v1beta1.GenericAuthorization",
+			TypeUrl: "/cosmos.cosmosauthz.v1beta1.GenericAuthorization",
 			Value:   []byte("invalid proto data"),
 		}
 
@@ -262,13 +271,136 @@ func TestExtractMessageType(t *testing.T) {
 	})
 
 	t.Run("empty message type", func(t *testing.T) {
-		ga := &authz.GenericAuthorization{Msg: ""}
+		ga := &cosmosauthz.GenericAuthorization{Msg: ""}
 		gaAny, err := codectypes.NewAnyWithValue(ga)
 		require.NoError(t, err)
 
 		msgType, err := extractMessageType(gaAny, cdc)
 		require.NoError(t, err)
 		assert.Equal(t, "", msgType)
+	})
+}
+
+func TestValidateKeysAndGrants(t *testing.T) {
+	futureTime := time.Now().Add(24 * time.Hour)
+
+	t.Run("file backend without password returns error", func(t *testing.T) {
+		mock := &mockChainClient{}
+		result, err := validateKeysAndGrants(context.Background(), config.KeyringBackendFile, "", "/tmp", mock, "push1granter")
+		require.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "keyring_password is required for file backend")
+	})
+
+	t.Run("empty keyring returns error", func(t *testing.T) {
+		tempDir := t.TempDir()
+		mock := &mockChainClient{}
+		result, err := validateKeysAndGrants(context.Background(), config.KeyringBackendTest, "", tempDir, mock, "push1granter")
+		require.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "no keys found in keyring")
+	})
+
+	t.Run("grant query error returns error", func(t *testing.T) {
+		tempDir := t.TempDir()
+		kr, err := keys.CreateKeyring(tempDir, nil, config.KeyringBackendTest)
+		require.NoError(t, err)
+		_, _, err = keys.CreateNewKey(kr, "test-key", "", "")
+		require.NoError(t, err)
+
+		mock := &mockChainClient{
+			getGranteeGrantFn: func(ctx context.Context, addr string) (*cosmosauthz.QueryGranteeGrantsResponse, error) {
+				return nil, fmt.Errorf("node unavailable")
+			},
+		}
+
+		result, err := validateKeysAndGrants(context.Background(), config.KeyringBackendTest, "", tempDir, mock, "push1granter")
+		require.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "failed to query grants")
+	})
+
+	t.Run("no grants returns error", func(t *testing.T) {
+		tempDir := t.TempDir()
+		kr, err := keys.CreateKeyring(tempDir, nil, config.KeyringBackendTest)
+		require.NoError(t, err)
+		_, _, err = keys.CreateNewKey(kr, "test-key", "", "")
+		require.NoError(t, err)
+
+		mock := &mockChainClient{
+			getGranteeGrantFn: func(ctx context.Context, addr string) (*cosmosauthz.QueryGranteeGrantsResponse, error) {
+				return &cosmosauthz.QueryGranteeGrantsResponse{
+					Grants: []*cosmosauthz.GrantAuthorization{},
+				}, nil
+			},
+		}
+
+		result, err := validateKeysAndGrants(context.Background(), config.KeyringBackendTest, "", tempDir, mock, "push1granter")
+		require.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "no AuthZ grants found")
+	})
+
+	t.Run("missing required grants returns error", func(t *testing.T) {
+		tempDir := t.TempDir()
+		kr, err := keys.CreateKeyring(tempDir, nil, config.KeyringBackendTest)
+		require.NoError(t, err)
+		_, _, err = keys.CreateNewKey(kr, "test-key", "", "")
+		require.NoError(t, err)
+
+		// Only provide one grant out of five required
+		ga := &cosmosauthz.GenericAuthorization{Msg: "/uexecutor.v1.MsgVoteInbound"}
+		gaAny, err := codectypes.NewAnyWithValue(ga)
+		require.NoError(t, err)
+
+		mock := &mockChainClient{
+			getGranteeGrantFn: func(ctx context.Context, addr string) (*cosmosauthz.QueryGranteeGrantsResponse, error) {
+				return &cosmosauthz.QueryGranteeGrantsResponse{
+					Grants: []*cosmosauthz.GrantAuthorization{
+						{Granter: "push1granter", Authorization: gaAny, Expiration: &futureTime},
+					},
+				}, nil
+			},
+		}
+
+		result, err := validateKeysAndGrants(context.Background(), config.KeyringBackendTest, "", tempDir, mock, "push1granter")
+		require.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "missing grants")
+	})
+
+	t.Run("all grants present succeeds", func(t *testing.T) {
+		tempDir := t.TempDir()
+		kr, err := keys.CreateKeyring(tempDir, nil, config.KeyringBackendTest)
+		require.NoError(t, err)
+		_, _, err = keys.CreateNewKey(kr, "test-key", "", "")
+		require.NoError(t, err)
+
+		var grantAuths []*cosmosauthz.GrantAuthorization
+		for _, msg := range requiredMsgGrants {
+			ga := &cosmosauthz.GenericAuthorization{Msg: msg}
+			gaAny, err := codectypes.NewAnyWithValue(ga)
+			require.NoError(t, err)
+			grantAuths = append(grantAuths, &cosmosauthz.GrantAuthorization{
+				Granter:       "push1granter",
+				Authorization: gaAny,
+				Expiration:    &futureTime,
+			})
+		}
+
+		mock := &mockChainClient{
+			getGranteeGrantFn: func(ctx context.Context, addr string) (*cosmosauthz.QueryGranteeGrantsResponse, error) {
+				return &cosmosauthz.QueryGranteeGrantsResponse{Grants: grantAuths}, nil
+			},
+		}
+
+		result, err := validateKeysAndGrants(context.Background(), config.KeyringBackendTest, "", tempDir, mock, "push1granter")
+		require.NoError(t, err)
+		require.NotNil(t, result)
+		assert.Equal(t, "push1granter", result.Granter)
+		assert.NotEmpty(t, result.KeyName)
+		assert.NotEmpty(t, result.KeyAddr)
+		assert.Len(t, result.Messages, len(requiredMsgGrants))
 	})
 }
 

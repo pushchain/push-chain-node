@@ -4,391 +4,340 @@ import (
 	"encoding/json"
 	"testing"
 
-	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/pushchain/push-chain-node/universalClient/chains/common"
+	"github.com/pushchain/push-chain-node/universalClient/store"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
+	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 )
 
-func TestParseEvent_TSSEvent(t *testing.T) {
-	tests := []struct {
-		name        string
-		event       abci.Event
-		blockHeight uint64
-		wantEventID string
-		wantType    string
-		wantExpiry  uint64
-		wantErr     bool
-		errContains string
-	}{
-		{
-			name: "valid keygen event",
-			event: abci.Event{
-				Type: EventTypeTSSProcessInitiated,
-				Attributes: []abci.EventAttribute{
-					{Key: AttrKeyProcessID, Value: "123"},
-					{Key: AttrKeyProcessType, Value: ChainProcessTypeKeygen},
-					{Key: AttrKeyExpiryHeight, Value: "1000"},
-					{Key: AttrKeyParticipants, Value: `["val1","val2","val3"]`},
-				},
-			},
-			blockHeight: 500,
-			wantEventID: "123",
-			wantType:    common.EventTypeKeygen,
-			wantExpiry:  1000,
-			wantErr:     false,
-		},
-		{
-			name: "valid refresh event",
-			event: abci.Event{
-				Type: EventTypeTSSProcessInitiated,
-				Attributes: []abci.EventAttribute{
-					{Key: AttrKeyProcessID, Value: "456"},
-					{Key: AttrKeyProcessType, Value: ChainProcessTypeRefresh},
-				},
-			},
-			blockHeight: 600,
-			wantEventID: "456",
-			wantType:    common.EventTypeKeyrefresh,
-			wantExpiry:  0,
-			wantErr:     false,
-		},
-		{
-			name: "valid quorum change event",
-			event: abci.Event{
-				Type: EventTypeTSSProcessInitiated,
-				Attributes: []abci.EventAttribute{
-					{Key: AttrKeyProcessID, Value: "789"},
-					{Key: AttrKeyProcessType, Value: ChainProcessTypeQuorumChange},
-					{Key: AttrKeyExpiryHeight, Value: "2000"},
-				},
-			},
-			blockHeight: 700,
-			wantEventID: "789",
-			wantType:    common.EventTypeQuorumChange,
-			wantExpiry:  2000,
-			wantErr:     false,
-		},
-		{
-			name: "missing process_id",
-			event: abci.Event{
-				Type: EventTypeTSSProcessInitiated,
-				Attributes: []abci.EventAttribute{
-					{Key: AttrKeyProcessType, Value: ChainProcessTypeKeygen},
-				},
-			},
-			blockHeight: 500,
-			wantErr:     true,
-			errContains: "process_id",
-		},
-		{
-			name: "missing process_type",
-			event: abci.Event{
-				Type: EventTypeTSSProcessInitiated,
-				Attributes: []abci.EventAttribute{
-					{Key: AttrKeyProcessID, Value: "123"},
-				},
-			},
-			blockHeight: 500,
-			wantErr:     true,
-			errContains: "process_type",
-		},
-		{
-			name: "invalid process_id",
-			event: abci.Event{
-				Type: EventTypeTSSProcessInitiated,
-				Attributes: []abci.EventAttribute{
-					{Key: AttrKeyProcessID, Value: "not-a-number"},
-					{Key: AttrKeyProcessType, Value: ChainProcessTypeKeygen},
-				},
-			},
-			blockHeight: 500,
-			wantErr:     true,
-			errContains: "process_id",
-		},
-		{
-			name: "invalid expiry_height",
-			event: abci.Event{
-				Type: EventTypeTSSProcessInitiated,
-				Attributes: []abci.EventAttribute{
-					{Key: AttrKeyProcessID, Value: "123"},
-					{Key: AttrKeyProcessType, Value: ChainProcessTypeKeygen},
-					{Key: AttrKeyExpiryHeight, Value: "invalid"},
-				},
-			},
-			blockHeight: 500,
-			wantErr:     true,
-			errContains: "expiry_height",
-		},
-		{
-			name: "invalid participants json",
-			event: abci.Event{
-				Type: EventTypeTSSProcessInitiated,
-				Attributes: []abci.EventAttribute{
-					{Key: AttrKeyProcessID, Value: "123"},
-					{Key: AttrKeyProcessType, Value: ChainProcessTypeKeygen},
-					{Key: AttrKeyParticipants, Value: "not-valid-json"},
-				},
-			},
-			blockHeight: 500,
-			wantErr:     true,
-			errContains: "participants",
-		},
-	}
+func TestConvertTssEvent(t *testing.T) {
+	t.Run("nil event returns error", func(t *testing.T) {
+		result, err := convertTssEvent(nil)
+		require.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "tss event is nil")
+	})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result, err := ParseEvent(tt.event, tt.blockHeight)
-
-			if tt.wantErr {
-				require.Error(t, err)
-				if tt.errContains != "" {
-					assert.Contains(t, err.Error(), tt.errContains)
-				}
-				return
-			}
-
-			require.NoError(t, err)
-			require.NotNil(t, result)
-
-			assert.Equal(t, tt.wantEventID, result.EventID)
-			assert.Equal(t, tt.wantType, result.Type)
-			assert.Equal(t, tt.wantExpiry, result.ExpiryBlockHeight)
-			assert.Equal(t, tt.blockHeight, result.BlockHeight)
-			assert.Equal(t, "CONFIRMED", result.Status)
-			assert.Equal(t, "INSTANT", result.ConfirmationType)
+	t.Run("unknown process type returns error", func(t *testing.T) {
+		result, err := convertTssEvent(&utsstypes.TssEvent{
+			ProcessId:   999,
+			ProcessType: "UNKNOWN_TYPE",
 		})
-	}
-}
+		require.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "unknown process type: UNKNOWN_TYPE")
+	})
 
-func TestParseEvent_OutboundEvent(t *testing.T) {
-	tests := []struct {
-		name        string
-		event       abci.Event
-		blockHeight uint64
-		wantEventID string
-		wantExpiry  uint64
-		wantErr     bool
-		errContains string
-	}{
-		{
-			name: "valid outbound event",
-			event: abci.Event{
-				Type: EventTypeOutboundCreated,
-				Attributes: []abci.EventAttribute{
-					{Key: AttrKeyTxID, Value: "0x123abc"},
-					{Key: AttrKeyUniversalTxID, Value: "utx-001"},
-					{Key: AttrKeyOutboundID, Value: "out-001"},
-					{Key: AttrKeyDestinationChain, Value: "ethereum"},
-					{Key: AttrKeyRecipient, Value: "0xrecipient"},
-					{Key: AttrKeyAmount, Value: "1000000"},
-					{Key: AttrKeyAssetAddr, Value: "0xtoken"},
-					{Key: AttrKeySender, Value: "0xsender"},
-					{Key: AttrKeyPayload, Value: "0x"},
-					{Key: AttrKeyGasLimit, Value: "21000"},
-					{Key: AttrKeyTxType, Value: "TRANSFER"},
-					{Key: AttrKeyPcTxHash, Value: "0xpctxhash"},
-					{Key: AttrKeyLogIndex, Value: "0"},
-					{Key: AttrKeyRevertMsg, Value: ""},
-				},
-			},
-			blockHeight: 1000,
-			wantEventID: "0x123abc",
-			wantExpiry:  1000 + OutboundExpiryOffset, // blockHeight + 1000
-			wantErr:     false,
-		},
-		{
-			name: "minimal outbound event (only tx_id)",
-			event: abci.Event{
-				Type: EventTypeOutboundCreated,
-				Attributes: []abci.EventAttribute{
-					{Key: AttrKeyTxID, Value: "0xminimal"},
-				},
-			},
-			blockHeight: 500,
-			wantEventID: "0xminimal",
-			wantExpiry:  500 + OutboundExpiryOffset,
-			wantErr:     false,
-		},
-		{
-			name: "missing tx_id",
-			event: abci.Event{
-				Type: EventTypeOutboundCreated,
-				Attributes: []abci.EventAttribute{
-					{Key: AttrKeyUniversalTxID, Value: "utx-001"},
-				},
-			},
-			blockHeight: 500,
-			wantErr:     true,
-			errContains: "tx_id",
-		},
-	}
+	t.Run("keygen event with participants", func(t *testing.T) {
+		tssEvent := &utsstypes.TssEvent{
+			Id:           1,
+			EventType:    utsstypes.TssEventType_TSS_EVENT_PROCESS_INITIATED,
+			Status:       utsstypes.TssEventStatus_TSS_EVENT_ACTIVE,
+			ProcessId:    123,
+			ProcessType:  utsstypes.TssProcessType_TSS_PROCESS_KEYGEN.String(),
+			Participants: []string{"val1", "val2", "val3"},
+			ExpiryHeight: 1000,
+			BlockHeight:  500,
+		}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result, err := ParseEvent(tt.event, tt.blockHeight)
-
-			if tt.wantErr {
-				require.Error(t, err)
-				if tt.errContains != "" {
-					assert.Contains(t, err.Error(), tt.errContains)
-				}
-				return
-			}
-
-			require.NoError(t, err)
-			require.NotNil(t, result)
-
-			assert.Equal(t, tt.wantEventID, result.EventID)
-			assert.Equal(t, common.EventTypeSign, result.Type)
-			assert.Equal(t, tt.wantExpiry, result.ExpiryBlockHeight)
-			assert.Equal(t, tt.blockHeight, result.BlockHeight)
-			assert.Equal(t, "CONFIRMED", result.Status)
-			assert.Equal(t, "INSTANT", result.ConfirmationType)
-		})
-	}
-}
-
-func TestParseEvent_OutboundEventData(t *testing.T) {
-	event := abci.Event{
-		Type: EventTypeOutboundCreated,
-		Attributes: []abci.EventAttribute{
-			{Key: AttrKeyTxID, Value: "0x123abc"},
-			{Key: AttrKeyUniversalTxID, Value: "utx-001"},
-			{Key: AttrKeyOutboundID, Value: "out-001"},
-			{Key: AttrKeyDestinationChain, Value: "ethereum"},
-			{Key: AttrKeyRecipient, Value: "0xrecipient"},
-			{Key: AttrKeyAmount, Value: "1000000"},
-			{Key: AttrKeyAssetAddr, Value: "0xtoken"},
-			{Key: AttrKeySender, Value: "0xsender"},
-			{Key: AttrKeyPayload, Value: "0xpayload"},
-			{Key: AttrKeyGasLimit, Value: "21000"},
-			{Key: AttrKeyTxType, Value: "TRANSFER"},
-			{Key: AttrKeyPcTxHash, Value: "0xpctxhash"},
-			{Key: AttrKeyLogIndex, Value: "5"},
-			{Key: AttrKeyRevertMsg, Value: "revert reason"},
-		},
-	}
-
-	result, err := ParseEvent(event, 1000)
-	require.NoError(t, err)
-	require.NotNil(t, result)
-
-	// Unmarshal event data and verify all fields
-	var data uexecutortypes.OutboundCreatedEvent
-	err = json.Unmarshal(result.EventData, &data)
-	require.NoError(t, err)
-
-	assert.Equal(t, "0x123abc", data.TxID)
-	assert.Equal(t, "utx-001", data.UniversalTxId)
-	assert.Equal(t, "ethereum", data.DestinationChain)
-	assert.Equal(t, "0xrecipient", data.Recipient)
-	assert.Equal(t, "1000000", data.Amount)
-	assert.Equal(t, "0xtoken", data.AssetAddr)
-	assert.Equal(t, "0xsender", data.Sender)
-	assert.Equal(t, "0xpayload", data.Payload)
-	assert.Equal(t, "21000", data.GasLimit)
-	assert.Equal(t, "TRANSFER", data.TxType)
-	assert.Equal(t, "0xpctxhash", data.PcTxHash)
-	assert.Equal(t, "5", data.LogIndex)
-	assert.Equal(t, "revert reason", data.RevertMsg)
-}
-
-func TestParseEvent_UnknownEventType(t *testing.T) {
-	event := abci.Event{
-		Type: "unknown_event_type",
-		Attributes: []abci.EventAttribute{
-			{Key: "some_key", Value: "some_value"},
-		},
-	}
-
-	result, err := ParseEvent(event, 1000)
-	require.NoError(t, err)
-	assert.Nil(t, result, "unknown event types should return nil without error")
-}
-
-func TestConvertProcessType(t *testing.T) {
-	tests := []struct {
-		input    string
-		expected string
-	}{
-		{ChainProcessTypeKeygen, common.EventTypeKeygen},
-		{ChainProcessTypeRefresh, common.EventTypeKeyrefresh},
-		{ChainProcessTypeQuorumChange, common.EventTypeQuorumChange},
-		{"UNKNOWN_TYPE", "UNKNOWN_TYPE"}, // Unknown types returned as-is
-		{"", ""},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			result := convertProcessType(tt.input)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
-func TestExtractAttributes(t *testing.T) {
-	event := abci.Event{
-		Type: "test",
-		Attributes: []abci.EventAttribute{
-			{Key: "key1", Value: "value1"},
-			{Key: "key2", Value: "value2"},
-			{Key: "key3", Value: ""},
-		},
-	}
-
-	attrs := extractAttributes(event)
-
-	assert.Len(t, attrs, 3)
-	assert.Equal(t, "value1", attrs["key1"])
-	assert.Equal(t, "value2", attrs["key2"])
-	assert.Equal(t, "", attrs["key3"])
-}
-
-func TestBuildTSSEventData(t *testing.T) {
-	t.Run("with participants", func(t *testing.T) {
-		data, err := buildTSSEventData(123, []string{"val1", "val2"})
+		result, err := convertTssEvent(tssEvent)
 		require.NoError(t, err)
-		require.NotNil(t, data)
+		require.NotNil(t, result)
 
-		var result map[string]interface{}
-		err = json.Unmarshal(data, &result)
-		require.NoError(t, err)
+		assert.Equal(t, hashEventID(store.EventTypeKeygen, "123"), result.EventID)
+		assert.Equal(t, store.EventTypeKeygen, result.Type)
+		assert.Equal(t, uint64(500), result.BlockHeight)
+		assert.Equal(t, uint64(1000), result.ExpiryBlockHeight)
+		assert.Equal(t, store.StatusConfirmed, result.Status)
+		assert.Equal(t, store.ConfirmationInstant, result.ConfirmationType)
 
-		assert.Equal(t, float64(123), result["process_id"])
-		participants := result["participants"].([]interface{})
-		assert.Len(t, participants, 2)
+		// Verify event data JSON
+		require.NotNil(t, result.EventData)
+		var data map[string]interface{}
+		require.NoError(t, json.Unmarshal(result.EventData, &data))
+		assert.Equal(t, float64(123), data["process_id"])
+		participants := data["participants"].([]interface{})
+		assert.Len(t, participants, 3)
 		assert.Equal(t, "val1", participants[0])
-		assert.Equal(t, "val2", participants[1])
 	})
 
-	t.Run("without participants", func(t *testing.T) {
-		data, err := buildTSSEventData(123, nil)
+	t.Run("refresh event", func(t *testing.T) {
+		result, err := convertTssEvent(&utsstypes.TssEvent{
+			ProcessId:   456,
+			ProcessType: utsstypes.TssProcessType_TSS_PROCESS_REFRESH.String(),
+			BlockHeight: 600,
+		})
 		require.NoError(t, err)
-		assert.Nil(t, data)
+		assert.Equal(t, hashEventID(store.EventTypeKeyrefresh, "456"), result.EventID)
+		assert.Equal(t, store.EventTypeKeyrefresh, result.Type)
+		assert.Equal(t, uint64(600), result.BlockHeight)
+		assert.Nil(t, result.EventData) // no participants
+	})
 
-		data, err = buildTSSEventData(123, []string{})
+	t.Run("quorum change event", func(t *testing.T) {
+		result, err := convertTssEvent(&utsstypes.TssEvent{
+			ProcessId:    789,
+			ProcessType:  utsstypes.TssProcessType_TSS_PROCESS_QUORUM_CHANGE.String(),
+			ExpiryHeight: 2000,
+			BlockHeight:  700,
+		})
 		require.NoError(t, err)
-		assert.Nil(t, data)
+		assert.Equal(t, hashEventID(store.EventTypeQuorumChange, "789"), result.EventID)
+		assert.Equal(t, store.EventTypeQuorumChange, result.Type)
+		assert.Equal(t, uint64(2000), result.ExpiryBlockHeight)
+	})
+
+	t.Run("empty participants produces nil event data", func(t *testing.T) {
+		result, err := convertTssEvent(&utsstypes.TssEvent{
+			ProcessId:    100,
+			ProcessType:  utsstypes.TssProcessType_TSS_PROCESS_KEYGEN.String(),
+			Participants: []string{},
+		})
+		require.NoError(t, err)
+		assert.Nil(t, result.EventData)
 	})
 }
 
-func TestOutboundExpiryOffset(t *testing.T) {
-	// Verify the constant is set correctly
-	assert.Equal(t, uint64(1000), uint64(OutboundExpiryOffset))
+func TestConvertOutboundToEvent(t *testing.T) {
+	t.Run("nil entry returns error", func(t *testing.T) {
+		result, err := convertOutboundToEvent(nil, &uexecutortypes.OutboundTx{})
+		require.Error(t, err)
+		assert.Nil(t, result)
+	})
 
-	// Verify expiry calculation
-	blockHeight := uint64(1000)
-	event := abci.Event{
-		Type: EventTypeOutboundCreated,
-		Attributes: []abci.EventAttribute{
-			{Key: AttrKeyTxID, Value: "0xtest"},
-		},
-	}
+	t.Run("nil outbound returns error", func(t *testing.T) {
+		result, err := convertOutboundToEvent(&uexecutortypes.PendingOutboundEntry{}, nil)
+		require.Error(t, err)
+		assert.Nil(t, result)
+	})
 
-	result, err := ParseEvent(event, blockHeight)
-	require.NoError(t, err)
-	assert.Equal(t, blockHeight+OutboundExpiryOffset, result.ExpiryBlockHeight)
+	t.Run("full outbound with all fields", func(t *testing.T) {
+		entry := &uexecutortypes.PendingOutboundEntry{
+			OutboundId:    "0x123abc",
+			UniversalTxId: "utx-001",
+			CreatedAt:     1000,
+		}
+		outbound := &uexecutortypes.OutboundTx{
+			Id:                "0x123abc",
+			DestinationChain:  "eip155:1",
+			Recipient:         "0xrecipient",
+			Amount:            "1000000",
+			ExternalAssetAddr: "0xtoken",
+			Sender:            "0xsender",
+			Payload:           "0xpayload",
+			GasFee:            "21000",
+			GasLimit:          "100000",
+			GasPrice:          "50",
+			GasToken:          "ETH",
+			TxType:            uexecutortypes.TxType_FUNDS,
+			PcTx: &uexecutortypes.OriginatingPcTx{
+				TxHash:   "0xpctxhash",
+				LogIndex: "5",
+			},
+			RevertInstructions: &uexecutortypes.RevertInstructions{
+				FundRecipient: "0xrevert",
+			},
+		}
+
+		result, err := convertOutboundToEvent(entry, outbound)
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		// Verify store.Event fields
+		assert.Equal(t, "0x123abc", result.EventID)
+		assert.Equal(t, store.EventTypeSignOutbound, result.Type)
+		assert.Equal(t, uint64(1000), result.BlockHeight)
+		assert.Equal(t, uint64(1000+DefaultExpiryOffset), result.ExpiryBlockHeight)
+		assert.Equal(t, store.StatusConfirmed, result.Status)
+		assert.Equal(t, store.ConfirmationInstant, result.ConfirmationType)
+
+		// Verify OutboundCreatedEvent JSON
+		var data uexecutortypes.OutboundCreatedEvent
+		require.NoError(t, json.Unmarshal(result.EventData, &data))
+		assert.Equal(t, "0x123abc", data.TxID)
+		assert.Equal(t, "utx-001", data.UniversalTxId)
+		assert.Equal(t, "eip155:1", data.DestinationChain)
+		assert.Equal(t, "0xrecipient", data.Recipient)
+		assert.Equal(t, "1000000", data.Amount)
+		assert.Equal(t, "0xtoken", data.AssetAddr)
+		assert.Equal(t, "0xsender", data.Sender)
+		assert.Equal(t, "0xpayload", data.Payload)
+		assert.Equal(t, "21000", data.GasFee)
+		assert.Equal(t, "100000", data.GasLimit)
+		assert.Equal(t, "50", data.GasPrice)
+		assert.Equal(t, "ETH", data.GasToken)
+		assert.Equal(t, "FUNDS", data.TxType)
+		assert.Equal(t, "0xpctxhash", data.PcTxHash)
+		assert.Equal(t, "5", data.LogIndex)
+		assert.Equal(t, "0xrevert", data.RevertMsg)
+	})
+
+	t.Run("outbound without PcTx and RevertInstructions", func(t *testing.T) {
+		entry := &uexecutortypes.PendingOutboundEntry{
+			OutboundId:    "0xminimal",
+			UniversalTxId: "utx-002",
+			CreatedAt:     500,
+		}
+		outbound := &uexecutortypes.OutboundTx{
+			Id:               "0xminimal",
+			DestinationChain: "eip155:1",
+			Amount:           "100",
+		}
+
+		result, err := convertOutboundToEvent(entry, outbound)
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		assert.Equal(t, "0xminimal", result.EventID)
+		assert.Equal(t, uint64(500), result.BlockHeight)
+		assert.Equal(t, uint64(500+DefaultExpiryOffset), result.ExpiryBlockHeight)
+
+		var data uexecutortypes.OutboundCreatedEvent
+		require.NoError(t, json.Unmarshal(result.EventData, &data))
+		assert.Empty(t, data.PcTxHash)
+		assert.Empty(t, data.LogIndex)
+		assert.Empty(t, data.RevertMsg)
+		assert.Equal(t, "utx-002", data.UniversalTxId)
+	})
+
+	t.Run("outbound with RevertInstructions but no PcTx", func(t *testing.T) {
+		entry := &uexecutortypes.PendingOutboundEntry{
+			OutboundId: "0xrevert-only",
+			CreatedAt:  300,
+		}
+		outbound := &uexecutortypes.OutboundTx{
+			Id: "0xrevert-only",
+			RevertInstructions: &uexecutortypes.RevertInstructions{
+				FundRecipient: "0xfundrecipient",
+			},
+		}
+
+		result, err := convertOutboundToEvent(entry, outbound)
+		require.NoError(t, err)
+
+		var data uexecutortypes.OutboundCreatedEvent
+		require.NoError(t, json.Unmarshal(result.EventData, &data))
+		assert.Equal(t, "0xfundrecipient", data.RevertMsg)
+		assert.Empty(t, data.PcTxHash)
+	})
+
+	t.Run("outbound with PcTx but no RevertInstructions", func(t *testing.T) {
+		entry := &uexecutortypes.PendingOutboundEntry{
+			OutboundId: "0xpctx-only",
+			CreatedAt:  400,
+		}
+		outbound := &uexecutortypes.OutboundTx{
+			Id: "0xpctx-only",
+			PcTx: &uexecutortypes.OriginatingPcTx{
+				TxHash:   "0xhash",
+				LogIndex: "3",
+			},
+		}
+
+		result, err := convertOutboundToEvent(entry, outbound)
+		require.NoError(t, err)
+
+		var data uexecutortypes.OutboundCreatedEvent
+		require.NoError(t, json.Unmarshal(result.EventData, &data))
+		assert.Equal(t, "0xhash", data.PcTxHash)
+		assert.Equal(t, "3", data.LogIndex)
+		assert.Empty(t, data.RevertMsg)
+	})
+}
+
+func TestDefaultExpiryOffset(t *testing.T) {
+	assert.Equal(t, uint64(600), uint64(DefaultExpiryOffset))
+}
+
+func TestHashEventID(t *testing.T) {
+	t.Run("deterministic output", func(t *testing.T) {
+		id1 := hashEventID("keygen", "123")
+		id2 := hashEventID("keygen", "123")
+		assert.Equal(t, id1, id2)
+	})
+
+	t.Run("different types produce different IDs", func(t *testing.T) {
+		id1 := hashEventID("keygen", "123")
+		id2 := hashEventID("refresh", "123")
+		assert.NotEqual(t, id1, id2)
+	})
+
+	t.Run("different raw IDs produce different IDs", func(t *testing.T) {
+		id1 := hashEventID("keygen", "1")
+		id2 := hashEventID("keygen", "2")
+		assert.NotEqual(t, id1, id2)
+	})
+
+	t.Run("output is hex string of sha256 length", func(t *testing.T) {
+		id := hashEventID("type", "id")
+		assert.Len(t, id, 64) // sha256 = 32 bytes = 64 hex chars
+	})
+}
+
+func TestConvertOutboundToEvent_BothNil(t *testing.T) {
+	result, err := convertOutboundToEvent(nil, nil)
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "entry or outbound is nil")
+}
+
+func TestConvertFundMigrationEvent(t *testing.T) {
+	t.Run("nil migration returns error", func(t *testing.T) {
+		result, err := convertFundMigrationEvent(nil)
+		require.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "fund migration is nil")
+	})
+
+	t.Run("valid migration converts correctly", func(t *testing.T) {
+		migration := &utsstypes.FundMigration{
+			Id:               1,
+			OldKeyId:         "old-key-001",
+			OldTssPubkey:     "0x02abc123",
+			CurrentKeyId:     "new-key-002",
+			CurrentTssPubkey: "0x03def456",
+			Chain:            "eip155:421614",
+			InitiatedBlock:   5000,
+			GasPrice:         "1000000000",
+			GasLimit:         21100,
+			L1GasFee:         "42",
+		}
+
+		result, err := convertFundMigrationEvent(migration)
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		assert.Equal(t, hashEventID(store.EventTypeSignFundMigrate, "1"), result.EventID)
+		assert.Equal(t, store.EventTypeSignFundMigrate, result.Type)
+		assert.Equal(t, store.StatusConfirmed, result.Status)
+		assert.Equal(t, store.ConfirmationInstant, result.ConfirmationType)
+		assert.Equal(t, uint64(5000), result.BlockHeight)
+		assert.Equal(t, uint64(5000+DefaultExpiryOffset), result.ExpiryBlockHeight)
+
+		var data utsstypes.FundMigrationInitiatedEventData
+		require.NoError(t, json.Unmarshal(result.EventData, &data))
+		assert.Equal(t, uint64(1), data.MigrationID)
+		assert.Equal(t, "old-key-001", data.OldKeyID)
+		assert.Equal(t, "0x02abc123", data.OldTssPubkey)
+		assert.Equal(t, "new-key-002", data.CurrentKeyID)
+		assert.Equal(t, "0x03def456", data.CurrentTssPubkey)
+		assert.Equal(t, "eip155:421614", data.Chain)
+		assert.Equal(t, int64(5000), data.BlockHeight)
+		assert.Equal(t, "1000000000", data.GasPrice)
+		assert.Equal(t, uint64(21100), data.GasLimit)
+		assert.Equal(t, "42", data.L1GasFee, "L1 gas fee must be forwarded to downstream consumers")
+	})
+
+	t.Run("event ID is hash of type and migration ID", func(t *testing.T) {
+		migration := &utsstypes.FundMigration{
+			Id:             42,
+			InitiatedBlock: 100,
+		}
+
+		result, err := convertFundMigrationEvent(migration)
+		require.NoError(t, err)
+		assert.Equal(t, hashEventID(store.EventTypeSignFundMigrate, "42"), result.EventID)
+	})
 }

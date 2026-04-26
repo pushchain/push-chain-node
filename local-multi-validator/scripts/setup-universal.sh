@@ -9,14 +9,6 @@ UNIVERSAL_ID=${UNIVERSAL_ID:-"1"}
 CORE_VALIDATOR_GRPC=${CORE_VALIDATOR_GRPC:-"core-validator-1:9090"}
 QUERY_PORT=${QUERY_PORT:-8080}
 
-# In LOCAL devnet, use a single canonical gRPC endpoint for startup validation
-# to avoid transient per-node state skew during UV boot.
-if [ "${TESTING_ENV:-}" = "LOCAL" ] && [ -n "${LOCAL_CANONICAL_CORE_GRPC:-}" ]; then
-  CORE_VALIDATOR_GRPC="$LOCAL_CANONICAL_CORE_GRPC"
-elif [ "${TESTING_ENV:-}" = "LOCAL" ]; then
-  CORE_VALIDATOR_GRPC="core-validator-1:9090"
-fi
-
 # Paths
 BINARY="/usr/bin/puniversald"
 HOME_DIR="/root/.puniversal"
@@ -88,26 +80,13 @@ fi
 # === INITIALIZATION ===
 # ---------------------------
 
-# Clean start — preserve keyshares across restarts if they exist
-if [ -d "$HOME_DIR/keyshares" ] && [ "$(ls -A "$HOME_DIR/keyshares" 2>/dev/null)" ]; then
-  _KEYSHARES_TMP=$(mktemp -d)
-  cp -r "$HOME_DIR/keyshares/." "$_KEYSHARES_TMP/"
-  echo "🔑 Preserved $(ls "$_KEYSHARES_TMP" | wc -l | tr -d ' ') keyshare(s) before clean"
-fi
+# Clean start
 rm -rf "$HOME_DIR"/* "$HOME_DIR"/.[!.]* "$HOME_DIR"/..?* 2>/dev/null || true
 
 echo "🔧 Initializing universal validator..."
 
 # Initialize puniversald (creates config directory and default config)
 $BINARY init
-
-# Restore keyshares if they were preserved
-if [ -n "${_KEYSHARES_TMP:-}" ] && [ -d "$_KEYSHARES_TMP" ]; then
-  mkdir -p "$HOME_DIR/keyshares"
-  cp -r "$_KEYSHARES_TMP/." "$HOME_DIR/keyshares/"
-  rm -rf "$_KEYSHARES_TMP"
-  echo "🔑 Restored $(ls "$HOME_DIR/keyshares" | wc -l | tr -d ' ') keyshare(s)"
-fi
 
 # Update the gRPC URL and keyring backend in the config
 # The CORE_VALIDATOR_GRPC env var is already set correctly in docker-compose.yml:
@@ -156,119 +135,6 @@ if [ "$QUERY_PORT" != "8080" ]; then
     "$HOME_DIR/config/pushuv_config.json" > "$HOME_DIR/config/pushuv_config.json.tmp" && \
     mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
 fi
-
-# After initialization and before event start from overrides
-# Force Arbitrum Sepolia RPC URL to tenderly endpoint
-ARBITRUM_CHAIN_ID="eip155:421614"
-ARBITRUM_TENDERLY_URL="https://arbitrum-sepolia.gateway.tenderly.co"
-BASE_CHAIN_ID="eip155:84532"
-BSC_CHAIN_ID="eip155:97"
-SOLANA_CHAIN_ID="solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"
-BSC_TESTNET_CHAIN_ID="eip155:97"
-BSC_TESTNET_RPC_URL="${BSC_TESTNET_RPC_URL:-https://bsc-testnet-rpc.publicnode.com}"
-SEPOLIA_CHAIN_ID="eip155:11155111"
-
-# In LOCAL testing, universal-validator containers must not use localhost for host services.
-if [ "${TESTING_ENV:-}" = "LOCAL" ] && [ -z "${SEPOLIA_RPC_URL_OVERRIDE:-}" ]; then
-  SEPOLIA_RPC_URL_OVERRIDE="http://host.docker.internal:9545"
-fi
-if [ "${TESTING_ENV:-}" = "LOCAL" ] && [ -z "${ARBITRUM_RPC_URL_OVERRIDE:-}" ]; then
-  ARBITRUM_RPC_URL_OVERRIDE="http://host.docker.internal:9546"
-fi
-if [ "${TESTING_ENV:-}" = "LOCAL" ] && [ -z "${BASE_RPC_URL_OVERRIDE:-}" ]; then
-  BASE_RPC_URL_OVERRIDE="http://host.docker.internal:9547"
-fi
-if [ "${TESTING_ENV:-}" = "LOCAL" ] && [ -z "${BSC_RPC_URL_OVERRIDE:-}" ]; then
-  BSC_RPC_URL_OVERRIDE="http://host.docker.internal:9548"
-fi
-if [ "${TESTING_ENV:-}" = "LOCAL" ] && [ -z "${SOLANA_RPC_URL_OVERRIDE:-}" ]; then
-  SOLANA_RPC_URL_OVERRIDE="http://host.docker.internal:8899"
-fi
-
-jq --arg chain "$ARBITRUM_CHAIN_ID" --arg url "$ARBITRUM_TENDERLY_URL" \
-  '.chain_configs[$chain].rpc_urls = [$url]' \
-  "$HOME_DIR/config/pushuv_config.json" > "$HOME_DIR/config/pushuv_config.json.tmp" && \
-  mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
-
-jq --arg chain "$BSC_TESTNET_CHAIN_ID" --arg url "$BSC_TESTNET_RPC_URL" \
-  '.chain_configs[$chain].rpc_urls = [$url]' \
-  "$HOME_DIR/config/pushuv_config.json" > "$HOME_DIR/config/pushuv_config.json.tmp" && \
-  mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
-
-if [ -n "${SEPOLIA_RPC_URL_OVERRIDE:-}" ]; then
-  echo "🌐 Overriding Sepolia rpc_urls to: $SEPOLIA_RPC_URL_OVERRIDE"
-  jq --arg chain "$SEPOLIA_CHAIN_ID" --arg url "$SEPOLIA_RPC_URL_OVERRIDE" \
-    '.chain_configs[$chain].rpc_urls = [$url]' \
-    "$HOME_DIR/config/pushuv_config.json" > "$HOME_DIR/config/pushuv_config.json.tmp" && \
-    mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
-fi
-
-if [ -n "${ARBITRUM_RPC_URL_OVERRIDE:-}" ]; then
-  echo "🌐 Overriding Arbitrum Sepolia rpc_urls to: $ARBITRUM_RPC_URL_OVERRIDE"
-  jq --arg chain "$ARBITRUM_CHAIN_ID" --arg url "$ARBITRUM_RPC_URL_OVERRIDE" \
-    '.chain_configs[$chain].rpc_urls = [$url]' \
-    "$HOME_DIR/config/pushuv_config.json" > "$HOME_DIR/config/pushuv_config.json.tmp" && \
-    mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
-fi
-
-if [ -n "${BASE_RPC_URL_OVERRIDE:-}" ]; then
-  echo "🌐 Overriding Base Sepolia rpc_urls to: $BASE_RPC_URL_OVERRIDE"
-  jq --arg chain "$BASE_CHAIN_ID" --arg url "$BASE_RPC_URL_OVERRIDE" \
-    '.chain_configs[$chain].rpc_urls = [$url]' \
-    "$HOME_DIR/config/pushuv_config.json" > "$HOME_DIR/config/pushuv_config.json.tmp" && \
-    mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
-fi
-
-if [ -n "${BSC_RPC_URL_OVERRIDE:-}" ]; then
-  echo "🌐 Overriding BSC testnet rpc_urls to: $BSC_RPC_URL_OVERRIDE"
-  jq --arg chain "$BSC_CHAIN_ID" --arg url "$BSC_RPC_URL_OVERRIDE" \
-    '.chain_configs[$chain].rpc_urls = [$url]' \
-    "$HOME_DIR/config/pushuv_config.json" > "$HOME_DIR/config/pushuv_config.json.tmp" && \
-    mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
-fi
-
-if [ -n "${SOLANA_RPC_URL_OVERRIDE:-}" ]; then
-  echo "🌐 Overriding Solana rpc_urls to: $SOLANA_RPC_URL_OVERRIDE"
-  jq --arg chain "$SOLANA_CHAIN_ID" --arg url "$SOLANA_RPC_URL_OVERRIDE" \
-    '.chain_configs[$chain].rpc_urls = [$url]' \
-    "$HOME_DIR/config/pushuv_config.json" > "$HOME_DIR/config/pushuv_config.json.tmp" && \
-    mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
-fi
-
-# Optionally override chain event start heights (set by ./devnet start)
-set_chain_event_start_from() {
-  local chain_id="$1"
-  local chain_label="$2"
-  local start_height="$3"
-
-  [ -n "$start_height" ] || return 0
-
-  echo "📍 Setting ${chain_label} event_start_from: $start_height"
-  jq --arg chain "$chain_id" --argjson height "$start_height" \
-    '.chain_configs[$chain].event_start_from = $height' \
-    "$HOME_DIR/config/pushuv_config.json" > "$HOME_DIR/config/pushuv_config.json.tmp" && \
-    mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
-}
-
-set_chain_event_start_from "eip155:11155111" "Sepolia" "${SEPOLIA_EVENT_START_FROM:-}"
-set_chain_event_start_from "eip155:84532" "Base Sepolia" "${BASE_EVENT_START_FROM:-}"
-set_chain_event_start_from "eip155:421614" "Arbitrum Sepolia" "${ARBITRUM_EVENT_START_FROM:-}"
-set_chain_event_start_from "eip155:97" "BSC testnet" "${BSC_EVENT_START_FROM:-}"
-set_chain_event_start_from "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1" "Solana devnet" "${SOLANA_EVENT_START_FROM:-}"
-
-# Always align Push localchain scanning start with current height in local environments.
-# Default config uses a high static start block for public networks, which would skip
-# all events on fresh local devnets if left unchanged.
-LOCALCHAIN_CHAIN_ID="localchain_9000-1"
-LOCALCHAIN_START_FROM=$BLOCK_HEIGHT
-if [ "$LOCALCHAIN_START_FROM" -gt 20 ]; then
-  LOCALCHAIN_START_FROM=$((LOCALCHAIN_START_FROM - 20))
-fi
-echo "📍 Setting Push localchain event_start_from: $LOCALCHAIN_START_FROM"
-jq --arg chain "$LOCALCHAIN_CHAIN_ID" --argjson height "$LOCALCHAIN_START_FROM" \
-  '.chain_configs[$chain].event_start_from = $height' \
-  "$HOME_DIR/config/pushuv_config.json" > "$HOME_DIR/config/pushuv_config.json.tmp" && \
-  mv "$HOME_DIR/config/pushuv_config.json.tmp" "$HOME_DIR/config/pushuv_config.json"
 
 # ---------------------------
 # === SET CORE VALOPER ADDRESS ===
@@ -356,12 +222,8 @@ echo "📋 Required grants: MsgVoteInbound, MsgVoteChainMeta, MsgVoteOutbound, M
 # Get the hotkey address
 HOTKEY_ADDR=$($BINARY keys show "$HOTKEY_NAME" --address --keyring-backend test --home "$HOME_DIR" 2>/dev/null || echo "")
 
-# Required message types (must match PushSigner validation requirements)
-REQUIRED_MSG_TYPES='["/uexecutor.v1.MsgVoteInbound","/uexecutor.v1.MsgVoteChainMeta","/uexecutor.v1.MsgVoteOutbound","/utss.v1.MsgVoteTssKeyProcess"]'
+# Required number of grants (4 message types)
 REQUIRED_GRANTS=4
-
-# Allow additional time for grant propagation during startup races.
-AUTHZ_GRANTS_WAIT_SECONDS=${AUTHZ_GRANTS_WAIT_SECONDS:-120}
 
 # Query core-validator-1 for grants (genesis validator creates ALL grants immediately)
 GRANTS_QUERY_HOST="core-validator-1"
@@ -370,35 +232,33 @@ if [ -n "$HOTKEY_ADDR" ]; then
   echo "🔍 Checking for AuthZ grants for hotkey: $HOTKEY_ADDR"
   echo "📡 Querying grants from: $GRANTS_QUERY_HOST:1317"
 
-  # Wait for all required AuthZ grants (genesis validator creates all grants, but propagation can lag)
-  max_wait=$AUTHZ_GRANTS_WAIT_SECONDS
+  # Wait for all 4 AuthZ grants (should be fast - genesis validator creates all grants)
+  max_wait=20
   wait_time=0
-  MATCHED_GRANTS=0
+  GRANTS_COUNT=0
   while [ $wait_time -lt $max_wait ]; do
-    # Query grants and count only required message types
-    MATCHED_GRANTS=$(curl -s "http://$GRANTS_QUERY_HOST:1317/cosmos/authz/v1beta1/grants/grantee/$HOTKEY_ADDR" 2>/dev/null | \
-      jq -r --argjson required "$REQUIRED_MSG_TYPES" '[.grants[]? | (.authorization.msg // .authorization.value.msg // "") as $m | select($required | index($m))] | length' 2>/dev/null || echo "0")
+    # Query grants from genesis validator
+    GRANTS_COUNT=$(curl -s "http://$GRANTS_QUERY_HOST:1317/cosmos/authz/v1beta1/grants/grantee/$HOTKEY_ADDR" 2>/dev/null | jq -r '.grants | length' 2>/dev/null || echo "0")
 
-    if [ "$MATCHED_GRANTS" -ge "$REQUIRED_GRANTS" ] 2>/dev/null; then
-      echo "✅ Found all $MATCHED_GRANTS/$REQUIRED_GRANTS required AuthZ grants!"
+    if [ "$GRANTS_COUNT" -ge "$REQUIRED_GRANTS" ] 2>/dev/null; then
+      echo "✅ Found all $GRANTS_COUNT/$REQUIRED_GRANTS required AuthZ grants!"
       break
     fi
 
     # Show progress every 5 seconds
     if [ $((wait_time % 5)) -eq 0 ]; then
-      echo "⏳ Waiting for AuthZ grants... ($MATCHED_GRANTS/$REQUIRED_GRANTS) (${wait_time}s / ${max_wait}s)"
+      echo "⏳ Waiting for AuthZ grants... ($GRANTS_COUNT/$REQUIRED_GRANTS) (${wait_time}s / ${max_wait}s)"
     fi
     sleep 1
     wait_time=$((wait_time + 1))
   done
 
-  if [ "$MATCHED_GRANTS" -lt "$REQUIRED_GRANTS" ] 2>/dev/null; then
-    echo "⚠️ Only found $MATCHED_GRANTS/$REQUIRED_GRANTS required grants after ${max_wait}s"
-    echo "   Continuing startup; grants may still arrive shortly."
+  if [ "$GRANTS_COUNT" -lt "$REQUIRED_GRANTS" ] 2>/dev/null; then
+    echo "⚠️  Only found $GRANTS_COUNT/$REQUIRED_GRANTS grants after ${max_wait}s"
+    echo "   The universal validator may fail startup validation if grants are missing."
   fi
 else
-  echo "❌ Could not get hotkey address, cannot verify AuthZ grants"
-  exit 1
+  echo "⚠️  Could not get hotkey address, skipping AuthZ check"
 fi
 
 # ---------------------------
@@ -424,7 +284,7 @@ if [ -n "$EXPECTED_PEER_ID" ]; then
   reg_wait=0
   while [ $reg_wait -lt $max_reg_wait ]; do
     # Query all universal validators via REST API and look for our peer_id
-    FOUND=$(curl -s "http://core-validator-1:1317/uvalidator/v1/universal_validators" 2>/dev/null | \
+    FOUND=$(curl -s "http://core-validator-1:1317/push/uvalidator/v1/all_universal_validators" 2>/dev/null | \
       jq -r --arg pid "$EXPECTED_PEER_ID" \
       '.universal_validator[]? | select(.network_info.peer_id == $pid) | .network_info.peer_id' 2>/dev/null || echo "")
 
@@ -441,13 +301,10 @@ if [ -n "$EXPECTED_PEER_ID" ]; then
   done
 
   if [ -z "$FOUND" ]; then
-    echo "❌ Validator not found on-chain after ${max_reg_wait}s"
-    echo "   Failing startup so container restarts until registration is correct."
-    exit 1
+    echo "⚠️ Validator not found on-chain after ${max_reg_wait}s, continuing anyway..."
   fi
 else
-  echo "❌ Unknown UNIVERSAL_ID, cannot validate on-chain registration"
-  exit 1
+  echo "⚠️ Unknown UNIVERSAL_ID, skipping registration check"
 fi
 
 # ---------------------------
@@ -456,9 +313,5 @@ fi
 
 echo "🚀 Starting universal validator $UNIVERSAL_ID..."
 echo "🔗 Connecting to core validator: $CORE_VALIDATOR_GRPC"
-
-# Increase OS thread stack size to unlimited so the Rust DKLS sign library
-# (called via CGo) does not SIGSEGV from native stack overflow during sign sessions.
-ulimit -s unlimited
 
 exec $BINARY start

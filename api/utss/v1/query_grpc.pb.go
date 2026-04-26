@@ -19,13 +19,20 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Query_Params_FullMethodName         = "/utss.v1.Query/Params"
-	Query_CurrentProcess_FullMethodName = "/utss.v1.Query/CurrentProcess"
-	Query_ProcessById_FullMethodName    = "/utss.v1.Query/ProcessById"
-	Query_AllProcesses_FullMethodName   = "/utss.v1.Query/AllProcesses"
-	Query_CurrentKey_FullMethodName     = "/utss.v1.Query/CurrentKey"
-	Query_KeyById_FullMethodName        = "/utss.v1.Query/KeyById"
-	Query_AllKeys_FullMethodName        = "/utss.v1.Query/AllKeys"
+	Query_Params_FullMethodName                = "/utss.v1.Query/Params"
+	Query_CurrentProcess_FullMethodName        = "/utss.v1.Query/CurrentProcess"
+	Query_ProcessById_FullMethodName           = "/utss.v1.Query/ProcessById"
+	Query_AllProcesses_FullMethodName          = "/utss.v1.Query/AllProcesses"
+	Query_CurrentKey_FullMethodName            = "/utss.v1.Query/CurrentKey"
+	Query_KeyById_FullMethodName               = "/utss.v1.Query/KeyById"
+	Query_AllKeys_FullMethodName               = "/utss.v1.Query/AllKeys"
+	Query_GetTssEvent_FullMethodName           = "/utss.v1.Query/GetTssEvent"
+	Query_GetPendingTssEvent_FullMethodName    = "/utss.v1.Query/GetPendingTssEvent"
+	Query_AllPendingTssEvents_FullMethodName   = "/utss.v1.Query/AllPendingTssEvents"
+	Query_AllTssEvents_FullMethodName          = "/utss.v1.Query/AllTssEvents"
+	Query_GetFundMigration_FullMethodName      = "/utss.v1.Query/GetFundMigration"
+	Query_PendingFundMigrations_FullMethodName = "/utss.v1.Query/PendingFundMigrations"
+	Query_AllFundMigrations_FullMethodName     = "/utss.v1.Query/AllFundMigrations"
 )
 
 // QueryClient is the client API for Query service.
@@ -46,6 +53,20 @@ type QueryClient interface {
 	KeyById(ctx context.Context, in *QueryKeyByIdRequest, opts ...grpc.CallOption) (*QueryKeyByIdResponse, error)
 	// List all finalized keys (paginated)
 	AllKeys(ctx context.Context, in *QueryAllKeysRequest, opts ...grpc.CallOption) (*QueryAllKeysResponse, error)
+	// Get a single TSS event by auto-increment ID
+	GetTssEvent(ctx context.Context, in *QueryGetTssEventRequest, opts ...grpc.CallOption) (*QueryGetTssEventResponse, error)
+	// Get a single pending TSS event by process ID
+	GetPendingTssEvent(ctx context.Context, in *QueryGetPendingTssEventRequest, opts ...grpc.CallOption) (*QueryGetPendingTssEventResponse, error)
+	// List all pending TSS events (paginated)
+	AllPendingTssEvents(ctx context.Context, in *QueryAllPendingTssEventsRequest, opts ...grpc.CallOption) (*QueryAllPendingTssEventsResponse, error)
+	// List all TSS events (paginated)
+	AllTssEvents(ctx context.Context, in *QueryAllTssEventsRequest, opts ...grpc.CallOption) (*QueryAllTssEventsResponse, error)
+	// Get a fund migration by ID
+	GetFundMigration(ctx context.Context, in *QueryGetFundMigrationRequest, opts ...grpc.CallOption) (*QueryGetFundMigrationResponse, error)
+	// List pending fund migrations
+	PendingFundMigrations(ctx context.Context, in *QueryPendingFundMigrationsRequest, opts ...grpc.CallOption) (*QueryPendingFundMigrationsResponse, error)
+	// List all fund migrations (paginated)
+	AllFundMigrations(ctx context.Context, in *QueryAllFundMigrationsRequest, opts ...grpc.CallOption) (*QueryAllFundMigrationsResponse, error)
 }
 
 type queryClient struct {
@@ -119,6 +140,69 @@ func (c *queryClient) AllKeys(ctx context.Context, in *QueryAllKeysRequest, opts
 	return out, nil
 }
 
+func (c *queryClient) GetTssEvent(ctx context.Context, in *QueryGetTssEventRequest, opts ...grpc.CallOption) (*QueryGetTssEventResponse, error) {
+	out := new(QueryGetTssEventResponse)
+	err := c.cc.Invoke(ctx, Query_GetTssEvent_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) GetPendingTssEvent(ctx context.Context, in *QueryGetPendingTssEventRequest, opts ...grpc.CallOption) (*QueryGetPendingTssEventResponse, error) {
+	out := new(QueryGetPendingTssEventResponse)
+	err := c.cc.Invoke(ctx, Query_GetPendingTssEvent_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) AllPendingTssEvents(ctx context.Context, in *QueryAllPendingTssEventsRequest, opts ...grpc.CallOption) (*QueryAllPendingTssEventsResponse, error) {
+	out := new(QueryAllPendingTssEventsResponse)
+	err := c.cc.Invoke(ctx, Query_AllPendingTssEvents_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) AllTssEvents(ctx context.Context, in *QueryAllTssEventsRequest, opts ...grpc.CallOption) (*QueryAllTssEventsResponse, error) {
+	out := new(QueryAllTssEventsResponse)
+	err := c.cc.Invoke(ctx, Query_AllTssEvents_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) GetFundMigration(ctx context.Context, in *QueryGetFundMigrationRequest, opts ...grpc.CallOption) (*QueryGetFundMigrationResponse, error) {
+	out := new(QueryGetFundMigrationResponse)
+	err := c.cc.Invoke(ctx, Query_GetFundMigration_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) PendingFundMigrations(ctx context.Context, in *QueryPendingFundMigrationsRequest, opts ...grpc.CallOption) (*QueryPendingFundMigrationsResponse, error) {
+	out := new(QueryPendingFundMigrationsResponse)
+	err := c.cc.Invoke(ctx, Query_PendingFundMigrations_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) AllFundMigrations(ctx context.Context, in *QueryAllFundMigrationsRequest, opts ...grpc.CallOption) (*QueryAllFundMigrationsResponse, error) {
+	out := new(QueryAllFundMigrationsResponse)
+	err := c.cc.Invoke(ctx, Query_AllFundMigrations_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // QueryServer is the server API for Query service.
 // All implementations must embed UnimplementedQueryServer
 // for forward compatibility
@@ -137,6 +221,20 @@ type QueryServer interface {
 	KeyById(context.Context, *QueryKeyByIdRequest) (*QueryKeyByIdResponse, error)
 	// List all finalized keys (paginated)
 	AllKeys(context.Context, *QueryAllKeysRequest) (*QueryAllKeysResponse, error)
+	// Get a single TSS event by auto-increment ID
+	GetTssEvent(context.Context, *QueryGetTssEventRequest) (*QueryGetTssEventResponse, error)
+	// Get a single pending TSS event by process ID
+	GetPendingTssEvent(context.Context, *QueryGetPendingTssEventRequest) (*QueryGetPendingTssEventResponse, error)
+	// List all pending TSS events (paginated)
+	AllPendingTssEvents(context.Context, *QueryAllPendingTssEventsRequest) (*QueryAllPendingTssEventsResponse, error)
+	// List all TSS events (paginated)
+	AllTssEvents(context.Context, *QueryAllTssEventsRequest) (*QueryAllTssEventsResponse, error)
+	// Get a fund migration by ID
+	GetFundMigration(context.Context, *QueryGetFundMigrationRequest) (*QueryGetFundMigrationResponse, error)
+	// List pending fund migrations
+	PendingFundMigrations(context.Context, *QueryPendingFundMigrationsRequest) (*QueryPendingFundMigrationsResponse, error)
+	// List all fund migrations (paginated)
+	AllFundMigrations(context.Context, *QueryAllFundMigrationsRequest) (*QueryAllFundMigrationsResponse, error)
 	mustEmbedUnimplementedQueryServer()
 }
 
@@ -164,6 +262,27 @@ func (UnimplementedQueryServer) KeyById(context.Context, *QueryKeyByIdRequest) (
 }
 func (UnimplementedQueryServer) AllKeys(context.Context, *QueryAllKeysRequest) (*QueryAllKeysResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AllKeys not implemented")
+}
+func (UnimplementedQueryServer) GetTssEvent(context.Context, *QueryGetTssEventRequest) (*QueryGetTssEventResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetTssEvent not implemented")
+}
+func (UnimplementedQueryServer) GetPendingTssEvent(context.Context, *QueryGetPendingTssEventRequest) (*QueryGetPendingTssEventResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetPendingTssEvent not implemented")
+}
+func (UnimplementedQueryServer) AllPendingTssEvents(context.Context, *QueryAllPendingTssEventsRequest) (*QueryAllPendingTssEventsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AllPendingTssEvents not implemented")
+}
+func (UnimplementedQueryServer) AllTssEvents(context.Context, *QueryAllTssEventsRequest) (*QueryAllTssEventsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AllTssEvents not implemented")
+}
+func (UnimplementedQueryServer) GetFundMigration(context.Context, *QueryGetFundMigrationRequest) (*QueryGetFundMigrationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetFundMigration not implemented")
+}
+func (UnimplementedQueryServer) PendingFundMigrations(context.Context, *QueryPendingFundMigrationsRequest) (*QueryPendingFundMigrationsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PendingFundMigrations not implemented")
+}
+func (UnimplementedQueryServer) AllFundMigrations(context.Context, *QueryAllFundMigrationsRequest) (*QueryAllFundMigrationsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AllFundMigrations not implemented")
 }
 func (UnimplementedQueryServer) mustEmbedUnimplementedQueryServer() {}
 
@@ -304,6 +423,132 @@ func _Query_AllKeys_Handler(srv interface{}, ctx context.Context, dec func(inter
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Query_GetTssEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryGetTssEventRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).GetTssEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_GetTssEvent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).GetTssEvent(ctx, req.(*QueryGetTssEventRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_GetPendingTssEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryGetPendingTssEventRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).GetPendingTssEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_GetPendingTssEvent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).GetPendingTssEvent(ctx, req.(*QueryGetPendingTssEventRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_AllPendingTssEvents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryAllPendingTssEventsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).AllPendingTssEvents(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_AllPendingTssEvents_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).AllPendingTssEvents(ctx, req.(*QueryAllPendingTssEventsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_AllTssEvents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryAllTssEventsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).AllTssEvents(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_AllTssEvents_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).AllTssEvents(ctx, req.(*QueryAllTssEventsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_GetFundMigration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryGetFundMigrationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).GetFundMigration(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_GetFundMigration_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).GetFundMigration(ctx, req.(*QueryGetFundMigrationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_PendingFundMigrations_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryPendingFundMigrationsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).PendingFundMigrations(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_PendingFundMigrations_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).PendingFundMigrations(ctx, req.(*QueryPendingFundMigrationsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_AllFundMigrations_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryAllFundMigrationsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).AllFundMigrations(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_AllFundMigrations_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).AllFundMigrations(ctx, req.(*QueryAllFundMigrationsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Query_ServiceDesc is the grpc.ServiceDesc for Query service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -338,6 +583,34 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AllKeys",
 			Handler:    _Query_AllKeys_Handler,
+		},
+		{
+			MethodName: "GetTssEvent",
+			Handler:    _Query_GetTssEvent_Handler,
+		},
+		{
+			MethodName: "GetPendingTssEvent",
+			Handler:    _Query_GetPendingTssEvent_Handler,
+		},
+		{
+			MethodName: "AllPendingTssEvents",
+			Handler:    _Query_AllPendingTssEvents_Handler,
+		},
+		{
+			MethodName: "AllTssEvents",
+			Handler:    _Query_AllTssEvents_Handler,
+		},
+		{
+			MethodName: "GetFundMigration",
+			Handler:    _Query_GetFundMigration_Handler,
+		},
+		{
+			MethodName: "PendingFundMigrations",
+			Handler:    _Query_PendingFundMigrations_Handler,
+		},
+		{
+			MethodName: "AllFundMigrations",
+			Handler:    _Query_AllFundMigrations_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -33,6 +33,9 @@ var (
 
 	ChainMetaKey   = collections.NewPrefix(6)
 	ChainMetasName = "chain_metas"
+
+	PendingOutboundsKey  = collections.NewPrefix(7)
+	PendingOutboundsName = "pending_outbounds"
 )
 
 const (

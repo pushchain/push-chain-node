@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/libp2p/go-libp2p/core/crypto"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
 	"github.com/pushchain/push-chain-node/universalClient/chains"
@@ -123,6 +122,7 @@ type Node struct {
 	pushSigner *pushsigner.Signer // Optional - nil if voting disabled
 
 	// Internal state
+	ctx          context.Context
 	mu           sync.RWMutex
 	running      bool
 	stopCh       chan struct{}
@@ -275,9 +275,10 @@ func (n *Node) Start(ctx context.Context) error {
 	n.mu.Lock()
 	if n.running {
 		n.mu.Unlock()
-		return errors.New("node is already running")
+		return fmt.Errorf("node is already running")
 	}
 	n.running = true
+	n.ctx = ctx
 	n.mu.Unlock()
 
 	n.logger.Info().Msg("starting TSS node")
@@ -419,7 +420,7 @@ func (n *Node) Stop() error {
 // If the peer is not registered, it will automatically register it from validators before sending.
 func (n *Node) Send(ctx context.Context, peerID string, data []byte) error {
 	if n.network == nil {
-		return errors.New("network not initialized")
+		return fmt.Errorf("network not initialized")
 	}
 
 	// If sending to self, call onReceive directly
@@ -436,20 +437,20 @@ func (n *Node) Send(ctx context.Context, peerID string, data []byte) error {
 	// If not registered, register it using coordinator
 	if !isRegistered {
 		if n.coordinator == nil {
-			return errors.New("coordinator not initialized")
+			return fmt.Errorf("coordinator not initialized")
 		}
 
 		multiaddrs, err := n.coordinator.GetMultiAddrsFromPeerID(ctx, peerID)
 		if err != nil {
-			return errors.Wrapf(err, "failed to get multiaddrs for peer %s", peerID)
+			return fmt.Errorf("failed to get multiaddrs for peer %s: %w", peerID, err)
 		}
 
 		if len(multiaddrs) == 0 {
-			return errors.Errorf("peer %s has no addresses", peerID)
+			return fmt.Errorf("peer %s has no addresses", peerID)
 		}
 
 		if err := n.network.EnsurePeer(peerID, multiaddrs); err != nil {
-			return errors.Wrapf(err, "failed to register peer %s", peerID)
+			return fmt.Errorf("failed to register peer %s: %w", peerID, err)
 		}
 
 		// Mark as registered
@@ -470,7 +471,7 @@ func (n *Node) Send(ctx context.Context, peerID string, data []byte) error {
 // onReceive handles incoming messages from p2p network.
 // It passes raw data directly to sessionManager.
 func (n *Node) onReceive(peerID string, data []byte) {
-	ctx := context.Background()
+	ctx := n.ctx
 
 	// Unmarshal to check message type
 	var msg coordinator.Message
@@ -502,7 +503,7 @@ func (n *Node) onReceive(peerID string, data []byte) {
 // This allows coordinator to track ACKs even when it's not a participant.
 func (n *Node) HandleACKMessage(ctx context.Context, senderPeerID string, msg *coordinator.Message) error {
 	if n.coordinator == nil {
-		return errors.New("coordinator not initialized")
+		return fmt.Errorf("coordinator not initialized")
 	}
 
 	// Forward ACK to coordinator for tracking

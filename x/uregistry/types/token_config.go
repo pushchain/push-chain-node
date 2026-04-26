@@ -48,6 +48,9 @@ func (p TokenConfig) ValidateBasic() error {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "liquidity_cap cannot be empty")
 	}
 
+	if p.NativeRepresentation == nil {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "native_representation is required")
+	}
 	if err := p.NativeRepresentation.ValidateBasic(); err != nil {
 		return errors.Wrap(err, "invalid native representation")
 	}

@@ -94,6 +94,7 @@ func (rc *RPCClient) executeWithFailover(ctx context.Context, operation string, 
 	}
 
 	maxAttempts := len(clients)
+	startIndex := atomic.AddUint64(&rc.index, 1) - 1
 	var lastErr error
 	for attempt := 0; attempt < maxAttempts; attempt++ {
 		if ctx != nil {
@@ -104,8 +105,7 @@ func (rc *RPCClient) executeWithFailover(ctx context.Context, operation string, 
 			}
 		}
 
-		index := atomic.AddUint64(&rc.index, 1) - 1
-		client := clients[index%uint64(len(clients))]
+		client := clients[(startIndex+uint64(attempt))%uint64(len(clients))]
 
 		if client == nil {
 			continue
@@ -166,6 +166,19 @@ func (rc *RPCClient) GetGasPrice(ctx context.Context) (*big.Int, error) {
 		return innerErr
 	})
 	return gasPrice, err
+}
+
+// GetBalance fetches the native token balance for an address at the latest block.
+func (rc *RPCClient) GetBalance(ctx context.Context, address ethcommon.Address) (*big.Int, error) {
+	var balance *big.Int
+	err := rc.executeWithFailover(ctx, "get_balance", func(client *ethclient.Client) error {
+		callCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+		var innerErr error
+		balance, innerErr = client.BalanceAt(callCtx, address, nil)
+		return innerErr
+	})
+	return balance, err
 }
 
 // FilterLogs fetches logs matching the filter query

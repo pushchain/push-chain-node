@@ -461,7 +461,7 @@ func TestInboundZeroAmountGasAndPayload(t *testing.T) {
 		require.Equal(t, "SUCCESS", deployPcTx.Status, "UEA deploy PCTx should succeed even with zero amount")
 	})
 
-	t.Run("zero amount rejected for FUNDS type", func(t *testing.T) {
+	t.Run("zero amount for FUNDS type: vote succeeds, UTX has failed PCTx with revert outbound", func(t *testing.T) {
 		chainApp, ctx, vals, coreVals, _ := setupZeroAmountInboundTest(t, 4)
 		usdcAddress := utils.GetDefaultAddresses().ExternalUSDCAddr
 		testAddress := utils.GetDefaultAddresses().DefaultTestAddr
@@ -477,16 +477,29 @@ func TestInboundZeroAmountGasAndPayload(t *testing.T) {
 			TxType:      uexecutortypes.TxType_FUNDS,
 		}
 
-		valAddr, err := sdk.ValAddressFromBech32(coreVals[0].OperatorAddress)
-		require.NoError(t, err)
-		coreValAcc := sdk.AccAddress(valAddr).String()
+		// Vote from all validators to finalize the ballot
+		for i := 0; i < 3; i++ {
+			valAddr, err := sdk.ValAddressFromBech32(coreVals[i].OperatorAddress)
+			require.NoError(t, err)
+			coreValAcc := sdk.AccAddress(valAddr).String()
+			err = utils.ExecVoteInbound(t, ctx, chainApp, vals[i], coreValAcc, inbound)
+			require.NoError(t, err, "vote should succeed — validation failure is recorded on UTX, not as a vote error")
+		}
 
-		err = utils.ExecVoteInbound(t, ctx, chainApp, vals[0], coreValAcc, inbound)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "amount must be positive for this tx type")
+		// UTX should exist with a failed PCTx
+		utxKey := uexecutortypes.GetInboundUniversalTxKey(*inbound)
+		utx, found, err := chainApp.UexecutorKeeper.GetUniversalTx(ctx, utxKey)
+		require.NoError(t, err)
+		require.True(t, found, "UTX should be created even when execution validation fails")
+		require.NotEmpty(t, utx.PcTx, "UTX should have a failed PCTx")
+		require.Equal(t, "FAILED", utx.PcTx[0].Status)
+		require.Contains(t, utx.PcTx[0].ErrorMsg, "amount must be positive for this tx type")
+		// Non-isCEA should also have a revert outbound
+		require.NotEmpty(t, utx.OutboundTx, "UTX should have a revert outbound for non-isCEA")
+		require.Equal(t, uexecutortypes.TxType_INBOUND_REVERT, utx.OutboundTx[0].TxType)
 	})
 
-	t.Run("zero amount rejected for GAS type", func(t *testing.T) {
+	t.Run("zero amount for GAS type: vote succeeds, UTX has failed PCTx with revert outbound", func(t *testing.T) {
 		chainApp, ctx, vals, coreVals, _ := setupZeroAmountInboundTest(t, 4)
 		usdcAddress := utils.GetDefaultAddresses().ExternalUSDCAddr
 		testAddress := utils.GetDefaultAddresses().DefaultTestAddr
@@ -502,12 +515,25 @@ func TestInboundZeroAmountGasAndPayload(t *testing.T) {
 			TxType:      uexecutortypes.TxType_GAS,
 		}
 
-		valAddr, err := sdk.ValAddressFromBech32(coreVals[0].OperatorAddress)
-		require.NoError(t, err)
-		coreValAcc := sdk.AccAddress(valAddr).String()
+		// Vote from all validators to finalize the ballot
+		for i := 0; i < 3; i++ {
+			valAddr, err := sdk.ValAddressFromBech32(coreVals[i].OperatorAddress)
+			require.NoError(t, err)
+			coreValAcc := sdk.AccAddress(valAddr).String()
+			err = utils.ExecVoteInbound(t, ctx, chainApp, vals[i], coreValAcc, inbound)
+			require.NoError(t, err, "vote should succeed — validation failure is recorded on UTX, not as a vote error")
+		}
 
-		err = utils.ExecVoteInbound(t, ctx, chainApp, vals[0], coreValAcc, inbound)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "amount must be positive for this tx type")
+		// UTX should exist with a failed PCTx
+		utxKey := uexecutortypes.GetInboundUniversalTxKey(*inbound)
+		utx, found, err := chainApp.UexecutorKeeper.GetUniversalTx(ctx, utxKey)
+		require.NoError(t, err)
+		require.True(t, found, "UTX should be created even when execution validation fails")
+		require.NotEmpty(t, utx.PcTx, "UTX should have a failed PCTx")
+		require.Equal(t, "FAILED", utx.PcTx[0].Status)
+		require.Contains(t, utx.PcTx[0].ErrorMsg, "amount must be positive for this tx type")
+		// Non-isCEA should also have a revert outbound
+		require.NotEmpty(t, utx.OutboundTx, "UTX should have a revert outbound for non-isCEA")
+		require.Equal(t, uexecutortypes.TxType_INBOUND_REVERT, utx.OutboundTx[0].TxType)
 	})
 }

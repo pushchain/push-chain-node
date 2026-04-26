@@ -10,49 +10,40 @@ import (
 )
 
 func TestNewUniversalClient(t *testing.T) {
-	t.Run("fails with nil config", func(t *testing.T) {
-		ctx := context.Background()
-
-		client, err := NewUniversalClient(ctx, nil)
+	t.Run("nil config", func(t *testing.T) {
+		client, err := NewUniversalClient(context.Background(), nil)
 		require.Error(t, err)
 		assert.Nil(t, client)
-		assert.Contains(t, err.Error(), "Config is nil")
+		assert.Contains(t, err.Error(), "config is nil")
 	})
 
-	t.Run("fails with empty PushChainGRPCURLs", func(t *testing.T) {
-		ctx := context.Background()
+	t.Run("empty valoper address", func(t *testing.T) {
+		cfg := &config.Config{
+			PushChainGRPCURLs: []string{"localhost:9090"},
+			LogLevel:          1,
+			LogFormat:         "console",
+		}
 
+		client, err := NewUniversalClient(context.Background(), cfg)
+		require.Error(t, err)
+		assert.Nil(t, client)
+		assert.Contains(t, err.Error(), "push_valoper_address is required")
+	})
+
+	t.Run("empty gRPC URLs", func(t *testing.T) {
 		cfg := &config.Config{
 			PushChainGRPCURLs: []string{},
 			LogLevel:          1,
 			LogFormat:         "console",
 		}
 
-		client, err := NewUniversalClient(ctx, cfg)
+		client, err := NewUniversalClient(context.Background(), cfg)
 		require.Error(t, err)
 		assert.Nil(t, client)
-		assert.Contains(t, err.Error(), "failed to create pushcore client")
 		assert.Contains(t, err.Error(), "at least one gRPC URL is required")
 	})
 
-	t.Run("fails with nil PushChainGRPCURLs", func(t *testing.T) {
-		ctx := context.Background()
-
-		cfg := &config.Config{
-			PushChainGRPCURLs: nil,
-			LogLevel:          1,
-			LogFormat:         "console",
-		}
-
-		client, err := NewUniversalClient(ctx, cfg)
-		require.Error(t, err)
-		assert.Nil(t, client)
-		assert.Contains(t, err.Error(), "failed to create pushcore client")
-	})
-
-	t.Run("fails with invalid valoper address", func(t *testing.T) {
-		ctx := context.Background()
-
+	t.Run("invalid valoper address", func(t *testing.T) {
 		cfg := &config.Config{
 			PushChainGRPCURLs:  []string{"localhost:9090"},
 			PushValoperAddress: "invalid-valoper-address",
@@ -60,26 +51,28 @@ func TestNewUniversalClient(t *testing.T) {
 			LogFormat:          "console",
 		}
 
-		client, err := NewUniversalClient(ctx, cfg)
+		client, err := NewUniversalClient(context.Background(), cfg)
 		require.Error(t, err)
 		assert.Nil(t, client)
 		assert.Contains(t, err.Error(), "failed to parse valoper address")
 	})
 }
 
-func TestUniversalClientStruct(t *testing.T) {
-	t.Run("struct has expected fields", func(t *testing.T) {
-		// Verify the UniversalClient struct has all expected fields
-		uc := &UniversalClient{}
-		assert.Nil(t, uc.ctx)
-		assert.Nil(t, uc.config)
-		assert.Nil(t, uc.queryServer)
-		assert.Nil(t, uc.pushCore)
-		assert.Nil(t, uc.pushSigner)
-		assert.Nil(t, uc.chains)
-		assert.Nil(t, uc.tssNode)
+func TestValoperToAccountAddr(t *testing.T) {
+	t.Run("empty valoper returns error", func(t *testing.T) {
+		_, err := valoperToAccountAddr("")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "push_valoper_address is required")
+	})
+
+	t.Run("invalid valoper returns error", func(t *testing.T) {
+		_, err := valoperToAccountAddr("garbage")
+		require.Error(t, err)
 	})
 }
 
-// Note: Factory tests removed as OutboundTxBuilderFactory has been replaced
-// with direct chain client access via Chains.GetClient() and ChainClient.GetTxBuilder()
+func TestSanitizeForFilename(t *testing.T) {
+	assert.Equal(t, "eip155_1", sanitizeForFilename("eip155:1"))
+	assert.Equal(t, "push_42101-1", sanitizeForFilename("push_42101-1"))
+	assert.Equal(t, "solana_EtWTRABZaYq6", sanitizeForFilename("solana:EtWTRABZaYq6"))
+}

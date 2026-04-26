@@ -7,6 +7,8 @@ import (
 
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
+	"github.com/ethereum/go-ethereum/common"
 	pchaintypes "github.com/pushchain/push-chain-node/types"
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
@@ -19,6 +21,12 @@ import (
 func (k Keeper) DeductAndBurnFees(ctx context.Context, from sdk.AccAddress, gasCost *big.Int) error {
 	amt := sdkmath.NewIntFromBigInt(gasCost)
 	coin := sdk.NewCoin(pchaintypes.BaseDenom, amt)
+
+	k.Logger().Debug("deducting and burning fees",
+		"from", from.String(),
+		"gas_cost", gasCost.String(),
+		"denom", pchaintypes.BaseDenom,
+	)
 
 	err := k.bankKeeper.SendCoinsFromAccountToModule(ctx, from, types.ModuleName, sdk.NewCoins(coin))
 	if err != nil {
@@ -43,7 +51,12 @@ func (k Keeper) CalculateGasCost(
 	gasUsed uint64,
 ) (*big.Int, error) {
 	baseFeeBig := baseFee.BigInt()
-	// @dev: baseFeeBig returns 1e18 for 1upc base fee
+	// @dev: LegacyDec stores values with 18-decimal precision internally, so 1 upc = 1e18
+	// in the LegacyDec representation. Since 1 upc is the smallest denomination (like wei
+	// in Ethereum), the base fee is always a whole number of upc -- no fractional upc exists.
+	// This division unwraps the LegacyDec encoding back to the actual upc amount.
+	// Note: baseFee.BigInt() returns a reference to the internal big.Int; the in-place Div
+	// mutates it, which is safe here since baseFee is a local value-type copy.
 	baseFeeBig.Div(baseFeeBig, big.NewInt(1e18))
 
 	// Step 1: Validate maxFeePerGas >= baseFee
@@ -67,5 +80,69 @@ func (k Keeper) CalculateGasCost(
 	gasUsedBig := new(big.Int).SetUint64(gasUsed)
 	gasCost := new(big.Int).Mul(effectiveGasPrice, gasUsedBig)
 
+	k.Logger().Debug("gas cost calculated",
+		"base_fee", baseFee.String(),
+		"effective_gas_price", effectiveGasPrice.String(),
+		"gas_used", gasUsed,
+		"gas_cost", gasCost.String(),
+	)
+
 	return gasCost, nil
+}
+
+// DeductGasFeesFromReceipt calculates and deducts gas fees from a recipient address
+// based on the EVM receipt and universal payload parameters.
+// Returns nil if receipt is nil (Go-level error, no EVM tx was created).
+// Returns error with gas details if deduction fails (insufficient balance, etc).
+func (k Keeper) DeductGasFeesFromReceipt(
+	ctx context.Context,
+	sdkCtx sdk.Context,
+	recipient common.Address,
+	receipt *evmtypes.MsgEthereumTxResponse,
+	universalPayload *types.UniversalPayload,
+) error {
+	if receipt == nil || receipt.GasUsed == 0 {
+		return nil
+	}
+	if universalPayload == nil {
+		return nil
+	}
+
+	abiPayload, err := types.NewAbiUniversalPayload(universalPayload)
+	if err != nil {
+		return fmt.Errorf("failed to parse payload for gas deduction: %w", err)
+	}
+
+	baseFee := k.feemarketKeeper.GetBaseFee(sdkCtx)
+	if baseFee.IsNil() {
+		return fmt.Errorf("base fee not found")
+	}
+
+	gasCost, err := k.CalculateGasCost(baseFee, abiPayload.MaxFeePerGas, abiPayload.MaxPriorityFeePerGas, receipt.GasUsed)
+	if err != nil {
+		return fmt.Errorf("failed to calculate gas cost: %w", err)
+	}
+	if gasCost.Sign() <= 0 {
+		return nil
+	}
+
+	gasUsedBig := new(big.Int).SetUint64(receipt.GasUsed)
+	if gasUsedBig.Cmp(abiPayload.GasLimit) > 0 {
+		return fmt.Errorf("gas used (%d) exceeds gas limit (%s)", receipt.GasUsed, abiPayload.GasLimit.String())
+	}
+
+	recipientAccAddr := sdk.AccAddress(recipient.Bytes())
+	balance := k.bankKeeper.GetBalance(sdkCtx, recipientAccAddr, pchaintypes.BaseDenom)
+
+	if err := k.DeductAndBurnFees(ctx, recipientAccAddr, gasCost); err != nil {
+		return fmt.Errorf("insufficient gas: required %s upc, available %s upc, gas_used %d, from %s: %w",
+			gasCost.String(), balance.Amount.String(), receipt.GasUsed, recipient.Hex(), err)
+	}
+
+	k.Logger().Debug("gas fees deducted",
+		"recipient", recipient.Hex(),
+		"gas_used", receipt.GasUsed,
+		"gas_cost", gasCost.String(),
+	)
+	return nil
 }

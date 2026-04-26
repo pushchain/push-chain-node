@@ -17,9 +17,20 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 	ueModuleAccAddress, ueModuleAddressStr := k.GetUeModuleAddress(ctx)
 	universalTxKey := types.GetInboundUniversalTxKey(*utx.InboundTx)
 
+	k.Logger().Info("execute inbound gas and payload",
+		"utx_key", universalTxKey,
+		"source_chain", utx.InboundTx.SourceChain,
+		"amount", utx.InboundTx.Amount,
+		"is_cea", utx.InboundTx.IsCEA,
+	)
+
+	chainNamespace, chainId, err := types.ParseCAIP2(utx.InboundTx.SourceChain)
+	if err != nil {
+		return fmt.Errorf("invalid SourceChain: %w", err)
+	}
 	universalAccountId := types.UniversalAccountId{
-		ChainNamespace: strings.Split(utx.InboundTx.SourceChain, ":")[0],
-		ChainId:        strings.Split(utx.InboundTx.SourceChain, ":")[1],
+		ChainNamespace: chainNamespace,
+		ChainId:        chainId,
 		Owner:          utx.InboundTx.Sender,
 	}
 
@@ -29,7 +40,6 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 	var receipt *evmtypes.MsgEthereumTxResponse
 	var ueaAddr common.Address
 	var isSmartContract bool
-	payloadSender := utx.InboundTx.Sender // default: inbound sender; overridden to UEA owner for CEA
 
 	shouldRevert := false
 	var revertReason string
@@ -59,12 +69,10 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 				} else {
 					ueaAddr = common.HexToAddress(utx.InboundTx.Recipient)
 
-					origin, isUEA, ueaCheckErr := k.CallFactoryGetOriginForUEA(sdkCtx, ueModuleAccAddress, factoryAddress, ueaAddr)
+					_, isUEA, ueaCheckErr := k.CallFactoryGetOriginForUEA(sdkCtx, ueModuleAccAddress, factoryAddress, ueaAddr)
 					if ueaCheckErr != nil {
 						execErr = fmt.Errorf("failed to verify UEA: %w", ueaCheckErr)
 					} else if isUEA {
-						// Use UEA owner as sender for payload hash verification
-						payloadSender = origin.Owner
 						// UEA path: deposit + autoswap into the UEA (if amount > 0), then execute payload via UEA
 						if amount.Sign() > 0 {
 							prc20AddrHex := common.HexToAddress(tokenConfig.NativeRepresentation.ContractAddress)
@@ -74,8 +82,12 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 							}
 						}
 					} else {
-						// Non-UEA path (smart contract or EOA): deposit + autoswap and call executeUniversalTx
-						isSmartContract = true
+						// Non-UEA: check if recipient has code (smart contract) vs EOA
+						codeHash := k.evmKeeper.GetCodeHash(sdkCtx, ueaAddr)
+						if codeHash != types.EmptyCodeHash && codeHash != (common.Hash{}) {
+							isSmartContract = true
+						}
+						// EOA: just deposit, skip executeUniversalTx
 						if amount.Sign() > 0 {
 							prc20AddrHex := common.HexToAddress(tokenConfig.NativeRepresentation.ContractAddress)
 							receipt, execErr = k.gasAndPayloadDepositAutoSwap(sdkCtx, prc20AddrHex, ueaAddr, amount)
@@ -102,6 +114,11 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 					ueaAddr = ueaAddrRes
 
 					if !isDeployed {
+						k.Logger().Info("UEA not deployed, deploying now",
+							"utx_key", universalTxKey,
+							"source_chain", utx.InboundTx.SourceChain,
+							"sender", utx.InboundTx.Sender,
+						)
 						deployReceipt, dErr := k.DeployUEAV2(ctx, ueModuleAccAddress, &universalAccountId)
 						if dErr != nil {
 							execErr = fmt.Errorf("DeployUEAV2 failed: %w", dErr)
@@ -117,10 +134,12 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 								GasUsed:     deployReceipt.GasUsed,
 								Status:      "SUCCESS",
 							}
-							_ = k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
+							if updateErr := k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
 								utx.PcTx = append(utx.PcTx, &deployPcTx)
 								return nil
-							})
+							}); updateErr != nil {
+								return updateErr
+							}
 						}
 					}
 
@@ -139,6 +158,7 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 	}
 
 	// --- record deposit attempt (only if amount > 0 or there was an error)
+	// Amount is already validated in ValidateForExecution before reaching here
 	depositAmount := new(big.Int)
 	depositAmount.SetString(utx.InboundTx.Amount, 10)
 	if depositAmount.Sign() > 0 || execErr != nil {
@@ -147,19 +167,19 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 			BlockHeight: uint64(sdkCtx.BlockHeight()),
 			Status:      "FAILED",
 		}
+		// Capture tx hash from receipt even on EVM revert for debugging.
+		if receipt != nil {
+			depositPcTx.TxHash = receipt.Hash
+			depositPcTx.GasUsed = receipt.GasUsed
+		}
 		if execErr != nil {
 			depositPcTx.ErrorMsg = execErr.Error()
 		} else {
-			depositPcTx.TxHash = receipt.Hash
-			depositPcTx.GasUsed = receipt.GasUsed
 			depositPcTx.Status = "SUCCESS"
 		}
 
 		updateErr := k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
 			utx.PcTx = append(utx.PcTx, &depositPcTx)
-			if execErr != nil {
-
-			}
 			return nil
 		})
 		if updateErr != nil {
@@ -169,28 +189,21 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 
 	// --- create revert ONLY for pre-deposit / deposit failures (non-isCEA path)
 	if execErr != nil && shouldRevert {
-		revertOutbound := &types.OutboundTx{
-			DestinationChain: utx.InboundTx.SourceChain,
-			Recipient: func() string {
-				if utx.InboundTx.RevertInstructions != nil {
-					return utx.InboundTx.RevertInstructions.FundRecipient
-				}
-				return utx.InboundTx.Sender
-			}(),
-			Amount:            utx.InboundTx.Amount,
-			ExternalAssetAddr: utx.InboundTx.AssetAddr,
-			Sender:            utx.InboundTx.Sender,
-			TxType:            types.TxType_INBOUND_REVERT,
-			OutboundStatus:    types.Status_PENDING,
-			Id:                types.GetOutboundRevertId(utx.InboundTx.SourceChain, utx.InboundTx.TxHash),
-		}
+		revertOutbound := k.buildRevertOutbound(sdkCtx, utx.InboundTx)
 
-		_ = k.attachOutboundsToUtx(
+		if attachErr := k.attachOutboundsToUtx(
 			sdkCtx,
 			universalTxKey,
 			[]*types.OutboundTx{revertOutbound},
 			revertReason,
-		)
+		); attachErr != nil {
+			if storeErr := k.UpdateUniversalTx(sdkCtx, universalTxKey, func(u *types.UniversalTx) error {
+				u.RevertError = attachErr.Error()
+				return nil
+			}); storeErr != nil {
+				return storeErr
+			}
+		}
 
 		return nil
 	}
@@ -233,17 +246,27 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 			BlockHeight: uint64(sdkCtx.BlockHeight()),
 			Status:      "FAILED",
 		}
-		if contractErr != nil {
-			callPcTx.ErrorMsg = contractErr.Error()
-		} else {
+		if contractReceipt != nil {
 			callPcTx.TxHash = contractReceipt.Hash
 			callPcTx.GasUsed = contractReceipt.GasUsed
-			callPcTx.Status = "SUCCESS"
 		}
-		_ = k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
+		if contractErr != nil {
+			callPcTx.ErrorMsg = contractErr.Error()
+		} else if contractReceipt != nil {
+			// Deduct gas fees from the recipient contract address
+			if feeErr := k.DeductGasFeesFromReceipt(ctx, sdkCtx, ueaAddr, contractReceipt, utx.InboundTx.UniversalPayload); feeErr != nil {
+				callPcTx.Status = "FAILED"
+				callPcTx.ErrorMsg = fmt.Sprintf("gas fee deduction failed: %s", feeErr.Error())
+			} else {
+				callPcTx.Status = "SUCCESS"
+			}
+		}
+		if updateErr := k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
 			utx.PcTx = append(utx.PcTx, &callPcTx)
 			return nil
-		})
+		}); updateErr != nil {
+			return updateErr
+		}
 		return nil
 	}
 
@@ -251,24 +274,8 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 
 	ueModuleAddr, _ := k.GetUeModuleAddress(ctx)
 
-	// --- Step 6: payload hash
-	payloadHashErr := k.StoreVerifiedPayloadHash(sdkCtx, utx, ueaAddr, ueModuleAddr, payloadSender)
-	if payloadHashErr != nil {
-		errorPcTx := types.PCTx{
-			Sender:      ueModuleAddressStr,
-			BlockHeight: uint64(sdkCtx.BlockHeight()),
-			Status:      "FAILED",
-			ErrorMsg:    fmt.Sprintf("payload hash failed: %v", payloadHashErr),
-		}
-		_ = k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
-			utx.PcTx = append(utx.PcTx, &errorPcTx)
-
-			return nil
-		})
-		return nil
-	}
-
-	// --- Step 7: execute payload
+	// --- Step 6: execute payload
+	k.Logger().Debug("executing payload via UEA (gas+payload)", "utx_key", universalTxKey, "uea", ueaAddr.Hex())
 	receipt, err = k.ExecutePayloadV2(
 		ctx,
 		ueModuleAddr,
@@ -282,25 +289,39 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 		BlockHeight: uint64(sdkCtx.BlockHeight()),
 		Status:      "FAILED",
 	}
-	if err != nil {
-		payloadPcTx.ErrorMsg = err.Error()
-	} else {
+	// Capture tx hash from receipt even on EVM revert for debugging.
+	if receipt != nil {
 		payloadPcTx.TxHash = receipt.Hash
 		payloadPcTx.GasUsed = receipt.GasUsed
+	}
+	if err != nil {
+		k.Logger().Warn("payload execution failed (gas+payload)",
+			"utx_key", universalTxKey,
+			"uea", ueaAddr.Hex(),
+			"error", err.Error(),
+		)
+		payloadPcTx.ErrorMsg = err.Error()
+	} else if receipt != nil {
+		k.Logger().Info("payload executed successfully (gas+payload)",
+			"utx_key", universalTxKey,
+			"uea", ueaAddr.Hex(),
+			"tx_hash", receipt.Hash,
+			"gas_used", receipt.GasUsed,
+		)
 		payloadPcTx.Status = "SUCCESS"
 
-		if receipt != nil {
-			_ = k.AttachOutboundsToExistingUniversalTx(sdkCtx, receipt, utx)
+		if attachErr := k.AttachOutboundsToExistingUniversalTx(sdkCtx, receipt, utx); attachErr != nil {
+			if storeErr := k.UpdateUniversalTx(sdkCtx, universalTxKey, func(u *types.UniversalTx) error {
+				u.RevertError = attachErr.Error()
+				return nil
+			}); storeErr != nil {
+				return storeErr
+			}
 		}
 	}
 
 	updateErr := k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
 		utx.PcTx = append(utx.PcTx, &payloadPcTx)
-		if err != nil {
-
-		} else {
-
-		}
 		return nil
 	})
 	if updateErr != nil {

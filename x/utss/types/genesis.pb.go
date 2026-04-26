@@ -24,17 +24,194 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
+// TssKeyProcessEntry is a key-value pair for exporting ProcessHistory map state.
+type TssKeyProcessEntry struct {
+	Key   uint64        `protobuf:"varint,1,opt,name=key,proto3" json:"key,omitempty"`
+	Value TssKeyProcess `protobuf:"bytes,2,opt,name=value,proto3" json:"value"`
+}
+
+func (m *TssKeyProcessEntry) Reset()         { *m = TssKeyProcessEntry{} }
+func (m *TssKeyProcessEntry) String() string { return proto.CompactTextString(m) }
+func (*TssKeyProcessEntry) ProtoMessage()    {}
+func (*TssKeyProcessEntry) Descriptor() ([]byte, []int) {
+	return fileDescriptor_340c354866cd9772, []int{0}
+}
+func (m *TssKeyProcessEntry) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *TssKeyProcessEntry) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_TssKeyProcessEntry.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *TssKeyProcessEntry) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TssKeyProcessEntry.Merge(m, src)
+}
+func (m *TssKeyProcessEntry) XXX_Size() int {
+	return m.Size()
+}
+func (m *TssKeyProcessEntry) XXX_DiscardUnknown() {
+	xxx_messageInfo_TssKeyProcessEntry.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_TssKeyProcessEntry proto.InternalMessageInfo
+
+func (m *TssKeyProcessEntry) GetKey() uint64 {
+	if m != nil {
+		return m.Key
+	}
+	return 0
+}
+
+func (m *TssKeyProcessEntry) GetValue() TssKeyProcess {
+	if m != nil {
+		return m.Value
+	}
+	return TssKeyProcess{}
+}
+
+// TssKeyEntry is a key-value pair for exporting TssKeyHistory map state.
+type TssKeyEntry struct {
+	Key   string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Value TssKey `protobuf:"bytes,2,opt,name=value,proto3" json:"value"`
+}
+
+func (m *TssKeyEntry) Reset()         { *m = TssKeyEntry{} }
+func (m *TssKeyEntry) String() string { return proto.CompactTextString(m) }
+func (*TssKeyEntry) ProtoMessage()    {}
+func (*TssKeyEntry) Descriptor() ([]byte, []int) {
+	return fileDescriptor_340c354866cd9772, []int{1}
+}
+func (m *TssKeyEntry) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *TssKeyEntry) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_TssKeyEntry.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *TssKeyEntry) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TssKeyEntry.Merge(m, src)
+}
+func (m *TssKeyEntry) XXX_Size() int {
+	return m.Size()
+}
+func (m *TssKeyEntry) XXX_DiscardUnknown() {
+	xxx_messageInfo_TssKeyEntry.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_TssKeyEntry proto.InternalMessageInfo
+
+func (m *TssKeyEntry) GetKey() string {
+	if m != nil {
+		return m.Key
+	}
+	return ""
+}
+
+func (m *TssKeyEntry) GetValue() TssKey {
+	if m != nil {
+		return m.Value
+	}
+	return TssKey{}
+}
+
+// FundMigrationEntry is a key-value pair for exporting FundMigrations map state.
+type FundMigrationEntry struct {
+	Key   uint64        `protobuf:"varint,1,opt,name=key,proto3" json:"key,omitempty"`
+	Value FundMigration `protobuf:"bytes,2,opt,name=value,proto3" json:"value"`
+}
+
+func (m *FundMigrationEntry) Reset()         { *m = FundMigrationEntry{} }
+func (m *FundMigrationEntry) String() string { return proto.CompactTextString(m) }
+func (*FundMigrationEntry) ProtoMessage()    {}
+func (*FundMigrationEntry) Descriptor() ([]byte, []int) {
+	return fileDescriptor_340c354866cd9772, []int{2}
+}
+func (m *FundMigrationEntry) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *FundMigrationEntry) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_FundMigrationEntry.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *FundMigrationEntry) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FundMigrationEntry.Merge(m, src)
+}
+func (m *FundMigrationEntry) XXX_Size() int {
+	return m.Size()
+}
+func (m *FundMigrationEntry) XXX_DiscardUnknown() {
+	xxx_messageInfo_FundMigrationEntry.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_FundMigrationEntry proto.InternalMessageInfo
+
+func (m *FundMigrationEntry) GetKey() uint64 {
+	if m != nil {
+		return m.Key
+	}
+	return 0
+}
+
+func (m *FundMigrationEntry) GetValue() FundMigration {
+	if m != nil {
+		return m.Value
+	}
+	return FundMigration{}
+}
+
 // GenesisState defines the module genesis state
 type GenesisState struct {
 	// Params defines all the parameters of the module.
 	Params Params `protobuf:"bytes,1,opt,name=params,proto3" json:"params"`
+	// current_tss_process is the current/active TSS process (optional, may not exist).
+	CurrentTssProcess *TssKeyProcess `protobuf:"bytes,2,opt,name=current_tss_process,json=currentTssProcess,proto3" json:"current_tss_process,omitempty"`
+	// process_history are key-value pairs from the ProcessHistory Map.
+	ProcessHistory []TssKeyProcessEntry `protobuf:"bytes,3,rep,name=process_history,json=processHistory,proto3" json:"process_history"`
+	// current_tss_key is the currently active finalized TSS key (optional).
+	CurrentTssKey *TssKey `protobuf:"bytes,4,opt,name=current_tss_key,json=currentTssKey,proto3" json:"current_tss_key,omitempty"`
+	// tss_key_history are key-value pairs from the TssKeyHistory Map.
+	TssKeyHistory []TssKeyEntry `protobuf:"bytes,5,rep,name=tss_key_history,json=tssKeyHistory,proto3" json:"tss_key_history"`
+	// next_process_id is the next process ID from the NextProcessId Sequence.
+	NextProcessId uint64 `protobuf:"varint,6,opt,name=next_process_id,json=nextProcessId,proto3" json:"next_process_id,omitempty"`
+	// tss_events are entries from the TssEvents store.
+	TssEvents []TssEvent `protobuf:"bytes,7,rep,name=tss_events,json=tssEvents,proto3" json:"tss_events"`
+	// next_tss_event_id is the next auto-increment ID for TssEvents.
+	NextTssEventId uint64 `protobuf:"varint,8,opt,name=next_tss_event_id,json=nextTssEventId,proto3" json:"next_tss_event_id,omitempty"`
+	// fund_migrations are entries from the FundMigrations store.
+	FundMigrations []FundMigrationEntry `protobuf:"bytes,9,rep,name=fund_migrations,json=fundMigrations,proto3" json:"fund_migrations"`
+	// next_migration_id is the next auto-increment ID for FundMigrations.
+	NextMigrationId uint64 `protobuf:"varint,10,opt,name=next_migration_id,json=nextMigrationId,proto3" json:"next_migration_id,omitempty"`
 }
 
 func (m *GenesisState) Reset()         { *m = GenesisState{} }
 func (m *GenesisState) String() string { return proto.CompactTextString(m) }
 func (*GenesisState) ProtoMessage()    {}
 func (*GenesisState) Descriptor() ([]byte, []int) {
-	return fileDescriptor_340c354866cd9772, []int{0}
+	return fileDescriptor_340c354866cd9772, []int{3}
 }
 func (m *GenesisState) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -70,27 +247,228 @@ func (m *GenesisState) GetParams() Params {
 	return Params{}
 }
 
+func (m *GenesisState) GetCurrentTssProcess() *TssKeyProcess {
+	if m != nil {
+		return m.CurrentTssProcess
+	}
+	return nil
+}
+
+func (m *GenesisState) GetProcessHistory() []TssKeyProcessEntry {
+	if m != nil {
+		return m.ProcessHistory
+	}
+	return nil
+}
+
+func (m *GenesisState) GetCurrentTssKey() *TssKey {
+	if m != nil {
+		return m.CurrentTssKey
+	}
+	return nil
+}
+
+func (m *GenesisState) GetTssKeyHistory() []TssKeyEntry {
+	if m != nil {
+		return m.TssKeyHistory
+	}
+	return nil
+}
+
+func (m *GenesisState) GetNextProcessId() uint64 {
+	if m != nil {
+		return m.NextProcessId
+	}
+	return 0
+}
+
+func (m *GenesisState) GetTssEvents() []TssEvent {
+	if m != nil {
+		return m.TssEvents
+	}
+	return nil
+}
+
+func (m *GenesisState) GetNextTssEventId() uint64 {
+	if m != nil {
+		return m.NextTssEventId
+	}
+	return 0
+}
+
+func (m *GenesisState) GetFundMigrations() []FundMigrationEntry {
+	if m != nil {
+		return m.FundMigrations
+	}
+	return nil
+}
+
+func (m *GenesisState) GetNextMigrationId() uint64 {
+	if m != nil {
+		return m.NextMigrationId
+	}
+	return 0
+}
+
 func init() {
+	proto.RegisterType((*TssKeyProcessEntry)(nil), "utss.v1.TssKeyProcessEntry")
+	proto.RegisterType((*TssKeyEntry)(nil), "utss.v1.TssKeyEntry")
+	proto.RegisterType((*FundMigrationEntry)(nil), "utss.v1.FundMigrationEntry")
 	proto.RegisterType((*GenesisState)(nil), "utss.v1.GenesisState")
 }
 
 func init() { proto.RegisterFile("utss/v1/genesis.proto", fileDescriptor_340c354866cd9772) }
 
 var fileDescriptor_340c354866cd9772 = []byte{
-	// 205 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x12, 0x2d, 0x2d, 0x29, 0x2e,
-	0xd6, 0x2f, 0x33, 0xd4, 0x4f, 0x4f, 0xcd, 0x4b, 0x2d, 0xce, 0x2c, 0xd6, 0x2b, 0x28, 0xca, 0x2f,
-	0xc9, 0x17, 0x62, 0x07, 0x09, 0xeb, 0x95, 0x19, 0x4a, 0x89, 0xa4, 0xe7, 0xa7, 0xe7, 0x83, 0xc5,
-	0xf4, 0x41, 0x2c, 0x88, 0xb4, 0x94, 0x60, 0x62, 0x6e, 0x66, 0x5e, 0xbe, 0x3e, 0x98, 0x84, 0x0a,
-	0x09, 0xc3, 0x0c, 0x2a, 0xa9, 0x2c, 0x48, 0x85, 0x1a, 0xa3, 0x64, 0xcb, 0xc5, 0xe3, 0x0e, 0x31,
-	0x37, 0xb8, 0x24, 0xb1, 0x24, 0x55, 0x48, 0x97, 0x8b, 0xad, 0x20, 0xb1, 0x28, 0x31, 0xb7, 0x58,
-	0x82, 0x51, 0x81, 0x51, 0x83, 0xdb, 0x88, 0x5f, 0x0f, 0x6a, 0x8f, 0x5e, 0x00, 0x58, 0xd8, 0x89,
-	0xe5, 0xc4, 0x3d, 0x79, 0x86, 0x20, 0xa8, 0x22, 0x27, 0xef, 0x13, 0x8f, 0xe4, 0x18, 0x2f, 0x3c,
-	0x92, 0x63, 0x7c, 0xf0, 0x48, 0x8e, 0x71, 0xc2, 0x63, 0x39, 0x86, 0x0b, 0x8f, 0xe5, 0x18, 0x6e,
-	0x3c, 0x96, 0x63, 0x88, 0x32, 0x4c, 0xcf, 0x2c, 0xc9, 0x28, 0x4d, 0xd2, 0x4b, 0xce, 0xcf, 0xd5,
-	0x2f, 0x28, 0x2d, 0xce, 0x48, 0xce, 0x48, 0xcc, 0xcc, 0x03, 0xb3, 0x74, 0xc1, 0x4c, 0xdd, 0xbc,
-	0xfc, 0x94, 0x54, 0xfd, 0x0a, 0x7d, 0xb0, 0xa3, 0xc0, 0x2e, 0x4a, 0x62, 0x03, 0x3b, 0xc9, 0x18,
-	0x10, 0x00, 0x00, 0xff, 0xff, 0xd2, 0xbf, 0xeb, 0x8f, 0xf2, 0x00, 0x00, 0x00,
+	// 503 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x53, 0x4f, 0x6f, 0x12, 0x41,
+	0x14, 0x67, 0x85, 0x52, 0x19, 0xa4, 0xc8, 0xb4, 0x9a, 0x4d, 0x4d, 0x56, 0xd2, 0x83, 0x41, 0x0d,
+	0xbb, 0x01, 0x13, 0xbd, 0x93, 0xb4, 0x8a, 0x68, 0xd2, 0x60, 0x4f, 0x5c, 0x36, 0x5b, 0x76, 0xba,
+	0x6c, 0x94, 0x99, 0xcd, 0xbe, 0x59, 0xd2, 0xfd, 0x16, 0x7e, 0xac, 0x1e, 0xeb, 0xcd, 0x93, 0x31,
+	0xf0, 0x45, 0xcc, 0xbc, 0x9d, 0xc5, 0x5d, 0xda, 0x98, 0x78, 0x21, 0x8f, 0xdf, 0x9b, 0xdf, 0x1f,
+	0x7e, 0xc3, 0x90, 0x27, 0x89, 0x04, 0x70, 0x56, 0x03, 0x27, 0x60, 0x9c, 0x41, 0x08, 0x76, 0x14,
+	0x0b, 0x29, 0xe8, 0xbe, 0x82, 0xed, 0xd5, 0xe0, 0xf8, 0x28, 0x10, 0x81, 0x40, 0xcc, 0x51, 0x53,
+	0xb6, 0x3e, 0xee, 0x78, 0xcb, 0x90, 0x0b, 0x07, 0x3f, 0x35, 0x74, 0x98, 0x0b, 0xc9, 0x34, 0x62,
+	0x5a, 0xe6, 0x64, 0x46, 0xe8, 0x05, 0xc0, 0x84, 0xa5, 0xe7, 0xb1, 0x98, 0x33, 0x80, 0x53, 0x2e,
+	0xe3, 0x94, 0x3e, 0x26, 0xd5, 0xaf, 0x2c, 0x35, 0x8d, 0xae, 0xd1, 0xab, 0x4d, 0xd5, 0x48, 0x87,
+	0x64, 0x6f, 0xe5, 0x7d, 0x4b, 0x98, 0xf9, 0xa0, 0x6b, 0xf4, 0x9a, 0xc3, 0xa7, 0xb6, 0xb6, 0xb7,
+	0x4b, 0xec, 0x51, 0xed, 0xe6, 0xd7, 0xf3, 0xca, 0x34, 0x3b, 0x7a, 0xf2, 0x89, 0x34, 0xb3, 0xed,
+	0x1d, 0xd1, 0x46, 0x26, 0xfa, 0xba, 0x2c, 0xda, 0xde, 0x11, 0x2d, 0xab, 0xcd, 0x08, 0x3d, 0x4b,
+	0xb8, 0xff, 0x39, 0x0c, 0x62, 0x4f, 0x86, 0x82, 0xff, 0x77, 0xd2, 0x12, 0xbb, 0xac, 0xfd, 0xa3,
+	0x46, 0x1e, 0xbd, 0xcf, 0xea, 0xfd, 0x22, 0x3d, 0xc9, 0x68, 0x9f, 0xd4, 0x23, 0x2f, 0xf6, 0x96,
+	0x80, 0xca, 0xc5, 0x68, 0xe7, 0x08, 0x6b, 0xba, 0x3e, 0x44, 0xcf, 0xc8, 0xe1, 0x3c, 0x89, 0x63,
+	0xc6, 0xa5, 0x2b, 0x01, 0xdc, 0x28, 0x6b, 0xe3, 0xdf, 0x5d, 0x4d, 0x3b, 0x9a, 0x72, 0x01, 0xa0,
+	0x21, 0xfa, 0x91, 0xb4, 0x35, 0xd7, 0x5d, 0x84, 0x20, 0x45, 0x9c, 0x9a, 0xd5, 0x6e, 0xb5, 0xd7,
+	0x1c, 0x3e, 0xbb, 0x5f, 0x03, 0x3b, 0xd0, 0x59, 0x0e, 0x34, 0xf3, 0x43, 0x46, 0xa4, 0xef, 0x48,
+	0xbb, 0x98, 0x49, 0xb5, 0x54, 0xbb, 0xb7, 0xe6, 0x69, 0xeb, 0x6f, 0x90, 0x09, 0x4b, 0xe9, 0x88,
+	0xb4, 0x35, 0x61, 0x1b, 0x62, 0x0f, 0x43, 0x1c, 0xed, 0x10, 0x8b, 0xee, 0x2d, 0x89, 0x50, 0x6e,
+	0xfe, 0x82, 0xb4, 0x39, 0xbb, 0x96, 0x79, 0x13, 0x6e, 0xe8, 0x9b, 0x75, 0xbc, 0xa2, 0x96, 0x82,
+	0x75, 0xfa, 0xb1, 0x4f, 0xdf, 0x12, 0xa2, 0xbc, 0xd8, 0x8a, 0x71, 0x09, 0xe6, 0x3e, 0xda, 0x74,
+	0x8a, 0x36, 0xa7, 0x6a, 0xa3, 0x3d, 0x1a, 0x52, 0x7f, 0x07, 0xfa, 0x92, 0x74, 0x50, 0x7f, 0x4b,
+	0x56, 0x0e, 0x0f, 0xd1, 0xe1, 0x40, 0x2d, 0x72, 0xe6, 0xd8, 0x57, 0x9d, 0x5e, 0x25, 0xdc, 0x77,
+	0x97, 0xf9, 0xd5, 0x83, 0xd9, 0xd8, 0xe9, 0xf4, 0xee, 0xff, 0x2a, 0xef, 0xf4, 0xaa, 0xb8, 0x01,
+	0xfa, 0x4a, 0xdb, 0x6e, 0xb5, 0x94, 0x2d, 0x41, 0x5b, 0xfc, 0xbd, 0xdb, 0xa3, 0x63, 0x7f, 0x34,
+	0xb9, 0x59, 0x5b, 0xc6, 0xed, 0xda, 0x32, 0x7e, 0xaf, 0x2d, 0xe3, 0xfb, 0xc6, 0xaa, 0xdc, 0x6e,
+	0xac, 0xca, 0xcf, 0x8d, 0x55, 0x99, 0x0d, 0x82, 0x50, 0x2e, 0x92, 0x4b, 0x7b, 0x2e, 0x96, 0x4e,
+	0x94, 0xc0, 0x62, 0xbe, 0xf0, 0x42, 0x8e, 0x53, 0x1f, 0xc7, 0x3e, 0x17, 0x3e, 0x73, 0xae, 0x1d,
+	0x7c, 0xaf, 0xf8, 0x58, 0x2f, 0xeb, 0xf8, 0x5a, 0xdf, 0xfc, 0x09, 0x00, 0x00, 0xff, 0xff, 0x0b,
+	0xa7, 0x20, 0xa2, 0x0d, 0x04, 0x00, 0x00,
+}
+
+func (m *TssKeyProcessEntry) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *TssKeyProcessEntry) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TssKeyProcessEntry) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	{
+		size, err := m.Value.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintGenesis(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0x12
+	if m.Key != 0 {
+		i = encodeVarintGenesis(dAtA, i, uint64(m.Key))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *TssKeyEntry) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *TssKeyEntry) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TssKeyEntry) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	{
+		size, err := m.Value.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintGenesis(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0x12
+	if len(m.Key) > 0 {
+		i -= len(m.Key)
+		copy(dAtA[i:], m.Key)
+		i = encodeVarintGenesis(dAtA, i, uint64(len(m.Key)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *FundMigrationEntry) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *FundMigrationEntry) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *FundMigrationEntry) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	{
+		size, err := m.Value.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintGenesis(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0x12
+	if m.Key != 0 {
+		i = encodeVarintGenesis(dAtA, i, uint64(m.Key))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *GenesisState) Marshal() (dAtA []byte, err error) {
@@ -113,6 +491,101 @@ func (m *GenesisState) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
+	if m.NextMigrationId != 0 {
+		i = encodeVarintGenesis(dAtA, i, uint64(m.NextMigrationId))
+		i--
+		dAtA[i] = 0x50
+	}
+	if len(m.FundMigrations) > 0 {
+		for iNdEx := len(m.FundMigrations) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.FundMigrations[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintGenesis(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x4a
+		}
+	}
+	if m.NextTssEventId != 0 {
+		i = encodeVarintGenesis(dAtA, i, uint64(m.NextTssEventId))
+		i--
+		dAtA[i] = 0x40
+	}
+	if len(m.TssEvents) > 0 {
+		for iNdEx := len(m.TssEvents) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.TssEvents[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintGenesis(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x3a
+		}
+	}
+	if m.NextProcessId != 0 {
+		i = encodeVarintGenesis(dAtA, i, uint64(m.NextProcessId))
+		i--
+		dAtA[i] = 0x30
+	}
+	if len(m.TssKeyHistory) > 0 {
+		for iNdEx := len(m.TssKeyHistory) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.TssKeyHistory[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintGenesis(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x2a
+		}
+	}
+	if m.CurrentTssKey != nil {
+		{
+			size, err := m.CurrentTssKey.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintGenesis(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x22
+	}
+	if len(m.ProcessHistory) > 0 {
+		for iNdEx := len(m.ProcessHistory) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.ProcessHistory[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintGenesis(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x1a
+		}
+	}
+	if m.CurrentTssProcess != nil {
+		{
+			size, err := m.CurrentTssProcess.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintGenesis(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
 	{
 		size, err := m.Params.MarshalToSizedBuffer(dAtA[:i])
 		if err != nil {
@@ -137,6 +610,49 @@ func encodeVarintGenesis(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return base
 }
+func (m *TssKeyProcessEntry) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Key != 0 {
+		n += 1 + sovGenesis(uint64(m.Key))
+	}
+	l = m.Value.Size()
+	n += 1 + l + sovGenesis(uint64(l))
+	return n
+}
+
+func (m *TssKeyEntry) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Key)
+	if l > 0 {
+		n += 1 + l + sovGenesis(uint64(l))
+	}
+	l = m.Value.Size()
+	n += 1 + l + sovGenesis(uint64(l))
+	return n
+}
+
+func (m *FundMigrationEntry) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Key != 0 {
+		n += 1 + sovGenesis(uint64(m.Key))
+	}
+	l = m.Value.Size()
+	n += 1 + l + sovGenesis(uint64(l))
+	return n
+}
+
 func (m *GenesisState) Size() (n int) {
 	if m == nil {
 		return 0
@@ -145,6 +661,47 @@ func (m *GenesisState) Size() (n int) {
 	_ = l
 	l = m.Params.Size()
 	n += 1 + l + sovGenesis(uint64(l))
+	if m.CurrentTssProcess != nil {
+		l = m.CurrentTssProcess.Size()
+		n += 1 + l + sovGenesis(uint64(l))
+	}
+	if len(m.ProcessHistory) > 0 {
+		for _, e := range m.ProcessHistory {
+			l = e.Size()
+			n += 1 + l + sovGenesis(uint64(l))
+		}
+	}
+	if m.CurrentTssKey != nil {
+		l = m.CurrentTssKey.Size()
+		n += 1 + l + sovGenesis(uint64(l))
+	}
+	if len(m.TssKeyHistory) > 0 {
+		for _, e := range m.TssKeyHistory {
+			l = e.Size()
+			n += 1 + l + sovGenesis(uint64(l))
+		}
+	}
+	if m.NextProcessId != 0 {
+		n += 1 + sovGenesis(uint64(m.NextProcessId))
+	}
+	if len(m.TssEvents) > 0 {
+		for _, e := range m.TssEvents {
+			l = e.Size()
+			n += 1 + l + sovGenesis(uint64(l))
+		}
+	}
+	if m.NextTssEventId != 0 {
+		n += 1 + sovGenesis(uint64(m.NextTssEventId))
+	}
+	if len(m.FundMigrations) > 0 {
+		for _, e := range m.FundMigrations {
+			l = e.Size()
+			n += 1 + l + sovGenesis(uint64(l))
+		}
+	}
+	if m.NextMigrationId != 0 {
+		n += 1 + sovGenesis(uint64(m.NextMigrationId))
+	}
 	return n
 }
 
@@ -153,6 +710,325 @@ func sovGenesis(x uint64) (n int) {
 }
 func sozGenesis(x uint64) (n int) {
 	return sovGenesis(uint64((x << 1) ^ uint64((int64(x) >> 63))))
+}
+func (m *TssKeyProcessEntry) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowGenesis
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: TssKeyProcessEntry: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: TssKeyProcessEntry: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Key", wireType)
+			}
+			m.Key = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Key |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Value", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.Value.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipGenesis(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *TssKeyEntry) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowGenesis
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: TssKeyEntry: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: TssKeyEntry: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Key", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Key = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Value", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.Value.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipGenesis(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *FundMigrationEntry) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowGenesis
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: FundMigrationEntry: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: FundMigrationEntry: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Key", wireType)
+			}
+			m.Key = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Key |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Value", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.Value.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipGenesis(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
 }
 func (m *GenesisState) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
@@ -216,6 +1092,271 @@ func (m *GenesisState) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CurrentTssProcess", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.CurrentTssProcess == nil {
+				m.CurrentTssProcess = &TssKeyProcess{}
+			}
+			if err := m.CurrentTssProcess.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ProcessHistory", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ProcessHistory = append(m.ProcessHistory, TssKeyProcessEntry{})
+			if err := m.ProcessHistory[len(m.ProcessHistory)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CurrentTssKey", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.CurrentTssKey == nil {
+				m.CurrentTssKey = &TssKey{}
+			}
+			if err := m.CurrentTssKey.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TssKeyHistory", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.TssKeyHistory = append(m.TssKeyHistory, TssKeyEntry{})
+			if err := m.TssKeyHistory[len(m.TssKeyHistory)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 6:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NextProcessId", wireType)
+			}
+			m.NextProcessId = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.NextProcessId |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 7:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TssEvents", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.TssEvents = append(m.TssEvents, TssEvent{})
+			if err := m.TssEvents[len(m.TssEvents)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 8:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NextTssEventId", wireType)
+			}
+			m.NextTssEventId = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.NextTssEventId |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 9:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field FundMigrations", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.FundMigrations = append(m.FundMigrations, FundMigrationEntry{})
+			if err := m.FundMigrations[len(m.FundMigrations)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 10:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NextMigrationId", wireType)
+			}
+			m.NextMigrationId = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.NextMigrationId |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
 		default:
 			iNdEx = preIndex
 			skippy, err := skipGenesis(dAtA[iNdEx:])

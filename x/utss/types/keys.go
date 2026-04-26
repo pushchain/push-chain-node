@@ -44,6 +44,43 @@ var (
 
 	// TssKeyHistoryName is the name of the TssKeyHistory collection.
 	TssKeyHistoryName = "tss_key_history"
+
+	// TssEventsKey saves the persistent TSS events.
+	TssEventsKey = collections.NewPrefix(6)
+
+	// TssEventsName is the name of the TssEvents collection.
+	TssEventsName = "tss_events"
+
+	// NextTssEventIdKey saves the auto-increment counter for TSS event IDs.
+	NextTssEventIdKey = collections.NewPrefix(7)
+
+	// NextTssEventIdName is the name of the NextTssEventId collection.
+	NextTssEventIdName = "next_tss_event_id"
+
+	// PendingTssEventsKey is a secondary index of TSS events with ACTIVE status.
+	// Key: process_id -> Value: TssEvent
+	PendingTssEventsKey = collections.NewPrefix(8)
+
+	// PendingTssEventsName is the name of the PendingTssEvents collection.
+	PendingTssEventsName = "pending_tss_events"
+
+	// FundMigrationsKey stores fund migration records.
+	FundMigrationsKey = collections.NewPrefix(9)
+
+	// FundMigrationsName is the name of the FundMigrations collection.
+	FundMigrationsName = "fund_migrations"
+
+	// NextMigrationIdKey saves the auto-increment counter for migration IDs.
+	NextMigrationIdKey = collections.NewPrefix(10)
+
+	// NextMigrationIdName is the name of the NextMigrationId collection.
+	NextMigrationIdName = "next_migration_id"
+
+	// PendingMigrationsKey is a secondary index of fund migrations with PENDING status.
+	PendingMigrationsKey = collections.NewPrefix(11)
+
+	// PendingMigrationsName is the name of the PendingMigrations collection.
+	PendingMigrationsName = "pending_migrations"
 )
 
 const (
@@ -56,6 +93,12 @@ const (
 
 func GetTssBallotKey(processId uint64, tssPubKey, keyId string) string {
 	canonical := fmt.Sprintf("%d:%s:%s", processId, tssPubKey, keyId)
+	h := sha256.Sum256([]byte(canonical))
+	return hex.EncodeToString(h[:])
+}
+
+func GetFundMigrationBallotKey(migrationId uint64, txHash string, success bool) string {
+	canonical := fmt.Sprintf("fm:%d:%s:%t", migrationId, txHash, success)
 	h := sha256.Sum256([]byte(canonical))
 	return hex.EncodeToString(h[:])
 }

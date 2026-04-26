@@ -1,6 +1,8 @@
 package keeper_test
 
 import (
+	"context"
+	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/suite"
@@ -33,6 +35,32 @@ import (
 
 	uvalidatorKeeper "github.com/pushchain/push-chain-node/x/uvalidator/keeper"
 )
+
+// mockURegistryKeeper implements types.URegistryKeeper for unit tests.
+type mockURegistryKeeper struct{}
+
+func (m mockURegistryKeeper) IsChainOutboundEnabled(_ context.Context, _ string) (bool, error) {
+	return false, nil
+}
+
+// mockUExecutorKeeper implements types.UExecutorKeeper for unit tests.
+type mockUExecutorKeeper struct{}
+
+func (m mockUExecutorKeeper) HasPendingOutboundsForChain(_ context.Context, _ string) (bool, error) {
+	return false, nil
+}
+
+func (m mockUExecutorKeeper) GetGasPriceByChain(_ sdk.Context, _ string) (*big.Int, error) {
+	return big.NewInt(1000000000), nil // 1 gwei
+}
+
+func (m mockUExecutorKeeper) GetL1GasFeeByChain(_ sdk.Context, _ string) (*big.Int, error) {
+	return big.NewInt(0), nil
+}
+
+func (m mockUExecutorKeeper) GetTssFundMigrationGasLimitByChain(_ sdk.Context, _ string) (*big.Int, error) {
+	return big.NewInt(21000), nil
+}
 
 var maccPerms = map[string][]string{
 	authtypes.FeeCollectorName:     nil,
@@ -88,7 +116,7 @@ func SetupTest(t *testing.T) *testFixture {
 	registerBaseSDKModules(logger, f, encCfg, keys, accountAddressCodec, validatorAddressCodec, consensusAddressCodec)
 
 	// Setup Keeper.
-	f.k = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(keys[types.ModuleName]), logger, f.govModAddr, &uvalidatorKeeper.Keeper{})
+	f.k = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(keys[types.ModuleName]), logger, f.govModAddr, &uvalidatorKeeper.Keeper{}, mockURegistryKeeper{}, mockUExecutorKeeper{})
 	f.msgServer = keeper.NewMsgServerImpl(f.k)
 	f.queryServer = keeper.NewQuerier(f.k)
 	f.appModule = module.NewAppModule(encCfg.Codec, f.k, &uvalidatorKeeper.Keeper{})

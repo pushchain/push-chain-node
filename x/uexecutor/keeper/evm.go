@@ -117,6 +117,13 @@ func (k Keeper) CallFactoryToDeployUEA(
 	from, factoryAddr common.Address,
 	universalAccount *types.UniversalAccountId,
 ) (*evmtypes.MsgEthereumTxResponse, error) {
+	k.Logger().Debug("EVM call: deployUEA",
+		"factory", factoryAddr.Hex(),
+		"chain_namespace", universalAccount.ChainNamespace,
+		"chain_id", universalAccount.ChainId,
+		"owner", universalAccount.Owner,
+	)
+
 	abi, err := types.ParseFactoryABI()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse factory ABI")
@@ -126,8 +133,6 @@ func (k Keeper) CallFactoryToDeployUEA(
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create universal account")
 	}
-
-	fmt.Println("FROM: ", from)
 
 	return k.evmKeeper.DerivedEVMCall(
 		ctx,
@@ -179,7 +184,7 @@ func (k Keeper) CallUEAExecutePayload(
 		false, // gasless = false (@dev: we need gas to be emitted in the tx receipt)
 		false, // not a module sender
 		nil,
-		"executePayload",
+		"executeUniversalTx",
 		abiUniversalPayload,
 		verificationData,
 	)
@@ -381,6 +386,79 @@ func (k Keeper) CallUniversalCoreSetChainMeta(
 	)
 }
 
+// GetGasPriceByChain reads the gas price for a chain from the UniversalCore contract.
+func (k Keeper) GetGasPriceByChain(ctx sdk.Context, chainNamespace string) (*big.Int, error) {
+	handlerAddr := common.HexToAddress(uregistrytypes.SYSTEM_CONTRACTS["UNIVERSAL_CORE"].Address)
+
+	abi, err := types.ParseUniversalCoreABI()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse UniversalCore ABI")
+	}
+
+	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
+
+	receipt, err := k.evmKeeper.CallEVM(ctx, abi, ueModuleAccAddress, handlerAddr, false, "gasPriceByChainNamespace", chainNamespace)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to call gasPriceByChainNamespace")
+	}
+
+	results, err := abi.Methods["gasPriceByChainNamespace"].Outputs.Unpack(receipt.Ret)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to unpack gasPriceByChainNamespace result")
+	}
+
+	return results[0].(*big.Int), nil
+}
+
+// GetL1GasFeeByChain reads the L1 gas fee (in gas-token units) for a chain from UniversalCore.
+// This is the data-availability fee added on top of L2 execution for chains like Optimism/Base.
+func (k Keeper) GetL1GasFeeByChain(ctx sdk.Context, chainNamespace string) (*big.Int, error) {
+	handlerAddr := common.HexToAddress(uregistrytypes.SYSTEM_CONTRACTS["UNIVERSAL_CORE"].Address)
+
+	abi, err := types.ParseUniversalCoreABI()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse UniversalCore ABI")
+	}
+
+	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
+
+	receipt, err := k.evmKeeper.CallEVM(ctx, abi, ueModuleAccAddress, handlerAddr, false, "l1GasFeeByChainNamespace", chainNamespace)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to call l1GasFeeByChainNamespace")
+	}
+
+	results, err := abi.Methods["l1GasFeeByChainNamespace"].Outputs.Unpack(receipt.Ret)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to unpack l1GasFeeByChainNamespace result")
+	}
+
+	return results[0].(*big.Int), nil
+}
+
+// GetTssFundMigrationGasLimitByChain reads the TSS fund-migration gas limit for a chain from UniversalCore.
+func (k Keeper) GetTssFundMigrationGasLimitByChain(ctx sdk.Context, chainNamespace string) (*big.Int, error) {
+	handlerAddr := common.HexToAddress(uregistrytypes.SYSTEM_CONTRACTS["UNIVERSAL_CORE"].Address)
+
+	abi, err := types.ParseUniversalCoreABI()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse UniversalCore ABI")
+	}
+
+	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
+
+	receipt, err := k.evmKeeper.CallEVM(ctx, abi, ueModuleAccAddress, handlerAddr, false, "tssFundMigrationGasLimitByChainNamespace", chainNamespace)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to call tssFundMigrationGasLimitByChainNamespace")
+	}
+
+	results, err := abi.Methods["tssFundMigrationGasLimitByChainNamespace"].Outputs.Unpack(receipt.Ret)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to unpack tssFundMigrationGasLimitByChainNamespace result")
+	}
+
+	return results[0].(*big.Int), nil
+}
+
 // GetUniversalCoreQuoterAddress reads the uniswapV3Quoter address stored in UniversalCore.
 func (k Keeper) GetUniversalCoreQuoterAddress(ctx sdk.Context) (common.Address, error) {
 	handlerAddr := common.HexToAddress(uregistrytypes.SYSTEM_CONTRACTS["UNIVERSAL_CORE"].Address)
@@ -506,6 +584,13 @@ func (k Keeper) CallPRC20DepositAutoSwap(
 	prc20Address, to common.Address,
 	amount, fee, minPCOut *big.Int,
 ) (*evmtypes.MsgEthereumTxResponse, error) {
+	k.Logger().Debug("EVM call: depositPRC20WithAutoSwap",
+		"prc20", prc20Address.Hex(),
+		"recipient", to.Hex(),
+		"amount", amount.String(),
+		"fee", fee.String(),
+		"min_pc_out", minPCOut.String(),
+	)
 	handlerAddr := common.HexToAddress(uregistrytypes.SYSTEM_CONTRACTS["UNIVERSAL_CORE"].Address)
 
 	abi, err := types.ParseUniversalCoreABI()
@@ -645,4 +730,3 @@ func (k Keeper) CallExecuteUniversalTx(
 		txId,
 	)
 }
-

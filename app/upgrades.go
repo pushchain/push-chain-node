@@ -6,8 +6,16 @@ import (
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 
 	"github.com/pushchain/push-chain-node/app/upgrades"
-	chainmeta "github.com/pushchain/push-chain-node/app/upgrades/chain-meta"
+	aiauditfixes "github.com/pushchain/push-chain-node/app/upgrades/ai-audit-fixes"
+	aiauditfixes2 "github.com/pushchain/push-chain-node/app/upgrades/ai-audit-fixes-2"
+	purgeexpiredoutbounds "github.com/pushchain/push-chain-node/app/upgrades/purge-expired-outbounds"
+	removeutxverifier "github.com/pushchain/push-chain-node/app/upgrades/remove-utxverifier"
+	tssfundmigrationfixes "github.com/pushchain/push-chain-node/app/upgrades/tss-fund-migration-fixes"
+	tssmigration "github.com/pushchain/push-chain-node/app/upgrades/tss-migration"
+	ueamigration "github.com/pushchain/push-chain-node/app/upgrades/uea-migration"
 	ceagasandpayload "github.com/pushchain/push-chain-node/app/upgrades/cea-gas-and-payload"
+	ceapayloadverificationfix "github.com/pushchain/push-chain-node/app/upgrades/cea-payload-verification-fix"
+	chainmeta "github.com/pushchain/push-chain-node/app/upgrades/chain-meta"
 	chainmetavotegasless "github.com/pushchain/push-chain-node/app/upgrades/chain-meta-vote-gasless"
 	ethhashfix "github.com/pushchain/push-chain-node/app/upgrades/eth-hash-fix"
 	evmrpcfix "github.com/pushchain/push-chain-node/app/upgrades/evm-rpc-fix"
@@ -49,6 +57,14 @@ var Upgrades = []upgrades.Upgrade{
 	chainmeta.NewUpgrade(),
 	chainmetavotegasless.NewUpgrade(),
 	ceagasandpayload.NewUpgrade(),
+	ceapayloadverificationfix.NewUpgrade(),
+	aiauditfixes.NewUpgrade(),
+	aiauditfixes2.NewUpgrade(),
+	ueamigration.NewUpgrade(),
+	tssmigration.NewUpgrade(),
+	purgeexpiredoutbounds.NewUpgrade(),
+	removeutxverifier.NewUpgrade(),
+	tssfundmigrationfixes.NewUpgrade(),
 }
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers
@@ -71,9 +87,9 @@ func (app *ChainApp) RegisterUpgradeHandlers() {
 
 		// Module keepers
 		UExecutorKeeper:   &app.UexecutorKeeper,
-		UTxVerifierKeeper: &app.UtxverifierKeeper,
 		URegistryKeeper:   &app.UregistryKeeper,
 		UValidatorKeeper:  &app.UvalidatorKeeper,
+		UTssKeeper:        &app.UtssKeeper,
 	}
 
 	// register all upgrade handlers

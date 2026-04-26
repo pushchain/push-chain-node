@@ -178,8 +178,8 @@ func (c *Client) GetConfig() *uregistrytypes.ChainConfig {
 	return c.registryConfig
 }
 
-// GetTxBuilder returns the OutboundTxBuilder for this chain
-func (c *Client) GetTxBuilder() (common.OutboundTxBuilder, error) {
+// GetTxBuilder returns the TxBuilder for this chain
+func (c *Client) GetTxBuilder() (common.TxBuilder, error) {
 	if c.txBuilder == nil {
 		return nil, fmt.Errorf("txBuilder not available for chain %s (gateway not configured)", c.chainIDStr)
 	}
@@ -201,21 +201,14 @@ func (c *Client) initializeComponents() error {
 			eventStartFrom = c.chainConfig.EventStartFrom
 		}
 
-		// Fetch vault address from gateway contract
+		// Fetch vault address from gateway contract - required for event listening and tx building
 		fetchCtx, fetchCancel := context.WithTimeout(c.ctx, 15*time.Second)
 		vaultAddr, err := FetchVaultAddress(fetchCtx, c.rpcClient, ethcommon.HexToAddress(c.registryConfig.GatewayAddress))
-		fetchTimedOut := fetchCtx.Err() == context.DeadlineExceeded
 		fetchCancel()
 		if err != nil {
-			// Only fail on RPC timeout; otherwise start with zero vault address
-			if fetchTimedOut {
-				return fmt.Errorf("failed to fetch vault address from gateway (RPC timeout): %w", err)
-			}
-			c.logger.Warn().Err(err).Msg("vault not available on gateway, starting with zero vault address")
-			vaultAddr = ethcommon.Address{}
-		} else {
-			c.logger.Info().Str("vault_address", vaultAddr.Hex()).Msg("vault address fetched from gateway")
+			return fmt.Errorf("failed to fetch vault address from gateway: %w", err)
 		}
+		c.logger.Info().Str("vault_address", vaultAddr.Hex()).Msg("vault address fetched from gateway")
 
 		eventListener, err := NewEventListener(
 			c.rpcClient,
@@ -275,6 +268,7 @@ func (c *Client) initializeComponents() error {
 			c.pushSigner,
 			c.chainIDStr,
 			config.gasPriceInterval,
+			config.gasPriceMarkupPercent,
 			c.logger,
 		)
 	}
@@ -334,6 +328,7 @@ func (c *Client) createRPCClient() error {
 type componentConfig struct {
 	eventPollingInterval  int
 	gasPriceInterval      int
+	gasPriceMarkupPercent int
 	fastConfirmations     uint64
 	standardConfirmations uint64
 }
@@ -355,6 +350,11 @@ func (c *Client) applyDefaults() componentConfig {
 	// Apply gas price interval
 	if c.chainConfig != nil && c.chainConfig.GasPriceIntervalSeconds != nil && *c.chainConfig.GasPriceIntervalSeconds > 0 {
 		config.gasPriceInterval = *c.chainConfig.GasPriceIntervalSeconds
+	}
+
+	// Apply gas price markup percent
+	if c.chainConfig != nil && c.chainConfig.GasPriceMarkupPercent != nil && *c.chainConfig.GasPriceMarkupPercent > 0 {
+		config.gasPriceMarkupPercent = *c.chainConfig.GasPriceMarkupPercent
 	}
 
 	// Apply confirmation requirements

@@ -15,8 +15,10 @@ func (k Keeper) AddPendingInbound(ctx context.Context, inbound types.Inbound) er
 	}
 	if has {
 		// Already present, do nothing
+		k.Logger().Debug("add pending inbound skipped: already present", "utx_key", key)
 		return nil
 	}
+	k.Logger().Debug("pending inbound added", "utx_key", key, "source_chain", inbound.SourceChain)
 	return k.PendingInbounds.Set(ctx, key)
 }
 
@@ -29,5 +31,6 @@ func (k Keeper) IsPendingInbound(ctx context.Context, inbound types.Inbound) (bo
 // RemovePendingInbound removes an inbound synthetic from the pending set
 func (k Keeper) RemovePendingInbound(ctx context.Context, inbound types.Inbound) error {
 	key := types.GetInboundUniversalTxKey(inbound)
+	k.Logger().Debug("pending inbound removed", "utx_key", key)
 	return k.PendingInbounds.Remove(ctx, key)
 }

@@ -6,9 +6,9 @@
   "decimals": 9,
   "enabled": true,
   "liquidity_cap": "1000000000000000000000000",
-  "token_type": 4,
+  "token_type": 4, 
   "native_representation": {
     "denom": "",
-    "contract_address": "0x31F3Dcb417970EBe9AC1e254Ee42b91e49e30EE2"
+    "contract_address": "0x5D525Df2bD99a6e7ec58b76aF2fd95F39874EBed"
   }
 }

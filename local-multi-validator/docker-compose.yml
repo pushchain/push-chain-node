@@ -221,8 +221,6 @@ services:
     ports:
       - "8080:8080"    # Query API
       - "39000:39000"  # TSS P2P
-    ulimits:
-      stack: -1
     volumes:
       - universal1-data:/root/.puniversal
       - ./scripts:/opt/scripts
@@ -233,17 +231,6 @@ services:
       - CORE_VALIDATOR_GRPC=core-validator-1:9090
       - QUERY_PORT=8080
       - TSS_ENABLED=true
-      - TESTING_ENV=${TESTING_ENV:-}
-      - SEPOLIA_RPC_URL_OVERRIDE=${SEPOLIA_RPC_URL_OVERRIDE:-}
-      - ARBITRUM_RPC_URL_OVERRIDE=${ARBITRUM_RPC_URL_OVERRIDE:-}
-      - BASE_RPC_URL_OVERRIDE=${BASE_RPC_URL_OVERRIDE:-}
-      - BSC_RPC_URL_OVERRIDE=${BSC_RPC_URL_OVERRIDE:-}
-      - SOLANA_RPC_URL_OVERRIDE=${SOLANA_RPC_URL_OVERRIDE:-}
-      - SEPOLIA_EVENT_START_FROM=${SEPOLIA_EVENT_START_FROM:-}
-      - BASE_EVENT_START_FROM=${BASE_EVENT_START_FROM:-}
-      - ARBITRUM_EVENT_START_FROM=${ARBITRUM_EVENT_START_FROM:-}
-      - BSC_EVENT_START_FROM=${BSC_EVENT_START_FROM:-}
-      - SOLANA_EVENT_START_FROM=${SOLANA_EVENT_START_FROM:-}
     command: ["/opt/scripts/setup-universal.sh"]
     depends_on:
       core-validator-1:
@@ -267,8 +254,6 @@ services:
     ports:
       - "8081:8080"    # Query API
       - "39001:39001"  # TSS P2P
-    ulimits:
-      stack: -1
     volumes:
       - universal2-data:/root/.puniversal
       - ./scripts:/opt/scripts
@@ -279,17 +264,6 @@ services:
       - CORE_VALIDATOR_GRPC=core-validator-2:9090
       - QUERY_PORT=8080
       - TSS_ENABLED=true
-      - TESTING_ENV=${TESTING_ENV:-}
-      - SEPOLIA_RPC_URL_OVERRIDE=${SEPOLIA_RPC_URL_OVERRIDE:-}
-      - ARBITRUM_RPC_URL_OVERRIDE=${ARBITRUM_RPC_URL_OVERRIDE:-}
-      - BASE_RPC_URL_OVERRIDE=${BASE_RPC_URL_OVERRIDE:-}
-      - BSC_RPC_URL_OVERRIDE=${BSC_RPC_URL_OVERRIDE:-}
-      - SOLANA_RPC_URL_OVERRIDE=${SOLANA_RPC_URL_OVERRIDE:-}
-      - SEPOLIA_EVENT_START_FROM=${SEPOLIA_EVENT_START_FROM:-}
-      - BASE_EVENT_START_FROM=${BASE_EVENT_START_FROM:-}
-      - ARBITRUM_EVENT_START_FROM=${ARBITRUM_EVENT_START_FROM:-}
-      - BSC_EVENT_START_FROM=${BSC_EVENT_START_FROM:-}
-      - SOLANA_EVENT_START_FROM=${SOLANA_EVENT_START_FROM:-}
     command: ["/opt/scripts/setup-universal.sh"]
     depends_on:
       core-validator-2:
@@ -313,8 +287,6 @@ services:
     ports:
       - "8082:8080"    # Query API
       - "39002:39002"  # TSS P2P
-    ulimits:
-      stack: -1
     volumes:
       - universal3-data:/root/.puniversal
       - ./scripts:/opt/scripts
@@ -325,17 +297,6 @@ services:
       - CORE_VALIDATOR_GRPC=core-validator-3:9090
       - QUERY_PORT=8080
       - TSS_ENABLED=true
-      - TESTING_ENV=${TESTING_ENV:-}
-      - SEPOLIA_RPC_URL_OVERRIDE=${SEPOLIA_RPC_URL_OVERRIDE:-}
-      - ARBITRUM_RPC_URL_OVERRIDE=${ARBITRUM_RPC_URL_OVERRIDE:-}
-      - BASE_RPC_URL_OVERRIDE=${BASE_RPC_URL_OVERRIDE:-}
-      - BSC_RPC_URL_OVERRIDE=${BSC_RPC_URL_OVERRIDE:-}
-      - SOLANA_RPC_URL_OVERRIDE=${SOLANA_RPC_URL_OVERRIDE:-}
-      - SEPOLIA_EVENT_START_FROM=${SEPOLIA_EVENT_START_FROM:-}
-      - BASE_EVENT_START_FROM=${BASE_EVENT_START_FROM:-}
-      - ARBITRUM_EVENT_START_FROM=${ARBITRUM_EVENT_START_FROM:-}
-      - BSC_EVENT_START_FROM=${BSC_EVENT_START_FROM:-}
-      - SOLANA_EVENT_START_FROM=${SOLANA_EVENT_START_FROM:-}
     command: ["/opt/scripts/setup-universal.sh"]
     depends_on:
       core-validator-3:
@@ -359,8 +320,6 @@ services:
     ports:
       - "8083:8080"    # Query API
       - "39003:39003"  # TSS P2P
-    ulimits:
-      stack: -1
     volumes:
       - universal4-data:/root/.puniversal
       - ./scripts:/opt/scripts
@@ -371,17 +330,6 @@ services:
       - CORE_VALIDATOR_GRPC=core-validator-4:9090
       - QUERY_PORT=8080
       - TSS_ENABLED=true
-      - TESTING_ENV=${TESTING_ENV:-}
-      - SEPOLIA_RPC_URL_OVERRIDE=${SEPOLIA_RPC_URL_OVERRIDE:-}
-      - ARBITRUM_RPC_URL_OVERRIDE=${ARBITRUM_RPC_URL_OVERRIDE:-}
-      - BASE_RPC_URL_OVERRIDE=${BASE_RPC_URL_OVERRIDE:-}
-      - BSC_RPC_URL_OVERRIDE=${BSC_RPC_URL_OVERRIDE:-}
-      - SOLANA_RPC_URL_OVERRIDE=${SOLANA_RPC_URL_OVERRIDE:-}
-      - SEPOLIA_EVENT_START_FROM=${SEPOLIA_EVENT_START_FROM:-}
-      - BASE_EVENT_START_FROM=${BASE_EVENT_START_FROM:-}
-      - ARBITRUM_EVENT_START_FROM=${ARBITRUM_EVENT_START_FROM:-}
-      - BSC_EVENT_START_FROM=${BSC_EVENT_START_FROM:-}
-      - SOLANA_EVENT_START_FROM=${SOLANA_EVENT_START_FROM:-}
     command: ["/opt/scripts/setup-universal.sh"]
     depends_on:
       core-validator-4:

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"strings"
 	"sync"
 	"time"
 
@@ -86,7 +85,7 @@ func NewEventListener(
 			continue
 		}
 		switch method.Name {
-		case EventTypeFinalizeUniversalTx:
+		case EventTypeFinalizeUniversalTx, EventTypeFundsRescued:
 			topic := ethcommon.HexToHash(method.EventIdentifier)
 			eventTopics = append(eventTopics, topic)
 			topicToEventType[topic] = method.Name
@@ -232,7 +231,7 @@ func (el *EventListener) processBlockRange(
 	fromBlock, toBlock uint64,
 	topics []ethcommon.Hash,
 ) error {
-	const maxBlockRange uint64 = 9000 // Fast path for providers that allow large log windows
+	const maxBlockRange uint64 = 9000 // Safe under the 10000 RPC limit
 
 	currentFrom := fromBlock
 
@@ -253,8 +252,8 @@ func (el *EventListener) processBlockRange(
 				Msg("processing block chunk")
 		}
 
-		// Process chunk (auto-splits when provider enforces smaller block ranges)
-		if err := el.processBlockChunkWithAdaptiveRange(ctx, currentFrom, currentTo, topics); err != nil {
+		// Process chunk
+		if err := el.processBlockChunk(ctx, currentFrom, currentTo, topics); err != nil {
 			return fmt.Errorf("failed to process chunk %d-%d: %w", currentFrom, currentTo, err)
 		}
 
@@ -263,66 +262,6 @@ func (el *EventListener) processBlockRange(
 	}
 
 	return nil
-}
-
-// processBlockChunkWithAdaptiveRange processes a block range and recursively splits
-// it when the RPC provider rejects the query due to block range limits.
-func (el *EventListener) processBlockChunkWithAdaptiveRange(
-	ctx context.Context,
-	fromBlock, toBlock uint64,
-	topics []ethcommon.Hash,
-) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-
-	err := el.processBlockChunk(ctx, fromBlock, toBlock, topics)
-	if err == nil {
-		return nil
-	}
-
-	if !isBlockRangeLimitError(err) || fromBlock >= toBlock {
-		return err
-	}
-
-	mid := fromBlock + (toBlock-fromBlock)/2
-	el.logger.Warn().
-		Uint64("from_block", fromBlock).
-		Uint64("to_block", toBlock).
-		Uint64("split_left_to", mid).
-		Uint64("split_right_from", mid+1).
-		Msg("provider rejected log range, splitting chunk")
-
-	if err := el.processBlockChunkWithAdaptiveRange(ctx, fromBlock, mid, topics); err != nil {
-		return err
-	}
-
-	return el.processBlockChunkWithAdaptiveRange(ctx, mid+1, toBlock, topics)
-}
-
-func isBlockRangeLimitError(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	msg := strings.ToLower(err.Error())
-	indicators := []string{
-		"eth_getlogs requests with up to",
-		"block range should work",
-		"maximum block range",
-		"max block range",
-		"limit the query to",
-		"query returned more than",
-		"block range exceeded",
-	}
-
-	for _, indicator := range indicators {
-		if strings.Contains(msg, indicator) {
-			return true
-		}
-	}
-
-	return false
 }
 
 // processBlockChunk processes a single chunk of blocks
@@ -403,19 +342,6 @@ func (el *EventListener) getStartBlock(ctx context.Context) (uint64, error) {
 	// If no previous state or invalid, check config
 	if blockHeight == 0 {
 		return el.getStartBlockFromConfig(ctx)
-	}
-
-	// If config explicitly asks to start from a newer block than persisted state,
-	// prefer the config to avoid replaying very old ranges after environment resets.
-	if el.eventStartFrom != nil && *el.eventStartFrom >= 0 {
-		configuredStart := uint64(*el.eventStartFrom)
-		if configuredStart > blockHeight {
-			el.logger.Info().
-				Uint64("stored_block", blockHeight).
-				Uint64("configured_block", configuredStart).
-				Msg("configured EventStartFrom is ahead of stored state, starting from configured block")
-			return configuredStart, nil
-		}
 	}
 
 	el.logger.Info().

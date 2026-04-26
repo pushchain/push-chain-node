@@ -37,28 +37,6 @@ docker compose up --build
 - Auto-builds base image if missing (~15-20 min first time)
 - Pulls core/universal from cache or builds locally
 - Starts all 8 validators
-- Auto-sets `event_start_from` to latest height/slot for Sepolia, Base Sepolia, Arbitrum Sepolia, BSC testnet, and Solana devnet
-
-### Event Start Heights/Slots
-
-On `./devnet start`, the script fetches latest chain heights/slots and injects them into each universal validator config:
-
-- `chain_configs["eip155:11155111"].event_start_from = <latest block>`
-- `chain_configs["eip155:84532"].event_start_from = <latest block>`
-- `chain_configs["eip155:421614"].event_start_from = <latest block>`
-- `chain_configs["eip155:97"].event_start_from = <latest block>`
-- `chain_configs["solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"].event_start_from = <latest slot>`
-
-You can override any of them manually at startup:
-
-```bash
-SEPOLIA_EVENT_START_FROM=12345678 \
-BASE_EVENT_START_FROM=23456789 \
-ARBITRUM_EVENT_START_FROM=34567890 \
-BSC_EVENT_START_FROM=45678901 \
-SOLANA_EVENT_START_FROM=56789012 \
-./devnet start
-```
 
 ### I Changed Core Validator Code
 **Files:** `cmd/pchaind/`, `app/`, `x/` modules
@@ -154,16 +132,6 @@ docker compose up -d      # Start containers directly
 | `./devnet pull-cache` | Pull pre-built images from GCR |
 | `./devnet push-cache` | Push local images to GCR |
 | `./devnet refresh-cache` | Force rebuild and push to GCR |
-
-The `start` command also supports:
-
-| Environment Variable | Description |
-|----------------------|-------------|
-| `SEPOLIA_EVENT_START_FROM` | Force universal validators to start monitoring Sepolia from a specific block |
-| `BASE_EVENT_START_FROM` | Force universal validators to start monitoring Base Sepolia from a specific block |
-| `ARBITRUM_EVENT_START_FROM` | Force universal validators to start monitoring Arbitrum Sepolia from a specific block |
-| `BSC_EVENT_START_FROM` | Force universal validators to start monitoring BSC testnet from a specific block |
-| `SOLANA_EVENT_START_FROM` | Force universal validators to start monitoring Solana devnet from a specific slot |
 
 ## Endpoints
 

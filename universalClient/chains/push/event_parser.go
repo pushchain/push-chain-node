@@ -1,193 +1,143 @@
 package push
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"strconv"
 
-	abci "github.com/cometbft/cometbft/abci/types"
-	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 )
 
-// Event type constants
-const (
-	EventTypeTSSProcessInitiated = utsstypes.EventTypeTssProcessInitiated
-	EventTypeOutboundCreated     = uexecutortypes.EventTypeOutboundCreated
-)
-
-// TSS event attribute keys.
-const (
-	AttrKeyProcessID    = "process_id"
-	AttrKeyProcessType  = "process_type"
-	AttrKeyParticipants = "participants"
-	AttrKeyExpiryHeight = "expiry_height"
-)
-
-// TSS process type values as defined in the Push chain.
-const (
-	ChainProcessTypeKeygen       = "TSS_PROCESS_KEYGEN"
-	ChainProcessTypeRefresh      = "TSS_PROCESS_REFRESH"
-	ChainProcessTypeQuorumChange = "TSS_PROCESS_QUORUM_CHANGE"
-)
-
-// Outbound event attribute keys.
-const (
-	AttrKeyTxID             = "tx_id"
-	AttrKeyUniversalTxID    = "utx_id"
-	AttrKeyOutboundID       = "outbound_id"
-	AttrKeyDestinationChain = "destination_chain"
-	AttrKeyRecipient        = "recipient"
-	AttrKeyAmount           = "amount"
-	AttrKeyAssetAddr        = "asset_addr"
-	AttrKeySender           = "sender"
-	AttrKeyPayload          = "payload"
-	AttrKeyGasFee           = "gas_fee"
-	AttrKeyGasLimit         = "gas_limit"
-	AttrKeyGasPrice         = "gas_price"
-	AttrKeyGasToken         = "gas_token"
-	AttrKeyTxType           = "tx_type"
-	AttrKeyPcTxHash         = "pc_tx_hash"
-	AttrKeyLogIndex         = "log_index"
-	AttrKeyRevertMsg        = "revert_msg"
-	AttrKeyData             = "data"
-)
-
-// OutboundExpiryOffset is the number of blocks after event detection
-// before an outbound event expires.
-const OutboundExpiryOffset = 1000
-
-// Parser errors.
-var (
-	ErrMissingProcessID    = errors.New("missing required attribute: process_id")
-	ErrMissingProcessType  = errors.New("missing required attribute: process_type")
-	ErrMissingTxID         = errors.New("missing required attribute: tx_id")
-	ErrInvalidProcessID    = errors.New("invalid process_id format")
-	ErrInvalidExpiryHeight = errors.New("invalid expiry_height format")
-	ErrInvalidParticipants = errors.New("invalid participants format")
-)
-
-// ParseEvent parses a Push chain event from an ABCI event.
-// Returns nil if the event type is not recognized.
-// Sets BlockHeight and Status on successfully parsed events.
-func ParseEvent(event abci.Event, blockHeight uint64) (*store.Event, error) {
-	var parsed *store.Event
-	var err error
-
-	switch event.Type {
-	case EventTypeTSSProcessInitiated:
-		parsed, err = parseTSSEvent(event)
-	case EventTypeOutboundCreated:
-		parsed, err = parseOutboundEvent(event)
-	default:
-		// Unknown event type - not an error, just skip
-		return nil, nil
-	}
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse %s event: %w", event.Type, err)
-	}
-
-	if parsed == nil {
-		return nil, nil
-	}
-
-	// Set common fields
-	parsed.BlockHeight = blockHeight
-	parsed.ConfirmationType = "INSTANT" // push chain is a cosmos chain ie instant finality
-	parsed.Status = "CONFIRMED"         // push chain is a cosmos chain ie instant finality
-
-	// Set expiry for outbound events (block seen + 400)
-	if event.Type == EventTypeOutboundCreated {
-		parsed.ExpiryBlockHeight = blockHeight + OutboundExpiryOffset
-	}
-
-	return parsed, nil
+// hashEventID generates a unique event ID by hashing eventType + ":" + rawID.
+// This prevents collisions between different event types that may share numeric IDs.
+func hashEventID(eventType, rawID string) string {
+	h := sha256.Sum256([]byte(eventType + ":" + rawID))
+	return hex.EncodeToString(h[:])
 }
 
-// parseTSSEvent parses a tss_process_initiated event.
-func parseTSSEvent(event abci.Event) (*store.Event, error) {
-	attrs := extractAttributes(event)
+// DefaultExpiryOffset is the number of blocks after event detection
+// before an event expires (~10 minutes at ~1s block time).
+// Used for outbound and fund migration events.
+const DefaultExpiryOffset = 600
 
-	// Parse required fields
-	processIDStr, ok := attrs[AttrKeyProcessID]
-	if !ok {
-		return nil, ErrMissingProcessID
+// convertTssEvent converts a gRPC TssEvent to a store.Event.
+func convertTssEvent(tssEvent *utsstypes.TssEvent) (*store.Event, error) {
+	if tssEvent == nil {
+		return nil, fmt.Errorf("tss event is nil")
 	}
 
-	processID, err := strconv.ParseUint(processIDStr, 10, 64)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrInvalidProcessID, err)
+	var protocolType string
+	switch tssEvent.ProcessType {
+	case utsstypes.TssProcessType_TSS_PROCESS_KEYGEN.String():
+		protocolType = store.EventTypeKeygen
+	case utsstypes.TssProcessType_TSS_PROCESS_REFRESH.String():
+		protocolType = store.EventTypeKeyrefresh
+	case utsstypes.TssProcessType_TSS_PROCESS_QUORUM_CHANGE.String():
+		protocolType = store.EventTypeQuorumChange
+	default:
+		return nil, fmt.Errorf("unknown process type: %s", tssEvent.ProcessType)
 	}
 
-	processTypeStr, ok := attrs[AttrKeyProcessType]
-	if !ok {
-		return nil, ErrMissingProcessType
-	}
-
-	protocolType := convertProcessType(processTypeStr)
-
-	// Parse optional fields
-	var expiryHeight uint64
-	if expiryStr, ok := attrs[AttrKeyExpiryHeight]; ok {
-		expiryHeight, err = strconv.ParseUint(expiryStr, 10, 64)
+	var eventData []byte
+	if len(tssEvent.Participants) > 0 {
+		var err error
+		eventData, err = json.Marshal(map[string]interface{}{
+			"process_id":   tssEvent.ProcessId,
+			"participants": tssEvent.Participants,
+		})
 		if err != nil {
-			return nil, fmt.Errorf("%w: %v", ErrInvalidExpiryHeight, err)
+			return nil, fmt.Errorf("failed to marshal event data: %w", err)
 		}
-	}
-
-	var participants []string
-	if participantsStr, ok := attrs[AttrKeyParticipants]; ok {
-		if err := json.Unmarshal([]byte(participantsStr), &participants); err != nil {
-			return nil, fmt.Errorf("%w: %v", ErrInvalidParticipants, err)
-		}
-	}
-
-	// Build event data
-	eventData, err := buildTSSEventData(processID, participants)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build event data: %w", err)
 	}
 
 	return &store.Event{
-		EventID:           fmt.Sprintf("%d", processID),
-		ExpiryBlockHeight: expiryHeight,
+		EventID:           hashEventID(protocolType, fmt.Sprintf("%d", tssEvent.ProcessId)),
+		BlockHeight:       uint64(tssEvent.BlockHeight),
+		ExpiryBlockHeight: uint64(tssEvent.ExpiryHeight),
 		Type:              protocolType,
+		ConfirmationType:  store.ConfirmationInstant,
+		Status:            store.StatusConfirmed,
 		EventData:         eventData,
 	}, nil
 }
 
-// parseOutboundEvent parses an outbound_created event.
-func parseOutboundEvent(event abci.Event) (*store.Event, error) {
-	attrs := extractAttributes(event)
 
-	// Parse required field
-	txID, ok := attrs[AttrKeyTxID]
-	if !ok {
-		return nil, ErrMissingTxID
+// convertFundMigrationEvent converts a FundMigration to a store.Event.
+func convertFundMigrationEvent(migration *utsstypes.FundMigration) (*store.Event, error) {
+	if migration == nil {
+		return nil, fmt.Errorf("fund migration is nil")
 	}
 
-	// Build structured event data
+	eventData, err := json.Marshal(utsstypes.FundMigrationInitiatedEventData{
+		MigrationID:      migration.Id,
+		OldKeyID:         migration.OldKeyId,
+		OldTssPubkey:     migration.OldTssPubkey,
+		CurrentKeyID:     migration.CurrentKeyId,
+		CurrentTssPubkey: migration.CurrentTssPubkey,
+		Chain:            migration.Chain,
+		BlockHeight:      migration.InitiatedBlock,
+		GasPrice:         migration.GasPrice,
+		GasLimit:         migration.GasLimit,
+		L1GasFee:         migration.L1GasFee,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal fund migration event data: %w", err)
+	}
+
+	blockHeight := uint64(migration.InitiatedBlock)
+
+	return &store.Event{
+		EventID:           hashEventID(store.EventTypeSignFundMigrate, fmt.Sprintf("%d", migration.Id)),
+		BlockHeight:       blockHeight,
+		ExpiryBlockHeight: blockHeight + DefaultExpiryOffset,
+		Type:              store.EventTypeSignFundMigrate,
+		ConfirmationType:  store.ConfirmationInstant,
+		Status:            store.StatusConfirmed,
+		EventData:         eventData,
+	}, nil
+}
+
+// convertOutboundToEvent converts a PendingOutboundEntry + OutboundTx to a store.Event.
+func convertOutboundToEvent(entry *uexecutortypes.PendingOutboundEntry, outbound *uexecutortypes.OutboundTx) (*store.Event, error) {
+	if entry == nil || outbound == nil {
+		return nil, fmt.Errorf("entry or outbound is nil")
+	}
+
+	blockHeight := uint64(entry.CreatedAt)
+
+	// Extract revert fund recipient if present
+	var revertMsg string
+	if outbound.RevertInstructions != nil {
+		revertMsg = outbound.RevertInstructions.FundRecipient
+	}
+
+	// Extract originating PC tx fields
+	var pcTxHash, logIndex string
+	if outbound.PcTx != nil {
+		pcTxHash = outbound.PcTx.TxHash
+		logIndex = outbound.PcTx.LogIndex
+	}
+
 	outboundData := uexecutortypes.OutboundCreatedEvent{
-		UniversalTxId:    attrs[AttrKeyUniversalTxID],
-		TxID:             txID,
-		DestinationChain: attrs[AttrKeyDestinationChain],
-		Recipient:        attrs[AttrKeyRecipient],
-		Amount:           attrs[AttrKeyAmount],
-		AssetAddr:        attrs[AttrKeyAssetAddr],
-		Sender:           attrs[AttrKeySender],
-		Payload:          attrs[AttrKeyPayload],
-		GasFee:           attrs[AttrKeyGasFee],
-		GasLimit:         attrs[AttrKeyGasLimit],
-		GasPrice:         attrs[AttrKeyGasPrice],
-		GasToken:         attrs[AttrKeyGasToken],
-		TxType:           attrs[AttrKeyTxType],
-		PcTxHash:         attrs[AttrKeyPcTxHash],
-		LogIndex:         attrs[AttrKeyLogIndex],
-		RevertMsg:        attrs[AttrKeyRevertMsg],
+		UniversalTxId:    entry.UniversalTxId,
+		TxID:             outbound.Id,
+		DestinationChain: outbound.DestinationChain,
+		Recipient:        outbound.Recipient,
+		Amount:           outbound.Amount,
+		AssetAddr:        outbound.ExternalAssetAddr,
+		Sender:           outbound.Sender,
+		Payload:          outbound.Payload,
+		GasFee:           outbound.GasFee,
+		GasLimit:         outbound.GasLimit,
+		GasPrice:         outbound.GasPrice,
+		GasToken:         outbound.GasToken,
+		TxType:           outbound.TxType.String(),
+		PcTxHash:         pcTxHash,
+		LogIndex:         logIndex,
+		RevertMsg:        revertMsg,
 	}
 
 	eventData, err := json.Marshal(outboundData)
@@ -196,46 +146,12 @@ func parseOutboundEvent(event abci.Event) (*store.Event, error) {
 	}
 
 	return &store.Event{
-		EventID:   txID,
-		Type:      common.EventTypeSign,
-		EventData: eventData,
+		EventID:           outbound.Id,
+		BlockHeight:       blockHeight,
+		ExpiryBlockHeight: blockHeight + DefaultExpiryOffset,
+		Type:              store.EventTypeSignOutbound,
+		ConfirmationType:  store.ConfirmationInstant,
+		Status:            store.StatusConfirmed,
+		EventData:         eventData,
 	}, nil
-}
-
-// extractAttributes extracts all attributes from an ABCI event into a map.
-func extractAttributes(event abci.Event) map[string]string {
-	attrs := make(map[string]string, len(event.Attributes))
-	for _, attr := range event.Attributes {
-		attrs[attr.Key] = attr.Value
-	}
-	return attrs
-}
-
-// buildTSSEventData constructs the JSON event data for TSS events.
-func buildTSSEventData(processID uint64, participants []string) ([]byte, error) {
-	if len(participants) == 0 {
-		return nil, nil
-	}
-
-	data := map[string]interface{}{
-		"process_id":   processID,
-		"participants": participants,
-	}
-
-	return json.Marshal(data)
-}
-
-// convertProcessType converts a chain process type to an internal event type.
-func convertProcessType(chainType string) string {
-	switch chainType {
-	case ChainProcessTypeKeygen:
-		return common.EventTypeKeygen
-	case ChainProcessTypeRefresh:
-		return common.EventTypeKeyrefresh
-	case ChainProcessTypeQuorumChange:
-		return common.EventTypeQuorumChange
-	default:
-		// Return as-is for unknown types to maintain forward compatibility
-		return chainType
-	}
 }

@@ -181,7 +181,7 @@ const FactoryV1ABI = `[
 const UeaV1ABI = `[
   {
     "type": "function",
-    "name": "executePayload",
+    "name": "executeUniversalTx",
     "inputs": [
       {
         "name": "payload",
@@ -327,6 +327,50 @@ const UNIVERSAL_CORE_ABI = `[
     },
     {
       "type": "function",
+      "name": "l1GasFeeByChainNamespace",
+      "inputs": [{ "name": "", "type": "string", "internalType": "string" }],
+      "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "tssFundMigrationGasLimitByChainNamespace",
+      "inputs": [{ "name": "", "type": "string", "internalType": "string" }],
+      "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "grantRole",
+      "inputs": [
+        { "name": "role",    "type": "bytes32", "internalType": "bytes32" },
+        { "name": "account", "type": "address", "internalType": "address" }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setL1GasFeeByChain",
+      "inputs": [
+        { "name": "chainNamespace", "type": "string", "internalType": "string" },
+        { "name": "l1GasFee", "type": "uint256", "internalType": "uint256" }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setTssFundMigrationGasLimitByChain",
+      "inputs": [
+        { "name": "chainNamespace", "type": "string", "internalType": "string" },
+        { "name": "gasLimit", "type": "uint256", "internalType": "uint256" }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
       "name": "timestampObservedAtByChainNamespace",
       "inputs": [{ "name": "", "type": "string", "internalType": "string" }],
       "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
@@ -366,6 +410,58 @@ const UNIVERSAL_CORE_ABI = `[
       ],
       "outputs": [],
       "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "getOutboundTxGasAndFees",
+      "inputs": [
+        { "name": "_prc20", "type": "address", "internalType": "address" },
+        { "name": "gasLimitWithBaseLimit", "type": "uint256", "internalType": "uint256" }
+      ],
+      "outputs": [
+        { "name": "gasToken", "type": "address", "internalType": "address" },
+        { "name": "gasFee", "type": "uint256", "internalType": "uint256" },
+        { "name": "protocolFee", "type": "uint256", "internalType": "uint256" },
+        { "name": "gasPrice", "type": "uint256", "internalType": "uint256" },
+        { "name": "chainNamespace", "type": "string", "internalType": "string" }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getRescueFundsGasLimit",
+      "inputs": [
+        { "name": "_prc20", "type": "address", "internalType": "address" }
+      ],
+      "outputs": [
+        { "name": "gasToken", "type": "address", "internalType": "address" },
+        { "name": "gasFee", "type": "uint256", "internalType": "uint256" },
+        { "name": "rescueGasLimit", "type": "uint256", "internalType": "uint256" },
+        { "name": "gasPrice", "type": "uint256", "internalType": "uint256" },
+        { "name": "chainNamespace", "type": "string", "internalType": "string" }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "baseGasLimitByChainNamespace",
+      "inputs": [{ "name": "", "type": "string", "internalType": "string" }],
+      "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "gasTokenPRC20ByChainNamespace",
+      "inputs": [{ "name": "", "type": "string", "internalType": "string" }],
+      "outputs": [{ "name": "", "type": "address", "internalType": "address" }],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "rescueFundsGasLimitByChainNamespace",
+      "inputs": [{ "name": "", "type": "string", "internalType": "string" }],
+      "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
+      "stateMutability": "view"
     }
 ]`
 
@@ -597,28 +693,6 @@ const PRC20ABI = `[
       ],
       "outputs": [{ "name": "", "type": "bool", "internalType": "bool" }],
       "stateMutability": "nonpayable"
-    },
-    {
-      "type": "function",
-      "name": "withdrawGasFee",
-      "inputs": [],
-      "outputs": [
-        { "name": "gasToken", "type": "address", "internalType": "address" },
-        { "name": "gasFee", "type": "uint256", "internalType": "uint256" }
-      ],
-      "stateMutability": "view"
-    },
-    {
-      "type": "function",
-      "name": "withdrawGasFeeWithGasLimit",
-      "inputs": [
-        { "name": "gasLimit_", "type": "uint256", "internalType": "uint256" }
-      ],
-      "outputs": [
-        { "name": "gasToken", "type": "address", "internalType": "address" },
-        { "name": "gasFee", "type": "uint256", "internalType": "uint256" }
-      ],
-      "stateMutability": "view"
     },
     {
       "type": "event",

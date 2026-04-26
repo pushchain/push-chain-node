@@ -18,5 +18,12 @@ func (k Keeper) RemoveTokenConfig(ctx context.Context, chain, tokenAddress strin
 		return fmt.Errorf("token config for %s on chain %s does not exist", tokenAddress, chain)
 	}
 
-	return k.TokenConfigs.Remove(ctx, storageKey)
+	if err := k.TokenConfigs.Remove(ctx, storageKey); err != nil {
+		return err
+	}
+	k.Logger().Info("token config removed",
+		"chain", chain,
+		"token_address", tokenAddress,
+	)
+	return nil
 }

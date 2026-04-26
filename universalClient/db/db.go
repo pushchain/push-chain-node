@@ -6,9 +6,9 @@ package db
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
-	"github.com/pkg/errors"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -23,19 +23,18 @@ const (
 	dbDirPermissions = 0o750
 )
 
-var (
-	// gormConfig disables logging output for cleaner usage in validator processes.
-	gormConfig = &gorm.Config{
+func newGormConfig() *gorm.Config {
+	return &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	}
+}
 
-	// schemaModels lists the structs to be auto-migrated into the database.
-	schemaModels = []any{
+func schemaModels() []any {
+	return []any{
 		&store.State{},
 		&store.Event{},
-		// Add additional models here as needed.
 	}
-)
+}
 
 // DB wraps a GORM client and provides simplified DB lifecycle management.
 type DB struct {
@@ -47,7 +46,7 @@ type DB struct {
 func OpenFileDB(dir, filename string, migrateSchema bool) (*DB, error) {
 	dsn, err := prepareFilePath(dir, filename)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to prepare database path")
+		return nil, fmt.Errorf("failed to prepare database path: %w", err)
 	}
 	return openSQLite(dsn, migrateSchema)
 }
@@ -67,21 +66,21 @@ func openSQLite(dsn string, migrateSchema bool) (*DB, error) {
 		dsn += "?_journal_mode=WAL&_busy_timeout=5000&cache=shared&mode=rwc"
 	}
 
-	db, err := gorm.Open(sqlite.Open(dsn), gormConfig)
+	db, err := gorm.Open(sqlite.Open(dsn), newGormConfig())
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to open SQLite database")
+		return nil, fmt.Errorf("failed to open SQLite database: %w", err)
 	}
 
 	if migrateSchema {
-		if err := db.AutoMigrate(schemaModels...); err != nil {
-			return nil, errors.Wrap(err, "failed to auto-migrate database schema")
+		if err := db.AutoMigrate(schemaModels()...); err != nil {
+			return nil, fmt.Errorf("failed to auto-migrate database schema: %w", err)
 		}
 	}
 
 	// Configure connection pool for better concurrent access
 	sqlDB, err := db.DB()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get underlying sql.DB")
+		return nil, fmt.Errorf("failed to get underlying sql.DB: %w", err)
 	}
 
 	// Configure connection pool based on database type
@@ -98,11 +97,9 @@ func openSQLite(dsn string, migrateSchema bool) (*DB, error) {
 	// Set maximum lifetime of a connection
 	sqlDB.SetConnMaxLifetime(0) // Connections don't expire
 
-	// Apply SQLite performance optimizations
+	// Apply SQLite performance optimizations for file-based databases
 	if err := optimizeSQLiteSettings(db, dsn); err != nil {
-		// Log warning but don't fail startup - these are performance optimizations
-		// The database will still work with defaults
-		fmt.Printf("Warning: Failed to apply SQLite optimizations: %v\n", err)
+		return nil, fmt.Errorf("failed to apply SQLite optimizations: %w", err)
 	}
 
 	return &DB{client: db}, nil
@@ -125,7 +122,7 @@ func optimizeSQLiteSettings(db *gorm.DB, dsn string) error {
 
 	for _, pragma := range pragmas {
 		if err := db.Exec(pragma).Error; err != nil {
-			return errors.Wrapf(err, "failed to execute %s", pragma)
+			return fmt.Errorf("failed to execute %s: %w", pragma, err)
 		}
 	}
 
@@ -137,41 +134,29 @@ func (d *DB) Client() *gorm.DB {
 	return d.client
 }
 
-// SetupDBForTesting sets the internal GORM client for testing purposes.
-// This should only be used in test files.
-func (d *DB) SetupDBForTesting(client *gorm.DB) {
-	d.client = client
-}
-
 // Close safely closes the underlying database connection.
 func (d *DB) Close() error {
 	sqlDB, err := d.client.DB()
 	if err != nil {
-		return errors.Wrap(err, "failed to retrieve native sql.DB")
+		return fmt.Errorf("failed to retrieve native sql.DB: %w", err)
 	}
 
 	if err := sqlDB.Close(); err != nil {
-		return errors.Wrap(err, "failed to close database connection")
+		return fmt.Errorf("failed to close database connection: %w", err)
 	}
 
 	return nil
 }
 
 // prepareFilePath ensures the target directory exists and returns the full database file path.
-// If the directory contains the in-memory DSN string, it is returned as-is.
 func prepareFilePath(dir, filename string) (string, error) {
-	if strings.Contains(dir, InMemorySQLiteDSN) {
-		return dir, nil
-	}
-
-	// Ensure the directory exists
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		if err := os.MkdirAll(dir, dbDirPermissions); err != nil {
-			return "", errors.Wrapf(err, "failed to create directory: %s", dir)
+			return "", fmt.Errorf("failed to create directory %s: %w", dir, err)
 		}
 	} else if err != nil {
-		return "", errors.Wrap(err, "error checking directory")
+		return "", fmt.Errorf("error checking directory: %w", err)
 	}
 
-	return fmt.Sprintf("%s/%s", dir, filename), nil
+	return filepath.Join(dir, filename), nil
 }

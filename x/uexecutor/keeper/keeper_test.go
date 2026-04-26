@@ -72,7 +72,6 @@ type testFixture struct {
 
 	ctrl                *gomock.Controller
 	mockBankKeeper      *mocks.MockBankKeeper
-	mockUTVKeeper       *mocks.MockUtxverifierKeeper
 	mockEVMKeeper       *mocks.MockEVMKeeper
 	mockUregistryKeeper *mocks.MockUregistryKeeper
 }
@@ -85,7 +84,6 @@ func SetupTest(t *testing.T) *testFixture {
 	t.Cleanup(f.ctrl.Finish)
 
 	f.mockBankKeeper = mocks.NewMockBankKeeper(f.ctrl)
-	f.mockUTVKeeper = mocks.NewMockUtxverifierKeeper(f.ctrl)
 	f.mockEVMKeeper = mocks.NewMockEVMKeeper(f.ctrl)
 	f.mockUregistryKeeper = mocks.NewMockUregistryKeeper(f.ctrl)
 
@@ -119,10 +117,10 @@ func SetupTest(t *testing.T) *testFixture {
 	registerBaseSDKModules(logger, f, encCfg, keys, accountAddressCodec, validatorAddressCodec, consensusAddressCodec)
 
 	// Setup Keeper.
-	f.k = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(keys[types.ModuleName]), logger, f.govModAddr, f.mockEVMKeeper, &feemarketkeeper.Keeper{}, f.mockBankKeeper, authkeeper.AccountKeeper{}, f.mockUregistryKeeper, f.mockUTVKeeper, &uvalidatorKeeper.Keeper{})
+	f.k = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(keys[types.ModuleName]), logger, f.govModAddr, f.mockEVMKeeper, &feemarketkeeper.Keeper{}, f.mockBankKeeper, authkeeper.AccountKeeper{}, f.mockUregistryKeeper, &uvalidatorKeeper.Keeper{})
 	f.msgServer = keeper.NewMsgServerImpl(f.k)
 	f.queryServer = keeper.NewQuerier(f.k)
-	f.appModule = module.NewAppModule(encCfg.Codec, f.k, f.mockEVMKeeper, &feemarketkeeper.Keeper{}, f.mockBankKeeper, authkeeper.AccountKeeper{}, f.mockUregistryKeeper, f.mockUTVKeeper, &uvalidatorKeeper.Keeper{})
+	f.appModule = module.NewAppModule(encCfg.Codec, f.k, f.mockEVMKeeper, &feemarketkeeper.Keeper{}, f.mockBankKeeper, authkeeper.AccountKeeper{}, f.mockUregistryKeeper, &uvalidatorKeeper.Keeper{})
 
 	return f
 }

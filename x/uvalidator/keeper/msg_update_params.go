@@ -8,5 +8,10 @@ import (
 
 // updateParams is for updating params collections of the module
 func (k Keeper) UpdateParams(ctx context.Context, params types.Params) error {
-	return k.Params.Set(ctx, params)
+	k.Logger().Info("updating module params", "admin", params.Admin)
+	if err := k.Params.Set(ctx, params); err != nil {
+		return err
+	}
+	k.Logger().Info("module params updated successfully", "admin", params.Admin)
+	return nil
 }

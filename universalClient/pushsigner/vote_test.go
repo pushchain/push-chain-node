@@ -1,15 +1,18 @@
 package pushsigner
 
 import (
+	"context"
+	"fmt"
 	"testing"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
-	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 )
 
 func TestVoteConstants(t *testing.T) {
@@ -21,254 +24,132 @@ func TestVoteConstants(t *testing.T) {
 		coins, err := sdk.ParseCoinsNormalized(defaultFeeAmount)
 		require.NoError(t, err)
 		assert.False(t, coins.IsZero())
-		assert.Equal(t, "500000000000000upc", defaultFeeAmount)
 	})
 
 	t.Run("default vote timeout", func(t *testing.T) {
 		assert.Equal(t, 30*time.Second, defaultVoteTimeout)
 	})
-}
 
-func TestMsgVoteInboundConstruction(t *testing.T) {
-	t.Run("construct valid MsgVoteInbound", func(t *testing.T) {
-		granter := "push1granter123"
-		inbound := &uexecutortypes.Inbound{
-			TxHash:      "0x123abc",
-			SourceChain: "eip155:1",
-			Sender:      "0xsender",
-			Recipient:   "push1receiver",
-			Amount:      "1000000",
-		}
-
-		msg := &uexecutortypes.MsgVoteInbound{
-			Signer:  granter,
-			Inbound: inbound,
-		}
-
-		assert.Equal(t, granter, msg.Signer)
-		assert.Equal(t, inbound, msg.Inbound)
-		assert.Equal(t, "0x123abc", msg.Inbound.TxHash)
+	t.Run("tx poll interval", func(t *testing.T) {
+		assert.Equal(t, 500*time.Millisecond, txPollInterval)
 	})
 
-	t.Run("MsgVoteInbound with nil inbound", func(t *testing.T) {
-		msg := &uexecutortypes.MsgVoteInbound{
-			Signer:  "push1granter123",
-			Inbound: nil,
-		}
-		assert.Nil(t, msg.Inbound)
+	t.Run("tx confirm timeout", func(t *testing.T) {
+		assert.Equal(t, 15*time.Second, txConfirmTimeout)
 	})
 }
 
-func TestMsgVoteChainMetaConstruction(t *testing.T) {
-	t.Run("construct valid MsgVoteChainMeta", func(t *testing.T) {
-		granter := "push1granter123"
-		chainID := "eip155:1"
-		price := uint64(20000000000)
-		chainHeight := uint64(18500000)
-
-		msg := &uexecutortypes.MsgVoteChainMeta{
-			Signer:          granter,
-			ObservedChainId: chainID,
-			Price:           price,
-			ChainHeight:     chainHeight,
+func TestWaitForTxConfirmation(t *testing.T) {
+	t.Run("returns nil when tx found immediately", func(t *testing.T) {
+		mock := &mockChainClient{
+			getTxFn: func(ctx context.Context, txHash string) (*sdktx.GetTxResponse, error) {
+				return &sdktx.GetTxResponse{
+					TxResponse: &sdk.TxResponse{TxHash: txHash, Code: 0},
+				}, nil
+			},
 		}
 
-		assert.Equal(t, granter, msg.Signer)
-		assert.Equal(t, chainID, msg.ObservedChainId)
-		assert.Equal(t, price, msg.Price)
-		assert.Equal(t, chainHeight, msg.ChainHeight)
+		err := waitForTxConfirmation(context.Background(), mock, "0xabc")
+		assert.NoError(t, err)
 	})
 
-	t.Run("MsgVoteChainMeta with zero values", func(t *testing.T) {
-		msg := &uexecutortypes.MsgVoteChainMeta{
-			Signer:          "push1granter123",
-			ObservedChainId: "eip155:1",
-			Price:           0,
-			ChainHeight:     0,
-		}
-		assert.Equal(t, uint64(0), msg.Price)
-		assert.Equal(t, uint64(0), msg.ChainHeight)
-	})
-}
-
-func TestMsgVoteOutboundConstruction(t *testing.T) {
-	t.Run("construct valid MsgVoteOutbound for successful tx", func(t *testing.T) {
-		granter := "push1granter123"
-		txID := "tx-123"
-		utxID := "utx-456"
-		observation := &uexecutortypes.OutboundObservation{
-			Success:     true,
-			BlockHeight: 18500000,
-			TxHash:      "0xabc123def456",
-			ErrorMsg:    "",
+	t.Run("polls until tx found", func(t *testing.T) {
+		calls := 0
+		mock := &mockChainClient{
+			getTxFn: func(ctx context.Context, txHash string) (*sdktx.GetTxResponse, error) {
+				calls++
+				if calls < 3 {
+					return nil, fmt.Errorf("tx not found")
+				}
+				return &sdktx.GetTxResponse{
+					TxResponse: &sdk.TxResponse{TxHash: txHash},
+				}, nil
+			},
 		}
 
-		msg := &uexecutortypes.MsgVoteOutbound{
-			Signer:     granter,
-			TxId:       txID,
-			UtxId:      utxID,
-			ObservedTx: observation,
-		}
-
-		assert.Equal(t, granter, msg.Signer)
-		assert.Equal(t, txID, msg.TxId)
-		assert.Equal(t, utxID, msg.UtxId)
-		assert.True(t, msg.ObservedTx.Success)
-		assert.Equal(t, "0xabc123def456", msg.ObservedTx.TxHash)
+		err := waitForTxConfirmation(context.Background(), mock, "0xdef")
+		assert.NoError(t, err)
+		assert.GreaterOrEqual(t, calls, 3)
 	})
 
-	t.Run("construct valid MsgVoteOutbound for failed tx", func(t *testing.T) {
-		observation := &uexecutortypes.OutboundObservation{
-			Success:     false,
-			BlockHeight: 0,
-			TxHash:      "",
-			ErrorMsg:    "execution reverted: insufficient balance",
+	t.Run("returns error on context cancellation", func(t *testing.T) {
+		mock := &mockChainClient{
+			getTxFn: func(ctx context.Context, txHash string) (*sdktx.GetTxResponse, error) {
+				return nil, fmt.Errorf("not found")
+			},
 		}
 
-		msg := &uexecutortypes.MsgVoteOutbound{
-			Signer:     "push1granter123",
-			TxId:       "tx-789",
-			UtxId:      "utx-101",
-			ObservedTx: observation,
-		}
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel() // cancel immediately
 
-		assert.False(t, msg.ObservedTx.Success)
-		assert.Empty(t, msg.ObservedTx.TxHash)
-		assert.Contains(t, msg.ObservedTx.ErrorMsg, "insufficient balance")
-	})
-
-	t.Run("MsgVoteOutbound with nil observation", func(t *testing.T) {
-		msg := &uexecutortypes.MsgVoteOutbound{
-			Signer:     "push1granter123",
-			TxId:       "tx-123",
-			UtxId:      "utx-456",
-			ObservedTx: nil,
-		}
-		assert.Nil(t, msg.ObservedTx)
+		err := waitForTxConfirmation(ctx, mock, "0xabc")
+		assert.Error(t, err)
 	})
 }
 
-func TestMsgVoteTssKeyProcessConstruction(t *testing.T) {
-	t.Run("construct valid MsgVoteTssKeyProcess", func(t *testing.T) {
-		granter := "push1granter123"
-		tssPubKey := "tsspub1abc123"
-		keyID := "key-001"
-		processID := uint64(42)
+func TestVoteRejectedOnChain(t *testing.T) {
+	mock := &mockChainClient{
+		getAccountFn: func(ctx context.Context, address string) (*authtypes.QueryAccountResponse, error) {
+			addr, _ := sdk.AccAddressFromBech32(address)
+			return makeAccountResponse(t, addr, 1, 1), nil
+		},
+		broadcastTxFn: func(ctx context.Context, txBytes []byte) (*sdktx.BroadcastTxResponse, error) {
+			return &sdktx.BroadcastTxResponse{
+				TxResponse: &sdk.TxResponse{Code: 7, TxHash: "REJECTED", RawLog: "unauthorized"},
+			}, nil
+		},
+	}
 
-		msg := &utsstypes.MsgVoteTssKeyProcess{
-			Signer:    granter,
-			TssPubkey: tssPubKey,
-			KeyId:     keyID,
-			ProcessId: processID,
-		}
+	signer := createTestSigner(t, mock)
+	inbound := &uexecutortypes.Inbound{TxHash: "0x1"}
 
-		assert.Equal(t, granter, msg.Signer)
-		assert.Equal(t, tssPubKey, msg.TssPubkey)
-		assert.Equal(t, keyID, msg.KeyId)
-		assert.Equal(t, processID, msg.ProcessId)
-	})
-
-	t.Run("MsgVoteTssKeyProcess with empty strings", func(t *testing.T) {
-		msg := &utsstypes.MsgVoteTssKeyProcess{
-			Signer:    "",
-			TssPubkey: "",
-			KeyId:     "",
-			ProcessId: 0,
-		}
-		assert.Empty(t, msg.Signer)
-		assert.Empty(t, msg.TssPubkey)
-		assert.Empty(t, msg.KeyId)
-	})
+	txHash, err := signer.VoteInbound(context.Background(), inbound)
+	require.Error(t, err)
+	assert.Empty(t, txHash)
+	assert.Contains(t, err.Error(), "transaction failed with code 7")
 }
 
-func TestOutboundObservation(t *testing.T) {
-	t.Run("successful observation fields", func(t *testing.T) {
-		obs := &uexecutortypes.OutboundObservation{
-			Success:     true,
-			BlockHeight: 12345678,
-			TxHash:      "0x1234567890abcdef",
-			ErrorMsg:    "",
-		}
+func TestVoteEmptyMemoDefaultsToMsgType(t *testing.T) {
+	mock := &mockChainClient{
+		getAccountFn: func(ctx context.Context, address string) (*authtypes.QueryAccountResponse, error) {
+			addr, _ := sdk.AccAddressFromBech32(address)
+			return makeAccountResponse(t, addr, 1, 1), nil
+		},
+		broadcastTxFn: func(ctx context.Context, txBytes []byte) (*sdktx.BroadcastTxResponse, error) {
+			return &sdktx.BroadcastTxResponse{
+				TxResponse: &sdk.TxResponse{Code: 0, TxHash: "OK"},
+			}, nil
+		},
+	}
 
-		assert.True(t, obs.Success)
-		assert.Equal(t, uint64(12345678), obs.BlockHeight)
-		assert.Equal(t, "0x1234567890abcdef", obs.TxHash)
-		assert.Empty(t, obs.ErrorMsg)
-	})
+	signer := createTestSigner(t, mock)
 
-	t.Run("failed observation fields", func(t *testing.T) {
+	// VoteChainMeta provides a memo, so this tests the non-empty path
+	txHash, err := signer.VoteChainMeta(context.Background(), "eip155:1", 100, 200)
+	require.NoError(t, err)
+	assert.Equal(t, "OK", txHash)
+}
+
+func TestVoteAllTypes(t *testing.T) {
+	mock := successMock(t)
+
+	t.Run("VoteOutbound with failure observation", func(t *testing.T) {
+		signer := createTestSigner(t, mock)
 		obs := &uexecutortypes.OutboundObservation{
 			Success:     false,
-			BlockHeight: 0,
-			TxHash:      "",
-			ErrorMsg:    "transaction failed: nonce too low",
+			BlockHeight: 999,
+			TxHash:      "0xfailed",
 		}
 
-		assert.False(t, obs.Success)
-		assert.Equal(t, uint64(0), obs.BlockHeight)
-		assert.Empty(t, obs.TxHash)
-		assert.NotEmpty(t, obs.ErrorMsg)
-	})
-}
-
-func TestInbound(t *testing.T) {
-	t.Run("inbound struct fields", func(t *testing.T) {
-		inbound := &uexecutortypes.Inbound{
-			TxHash:      "0xabc123",
-			SourceChain: "eip155:97",
-			Sender:      "0x1234567890123456789012345678901234567890",
-			Recipient:   "push1receiver123",
-			Amount:      "1000000000000000000",
-		}
-
-		assert.Equal(t, "0xabc123", inbound.TxHash)
-		assert.Equal(t, "eip155:97", inbound.SourceChain)
-		assert.NotEmpty(t, inbound.Sender)
-		assert.NotEmpty(t, inbound.Recipient)
-		assert.NotEmpty(t, inbound.Amount)
+		txHash, err := signer.VoteOutbound(context.Background(), "tx-fail", "utx-fail", obs)
+		require.NoError(t, err)
+		assert.Equal(t, "VOTE_OK", txHash)
 	})
 
-	t.Run("inbound with zero amount", func(t *testing.T) {
-		inbound := &uexecutortypes.Inbound{
-			TxHash:      "0xdef456",
-			SourceChain: "eip155:1",
-			Sender:      "0xsender",
-			Recipient:   "push1receiver",
-			Amount:      "0",
-		}
-
-		assert.Equal(t, "0", inbound.Amount)
-	})
-}
-
-func TestVoteMemoFormats(t *testing.T) {
-	t.Run("inbound vote memo format", func(t *testing.T) {
-		inbound := &uexecutortypes.Inbound{
-			TxHash: "0x123abc456def",
-		}
-		expectedMemo := "Vote inbound: 0x123abc456def"
-		actualMemo := "Vote inbound: " + inbound.TxHash
-		assert.Equal(t, expectedMemo, actualMemo)
-	})
-
-	t.Run("chain meta vote memo format", func(t *testing.T) {
-		chainID := "eip155:1"
-		expectedMemo := "Vote chain meta: eip155:1 @ price=25000000000 height=18500000"
-		actualMemo := "Vote chain meta: " + chainID + " @ price=25000000000 height=18500000"
-		assert.Equal(t, expectedMemo, actualMemo)
-	})
-
-	t.Run("outbound vote memo format", func(t *testing.T) {
-		txID := "tx-12345"
-		expectedMemo := "Vote outbound: tx-12345"
-		actualMemo := "Vote outbound: " + txID
-		assert.Equal(t, expectedMemo, actualMemo)
-	})
-
-	t.Run("tss key vote memo format", func(t *testing.T) {
-		keyID := "key-001"
-		expectedMemo := "Vote TSS key: key-001"
-		actualMemo := "Vote TSS key: " + keyID
-		assert.Equal(t, expectedMemo, actualMemo)
+	t.Run("VoteFundMigration with success=false", func(t *testing.T) {
+		signer := createTestSigner(t, mock)
+		txHash, err := signer.VoteFundMigration(context.Background(), 99, "0xfailhash", false)
+		require.NoError(t, err)
+		assert.Equal(t, "VOTE_OK", txHash)
 	})
 }

@@ -41,10 +41,18 @@ func TestDB_OpenModes(t *testing.T) {
 		runSampleInsertSelectTest(t, db)
 
 		assert.NoError(t, db.Close())
+	})
 
-		t.Run("close twice", func(t *testing.T) {
-			assert.NoError(t, db.Close())
-		})
+	t.Run("file-based DB creates directory", func(t *testing.T) {
+		dir := filepath.Join(t.TempDir(), "nested", "dir")
+		dbName := "test.db"
+
+		db, err := OpenFileDB(dir, dbName, true)
+		require.NoError(t, err)
+		require.NotNil(t, db)
+
+		assert.FileExists(t, filepath.Join(dir, dbName))
+		assert.NoError(t, db.Close())
 	})
 
 	t.Run("invalid path fails", func(t *testing.T) {
@@ -52,6 +60,63 @@ func TestDB_OpenModes(t *testing.T) {
 		require.ErrorContains(t, err, "failed to prepare database path")
 		require.Nil(t, db)
 	})
+}
+
+func TestDB_PragmaOptimizations(t *testing.T) {
+	dir := t.TempDir()
+	db, err := OpenFileDB(dir, "pragma_test.db", true)
+	require.NoError(t, err)
+	defer db.Close()
+
+	// Verify WAL mode is active
+	var journalMode string
+	err = db.Client().Raw("PRAGMA journal_mode").Scan(&journalMode).Error
+	require.NoError(t, err)
+	assert.Equal(t, "wal", journalMode)
+
+	// Verify synchronous is NORMAL (1)
+	var syncMode int
+	err = db.Client().Raw("PRAGMA synchronous").Scan(&syncMode).Error
+	require.NoError(t, err)
+	assert.Equal(t, 1, syncMode)
+
+	// Verify foreign keys are enabled
+	var fkEnabled int
+	err = db.Client().Raw("PRAGMA foreign_keys").Scan(&fkEnabled).Error
+	require.NoError(t, err)
+	assert.Equal(t, 1, fkEnabled)
+}
+
+func TestDB_OpenWithoutMigration(t *testing.T) {
+	db, err := OpenInMemoryDB(false)
+	require.NoError(t, err)
+	require.NotNil(t, db)
+	assert.NoError(t, db.Close())
+}
+
+func TestDB_FileDBExistingDirectory(t *testing.T) {
+	dir := t.TempDir()
+	// Open twice — second time directory already exists
+	db1, err := OpenFileDB(dir, "test1.db", true)
+	require.NoError(t, err)
+	db1.Close()
+
+	db2, err := OpenFileDB(dir, "test2.db", true)
+	require.NoError(t, err)
+	db2.Close()
+}
+
+func TestDB_ClientReturnsGorm(t *testing.T) {
+	db, err := OpenInMemoryDB(true)
+	require.NoError(t, err)
+	defer db.Close()
+
+	assert.NotNil(t, db.Client())
+}
+
+func TestDB_SchemaModels(t *testing.T) {
+	models := schemaModels()
+	assert.Len(t, models, 2)
 }
 
 func runSampleInsertSelectTest(t *testing.T, db *DB) {

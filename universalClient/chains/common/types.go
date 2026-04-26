@@ -2,6 +2,7 @@ package common
 
 import (
 	"context"
+	"math/big"
 
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
@@ -17,28 +18,43 @@ type ChainClient interface {
 	// IsHealthy checks if the chain client is operational
 	IsHealthy() bool
 
-	// GetTxBuilder returns the OutboundTxBuilder for this chain
+	// GetTxBuilder returns the TxBuilder for this chain
 	// Returns an error if txBuilder is not supported for this chain (e.g., Push chain)
-	GetTxBuilder() (OutboundTxBuilder, error)
+	GetTxBuilder() (TxBuilder, error)
 }
 
-// UnSignedOutboundTxReq contains the request for signing an outbound transaction
-type UnSignedOutboundTxReq struct {
+// FundMigrationData contains the data needed to build a fund migration transaction.
+// Populated by the coordinator from the migration event + derived addresses.
+type FundMigrationData struct {
+	From     string   // Old TSS address (derived from old pubkey)
+	To       string   // New TSS address (derived from current pubkey)
+	GasPrice *big.Int // Gas price from the migration event
+	GasLimit uint64   // Gas limit from the migration event
+	L1GasFee *big.Int // Extra L1 data-availability fee (wei); 0 for non-L2 chains
+}
+
+// UnsignedSigningReq contains the request for signing an outbound or fund-migration transaction.
+type UnsignedSigningReq struct {
 	SigningHash []byte // Hash to be signed by TSS
 	Nonce       uint64 // evm - TSS Address nonce | svm - PDA nonce
+
+	// TSSFundMigrationAmount is the native value swept for a fund-migration tx, fixed at
+	// signing time. Nil for outbound. Must be reused verbatim at broadcast — re-querying
+	// balance there races with a successful sweep from another validator.
+	TSSFundMigrationAmount *big.Int `json:"TSSFundMigrationAmount,omitempty"`
 }
 
-// OutboundTxBuilder builds and broadcasts transactions for outbound transfers
-type OutboundTxBuilder interface {
+// TxBuilder builds and broadcasts transactions for outbound transfers
+type TxBuilder interface {
 	// GetOutboundSigningRequest creates a signing request from outbound event data
-	GetOutboundSigningRequest(ctx context.Context, data *uetypes.OutboundCreatedEvent, nonce uint64) (*UnSignedOutboundTxReq, error)
+	GetOutboundSigningRequest(ctx context.Context, data *uetypes.OutboundCreatedEvent, nonce uint64) (*UnsignedSigningReq, error)
 
 	// GetNextNonce returns the next nonce for the given signer on this chain (for seeding local nonce).
 	// useFinalized: for EVM, if true use finalized block nonce (aggressive/replace stuck); if false use pending. SVM ignores this.
 	GetNextNonce(ctx context.Context, signerAddress string, useFinalized bool) (uint64, error)
 
 	// BroadcastOutboundSigningRequest assembles and broadcasts a signed transaction from the signing request, event data, and signature
-	BroadcastOutboundSigningRequest(ctx context.Context, req *UnSignedOutboundTxReq, data *uetypes.OutboundCreatedEvent, signature []byte) (string, error)
+	BroadcastOutboundSigningRequest(ctx context.Context, req *UnsignedSigningReq, data *uetypes.OutboundCreatedEvent, signature []byte) (string, error)
 
 	// VerifyBroadcastedTx checks the status of a broadcasted transaction on the destination chain.
 	// Returns (found, blockHeight, confirmations, status, error):
@@ -60,6 +76,13 @@ type OutboundTxBuilder interface {
 	// SVM: returns "0" (gas accounting is handled via vault gasFee reimbursement).
 	// Returns "0" if the transaction is not found.
 	GetGasFeeUsed(ctx context.Context, txHash string) (string, error)
+
+	// GetFundMigrationSigningRequest builds a native token transfer for fund migration,
+	// transferring the maximum possible balance (balance minus gas cost).
+	GetFundMigrationSigningRequest(ctx context.Context, data *FundMigrationData, nonce uint64) (*UnsignedSigningReq, error)
+
+	// BroadcastFundMigrationTx assembles and broadcasts a signed fund migration transaction.
+	BroadcastFundMigrationTx(ctx context.Context, req *UnsignedSigningReq, data *FundMigrationData, signature []byte) (string, error)
 }
 
 // UniversalTx Payload
@@ -69,9 +92,9 @@ type UniversalTx struct {
 	Sender              string                   `json:"sender"`
 	Recipient           string                   `json:"recipient"`
 	Token               string                   `json:"bridgeToken"`
-	Amount              string                   `json:"bridgeAmount"` // uint256 as decimal string
-	Payload             uetypes.UniversalPayload `json:"universalPayload"`
-	VerificationData    string                   `json:"verificationData"`
+	Amount              string `json:"bridgeAmount"` // uint256 as decimal string
+	RawPayload          string `json:"rawPayload,omitempty"` // hex-encoded raw payload bytes from source chain
+	VerificationData    string `json:"verificationData"`
 	RevertFundRecipient string                   `json:"revertFundRecipient,omitempty"`
 	TxType              uint                     `json:"txType"`              // enum backing uint as decimal string
 	FromCEA             bool                     `json:"fromCEA"`             // true if inbound is initiated by a CEA
@@ -87,13 +110,3 @@ type OutboundEvent struct {
 	GasFeeUsed    string `json:"gas_fee_used,omitempty"`     // gas fee used in wei (decimal string)
 }
 
-// Event type enum values for event classification.
-// These constants define the types of events that can be processed.
-const (
-	EventTypeKeygen       = "KEYGEN"
-	EventTypeKeyrefresh   = "KEYREFRESH"
-	EventTypeQuorumChange = "QUORUM_CHANGE"
-	EventTypeSign         = "SIGN"
-	EventTypeInbound      = "INBOUND"
-	EventTypeOutbound     = "OUTBOUND"
-)

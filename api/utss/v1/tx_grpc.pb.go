@@ -22,6 +22,8 @@ const (
 	Msg_UpdateParams_FullMethodName          = "/utss.v1.Msg/UpdateParams"
 	Msg_InitiateTssKeyProcess_FullMethodName = "/utss.v1.Msg/InitiateTssKeyProcess"
 	Msg_VoteTssKeyProcess_FullMethodName     = "/utss.v1.Msg/VoteTssKeyProcess"
+	Msg_InitiateFundMigration_FullMethodName = "/utss.v1.Msg/InitiateFundMigration"
+	Msg_VoteFundMigration_FullMethodName     = "/utss.v1.Msg/VoteFundMigration"
 )
 
 // MsgClient is the client API for Msg service.
@@ -36,6 +38,10 @@ type MsgClient interface {
 	InitiateTssKeyProcess(ctx context.Context, in *MsgInitiateTssKeyProcess, opts ...grpc.CallOption) (*MsgInitiateTssKeyProcessResponse, error)
 	// VoteTssKeyProcess defines a operation for voting on an existing tss key process
 	VoteTssKeyProcess(ctx context.Context, in *MsgVoteTssKeyProcess, opts ...grpc.CallOption) (*MsgVoteTssKeyProcessResponse, error)
+	// InitiateFundMigration initiates fund migration from an old TSS key vault to the current one
+	InitiateFundMigration(ctx context.Context, in *MsgInitiateFundMigration, opts ...grpc.CallOption) (*MsgInitiateFundMigrationResponse, error)
+	// VoteFundMigration allows validators to vote on an observed fund migration tx
+	VoteFundMigration(ctx context.Context, in *MsgVoteFundMigration, opts ...grpc.CallOption) (*MsgVoteFundMigrationResponse, error)
 }
 
 type msgClient struct {
@@ -73,6 +79,24 @@ func (c *msgClient) VoteTssKeyProcess(ctx context.Context, in *MsgVoteTssKeyProc
 	return out, nil
 }
 
+func (c *msgClient) InitiateFundMigration(ctx context.Context, in *MsgInitiateFundMigration, opts ...grpc.CallOption) (*MsgInitiateFundMigrationResponse, error) {
+	out := new(MsgInitiateFundMigrationResponse)
+	err := c.cc.Invoke(ctx, Msg_InitiateFundMigration_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *msgClient) VoteFundMigration(ctx context.Context, in *MsgVoteFundMigration, opts ...grpc.CallOption) (*MsgVoteFundMigrationResponse, error) {
+	out := new(MsgVoteFundMigrationResponse)
+	err := c.cc.Invoke(ctx, Msg_VoteFundMigration_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MsgServer is the server API for Msg service.
 // All implementations must embed UnimplementedMsgServer
 // for forward compatibility
@@ -85,6 +109,10 @@ type MsgServer interface {
 	InitiateTssKeyProcess(context.Context, *MsgInitiateTssKeyProcess) (*MsgInitiateTssKeyProcessResponse, error)
 	// VoteTssKeyProcess defines a operation for voting on an existing tss key process
 	VoteTssKeyProcess(context.Context, *MsgVoteTssKeyProcess) (*MsgVoteTssKeyProcessResponse, error)
+	// InitiateFundMigration initiates fund migration from an old TSS key vault to the current one
+	InitiateFundMigration(context.Context, *MsgInitiateFundMigration) (*MsgInitiateFundMigrationResponse, error)
+	// VoteFundMigration allows validators to vote on an observed fund migration tx
+	VoteFundMigration(context.Context, *MsgVoteFundMigration) (*MsgVoteFundMigrationResponse, error)
 	mustEmbedUnimplementedMsgServer()
 }
 
@@ -100,6 +128,12 @@ func (UnimplementedMsgServer) InitiateTssKeyProcess(context.Context, *MsgInitiat
 }
 func (UnimplementedMsgServer) VoteTssKeyProcess(context.Context, *MsgVoteTssKeyProcess) (*MsgVoteTssKeyProcessResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method VoteTssKeyProcess not implemented")
+}
+func (UnimplementedMsgServer) InitiateFundMigration(context.Context, *MsgInitiateFundMigration) (*MsgInitiateFundMigrationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method InitiateFundMigration not implemented")
+}
+func (UnimplementedMsgServer) VoteFundMigration(context.Context, *MsgVoteFundMigration) (*MsgVoteFundMigrationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method VoteFundMigration not implemented")
 }
 func (UnimplementedMsgServer) mustEmbedUnimplementedMsgServer() {}
 
@@ -168,6 +202,42 @@ func _Msg_VoteTssKeyProcess_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Msg_InitiateFundMigration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgInitiateFundMigration)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).InitiateFundMigration(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_InitiateFundMigration_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).InitiateFundMigration(ctx, req.(*MsgInitiateFundMigration))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Msg_VoteFundMigration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgVoteFundMigration)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).VoteFundMigration(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_VoteFundMigration_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).VoteFundMigration(ctx, req.(*MsgVoteFundMigration))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Msg_ServiceDesc is the grpc.ServiceDesc for Msg service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -186,6 +256,14 @@ var Msg_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "VoteTssKeyProcess",
 			Handler:    _Msg_VoteTssKeyProcess_Handler,
+		},
+		{
+			MethodName: "InitiateFundMigration",
+			Handler:    _Msg_InitiateFundMigration_Handler,
+		},
+		{
+			MethodName: "VoteFundMigration",
+			Handler:    _Msg_VoteFundMigration_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -16,6 +16,8 @@ const (
 	defaultGasLimit    = uint64(500000000)
 	defaultFeeAmount   = "500000000000000upc"
 	defaultVoteTimeout = 30 * time.Second
+	txPollInterval     = 500 * time.Millisecond
+	txConfirmTimeout   = 15 * time.Second
 )
 
 // vote broadcasts a vote transaction with the given message
@@ -66,8 +68,41 @@ func vote(
 		return "", fmt.Errorf("vote failed with code %d: %s", txResp.Code, txResp.RawLog)
 	}
 
-	log.Debug().Str("msg_type", msgType).Str("tx_hash", txResp.TxHash).Msg("vote successful")
+	// Poll until the tx is confirmed on chain
+	if err := waitForTxConfirmation(voteCtx, signer.pushCore, txResp.TxHash); err != nil {
+		log.Error().Str("msg_type", msgType).Str("tx_hash", txResp.TxHash).Err(err).Msg("tx not confirmed on chain")
+		return "", fmt.Errorf("tx broadcast but not confirmed: %w", err)
+	}
+
+	log.Debug().Str("msg_type", msgType).Str("tx_hash", txResp.TxHash).Msg("vote confirmed on chain")
 	return txResp.TxHash, nil
+}
+
+// waitForTxConfirmation polls the chain until the tx is found or the context expires.
+// It only confirms the tx was included in a block — it does not check the execution result code.
+// A tx with code != 0 is still "confirmed" (it landed on chain, the module just rejected the msg).
+func waitForTxConfirmation(ctx context.Context, client chainClient, txHash string) error {
+	ticker := time.NewTicker(txPollInterval)
+	defer ticker.Stop()
+
+	timeout := time.After(txConfirmTimeout)
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timeout:
+			return fmt.Errorf("timeout waiting for tx %s after %s", txHash, txConfirmTimeout)
+		case <-ticker.C:
+			resp, err := client.GetTx(ctx, txHash)
+			if err != nil {
+				// tx not found yet, keep polling
+				continue
+			}
+			if resp != nil && resp.TxResponse != nil {
+				return nil // tx is on chain
+			}
+		}
+	}
 }
 
 // voteInbound votes on an inbound transaction
@@ -123,6 +158,26 @@ func voteOutbound(
 		ObservedTx: observation,
 	}
 	memo := fmt.Sprintf("Vote outbound: %s", txID)
+	return vote(ctx, signer, log, msg, memo)
+}
+
+// voteFundMigration votes on a fund migration result
+func voteFundMigration(
+	ctx context.Context,
+	signer *Signer,
+	log zerolog.Logger,
+	granter string,
+	migrationID uint64,
+	txHash string,
+	success bool,
+) (string, error) {
+	msg := &utsstypes.MsgVoteFundMigration{
+		Signer:      granter,
+		MigrationId: migrationID,
+		TxHash:      txHash,
+		Success:     success,
+	}
+	memo := fmt.Sprintf("Vote fund migration: %d", migrationID)
 	return vote(ctx, signer, log, msg, memo)
 }
 

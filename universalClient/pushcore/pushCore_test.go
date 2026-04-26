@@ -9,6 +9,7 @@ import (
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	"github.com/cosmos/cosmos-sdk/x/authz"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
@@ -89,6 +90,9 @@ func TestNew(t *testing.T) {
 				} else {
 					require.NotNil(t, client)
 					assert.NotNil(t, client.logger)
+					// Verify authz and auth clients are initialized
+					assert.Equal(t, len(client.conns), len(client.authzClients))
+					assert.Equal(t, len(client.conns), len(client.authClients))
 					_ = client.Close()
 				}
 			}
@@ -344,67 +348,6 @@ func TestClient_GetCurrentKey(t *testing.T) {
 	})
 }
 
-func TestClient_GetTxsByEvents(t *testing.T) {
-	logger := zerolog.Nop()
-
-	t.Run("no endpoints configured", func(t *testing.T) {
-		client := &Client{
-			logger:    logger,
-			txClients: []tx.ServiceClient{},
-		}
-
-		txs, err := client.GetTxsByEvents(context.Background(), "test.event", 0, 0, 0)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "no endpoints configured")
-		assert.Nil(t, txs)
-	})
-
-	t.Run("successful query with mock", func(t *testing.T) {
-		mockClient := &mockTxServiceClient{
-			getTxsEventResp: &tx.GetTxsEventResponse{
-				Txs: []*tx.Tx{
-					{Body: &tx.TxBody{}},
-				},
-				TxResponses: []*sdktypes.TxResponse{
-					{
-						Height: 100,
-						TxHash: "0x123",
-					},
-				},
-			},
-		}
-
-		client := &Client{
-			logger:    logger,
-			txClients: []tx.ServiceClient{mockClient},
-		}
-
-		txs, err := client.GetTxsByEvents(context.Background(), "test.event", 0, 0, 0)
-		require.NoError(t, err)
-		require.Len(t, txs, 1)
-		assert.Equal(t, "0x123", txs[0].TxHash)
-		assert.Equal(t, int64(100), txs[0].Height)
-	})
-
-	t.Run("with height filters", func(t *testing.T) {
-		mockClient := &mockTxServiceClient{
-			getTxsEventResp: &tx.GetTxsEventResponse{
-				Txs:         []*tx.Tx{},
-				TxResponses: []*sdktypes.TxResponse{},
-			},
-		}
-
-		client := &Client{
-			logger:    logger,
-			txClients: []tx.ServiceClient{mockClient},
-		}
-
-		txs, err := client.GetTxsByEvents(context.Background(), "test.event", 100, 200, 50)
-		require.NoError(t, err)
-		assert.NotNil(t, txs)
-	})
-}
-
 func TestClient_GetGasPrice(t *testing.T) {
 	logger := zerolog.Nop()
 	ctx := context.Background()
@@ -571,8 +514,8 @@ func TestClient_GetGranteeGrants(t *testing.T) {
 
 	t.Run("no endpoints configured", func(t *testing.T) {
 		client := &Client{
-			logger: logger,
-			conns:  []*grpc.ClientConn{},
+			logger:       logger,
+			authzClients: []authz.QueryClient{},
 		}
 
 		grants, err := client.GetGranteeGrants(context.Background(), "cosmos1abc...")
@@ -582,17 +525,41 @@ func TestClient_GetGranteeGrants(t *testing.T) {
 	})
 
 	t.Run("successful query with mock", func(t *testing.T) {
-		// Note: This test requires actual gRPC connections, so we'll test the error case
-		// For a full mock test, we'd need to set up a gRPC server
+		mockClient := &mockAuthzQueryClient{
+			granteeGrantsResp: &authz.QueryGranteeGrantsResponse{
+				Grants: []*authz.GrantAuthorization{
+					{Granter: "push1granter"},
+				},
+			},
+		}
+
 		client := &Client{
-			logger: logger,
-			conns:  []*grpc.ClientConn{},
+			logger:       logger,
+			authzClients: []authz.QueryClient{mockClient},
 		}
 
 		grants, err := client.GetGranteeGrants(context.Background(), "cosmos1abc...")
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "no endpoints configured")
-		assert.Nil(t, grants)
+		require.NoError(t, err)
+		require.Len(t, grants.Grants, 1)
+		assert.Equal(t, "push1granter", grants.Grants[0].Granter)
+	})
+
+	t.Run("round robin failover", func(t *testing.T) {
+		failingClient := &mockAuthzQueryClient{err: assert.AnError}
+		successClient := &mockAuthzQueryClient{
+			granteeGrantsResp: &authz.QueryGranteeGrantsResponse{
+				Grants: []*authz.GrantAuthorization{},
+			},
+		}
+
+		client := &Client{
+			logger:       logger,
+			authzClients: []authz.QueryClient{failingClient, successClient},
+		}
+
+		grants, err := client.GetGranteeGrants(context.Background(), "cosmos1abc...")
+		require.NoError(t, err)
+		assert.NotNil(t, grants)
 	})
 }
 
@@ -602,8 +569,8 @@ func TestClient_GetAccount(t *testing.T) {
 
 	t.Run("no endpoints configured", func(t *testing.T) {
 		client := &Client{
-			logger: logger,
-			conns:  []*grpc.ClientConn{},
+			logger:      logger,
+			authClients: []authtypes.QueryClient{},
 		}
 
 		account, err := client.GetAccount(ctx, "cosmos1abc123")
@@ -612,16 +579,334 @@ func TestClient_GetAccount(t *testing.T) {
 		assert.Nil(t, account)
 	})
 
-	t.Run("empty address", func(t *testing.T) {
-		client := &Client{
-			logger: logger,
-			conns:  []*grpc.ClientConn{},
+	t.Run("successful query with mock", func(t *testing.T) {
+		mockClient := &mockAuthAccountQueryClient{
+			accountResp: &authtypes.QueryAccountResponse{},
 		}
 
-		account, err := client.GetAccount(ctx, "")
+		client := &Client{
+			logger:      logger,
+			authClients: []authtypes.QueryClient{mockClient},
+		}
+
+		account, err := client.GetAccount(ctx, "cosmos1abc123")
+		require.NoError(t, err)
+		assert.NotNil(t, account)
+	})
+
+	t.Run("all endpoints fail", func(t *testing.T) {
+		client := &Client{
+			logger: logger,
+			authClients: []authtypes.QueryClient{
+				&mockAuthAccountQueryClient{err: assert.AnError},
+				&mockAuthAccountQueryClient{err: assert.AnError},
+			},
+		}
+
+		account, err := client.GetAccount(ctx, "cosmos1abc123")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed on all 2 endpoints")
+		assert.Nil(t, account)
+	})
+}
+
+func TestClient_BroadcastTx(t *testing.T) {
+	logger := zerolog.Nop()
+	ctx := context.Background()
+
+	t.Run("no endpoints configured", func(t *testing.T) {
+		client := &Client{
+			logger:    logger,
+			txClients: []tx.ServiceClient{},
+		}
+
+		resp, err := client.BroadcastTx(ctx, []byte("txbytes"))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "no endpoints configured")
-		assert.Nil(t, account)
+		assert.Nil(t, resp)
+	})
+
+	t.Run("successful broadcast", func(t *testing.T) {
+		mockClient := &mockTxServiceClient{
+			broadcastResp: &tx.BroadcastTxResponse{
+				TxResponse: &sdktypes.TxResponse{TxHash: "0xabc", Code: 0},
+			},
+		}
+
+		client := &Client{
+			logger:    logger,
+			txClients: []tx.ServiceClient{mockClient},
+		}
+
+		resp, err := client.BroadcastTx(ctx, []byte("txbytes"))
+		require.NoError(t, err)
+		assert.Equal(t, "0xabc", resp.TxResponse.TxHash)
+	})
+
+	t.Run("failover on first endpoint failure", func(t *testing.T) {
+		failing := &mockTxServiceClient{err: assert.AnError}
+		success := &mockTxServiceClient{
+			broadcastResp: &tx.BroadcastTxResponse{
+				TxResponse: &sdktypes.TxResponse{TxHash: "0xdef"},
+			},
+		}
+
+		client := &Client{
+			logger:    logger,
+			txClients: []tx.ServiceClient{failing, success},
+		}
+
+		resp, err := client.BroadcastTx(ctx, []byte("txbytes"))
+		require.NoError(t, err)
+		assert.Equal(t, "0xdef", resp.TxResponse.TxHash)
+	})
+}
+
+func TestClient_GetPendingTssEvents(t *testing.T) {
+	logger := zerolog.Nop()
+	ctx := context.Background()
+
+	t.Run("no endpoints configured", func(t *testing.T) {
+		client := &Client{
+			logger:      logger,
+			utssClients: []utsstypes.QueryClient{},
+		}
+
+		events, err := client.GetPendingTssEvents(ctx)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no endpoints configured")
+		assert.Nil(t, events)
+	})
+
+	t.Run("successful query with mock", func(t *testing.T) {
+		mockClient := &mockUTSSQueryClient{
+			pendingTssEventsResp: &utsstypes.QueryAllPendingTssEventsResponse{
+				Events: []*utsstypes.TssEvent{
+					{Id: 1, ProcessId: 100, ProcessType: "TSS_PROCESS_KEYGEN"},
+					{Id: 2, ProcessId: 200, ProcessType: "TSS_PROCESS_REFRESH"},
+				},
+			},
+		}
+
+		client := &Client{
+			logger:      logger,
+			utssClients: []utsstypes.QueryClient{mockClient},
+		}
+
+		events, err := client.GetPendingTssEvents(ctx)
+		require.NoError(t, err)
+		require.Len(t, events, 2)
+		assert.Equal(t, uint64(100), events[0].ProcessId)
+		assert.Equal(t, uint64(200), events[1].ProcessId)
+	})
+
+	t.Run("all endpoints fail", func(t *testing.T) {
+		client := &Client{
+			logger: logger,
+			utssClients: []utsstypes.QueryClient{
+				&mockUTSSQueryClient{err: assert.AnError},
+			},
+		}
+
+		events, err := client.GetPendingTssEvents(ctx)
+		require.Error(t, err)
+		assert.Nil(t, events)
+	})
+}
+
+func TestClient_GetPendingFundMigrations(t *testing.T) {
+	logger := zerolog.Nop()
+	ctx := context.Background()
+
+	t.Run("no endpoints configured", func(t *testing.T) {
+		client := &Client{
+			logger:      logger,
+			utssClients: []utsstypes.QueryClient{},
+		}
+
+		migrations, err := client.GetPendingFundMigrations(ctx)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no endpoints configured")
+		assert.Nil(t, migrations)
+	})
+
+	t.Run("successful query with mock", func(t *testing.T) {
+		mockClient := &mockUTSSQueryClient{
+			pendingFundMigrationsResp: &utsstypes.QueryPendingFundMigrationsResponse{
+				Migrations: []*utsstypes.FundMigration{
+					{Id: 1, OldKeyId: "key-old", Chain: "eip155:1"},
+					{Id: 2, OldKeyId: "key-old", Chain: "eip155:42161"},
+				},
+			},
+		}
+
+		client := &Client{
+			logger:      logger,
+			utssClients: []utsstypes.QueryClient{mockClient},
+		}
+
+		migrations, err := client.GetPendingFundMigrations(ctx)
+		require.NoError(t, err)
+		require.Len(t, migrations, 2)
+		assert.Equal(t, uint64(1), migrations[0].Id)
+		assert.Equal(t, "eip155:42161", migrations[1].Chain)
+	})
+
+	t.Run("all endpoints fail", func(t *testing.T) {
+		client := &Client{
+			logger: logger,
+			utssClients: []utsstypes.QueryClient{
+				&mockUTSSQueryClient{err: assert.AnError},
+			},
+		}
+
+		migrations, err := client.GetPendingFundMigrations(ctx)
+		require.Error(t, err)
+		assert.Nil(t, migrations)
+	})
+}
+
+func TestClient_GetAllPendingOutbounds(t *testing.T) {
+	logger := zerolog.Nop()
+	ctx := context.Background()
+
+	t.Run("no endpoints configured", func(t *testing.T) {
+		client := &Client{
+			logger:           logger,
+			uexecutorClients: []uexecutortypes.QueryClient{},
+		}
+
+		entries, outbounds, err := client.GetAllPendingOutbounds(ctx)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no endpoints configured")
+		assert.Nil(t, entries)
+		assert.Nil(t, outbounds)
+	})
+
+	t.Run("successful query with mock", func(t *testing.T) {
+		mockClient := &mockUExecutorQueryClient{
+			allPendingOutboundsResp: &uexecutortypes.QueryAllPendingOutboundsResponse{
+				Entries: []*uexecutortypes.PendingOutboundEntry{
+					{OutboundId: "ob-1", UniversalTxId: "utx-1", CreatedAt: 100},
+				},
+				Outbounds: []*uexecutortypes.OutboundTx{
+					{Id: "ob-1", DestinationChain: "eip155:1", Amount: "1000"},
+				},
+			},
+		}
+
+		client := &Client{
+			logger:           logger,
+			uexecutorClients: []uexecutortypes.QueryClient{mockClient},
+		}
+
+		entries, outbounds, err := client.GetAllPendingOutbounds(ctx)
+		require.NoError(t, err)
+		require.Len(t, entries, 1)
+		require.Len(t, outbounds, 1)
+		assert.Equal(t, "ob-1", entries[0].OutboundId)
+		assert.Equal(t, "eip155:1", outbounds[0].DestinationChain)
+	})
+
+	t.Run("all endpoints fail", func(t *testing.T) {
+		client := &Client{
+			logger: logger,
+			uexecutorClients: []uexecutortypes.QueryClient{
+				&mockUExecutorQueryClient{err: assert.AnError},
+			},
+		}
+
+		entries, outbounds, err := client.GetAllPendingOutbounds(ctx)
+		require.Error(t, err)
+		assert.Nil(t, entries)
+		assert.Nil(t, outbounds)
+	})
+}
+
+func TestClient_GetGasPrice_NilResponse(t *testing.T) {
+	logger := zerolog.Nop()
+	mockClient := &mockUExecutorQueryClient{
+		gasPriceResp: &uexecutortypes.QueryGasPriceResponse{
+			GasPrice: nil,
+		},
+	}
+
+	client := &Client{
+		logger:           logger,
+		uexecutorClients: []uexecutortypes.QueryClient{mockClient},
+	}
+
+	price, err := client.GetGasPrice(context.Background(), "eip155:1")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "GasPrice response is nil")
+	assert.Nil(t, price)
+}
+
+func TestClient_GetTx(t *testing.T) {
+	logger := zerolog.Nop()
+	ctx := context.Background()
+
+	t.Run("no endpoints configured", func(t *testing.T) {
+		client := &Client{
+			logger:    logger,
+			txClients: []tx.ServiceClient{},
+		}
+
+		resp, err := client.GetTx(ctx, "0xabc")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no endpoints configured")
+		assert.Nil(t, resp)
+	})
+
+	t.Run("successful get tx", func(t *testing.T) {
+		mockClient := &mockTxServiceClient{
+			getTxResp: &tx.GetTxResponse{
+				TxResponse: &sdktypes.TxResponse{TxHash: "0xabc123", Code: 0},
+			},
+		}
+
+		client := &Client{
+			logger:    logger,
+			txClients: []tx.ServiceClient{mockClient},
+		}
+
+		resp, err := client.GetTx(ctx, "0xabc123")
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Equal(t, "0xabc123", resp.TxResponse.TxHash)
+	})
+
+	t.Run("failover on first endpoint failure", func(t *testing.T) {
+		failing := &mockTxServiceClient{getTxErr: assert.AnError}
+		success := &mockTxServiceClient{
+			getTxResp: &tx.GetTxResponse{
+				TxResponse: &sdktypes.TxResponse{TxHash: "0xdef456"},
+			},
+		}
+
+		client := &Client{
+			logger:    logger,
+			txClients: []tx.ServiceClient{failing, success},
+		}
+
+		resp, err := client.GetTx(ctx, "0xdef456")
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Equal(t, "0xdef456", resp.TxResponse.TxHash)
+	})
+
+	t.Run("all endpoints fail", func(t *testing.T) {
+		failing1 := &mockTxServiceClient{getTxErr: assert.AnError}
+		failing2 := &mockTxServiceClient{getTxErr: assert.AnError}
+
+		client := &Client{
+			logger:    logger,
+			txClients: []tx.ServiceClient{failing1, failing2},
+		}
+
+		resp, err := client.GetTx(ctx, "0xabc")
+		require.Error(t, err)
+		assert.Nil(t, resp)
 	})
 }
 
@@ -680,8 +965,10 @@ func (m *mockUValidatorQueryClient) UniversalValidator(ctx context.Context, req 
 
 type mockUTSSQueryClient struct {
 	utsstypes.QueryClient
-	currentKeyResp *utsstypes.QueryCurrentKeyResponse
-	err            error
+	currentKeyResp              *utsstypes.QueryCurrentKeyResponse
+	pendingTssEventsResp        *utsstypes.QueryAllPendingTssEventsResponse
+	pendingFundMigrationsResp   *utsstypes.QueryPendingFundMigrationsResponse
+	err                         error
 }
 
 func (m *mockUTSSQueryClient) CurrentKey(ctx context.Context, req *utsstypes.QueryCurrentKeyRequest, opts ...grpc.CallOption) (*utsstypes.QueryCurrentKeyResponse, error) {
@@ -691,31 +978,51 @@ func (m *mockUTSSQueryClient) CurrentKey(ctx context.Context, req *utsstypes.Que
 	return m.currentKeyResp, nil
 }
 
+func (m *mockUTSSQueryClient) AllPendingTssEvents(ctx context.Context, req *utsstypes.QueryAllPendingTssEventsRequest, opts ...grpc.CallOption) (*utsstypes.QueryAllPendingTssEventsResponse, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.pendingTssEventsResp, nil
+}
+
+func (m *mockUTSSQueryClient) PendingFundMigrations(ctx context.Context, req *utsstypes.QueryPendingFundMigrationsRequest, opts ...grpc.CallOption) (*utsstypes.QueryPendingFundMigrationsResponse, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.pendingFundMigrationsResp, nil
+}
+
 func (m *mockUTSSQueryClient) KeyById(ctx context.Context, req *utsstypes.QueryKeyByIdRequest, opts ...grpc.CallOption) (*utsstypes.QueryKeyByIdResponse, error) {
 	return nil, nil
 }
 
 type mockTxServiceClient struct {
 	tx.ServiceClient
-	getTxsEventResp *tx.GetTxsEventResponse
-	err             error
+	broadcastResp *tx.BroadcastTxResponse
+	getTxResp     *tx.GetTxResponse
+	err           error
+	getTxErr      error
 }
 
-func (m *mockTxServiceClient) GetTxsEvent(ctx context.Context, req *tx.GetTxsEventRequest, opts ...grpc.CallOption) (*tx.GetTxsEventResponse, error) {
+func (m *mockTxServiceClient) BroadcastTx(ctx context.Context, req *tx.BroadcastTxRequest, opts ...grpc.CallOption) (*tx.BroadcastTxResponse, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
-	return m.getTxsEventResp, nil
+	return m.broadcastResp, nil
 }
 
 func (m *mockTxServiceClient) GetTx(ctx context.Context, req *tx.GetTxRequest, opts ...grpc.CallOption) (*tx.GetTxResponse, error) {
-	return nil, nil
+	if m.getTxErr != nil {
+		return nil, m.getTxErr
+	}
+	return m.getTxResp, nil
 }
 
 type mockUExecutorQueryClient struct {
 	uexecutortypes.QueryClient
-	gasPriceResp *uexecutortypes.QueryGasPriceResponse
-	err          error
+	gasPriceResp            *uexecutortypes.QueryGasPriceResponse
+	allPendingOutboundsResp *uexecutortypes.QueryAllPendingOutboundsResponse
+	err                     error
 }
 
 func (m *mockUExecutorQueryClient) GasPrice(ctx context.Context, req *uexecutortypes.QueryGasPriceRequest, opts ...grpc.CallOption) (*uexecutortypes.QueryGasPriceResponse, error) {
@@ -741,17 +1048,37 @@ func (m *mockUExecutorQueryClient) AllUniversalTx(ctx context.Context, req *uexe
 	return nil, nil
 }
 
+func (m *mockUExecutorQueryClient) AllPendingOutbounds(ctx context.Context, req *uexecutortypes.QueryAllPendingOutboundsRequest, opts ...grpc.CallOption) (*uexecutortypes.QueryAllPendingOutboundsResponse, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.allPendingOutboundsResp, nil
+}
+
 func (m *mockUExecutorQueryClient) AllGasPrices(ctx context.Context, req *uexecutortypes.QueryAllGasPricesRequest, opts ...grpc.CallOption) (*uexecutortypes.QueryAllGasPricesResponse, error) {
 	return nil, nil
 }
 
-type mockAuthQueryClient struct {
+type mockAuthzQueryClient struct {
+	authz.QueryClient
+	granteeGrantsResp *authz.QueryGranteeGrantsResponse
+	err               error
+}
+
+func (m *mockAuthzQueryClient) GranteeGrants(ctx context.Context, req *authz.QueryGranteeGrantsRequest, opts ...grpc.CallOption) (*authz.QueryGranteeGrantsResponse, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.granteeGrantsResp, nil
+}
+
+type mockAuthAccountQueryClient struct {
 	authtypes.QueryClient
 	accountResp *authtypes.QueryAccountResponse
 	err         error
 }
 
-func (m *mockAuthQueryClient) Account(ctx context.Context, req *authtypes.QueryAccountRequest, opts ...grpc.CallOption) (*authtypes.QueryAccountResponse, error) {
+func (m *mockAuthAccountQueryClient) Account(ctx context.Context, req *authtypes.QueryAccountRequest, opts ...grpc.CallOption) (*authtypes.QueryAccountResponse, error) {
 	if m.err != nil {
 		return nil, m.err
 	}

@@ -7,13 +7,11 @@ import (
 	"sync"
 	"time"
 
-	pkgerrors "github.com/pkg/errors"
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/chains/evm"
 	"github.com/pushchain/push-chain-node/universalClient/chains/push"
 	"github.com/pushchain/push-chain-node/universalClient/chains/svm"
 	"github.com/pushchain/push-chain-node/universalClient/config"
-	"github.com/pushchain/push-chain-node/universalClient/constant"
 	"github.com/pushchain/push-chain-node/universalClient/db"
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/pushsigner"
@@ -415,11 +413,11 @@ func (c *Chains) getChainDB(chainID string) (*db.DB, error) {
 	dbFilename := sanitizedChainID + ".db"
 
 	// Derive database base directory from NodeHome
-	baseDir := filepath.Join(c.config.NodeHome, constant.DatabasesSubdir)
+	baseDir := filepath.Join(c.config.NodeHome, config.DatabasesSubdir)
 
 	database, err := db.OpenFileDB(baseDir, dbFilename, true)
 	if err != nil {
-		return nil, pkgerrors.Wrapf(err, "failed to create database for chain %s", chainID)
+		return nil, fmt.Errorf("failed to create database for chain %s: %w", chainID, err)
 	}
 
 	c.logger.Info().

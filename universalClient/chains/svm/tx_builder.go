@@ -72,10 +72,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gagliardetto/solana-go"
+	addresslookuptable "github.com/gagliardetto/solana-go/programs/address-lookup-table"
+	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/rs/zerolog"
 
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
-	"github.com/pushchain/push-chain-node/universalClient/constant"
+	"github.com/pushchain/push-chain-node/universalClient/config"
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
@@ -89,7 +91,7 @@ type GatewayAccountMeta struct {
 }
 
 // TxBuilder constructs and broadcasts Solana transactions for cross-chain operations.
-// It implements the common.OutboundTxBuilder interface shared with the EVM tx builder.
+// It implements the common.TxBuilder interface shared with the EVM tx builder.
 //
 // The builder needs:
 //   - rpcClient: to talk to a Solana RPC node (fetch account data, send transactions)
@@ -102,6 +104,8 @@ type TxBuilder struct {
 	gatewayAddress solana.PublicKey
 	nodeHome       string
 	logger         zerolog.Logger
+	protocolALT    solana.PublicKey                        // Protocol ALT pubkey (zero if not configured)
+	tokenALTs      map[solana.PublicKey]solana.PublicKey    // mint pubkey → token ALT pubkey
 }
 
 // NewTxBuilder creates a new Solana transaction builder.
@@ -113,6 +117,7 @@ func NewTxBuilder(
 	gatewayAddress string,
 	nodeHome string,
 	logger zerolog.Logger,
+	chainConfig *config.ChainSpecificConfig,
 ) (*TxBuilder, error) {
 	if rpcClient == nil {
 		return nil, fmt.Errorf("rpcClient is required")
@@ -129,13 +134,41 @@ func NewTxBuilder(
 		return nil, fmt.Errorf("invalid gateway address: %w", err)
 	}
 
-	return &TxBuilder{
+	tb := &TxBuilder{
 		rpcClient:      rpcClient,
 		chainID:        chainID,
 		gatewayAddress: addr,
 		nodeHome:       nodeHome,
 		logger:         logger.With().Str("component", "svm_tx_builder").Str("chain", chainID).Logger(),
-	}, nil
+		tokenALTs:      make(map[solana.PublicKey]solana.PublicKey),
+	}
+
+	// Parse ALT config if provided
+	if chainConfig != nil {
+		if chainConfig.ProtocolALT != "" {
+			protocolALT, err := solana.PublicKeyFromBase58(chainConfig.ProtocolALT)
+			if err != nil {
+				tb.logger.Warn().Err(err).Str("address", chainConfig.ProtocolALT).Msg("invalid protocol ALT address, skipping")
+			} else {
+				tb.protocolALT = protocolALT
+			}
+		}
+		for mint, altAddr := range chainConfig.TokenALTs {
+			mintPubkey, err := solana.PublicKeyFromBase58(mint)
+			if err != nil {
+				tb.logger.Warn().Err(err).Str("mint", mint).Msg("invalid token ALT mint address, skipping")
+				continue
+			}
+			altPubkey, err := solana.PublicKeyFromBase58(altAddr)
+			if err != nil {
+				tb.logger.Warn().Err(err).Str("alt", altAddr).Msg("invalid token ALT address, skipping")
+				continue
+			}
+			tb.tokenALTs[mintPubkey] = altPubkey
+		}
+	}
+
+	return tb, nil
 }
 
 // =============================================================================
@@ -158,7 +191,7 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 	ctx context.Context,
 	data *uetypes.OutboundCreatedEvent,
 	nonce uint64,
-) (*common.UnSignedOutboundTxReq, error) {
+) (*common.UnsignedSigningReq, error) {
 	if data == nil {
 		return nil, fmt.Errorf("outbound event data is nil")
 	}
@@ -372,7 +405,7 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 		return nil, fmt.Errorf("failed to construct TSS message: %w", err)
 	}
 
-	return &common.UnSignedOutboundTxReq{
+	return &common.UnsignedSigningReq{
 		SigningHash: messageHash, // This is the keccak256 hash to be signed by TSS
 		Nonce:       nonce,
 	}, nil
@@ -442,7 +475,7 @@ func (tb *TxBuilder) GetGasFeeUsed(ctx context.Context, txHash string) (string, 
 // TSS signature and broadcasts it to the Solana network.
 func (tb *TxBuilder) BroadcastOutboundSigningRequest(
 	ctx context.Context,
-	req *common.UnSignedOutboundTxReq,
+	req *common.UnsignedSigningReq,
 	data *uetypes.OutboundCreatedEvent,
 	signature []byte,
 ) (string, error) {
@@ -464,12 +497,54 @@ func (tb *TxBuilder) BroadcastOutboundSigningRequest(
 	return txHash, nil
 }
 
+// fetchAddressTables fetches Address Lookup Table state for V0 transactions.
+// Always includes the protocol ALT (if configured). For SPL tokens, also includes
+// the token-specific ALT for the given mint (if configured).
+// Returns an empty map if no ALTs are configured (transaction falls back to legacy format).
+func (tb *TxBuilder) fetchAddressTables(ctx context.Context, mintPubkey solana.PublicKey, isNative bool) (map[solana.PublicKey]solana.PublicKeySlice, error) {
+	addressTables := make(map[solana.PublicKey]solana.PublicKeySlice)
+
+	// Collect ALT pubkeys to fetch
+	var altsToFetch []solana.PublicKey
+
+	if !tb.protocolALT.IsZero() {
+		altsToFetch = append(altsToFetch, tb.protocolALT)
+	}
+
+	if !isNative {
+		if tokenALT, ok := tb.tokenALTs[mintPubkey]; ok {
+			altsToFetch = append(altsToFetch, tokenALT)
+		}
+	}
+
+	if len(altsToFetch) == 0 {
+		return addressTables, nil
+	}
+
+	// Fetch each ALT state from chain using the RPC client's failover mechanism
+	for _, altPubkey := range altsToFetch {
+		altKey := altPubkey // capture for closure
+		var altState *addresslookuptable.AddressLookupTableState
+		err := tb.rpcClient.executeWithFailover(ctx, "getAddressLookupTable", func(client *rpc.Client) error {
+			var fetchErr error
+			altState, fetchErr = addresslookuptable.GetAddressLookupTable(ctx, client, altKey)
+			return fetchErr
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch ALT %s: %w", altKey.String(), err)
+		}
+		addressTables[altKey] = altState.Addresses
+	}
+
+	return addressTables, nil
+}
+
 // BuildOutboundTransaction assembles a complete signed Solana transaction from the
 // TSS signature and event data, without broadcasting. Returns the transaction and
 // the instruction ID for logging. Use this for simulation or inspection.
 func (tb *TxBuilder) BuildOutboundTransaction(
 	ctx context.Context,
-	req *common.UnSignedOutboundTxReq,
+	req *common.UnsignedSigningReq,
 	data *uetypes.OutboundCreatedEvent,
 	signature []byte,
 ) (*solana.Transaction, uint8, error) {
@@ -730,16 +805,11 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 		instructionData,
 	)
 
-	if data.GasLimit == "" || data.GasLimit == "0" {
-		return nil, 0, fmt.Errorf("gas limit is required in outbound event")
-	}
-	parsedLimit, parseErr := strconv.ParseUint(data.GasLimit, 10, 32)
-	if parseErr != nil {
-		return nil, 0, fmt.Errorf("invalid gas limit: %s", data.GasLimit)
-	}
-	computeUnitLimit := uint32(parsedLimit)
-
-	computeLimitIx := tb.buildSetComputeUnitLimitInstruction(computeUnitLimit)
+	// Hardcoded compute budget for Solana transactions. The event's gasLimit is a fee
+	// parameter (used by core for gasFee = gasPrice × gasLimit), not actual compute units.
+	// 400,000 CU is sufficient for all gateway operations including CEA execute flows.
+	const svmComputeUnitLimit = uint32(400_000)
+	computeLimitIx := tb.buildSetComputeUnitLimitInstruction(svmComputeUnitLimit)
 
 	// Build the instruction list.
 	instructions := []solana.Instruction{computeLimitIx}
@@ -763,11 +833,14 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 		return nil, 0, fmt.Errorf("failed to get recent blockhash: %w", err)
 	}
 
-	tx, err := solana.NewTransaction(
-		instructions,
-		recentBlockhash,
-		solana.TransactionPayer(relayerKeypair.PublicKey()),
-	)
+	opts := []solana.TransactionOption{solana.TransactionPayer(relayerKeypair.PublicKey())}
+	addressTables, err := tb.fetchAddressTables(ctx, mintPubkey, isNative)
+	if err != nil {
+		tb.logger.Warn().Err(err).Msg("failed to fetch ALTs, falling back to legacy tx")
+	} else if len(addressTables) > 0 {
+		opts = append(opts, solana.TransactionAddressTables(addressTables))
+	}
+	tx, err := solana.NewTransaction(instructions, recentBlockhash, opts...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to create transaction: %w", err)
 	}
@@ -783,6 +856,17 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 	})
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to sign transaction: %w", err)
+	}
+
+	// Warn if transaction exceeds Solana's 1232-byte raw limit.
+	if txBytes, marshalErr := tx.MarshalBinary(); marshalErr == nil {
+		if len(txBytes) > 1232 {
+			tb.logger.Warn().
+				Int("raw_bytes", len(txBytes)).
+				Int("ix_data_bytes", len(ixData)).
+				Uint8("instruction_id", instructionID).
+				Msg("transaction exceeds 1232-byte Solana limit")
+		}
 	}
 
 	return tx, instructionID, nil
@@ -1039,7 +1123,7 @@ func (tb *TxBuilder) loadRelayerKeypair() (solana.PrivateKey, error) {
 		return nil, fmt.Errorf("empty namespace in chain ID: %s", tb.chainID)
 	}
 
-	keyPath := filepath.Join(tb.nodeHome, constant.RelayerSubdir, namespace+".json")
+	keyPath := filepath.Join(tb.nodeHome, config.RelayerSubdir, namespace+".json")
 
 	keyData, err := os.ReadFile(keyPath)
 	if err != nil {
@@ -1694,4 +1778,14 @@ func (tb *TxBuilder) buildCreateATAIdempotentInstruction(
 
 	// Instruction index 1 = CreateIdempotent
 	return solana.NewInstruction(ataProgramID, accounts, []byte{1})
+}
+
+// GetFundMigrationSigningRequest is not supported for SVM - funds are held by the program, not the TSS key.
+func (tb *TxBuilder) GetFundMigrationSigningRequest(ctx context.Context, data *common.FundMigrationData, nonce uint64) (*common.UnsignedSigningReq, error) {
+	return nil, fmt.Errorf("fund migration not supported for SVM")
+}
+
+// BroadcastFundMigrationTx is not supported for SVM - funds are held by the program, not the TSS key.
+func (tb *TxBuilder) BroadcastFundMigrationTx(ctx context.Context, req *common.UnsignedSigningReq, data *common.FundMigrationData, signature []byte) (string, error) {
+	return "", fmt.Errorf("fund migration not supported for SVM")
 }

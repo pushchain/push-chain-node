@@ -444,8 +444,7 @@ if [ -f "$HOTKEYS_FILE" ]; then
     echo "   Granter: $VALIDATOR_ADDR"
     echo "   Grantee: $HOTKEY_ADDR"
 
-    # Grant all required message types for this validator.
-    # Keep this list aligned with universalClient/constant/constant.go (RequiredMsgGrants).
+    # Grant all 4 message types for this validator
     for MSG_TYPE in \
       "/uexecutor.v1.MsgVoteInbound" \
       "/uexecutor.v1.MsgVoteChainMeta" \

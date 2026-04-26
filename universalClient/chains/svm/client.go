@@ -187,8 +187,8 @@ func (c *Client) GetConfig() *uregistrytypes.ChainConfig {
 	return c.registryConfig
 }
 
-// GetTxBuilder returns the OutboundTxBuilder for this chain
-func (c *Client) GetTxBuilder() (common.OutboundTxBuilder, error) {
+// GetTxBuilder returns the TxBuilder for this chain
+func (c *Client) GetTxBuilder() (common.TxBuilder, error) {
 	if c.txBuilder == nil {
 		return nil, fmt.Errorf("txBuilder not available for chain %s (gateway not configured)", c.chainIDStr)
 	}
@@ -247,6 +247,7 @@ func (c *Client) initializeComponents() error {
 			c.pushSigner,
 			c.chainIDStr,
 			config.gasPriceInterval,
+			config.gasPriceMarkupPercent,
 			c.logger,
 		)
 	}
@@ -259,6 +260,7 @@ func (c *Client) initializeComponents() error {
 			c.registryConfig.GatewayAddress,
 			c.nodeHome,
 			c.logger,
+			c.chainConfig,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to create txBuilder: %w", err)
@@ -320,6 +322,7 @@ func (c *Client) createRPCClient() error {
 type componentConfig struct {
 	eventPollingInterval  int
 	gasPriceInterval      int
+	gasPriceMarkupPercent int
 	fastConfirmations     uint64
 	standardConfirmations uint64
 }
@@ -341,6 +344,11 @@ func (c *Client) applyDefaults() componentConfig {
 	// Apply gas price interval
 	if c.chainConfig != nil && c.chainConfig.GasPriceIntervalSeconds != nil && *c.chainConfig.GasPriceIntervalSeconds > 0 {
 		config.gasPriceInterval = *c.chainConfig.GasPriceIntervalSeconds
+	}
+
+	// Apply gas price markup percent
+	if c.chainConfig != nil && c.chainConfig.GasPriceMarkupPercent != nil && *c.chainConfig.GasPriceMarkupPercent > 0 {
+		config.gasPriceMarkupPercent = *c.chainConfig.GasPriceMarkupPercent
 	}
 
 	// Apply confirmation requirements

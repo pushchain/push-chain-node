@@ -22,6 +22,8 @@ func (k Keeper) GetAllUniversalValidators(ctx context.Context) ([]types.Universa
 	if err != nil {
 		return nil, err
 	}
+
+	k.Logger().Debug("fetched all universal validators", "count", len(vals))
 	return vals, nil
 }
 
@@ -39,6 +41,8 @@ func (k Keeper) GetValidatorsByStatus(ctx context.Context, status types.UVStatus
 	if err != nil {
 		return nil, err
 	}
+
+	k.Logger().Debug("fetched validators by status", "status", status.String(), "count", len(vals))
 	return vals, nil
 }
 
@@ -58,10 +62,12 @@ func (k Keeper) GetEligibleVoters(ctx context.Context) ([]types.UniversalValidat
 	if err != nil {
 		return nil, err
 	}
+
+	k.Logger().Debug("fetched eligible voters", "count", len(voters))
 	return voters, nil
 }
 
-// UpdateValidatorStatus updates the validator’s lifecycle status.
+// UpdateValidatorStatus updates the validator's lifecycle status.
 // It appends a LifecycleEvent, validates legal transitions, and saves the updated record.
 func (k Keeper) UpdateValidatorStatus(ctx context.Context, addr sdk.ValAddress, newStatus types.UVStatus) error {
 	val, err := k.UniversalValidatorSet.Get(ctx, addr)
@@ -72,8 +78,16 @@ func (k Keeper) UpdateValidatorStatus(ctx context.Context, addr sdk.ValAddress, 
 		return err
 	}
 
+	oldStatus := val.LifecycleInfo.CurrentStatus
+
 	// Validate status transition
-	if err := validateStatusTransition(val.LifecycleInfo.CurrentStatus, newStatus); err != nil {
+	if err := validateStatusTransition(oldStatus, newStatus); err != nil {
+		k.Logger().Warn("invalid validator status transition",
+			"validator", addr.String(),
+			"old_status", oldStatus.String(),
+			"new_status", newStatus.String(),
+			"error", err.Error(),
+		)
 		return err
 	}
 
@@ -88,7 +102,18 @@ func (k Keeper) UpdateValidatorStatus(ctx context.Context, addr sdk.ValAddress, 
 	val.LifecycleInfo.CurrentStatus = newStatus
 
 	// Save back to state
-	return k.UniversalValidatorSet.Set(ctx, addr, val)
+	if err := k.UniversalValidatorSet.Set(ctx, addr, val); err != nil {
+		return err
+	}
+
+	k.Logger().Debug("validator status updated",
+		"validator", addr.String(),
+		"old_status", oldStatus.String(),
+		"new_status", newStatus.String(),
+		"block_height", blockHeight,
+	)
+
+	return nil
 }
 
 // validateStatusTransition ensures a validator can only move in a legal state order.
@@ -115,13 +140,21 @@ func (k Keeper) GetUniversalValidator(
 	addr sdk.ValAddress,
 ) (types.UniversalValidator, bool, error) {
 
+	k.Logger().Debug("looking up universal validator", "validator", addr.String())
+
 	val, err := k.UniversalValidatorSet.Get(ctx, addr)
 	if err != nil {
 		if errors.Is(err, collections.ErrNotFound) {
+			k.Logger().Debug("universal validator not found", "validator", addr.String())
 			return types.UniversalValidator{}, false, nil
 		}
 		return types.UniversalValidator{}, false, err
 	}
+
+	k.Logger().Debug("universal validator found",
+		"validator", addr.String(),
+		"status", val.LifecycleInfo.CurrentStatus.String(),
+	)
 
 	return val, true, nil
 }
@@ -150,5 +183,12 @@ func (k Keeper) IsActiveUniversalValidator(
 		return false, fmt.Errorf("failed to get universal validator: %w", err)
 	}
 
-	return uv.LifecycleInfo.CurrentStatus == types.UVStatus_UV_STATUS_ACTIVE, nil
+	isActive := uv.LifecycleInfo.CurrentStatus == types.UVStatus_UV_STATUS_ACTIVE
+	k.Logger().Debug("checked active universal validator status",
+		"validator", validatorOperatorAddr,
+		"is_active", isActive,
+		"current_status", uv.LifecycleInfo.CurrentStatus.String(),
+	)
+
+	return isActive, nil
 }

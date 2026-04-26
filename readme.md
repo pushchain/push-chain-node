@@ -57,14 +57,20 @@ make sh-testnet
 
 ## Directory Structure
 
-- `app/` – Core application logic and configuration
-- `x/` – Cosmos SDK modules (UExecutor, UTxVerifier, etc.)
-- `precompiles/` – EVM precompiles for universal verification
-- `proto/` – Protobuf definitions
-- `cmd/` – CLI entrypoints
-- `deploy/` – Deployment scripts and testnet configs
+- `app/` – Core validator application wiring (`pchaind`). See [`app/README.md`](./app/README.md) for what Push Chain adds on top of cosmos-evm.
+- `x/` – Push Chain custom Cosmos SDK modules:
+  - [`uexecutor`](./x/uexecutor/README.md) – Universal transaction execution layer
+  - [`uregistry`](./x/uregistry/README.md) – Chain & token registry
+  - [`uvalidator`](./x/uvalidator/README.md) – Universal validator set, ballot voting & UV reward boost
+  - [`utss`](./x/utss/README.md) – Threshold signature scheme coordination
+- `precompiles/` – Custom EVM precompiles ([`usigverifier`](./precompiles/usigverifier/README.md) — Ed25519 signature verification)
+- `universalClient/` – The Universal Validator binary (`puniversald`). See [`universalClient/README.md`](./universalClient/README.md).
+- `proto/` – Protobuf definitions for the four custom modules
+- `cmd/` – CLI entrypoints (`pchaind`, `puniversald`)
+- `config/` – Per-chain JSON registry configs (mainnet, testnet)
+- `testnet/` – Validator setup scripts (core + universal)
 - `interchaintest/` – E2E and integration tests
-- `utils/` – Utility functions
+- `utils/` – Shared utility functions
 
 ## Contributing
 

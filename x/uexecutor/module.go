@@ -30,7 +30,8 @@ import (
 
 const (
 	// ConsensusVersion defines the current x/uexecutor module consensus version.
-	ConsensusVersion = 5
+	// Bumped to 6: added PendingOutbounds collection.
+	ConsensusVersion = 6
 )
 
 var (
@@ -54,9 +55,8 @@ type AppModule struct {
 	feemarketKeeper   types.FeeMarketKeeper
 	bankKeeper        types.BankKeeper
 	accountKeeper     types.AccountKeeper
-	uregistryKeeper   types.UregistryKeeper
-	utxverifierKeeper types.UtxverifierKeeper
-	uvalidatorKeeper  types.UValidatorKeeper
+	uregistryKeeper  types.UregistryKeeper
+	uvalidatorKeeper types.UValidatorKeeper
 }
 
 // NewAppModule constructor
@@ -68,7 +68,6 @@ func NewAppModule(
 	bankKeeper types.BankKeeper,
 	accountKeeper types.AccountKeeper,
 	uregistryKeeper types.UregistryKeeper,
-	utxverifierKeeper types.UtxverifierKeeper,
 	uvalidatorKeeper types.UValidatorKeeper,
 ) *AppModule {
 	return &AppModule{
@@ -78,9 +77,8 @@ func NewAppModule(
 		feemarketKeeper:   feemarketKeeper,
 		bankKeeper:        bankKeeper,
 		accountKeeper:     accountKeeper,
-		uregistryKeeper:   uregistryKeeper,
-		utxverifierKeeper: utxverifierKeeper,
-		uvalidatorKeeper:  uvalidatorKeeper,
+		uregistryKeeper:  uregistryKeeper,
+		uvalidatorKeeper: uvalidatorKeeper,
 	}
 }
 
@@ -189,6 +187,14 @@ func (a AppModule) RegisterServices(cfg module.Configurator) {
 	// before RunMigrations is called, so this is a no-op.
 	if err := cfg.RegisterMigration(types.ModuleName, 4, a.migrateToV5()); err != nil {
 		panic(fmt.Sprintf("failed to migrate %s from version 4 to 5: %v", types.ModuleName, err))
+	}
+
+	// Register migration from version 5 -> 6 (pending-outbounds-index)
+	// New PendingOutbounds collection starts empty; the upgrade handler backfills it.
+	if err := cfg.RegisterMigration(types.ModuleName, 5, func(ctx sdk.Context) error {
+		return nil // no-op: new collection initialized empty by schema builder
+	}); err != nil {
+		panic(fmt.Sprintf("failed to migrate %s from version 5 to 6: %v", types.ModuleName, err))
 	}
 }
 

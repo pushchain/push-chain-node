@@ -808,7 +808,7 @@ step_setup_push_chain_sdk() {
   log_info "Installing push-chain-sdk dependencies"
   (
     cd "$PUSH_CHAIN_SDK_DIR"
-    yarn install
+    yarn install --mode=skip-build
     npm install
     npm i --save-dev @types/bs58
     npm i tweetnacl
@@ -1257,6 +1257,21 @@ step_setup_environment() {
   bsc_latest_block="0"
   solana_latest_slot="0"
 
+  start_detached_process() {
+    local log_file="$1"
+    shift
+
+    if command -v perl >/dev/null 2>&1; then
+      perl -MPOSIX=setsid -e '
+        setsid() or die "setsid failed: $!";
+        open STDIN, "<", "/dev/null" or die "stdin redirect failed: $!";
+        exec @ARGV or die "exec failed: $!";
+      ' "$@" >"$log_file" 2>&1 &
+    else
+      nohup "$@" >"$log_file" 2>&1 </dev/null &
+    fi
+  }
+
   start_anvil_fork() {
     local label="$1"
     local port="$2"
@@ -1285,8 +1300,8 @@ step_setup_environment() {
     done
 
     log_info "Starting anvil $label on port $port (chain-id: $chain_id)"
-    nohup anvil --host 0.0.0.0 --port "$port" --chain-id "$chain_id" --fork-url "$fork_url" --block-time 1 \
-      >"$LOG_DIR/anvil_${label}.log" 2>&1 &
+    start_detached_process "$LOG_DIR/anvil_${label}.log" \
+      anvil --host 0.0.0.0 --port "$port" --chain-id "$chain_id" --fork-url "$fork_url" --block-time 1
   }
 
   wait_for_block_number() {
@@ -1318,7 +1333,7 @@ step_setup_environment() {
     fi
 
     log_info "Starting surfpool for local Solana testing on port 8899"
-    nohup surfpool start --port 8899 --network devnet >"$LOG_DIR/surfpool.log" 2>&1 &
+    start_detached_process "$LOG_DIR/surfpool.log" surfpool start --port 8899 --network devnet
   }
 
   wait_for_solana_slot() {
@@ -1478,6 +1493,33 @@ step_stop_running_nodes() {
 
   pkill -f "$PUSH_CHAIN_DIR/build/pchaind start" >/dev/null 2>&1 || true
   pkill -f "$PUSH_CHAIN_DIR/build/puniversald" >/dev/null 2>&1 || true
+
+  local port pid wait_count
+  local ports=(
+    26656 26657 26658 26659 26660 26666 26676 26686
+    1317 1318 1319 1320
+    9090 9093 9095 9097
+    8545 8546 8547 8548 8549 8550 8551 8552
+    6060
+    8080 8081 8082 8083
+    39000 39001 39002 39003
+  )
+
+  for port in "${ports[@]}"; do
+    while IFS= read -r pid; do
+      [[ -n "$pid" ]] || continue
+      log_info "Stopping process $pid on local-native port $port"
+      kill "$pid" >/dev/null 2>&1 || true
+      wait_count=0
+      while kill -0 "$pid" >/dev/null 2>&1 && [[ "$wait_count" -lt 5 ]]; do
+        sleep 1
+        wait_count=$((wait_count + 1))
+      done
+      if kill -0 "$pid" >/dev/null 2>&1; then
+        kill -9 "$pid" >/dev/null 2>&1 || true
+      fi
+    done < <(lsof -ti tcp:"$port" 2>/dev/null || true)
+  done
 
   log_ok "Running nodes stopped"
 }
@@ -2567,7 +2609,16 @@ step_fund_uea_prc20() {
     return 0
   fi
 
-  log_info "Funding UEA $uea_addr (signer: $evm_addr) with PRC20 tokens from deployer"
+  log_info "Funding UEA $uea_addr (signer: $evm_addr) with native UPC and PRC20 tokens from deployer"
+
+  if [[ -n "${PRIVATE_KEY:-}" ]]; then
+    log_info "  Sending 10000 UPC native balance to UEA $uea_addr"
+    cast send --private-key "$PRIVATE_KEY" "$uea_addr" \
+      --value "10000ether" \
+      --rpc-url "$PUSH_RPC_URL" 2>&1 | grep -E "^status" || true
+  else
+    log_warn "PRIVATE_KEY is empty; skipping native UPC funding for UEA"
+  fi
 
   local token_count
   token_count="$(jq -r '.tokens | length' "$DEPLOY_ADDRESSES_FILE")"
@@ -2591,7 +2642,7 @@ step_fund_uea_prc20() {
       --rpc-url "$PUSH_RPC_URL" 2>&1 | grep -E "^status" || true
   done < <(jq -r '.tokens[]? | [.symbol, .address, (.decimals // 18)] | @tsv' "$DEPLOY_ADDRESSES_FILE")
 
-  log_ok "UEA PRC20 funding complete"
+  log_ok "UEA native UPC and PRC20 funding complete"
 }
 
 step_create_all_wpc_pools() {
@@ -2751,12 +2802,22 @@ step_deploy_counter_and_sync_sdk() {
   fi
 
   log_info "Deploying CounterPayable contract on Push localnet"
-  local deploy_out counter_addr
-  deploy_out="$(cast send --rpc-url "$PUSH_RPC_URL" --private-key "$PRIVATE_KEY" --create "$counter_creation_code" 2>&1)" || {
-    log_err "Counter deployment failed"
+  local deploy_out counter_addr deploy_attempt
+  deploy_attempt=1
+  deploy_out=""
+
+  while [[ "$deploy_attempt" -le 5 ]]; do
+    deploy_out="$(cast send --rpc-url "$PUSH_RPC_URL" --private-key "$PRIVATE_KEY" --create "$counter_creation_code" 2>&1)" || true
+    counter_addr="$(echo "$deploy_out" | awk '/contractAddress/ {print $2; exit}')"
+    if validate_eth_address "$counter_addr"; then
+      break
+    fi
+
+    log_warn "Counter deployment attempt $deploy_attempt/5 failed; retrying"
     echo "$deploy_out"
-    exit 1
-  }
+    deploy_attempt=$((deploy_attempt + 1))
+    sleep 2
+  done
 
   counter_addr="$(echo "$deploy_out" | awk '/contractAddress/ {print $2; exit}')"
   if ! validate_eth_address "$counter_addr"; then

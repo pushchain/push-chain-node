@@ -234,6 +234,23 @@ wait_for_rpc() {
     return 1
 }
 
+start_detached() {
+    local log_file=$1
+    shift
+
+    if command -v perl >/dev/null 2>&1; then
+        perl -MPOSIX=setsid -e '
+            setsid() or die "setsid failed: $!";
+            open STDIN, "<", "/dev/null" or die "stdin redirect failed: $!";
+            exec @ARGV or die "exec failed: $!";
+        ' "$@" > "$log_file" 2>&1 &
+    else
+        nohup "$@" > "$log_file" 2>&1 < /dev/null &
+    fi
+
+    echo $!
+}
+
 start_validator() {
     local id=$1
     local pid_file="$DATA_DIR/validator$id.pid"
@@ -249,13 +266,14 @@ start_validator() {
     
     if [ "$id" = "1" ]; then
         print_status "Starting validator 1 (genesis)..."
-        "$SCRIPT_DIR/scripts/setup-genesis-auto.sh" > "$DATA_DIR/validator$id/validator.log" 2>&1 &
+        start_detached "$DATA_DIR/validator$id/validator.log" "$SCRIPT_DIR/scripts/setup-genesis-auto.sh" >/tmp/push-chain-validator.pid
     else
         print_status "Starting validator $id..."
-        VALIDATOR_ID=$id "$SCRIPT_DIR/scripts/setup-validator-auto.sh" > "$DATA_DIR/validator$id/validator.log" 2>&1 &
+        start_detached "$DATA_DIR/validator$id/validator.log" env VALIDATOR_ID=$id "$SCRIPT_DIR/scripts/setup-validator-auto.sh" >/tmp/push-chain-validator.pid
     fi
     
-    echo $! > "$pid_file"
+    cat /tmp/push-chain-validator.pid > "$pid_file"
+    rm -f /tmp/push-chain-validator.pid
     print_success "Validator $id started (PID: $(cat $pid_file))"
 }
 
@@ -277,9 +295,10 @@ start_universal() {
     mkdir -p "$DATA_DIR/universal$id"
     
     print_status "Starting universal validator $id..."
-    UNIVERSAL_ID=$id SEPOLIA_EVENT_START_FROM="$sepolia_start_height" "$SCRIPT_DIR/scripts/setup-universal.sh" > "$DATA_DIR/universal$id/universal.log" 2>&1 &
+    start_detached "$DATA_DIR/universal$id/universal.log" env UNIVERSAL_ID=$id SEPOLIA_EVENT_START_FROM="$sepolia_start_height" "$SCRIPT_DIR/scripts/setup-universal.sh" >/tmp/push-chain-universal.pid
     
-    echo $! > "$pid_file"
+    cat /tmp/push-chain-universal.pid > "$pid_file"
+    rm -f /tmp/push-chain-universal.pid
     print_success "Universal validator $id started (PID: $(cat $pid_file))"
 }
 

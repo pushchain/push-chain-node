@@ -157,7 +157,7 @@ clean:
 
 .PHONY: replace-addresses
 replace-addresses:
-	bash scripts/replace_addresses.sh
+	bash e2e-tests/replace_addresses.sh
 
 distclean: clean
 	rm -rf vendor/

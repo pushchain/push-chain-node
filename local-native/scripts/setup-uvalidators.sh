@@ -138,13 +138,13 @@ for i in $(seq 1 $NUM_UV); do
 done
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# CREATE AUTHZ GRANTS (batched - 4 grants per transaction, with confirmation)
+# CREATE AUTHZ GRANTS (batched, with confirmation)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 echo ""
 echo "🔐 Setting up AuthZ grants (batched)..."
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "📋 Creating grants: validator-N → hotkey-N (4 msg types per tx)"
+echo "📋 Creating grants: validator-N → hotkey-N"
 
 # Disable exit on error for authz commands (some may already exist)
 set +e
@@ -157,7 +157,10 @@ MSG_TYPES=(
     "/uexecutor.v1.MsgVoteChainMeta"
     "/uexecutor.v1.MsgVoteOutbound"
     "/utss.v1.MsgVoteTssKeyProcess"
+    "/utss.v1.MsgVoteFundMigration"
 )
+
+EXPECTED_GRANTS=$((${NUM_UV:-2} * ${#MSG_TYPES[@]}))
 
 for i in $(seq 1 ${NUM_UV:-2}); do
     HOTKEY_ADDR=$(jq -r ".[$((i-1))].address" "$HOTKEYS_FILE")
@@ -175,7 +178,7 @@ for i in $(seq 1 ${NUM_UV:-2}); do
     
     BATCH_OK=false
     
-    # Attempt batch: all 4 grants in one TX
+    # Attempt batch: all grants in one TX
     MESSAGES="[]"
     for j in "${!MSG_TYPES[@]}"; do
         MSG_TYPE="${MSG_TYPES[$j]}"
@@ -197,7 +200,7 @@ for i in $(seq 1 ${NUM_UV:-2}); do
     
     MSG_COUNT=$(echo "$MESSAGES" | jq 'length' 2>/dev/null || echo "0")
     
-    if [ "${MSG_COUNT}" = "4" ]; then
+    if [ "${MSG_COUNT}" = "${#MSG_TYPES[@]}" ]; then
         COMBINED_TX=$(cat <<EOF
 {
   "body": {
@@ -210,8 +213,8 @@ for i in $(seq 1 ${NUM_UV:-2}); do
   "auth_info": {
     "signer_infos": [],
     "fee": {
-      "amount": [{"denom": "upc", "amount": "400000000000000"}],
-      "gas_limit": "400000",
+      "amount": [{"denom": "upc", "amount": "600000000000000"}],
+      "gas_limit": "600000",
       "payer": "",
       "granter": ""
     },
@@ -240,7 +243,7 @@ EOF
         
         if [ -n "$TX_HASH" ] && wait_for_tx "$TX_HASH" 30; then
             echo "   ✅ Batch grant confirmed (TX: ${TX_HASH:0:16}...)"
-            TOTAL_GRANTS=$((TOTAL_GRANTS + 4))
+            TOTAL_GRANTS=$((TOTAL_GRANTS + ${#MSG_TYPES[@]}))
             BATCH_OK=true
         else
             echo "   ⚠️ Batch TX failed or unconfirmed, trying individual grants..."
@@ -282,12 +285,12 @@ set -e
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "📊 Total AuthZ grants created: $TOTAL_GRANTS/16"
+echo "📊 Total AuthZ grants created: $TOTAL_GRANTS/$EXPECTED_GRANTS"
 
-if [ "$TOTAL_GRANTS" -ge 16 ]; then
+if [ "$TOTAL_GRANTS" -ge "$EXPECTED_GRANTS" ]; then
     echo "✅ All grants created successfully!"
 else
-    echo "⚠️ Some grants may be missing ($TOTAL_GRANTS/16)"
+    echo "⚠️ Some grants may be missing ($TOTAL_GRANTS/$EXPECTED_GRANTS)"
 fi
 
 echo ""

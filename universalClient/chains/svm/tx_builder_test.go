@@ -616,69 +616,153 @@ func TestConstructTSSMessage_HashIsKeccak256(t *testing.T) {
 }
 
 func TestDecodePayload(t *testing.T) {
-	t.Run("decodes valid execute payload with 2 accounts", func(t *testing.T) {
-		expectedAccounts := []GatewayAccountMeta{
-			{Pubkey: makeTxID(0x11), IsWritable: true},
-			{Pubkey: makeTxID(0x22), IsWritable: false},
-		}
-		expectedIxData := []byte{0xAA, 0xBB, 0xCC}
-		expectedTarget := makeTxID(0xDD)
+	// Roundtrip cases: encode with buildMockPayload, decode, assert every field
+	// round-trips. Each row is a distinct encoding shape we want to support.
+	roundtripCases := []struct {
+		name          string
+		accounts      []GatewayAccountMeta
+		ixData        []byte
+		instructionID uint8
+		targetProgram [32]byte
+	}{
+		{
+			name: "execute with 2 accounts (writable + readonly) and ix_data",
+			accounts: []GatewayAccountMeta{
+				{Pubkey: makeTxID(0x11), IsWritable: true},
+				{Pubkey: makeTxID(0x22), IsWritable: false},
+			},
+			ixData:        []byte{0xAA, 0xBB, 0xCC},
+			instructionID: 2,
+			targetProgram: makeTxID(0xDD),
+		},
+		{
+			name:          "withdraw with no accounts and no ix_data",
+			accounts:      nil,
+			ixData:        nil,
+			instructionID: 1,
+			targetProgram: [32]byte{},
+		},
+		{
+			name:          "execute with 1 account and empty ix_data",
+			accounts:      []GatewayAccountMeta{{Pubkey: makeTxID(0x33), IsWritable: true}},
+			ixData:        nil,
+			instructionID: 2,
+			targetProgram: makeTxID(0xEE),
+		},
+	}
 
-		payload := buildMockPayload(expectedAccounts, expectedIxData, 2, expectedTarget)
-		accounts, ixData, instructionID, targetProgram, err := decodePayload(payload)
+	for _, tc := range roundtripCases {
+		t.Run(tc.name, func(t *testing.T) {
+			payload := buildMockPayload(tc.accounts, tc.ixData, tc.instructionID, tc.targetProgram)
+			accounts, ixData, instructionID, targetProgram, err := decodePayload(payload)
 
-		require.NoError(t, err)
-		assert.Equal(t, uint8(2), instructionID)
-		assert.Len(t, accounts, 2)
-		assert.Equal(t, expectedAccounts[0].Pubkey, accounts[0].Pubkey)
-		assert.True(t, accounts[0].IsWritable)
-		assert.Equal(t, expectedAccounts[1].Pubkey, accounts[1].Pubkey)
-		assert.False(t, accounts[1].IsWritable)
-		assert.Equal(t, expectedIxData, ixData)
-		assert.Equal(t, expectedTarget, targetProgram)
-	})
+			require.NoError(t, err)
+			assert.Equal(t, tc.instructionID, instructionID)
+			assert.Len(t, accounts, len(tc.accounts))
+			for i, want := range tc.accounts {
+				assert.Equal(t, want.Pubkey, accounts[i].Pubkey, "account %d pubkey", i)
+				assert.Equal(t, want.IsWritable, accounts[i].IsWritable, "account %d writable", i)
+			}
+			assert.Equal(t, len(tc.ixData), len(ixData))
+			if len(tc.ixData) > 0 {
+				assert.Equal(t, tc.ixData, ixData)
+			}
+			assert.Equal(t, tc.targetProgram, targetProgram)
+		})
+	}
 
-	t.Run("decodes withdraw payload (0 accounts)", func(t *testing.T) {
-		payload := buildMockWithdrawPayload()
-		accounts, ixData, instructionID, _, err := decodePayload(payload)
-		require.NoError(t, err)
-		assert.Equal(t, uint8(1), instructionID)
-		assert.Len(t, accounts, 0)
-		assert.Len(t, ixData, 0)
-	})
+	// Malformed-payload cases. Each entry constructs a specific bad payload
+	// and asserts the returned error contains the expected substring.
+	errCases := []struct {
+		name    string
+		payload []byte
+		wantErr string
+	}{
+		{
+			name:    "below 41-byte minimum",
+			payload: []byte{0, 0},
+			wantErr: "payload too short",
+		},
+		{
+			name: "ix_data_len exceeds remaining bytes",
+			payload: func() []byte {
+				// 41-byte payload (exactly minimum). 0 accounts, claims ix_data_len=100
+				// but only 33 bytes remain after the two u32 headers.
+				p := make([]byte, 41)
+				binary.BigEndian.PutUint32(p[0:4], 0)   // accountsCount
+				binary.BigEndian.PutUint32(p[4:8], 100) // ixDataLen
+				return p
+			}(),
+			wantErr: "payload too short for ix_data",
+		},
+		{
+			name: "oversized accountsCount: 0xFFFFFFFF would OOM-panic on make()",
+			payload: func() []byte {
+				p := make([]byte, 41)
+				binary.BigEndian.PutUint32(p[0:4], 0xFFFFFFFF)
+				return p
+			}(),
+			wantErr: "exceeds remaining payload capacity",
+		},
+		{
+			name: "accountsCount exceeds remaining bytes by one (off-by-one boundary)",
+			payload: func() []byte {
+				// 4-byte count + 65 bytes is one short of holding 2 accounts (66 bytes).
+				p := make([]byte, 4+65)
+				binary.BigEndian.PutUint32(p[0:4], 2)
+				return p
+			}(),
+			wantErr: "exceeds remaining payload capacity",
+		},
+		{
+			name: "oversized ixDataLen: 0xFFFFFFFF must reject before make([]byte)",
+			payload: func() []byte {
+				p := make([]byte, 41)
+				binary.BigEndian.PutUint32(p[0:4], 0)          // accountsCount
+				binary.BigEndian.PutUint32(p[4:8], 0xFFFFFFFF) // ixDataLen
+				return p
+			}(),
+			wantErr: "payload too short for ix_data",
+		},
+	}
 
-	t.Run("decodes payload with empty ix_data", func(t *testing.T) {
-		accs := []GatewayAccountMeta{{Pubkey: makeTxID(0x33), IsWritable: true}}
-		expectedTarget := makeTxID(0xEE)
-		payload := buildMockPayload(accs, nil, 2, expectedTarget)
-		accounts, ixData, instructionID, targetProgram, err := decodePayload(payload)
-		require.NoError(t, err)
-		assert.Equal(t, uint8(2), instructionID)
-		assert.Len(t, accounts, 1)
-		assert.Len(t, ixData, 0)
-		assert.Equal(t, expectedTarget, targetProgram)
-	})
+	for _, tc := range errCases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, _, _, _, err := decodePayload(tc.payload)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tc.wantErr)
+		})
+	}
+}
 
-	t.Run("rejects too-short payload", func(t *testing.T) {
-		_, _, _, _, err := decodePayload([]byte{0, 0})
-		assert.Error(t, err)
-	})
+// FuzzDecodePayload feeds arbitrary byte sequences to decodePayload and asserts
+// it never panics. Run locally with:
+//
+//	go test ./chains/svm/ -fuzz=FuzzDecodePayload -fuzztime=30s
+//
+// The seed corpus mixes valid and known-bad shapes so the fuzzer mutates from
+// realistic starting points.
+func FuzzDecodePayload(f *testing.F) {
+	f.Add(buildMockWithdrawPayload())
+	f.Add(buildMockPayload(
+		[]GatewayAccountMeta{{Pubkey: makeTxID(0x11), IsWritable: true}},
+		[]byte{0xAA, 0xBB},
+		2,
+		makeTxID(0xDD),
+	))
+	f.Add([]byte{})
+	f.Add([]byte{0, 0})
+	// Adversarial seed: max accountsCount (caught by the OOM guard).
+	{
+		p := make([]byte, 41)
+		binary.BigEndian.PutUint32(p[0:4], 0xFFFFFFFF)
+		f.Add(p)
+	}
 
-	t.Run("rejects truncated account data", func(t *testing.T) {
-		// Says 1 account but only provides 10 bytes (need 33)
-		payload := make([]byte, 4+10)
-		binary.BigEndian.PutUint32(payload[0:4], 1)
-		_, _, _, _, err := decodePayload(payload)
-		assert.Error(t, err)
-	})
-
-	t.Run("rejects truncated ix_data", func(t *testing.T) {
-		// 0 accounts, says ix_data len=100 but only 4 bytes remain
-		payload := make([]byte, 4+4+4)
-		binary.BigEndian.PutUint32(payload[0:4], 0)   // 0 accounts
-		binary.BigEndian.PutUint32(payload[4:8], 100) // ix_data_len = 100
-		_, _, _, _, err := decodePayload(payload)
-		assert.Error(t, err)
+	f.Fuzz(func(t *testing.T, payload []byte) {
+		// Contract: decodePayload returns an error for malformed input; it must
+		// never panic, OOM, or block indefinitely on any byte sequence.
+		_, _, _, _, _ = decodePayload(payload)
 	})
 }
 

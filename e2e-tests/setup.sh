@@ -54,6 +54,12 @@ fi
 : "${TOKEN_CONFIG_PATH:=./e2e-tests/config/testnet-donut/eth_sepolia/tokens/eth.json}"
 : "${CHAIN_CONFIG_PATH:=./e2e-tests/config/testnet-donut/eth_sepolia/chain.json}"
 
+: "${ETHEREUM_SEPOLIA_RPC_URL:=${ETH_SEPOLIA_RPC_URL:-${SEPOLIA_RPC_URL:-}}}"
+: "${ARBITRUM_SEPOLIA_RPC_URL:=${ARB_SEPOLIA_RPC_URL:-${ARBITRUM_SEPOLIA_RPC:-}}}"
+: "${BASE_SEPOLIA_RPC_URL:=${BASE_SEPOLIA_RPC:-}}"
+: "${BSC_TESTNET_RPC_URL:=${BNB_TESTNET_RPC:-${BSC_TESTNET_RPC:-}}}"
+: "${SOLANA_DEVNET_RPC_URL:=}"
+
 abs_from_root() {
   local path="$1"
   if [[ "$path" = /* ]]; then
@@ -187,6 +193,64 @@ ensure_testing_env_var_in_env_file() {
 
 is_local_testing_env() {
   [[ "${TESTING_ENV:-}" == "LOCAL" ]]
+}
+
+chain_rpc_from_env() {
+  local chain_name="$1"
+
+  case "$chain_name" in
+    eth_sepolia) printf "%s" "${ETHEREUM_SEPOLIA_RPC_URL:-}" ;;
+    arb_sepolia) printf "%s" "${ARBITRUM_SEPOLIA_RPC_URL:-}" ;;
+    base_sepolia) printf "%s" "${BASE_SEPOLIA_RPC_URL:-}" ;;
+    bsc_testnet) printf "%s" "${BSC_TESTNET_RPC_URL:-}" ;;
+    solana_devnet) printf "%s" "${SOLANA_DEVNET_RPC_URL:-}" ;;
+    *) printf "%s" "" ;;
+  esac
+}
+
+patch_chain_config_public_rpc() {
+  local file_path="$1"
+  local rpc_url="$2"
+  local label="$3"
+  local tmp
+
+  if [[ ! -f "$file_path" ]]; then
+    log_warn "Chain config file not found for $label: $file_path"
+    return 0
+  fi
+
+  tmp="$(mktemp)"
+  jq --arg rpc "$rpc_url" '.public_rpc_url = $rpc' "$file_path" >"$tmp"
+  mv "$tmp" "$file_path"
+  log_ok "Patched $label chain config public_rpc_url => $rpc_url"
+}
+
+apply_nonlocal_chain_rpc_env_to_configs() {
+  if is_local_testing_env; then
+    return 0
+  fi
+
+  require_cmd jq
+  ensure_e2e_testnet_donut_configs
+
+  local chain_name rpc_url
+  local chain_names=(
+    eth_sepolia
+    arb_sepolia
+    base_sepolia
+    bsc_testnet
+    solana_devnet
+  )
+
+  for chain_name in "${chain_names[@]}"; do
+    rpc_url="$(chain_rpc_from_env "$chain_name")"
+    if [[ -z "$rpc_url" ]]; then
+      log_warn "No .env RPC configured for $chain_name; keeping existing chain.json public_rpc_url"
+      continue
+    fi
+
+    patch_chain_config_public_rpc "$TOKENS_CONFIG_DIR/$chain_name/chain.json" "$rpc_url" "$chain_name"
+  done
 }
 
 get_genesis_accounts_json() {
@@ -647,6 +711,238 @@ fs.writeFileSync(filePath, source);
 NODE
 }
 
+sdk_rewrite_chain_endpoints_from_env() {
+  local chain_constants_file="$1"
+
+  CHAIN_CONSTANTS_FILE="$chain_constants_file" \
+  ETHEREUM_SEPOLIA_RPC_URL="$ETHEREUM_SEPOLIA_RPC_URL" \
+  ARBITRUM_SEPOLIA_RPC_URL="$ARBITRUM_SEPOLIA_RPC_URL" \
+  BASE_SEPOLIA_RPC_URL="$BASE_SEPOLIA_RPC_URL" \
+  BSC_TESTNET_RPC_URL="$BSC_TESTNET_RPC_URL" \
+  SOLANA_DEVNET_RPC_URL="$SOLANA_DEVNET_RPC_URL" \
+  node <<'NODE'
+const fs = require('fs');
+
+const filePath = process.env.CHAIN_CONSTANTS_FILE;
+if (!filePath || !fs.existsSync(filePath)) {
+  console.error('chain.ts file not found for testnet endpoint rewrite');
+  process.exit(1);
+}
+
+let source = fs.readFileSync(filePath, 'utf8');
+
+const endpointMap = [
+  { chain: 'ETHEREUM_SEPOLIA', url: process.env.ETHEREUM_SEPOLIA_RPC_URL },
+  { chain: 'ARBITRUM_SEPOLIA', url: process.env.ARBITRUM_SEPOLIA_RPC_URL },
+  { chain: 'BASE_SEPOLIA', url: process.env.BASE_SEPOLIA_RPC_URL },
+  { chain: 'BNB_TESTNET', url: process.env.BSC_TESTNET_RPC_URL },
+  { chain: 'SOLANA_DEVNET', url: process.env.SOLANA_DEVNET_RPC_URL },
+].filter((entry) => entry.url);
+
+function findChainBlockRange(text, chainName) {
+  const marker = `[CHAIN.${chainName}]`;
+  const markerIdx = text.indexOf(marker);
+  if (markerIdx === -1) {
+    return null;
+  }
+
+  const openBraceIdx = text.indexOf('{', markerIdx);
+  if (openBraceIdx === -1) {
+    return null;
+  }
+
+  let depth = 0;
+  for (let i = openBraceIdx; i < text.length; i += 1) {
+    const ch = text[i];
+    if (ch === '{') {
+      depth += 1;
+    } else if (ch === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        return { start: openBraceIdx, end: i };
+      }
+    }
+  }
+
+  return null;
+}
+
+function detectIndent(blockText) {
+  const match = blockText.match(/\n(\s+)[A-Za-z_\[]/);
+  return match ? match[1] : '    ';
+}
+
+function findMatchingBracket(text, openIdx) {
+  let depth = 0;
+  let quote = '';
+
+  for (let i = openIdx; i < text.length; i += 1) {
+    const ch = text[i];
+    const prev = i > 0 ? text[i - 1] : '';
+
+    if (quote) {
+      if (ch === quote && prev !== '\\') {
+        quote = '';
+      }
+      continue;
+    }
+
+    if (ch === '\'' || ch === '"' || ch === '`') {
+      quote = ch;
+      continue;
+    }
+
+    if (ch === '[') {
+      depth += 1;
+      continue;
+    }
+
+    if (ch === ']') {
+      depth -= 1;
+      if (depth === 0) {
+        return i;
+      }
+    }
+  }
+
+  return -1;
+}
+
+function upsertDefaultRpc(blockText, rpcUrl, indent) {
+  const keyRegex = /\bdefaultRPC\s*:/m;
+  const keyMatch = keyRegex.exec(blockText);
+  if (keyMatch) {
+    const arrayStart = blockText.indexOf('[', keyMatch.index);
+    if (arrayStart !== -1) {
+      const arrayEnd = findMatchingBracket(blockText, arrayStart);
+      if (arrayEnd !== -1) {
+        return `${blockText.slice(0, arrayStart)}['${rpcUrl}']${blockText.slice(arrayEnd + 1)}`;
+      }
+    }
+
+    return blockText.replace(/(defaultRPC\s*:\s*)[^\n,]+/, `$1['${rpcUrl}']`);
+  }
+
+  return blockText.replace(/\{\s*/, `{\n${indent}defaultRPC: ['${rpcUrl}'],\n`);
+}
+
+const edits = [];
+for (const entry of endpointMap) {
+  const range = findChainBlockRange(source, entry.chain);
+  if (!range) {
+    console.error(`Could not find chain block for CHAIN.${entry.chain} in ${filePath}`);
+    process.exit(1);
+  }
+
+  const originalBlock = source.slice(range.start, range.end + 1);
+  edits.push({
+    start: range.start,
+    end: range.end,
+    text: upsertDefaultRpc(originalBlock, entry.url, detectIndent(originalBlock)),
+  });
+}
+
+edits.sort((a, b) => b.start - a.start);
+for (const edit of edits) {
+  source = source.slice(0, edit.start) + edit.text + source.slice(edit.end + 1);
+}
+
+fs.writeFileSync(filePath, source);
+NODE
+}
+
+sdk_prepare_e2e_network_for_testing_env() {
+  require_cmd perl
+
+  local sdk_e2e_root="$PUSH_CHAIN_SDK_DIR/packages/core/__e2e__"
+  if [[ ! -d "$sdk_e2e_root" ]]; then
+    log_warn "SDK __e2e__ directory not found at $sdk_e2e_root; skipping network replacement"
+    return 0
+  fi
+
+  local patched_count=0
+  while IFS= read -r -d '' e2e_file; do
+    if is_local_testing_env; then
+      perl -0pi -e '
+        s/\bPUSH_NETWORK\.TESTNET_DONUT\b/PUSH_NETWORK.LOCALNET/g;
+        s/\bPUSH_NETWORK\.TESTNET\b/PUSH_NETWORK.LOCALNET/g;
+        s/\bCHAIN\.PUSH_TESTNET_DONUT\b/CHAIN.PUSH_LOCALNET/g;
+      ' "$e2e_file"
+    else
+      perl -0pi -e '
+        s/\bPUSH_NETWORK\.LOCALNET\b/PUSH_NETWORK.TESTNET_DONUT/g;
+        s/\bCHAIN\.PUSH_LOCALNET\b/CHAIN.PUSH_TESTNET_DONUT/g;
+      ' "$e2e_file"
+    fi
+    patched_count=$((patched_count + 1))
+  done < <(find "$sdk_e2e_root" -type f \( -name '*.ts' -o -name '*.tsx' \) -print0)
+
+  if is_local_testing_env; then
+    log_ok "Applied LOCALNET replacement to $patched_count SDK __e2e__ file(s)"
+  else
+    log_ok "Applied TESTNET_DONUT replacement to $patched_count SDK __e2e__ file(s)"
+  fi
+}
+
+sdk_prepare_inbound_evm_push_network_for_localnet() {
+  require_cmd perl
+
+  local file
+  local files=(
+    "$PUSH_CHAIN_SDK_DIR/packages/core/__e2e__/evm/inbound/uea-to-push.spec.ts"
+    "$PUSH_CHAIN_SDK_DIR/packages/core/__e2e__/shared/evm-client.ts"
+    "$PUSH_CHAIN_SDK_DIR/packages/core/__e2e__/shared/fresh-wallet.ts"
+  )
+
+  for file in "${files[@]}"; do
+    if [[ ! -f "$file" ]]; then
+      log_err "SDK inbound helper/spec file not found: $file"
+      exit 1
+    fi
+
+    perl -0pi -e '
+      s/\bPUSH_NETWORK\.TESTNET_DONUT\b/PUSH_NETWORK.LOCALNET/g;
+      s/\bPUSH_NETWORK\.TESTNET\b/PUSH_NETWORK.LOCALNET/g;
+      s/\bCHAIN\.PUSH_TESTNET_DONUT\b/CHAIN.PUSH_LOCALNET/g;
+    ' "$file"
+    log_ok "Prepared LOCALNET Push network for $(basename "$file")"
+  done
+}
+
+sdk_sync_localnet_uea_proxy_impl() {
+  require_cmd cast perl
+
+  local chain_constants_file="$PUSH_CHAIN_SDK_DIR/$PUSH_CHAIN_SDK_CHAIN_CONSTANTS_PATH"
+  local uea_impl_raw uea_impl synced_localnet_uea
+
+  if [[ ! -f "$chain_constants_file" ]]; then
+    log_err "SDK chain constants file not found: $chain_constants_file"
+    exit 1
+  fi
+
+  log_info "Fetching UEA_PROXY_IMPLEMENTATION from local Push Chain"
+  uea_impl_raw="$(cast call 0x00000000000000000000000000000000000000ea 'UEA_PROXY_IMPLEMENTATION()(address)' --rpc-url "$PUSH_RPC_URL" 2>/dev/null || true)"
+  uea_impl="$(echo "$uea_impl_raw" | grep -Eo '0x[a-fA-F0-9]{40}' | head -1 || true)"
+
+  if ! validate_eth_address "$uea_impl"; then
+    log_err "Could not resolve valid UEA_PROXY_IMPLEMENTATION address from local Push Chain at $PUSH_RPC_URL"
+    exit 1
+  fi
+
+  ensure_deploy_file
+  record_contract "UEA_PROXY_IMPLEMENTATION" "$uea_impl"
+
+  UEA_PROXY_IMPL="$uea_impl" perl -0pi -e 's#(export const UEA_PROXY:[\s\S]*?\[PUSH_NETWORK\.LOCALNET\]:\s*)'\''[^'\'']*'\''#$1'\''$ENV{UEA_PROXY_IMPL}'\''#s' "$chain_constants_file"
+
+  synced_localnet_uea="$(grep -E '\[PUSH_NETWORK\.LOCALNET\]:' "$chain_constants_file" | head -1 | sed -E "s/.*'([^']+)'.*/\1/")"
+  if [[ "$synced_localnet_uea" != "$uea_impl" ]]; then
+    log_err "Failed to update PUSH_NETWORK.LOCALNET UEA proxy in $chain_constants_file"
+    exit 1
+  fi
+
+  log_ok "Synced PUSH_NETWORK.LOCALNET UEA proxy to $uea_impl"
+}
+
 sdk_sync_localnet_constants() {
   require_cmd jq perl node
 
@@ -746,7 +1042,10 @@ step_clone_push_chain_sdk() {
 }
 
 step_setup_push_chain_sdk() {
-  require_cmd git yarn npm cast jq perl
+  require_cmd git yarn npm jq perl node
+  if is_local_testing_env; then
+    require_cmd cast
+  fi
 
   local chain_constants_file="$PUSH_CHAIN_SDK_DIR/$PUSH_CHAIN_SDK_CHAIN_CONSTANTS_PATH"
   local sdk_account_file="$PUSH_CHAIN_SDK_DIR/$PUSH_CHAIN_SDK_ACCOUNT_TS_PATH"
@@ -762,8 +1061,16 @@ step_setup_push_chain_sdk() {
   local sdk_evm_private_key sdk_evm_rpc sdk_solana_rpc sdk_solana_private_key sdk_push_private_key
 
   sdk_evm_private_key="${EVM_PRIVATE_KEY:-${PRIVATE_KEY:-}}"
-  sdk_evm_rpc="${EVM_RPC:-${PUSH_RPC_URL:-}}"
-  sdk_solana_rpc="${SOLANA_RPC_URL:-https://api.devnet.solana.com}"
+  if is_local_testing_env; then
+    sdk_evm_rpc="${EVM_RPC:-${PUSH_RPC_URL:-}}"
+  else
+    sdk_evm_rpc="${EVM_RPC:-${ETHEREUM_SEPOLIA_RPC_URL:-${PUSH_RPC_URL:-}}}"
+  fi
+  if is_local_testing_env; then
+    sdk_solana_rpc="${SOLANA_RPC_URL:-${SOLANA_DEVNET_RPC_URL:-https://api.devnet.solana.com}}"
+  else
+    sdk_solana_rpc="${SOLANA_DEVNET_RPC_URL:-https://api.devnet.solana.com}"
+  fi
   sdk_solana_private_key="${SOLANA_PRIVATE_KEY:-${SVM_PRIVATE_KEY:-${SOL_PRIVATE_KEY:-}}}"
   sdk_push_private_key="${PUSH_PRIVATE_KEY:-${PRIVATE_KEY:-}}"
 
@@ -773,6 +1080,9 @@ step_setup_push_chain_sdk() {
     echo "# Source: e2e-tests/.env"
     echo "EVM_PRIVATE_KEY=$sdk_evm_private_key"
     echo "EVM_RPC=$sdk_evm_rpc"
+    [[ -n "${ARBITRUM_SEPOLIA_RPC_URL:-}" ]] && echo "ARBITRUM_SEPOLIA_RPC=$ARBITRUM_SEPOLIA_RPC_URL"
+    [[ -n "${BASE_SEPOLIA_RPC_URL:-}" ]] && echo "BASE_SEPOLIA_RPC=$BASE_SEPOLIA_RPC_URL"
+    [[ -n "${BSC_TESTNET_RPC_URL:-}" ]] && echo "BNB_TESTNET_RPC=$BSC_TESTNET_RPC_URL"
     echo "SOLANA_RPC_URL=$sdk_solana_rpc"
     echo "SOLANA_PRIVATE_KEY=$sdk_solana_private_key"
     echo "PUSH_PRIVATE_KEY=$sdk_push_private_key"
@@ -790,59 +1100,56 @@ step_setup_push_chain_sdk() {
     exit 1
   fi
 
-  sdk_sync_localnet_constants
-
-  log_info "Fetching UEA_PROXY_IMPLEMENTATION from local chain"
-  uea_impl_raw="$(cast call 0x00000000000000000000000000000000000000ea 'UEA_PROXY_IMPLEMENTATION()(address)' --rpc-url "$PUSH_RPC_URL" 2>/dev/null || true)"
-  uea_impl="$(echo "$uea_impl_raw" | grep -Eo '0x[a-fA-F0-9]{40}' | head -1 || true)"
-
-  if ! validate_eth_address "$uea_impl"; then
-    log_err "Could not resolve valid UEA_PROXY_IMPLEMENTATION address from cast output: $uea_impl_raw"
-    exit 1
-  fi
-
-  ensure_deploy_file
-  record_contract "UEA_PROXY_IMPLEMENTATION" "$uea_impl"
-
-  UEA_PROXY_IMPL="$uea_impl" perl -0pi -e 's#(\[PUSH_NETWORK\.LOCALNET\]:\s*)'\''[^'\'']*'\''#$1'\''$ENV{UEA_PROXY_IMPL}'\''#g' "$chain_constants_file"
-
-  synced_localnet_uea="$(grep -E '\[PUSH_NETWORK\.LOCALNET\]:' "$chain_constants_file" | head -1 | sed -E "s/.*'([^']+)'.*/\1/")"
-  if [[ "$synced_localnet_uea" != "$uea_impl" ]]; then
-    log_err "Failed to update PUSH_NETWORK.LOCALNET UEA proxy in $chain_constants_file"
-    exit 1
-  fi
-
-  log_ok "Synced PUSH_NETWORK.LOCALNET UEA proxy to $uea_impl"
-
-  if [[ ! -f "$sdk_account_file" ]]; then
-    log_err "SDK account file not found: $sdk_account_file"
-    exit 1
-  fi
-
-  perl -0pi -e '
-    s{(function\s+convertExecutorToOriginAccount\b.*?\{)(.*?)(\n\})}{
-      my ($head, $body, $tail) = ($1, $2, $3);
-      $body =~ s/\bCHAIN\.PUSH_TESTNET_DONUT\b/CHAIN.PUSH_LOCALNET/g;
-      "$head$body$tail";
-    }gse;
-  ' "$sdk_account_file"
-  log_ok "Replaced CHAIN.PUSH_TESTNET_DONUT with CHAIN.PUSH_LOCALNET only in convertExecutorToOriginAccount() in $sdk_account_file"
-
-  local sdk_e2e_root="$PUSH_CHAIN_SDK_DIR/packages/core/__e2e__"
-  if [[ -d "$sdk_e2e_root" ]]; then
-    log_info "Replacing TESTNET/TESTNET_DONUT with LOCALNET across all SDK __e2e__ test files"
-    local patched_count=0
-    while IFS= read -r -d '' e2e_file; do
-      perl -0pi -e '
-        s/\bPUSH_NETWORK\.TESTNET_DONUT\b/PUSH_NETWORK.LOCALNET/g;
-        s/\bPUSH_NETWORK\.TESTNET\b/PUSH_NETWORK.LOCALNET/g;
-        s/\bCHAIN\.PUSH_TESTNET_DONUT\b/CHAIN.PUSH_LOCALNET/g;
-      ' "$e2e_file"
-      patched_count=$((patched_count + 1))
-    done < <(find "$sdk_e2e_root" -type f \( -name '*.ts' -o -name '*.tsx' \) -print0)
-    log_ok "Applied LOCALNET replacement to $patched_count file(s) under $sdk_e2e_root"
+  if is_local_testing_env; then
+    sdk_sync_localnet_constants
   else
-    log_warn "SDK __e2e__ directory not found at $sdk_e2e_root; skipping TESTNET→LOCALNET replacement"
+    apply_nonlocal_chain_rpc_env_to_configs
+    sdk_rewrite_chain_endpoints_from_env "$chain_constants_file"
+    sdk_prepare_e2e_network_for_testing_env
+    log_ok "Patched SDK chain.ts RPC endpoints for non-LOCAL testing"
+  fi
+
+  if ! is_local_testing_env; then
+    log_info "Skipping LOCALNET contract sync and source rewrites for non-LOCAL setup-sdk"
+  else
+
+    log_info "Fetching UEA_PROXY_IMPLEMENTATION from local chain"
+    uea_impl_raw="$(cast call 0x00000000000000000000000000000000000000ea 'UEA_PROXY_IMPLEMENTATION()(address)' --rpc-url "$PUSH_RPC_URL" 2>/dev/null || true)"
+    uea_impl="$(echo "$uea_impl_raw" | grep -Eo '0x[a-fA-F0-9]{40}' | head -1 || true)"
+
+    if ! validate_eth_address "$uea_impl"; then
+      log_err "Could not resolve valid UEA_PROXY_IMPLEMENTATION address from cast output: $uea_impl_raw"
+      exit 1
+    fi
+
+    ensure_deploy_file
+    record_contract "UEA_PROXY_IMPLEMENTATION" "$uea_impl"
+
+    UEA_PROXY_IMPL="$uea_impl" perl -0pi -e 's#(export const UEA_PROXY:[\s\S]*?\[PUSH_NETWORK\.LOCALNET\]:\s*)'\''[^'\'']*'\''#$1'\''$ENV{UEA_PROXY_IMPL}'\''#s' "$chain_constants_file"
+
+    synced_localnet_uea="$(grep -E '\[PUSH_NETWORK\.LOCALNET\]:' "$chain_constants_file" | head -1 | sed -E "s/.*'([^']+)'.*/\1/")"
+    if [[ "$synced_localnet_uea" != "$uea_impl" ]]; then
+      log_err "Failed to update PUSH_NETWORK.LOCALNET UEA proxy in $chain_constants_file"
+      exit 1
+    fi
+
+    log_ok "Synced PUSH_NETWORK.LOCALNET UEA proxy to $uea_impl"
+
+    if [[ ! -f "$sdk_account_file" ]]; then
+      log_err "SDK account file not found: $sdk_account_file"
+      exit 1
+    fi
+
+    perl -0pi -e '
+      s{(function\s+convertExecutorToOriginAccount\b.*?\{)(.*?)(\n\})}{
+        my ($head, $body, $tail) = ($1, $2, $3);
+        $body =~ s/\bCHAIN\.PUSH_TESTNET_DONUT\b/CHAIN.PUSH_LOCALNET/g;
+        "$head$body$tail";
+      }gse;
+    ' "$sdk_account_file"
+    log_ok "Replaced CHAIN.PUSH_TESTNET_DONUT with CHAIN.PUSH_LOCALNET only in convertExecutorToOriginAccount() in $sdk_account_file"
+
+    sdk_prepare_e2e_network_for_testing_env
   fi
 
   log_info "Installing push-chain-sdk dependencies"
@@ -1042,8 +1349,33 @@ step_run_sdk_quick_testing_outbound() {
   log_ok "Completed quick-testing-outbound SDK E2E tests"
 }
 
+step_run_sdk_quick_testing_inbound_evm() {
+  local inbound_file="$PUSH_CHAIN_SDK_DIR/packages/core/__e2e__/evm/inbound/uea-to-push.spec.ts"
+
+  export E2E_TARGET_CHAINS="Ethereum Sepolia"
+
+  step_setup_push_chain_sdk
+  sdk_sync_localnet_constants
+  sdk_sync_localnet_uea_proxy_impl
+  sdk_prepare_inbound_evm_push_network_for_localnet
+
+  if [[ ! -f "$inbound_file" ]]; then
+    log_err "SDK inbound test file not found: $inbound_file"
+    exit 1
+  fi
+
+  log_info "Running SDK inbound EVM test on local Push Chain with Ethereum Sepolia origin only: uea-to-push.spec.ts"
+  (
+    cd "$PUSH_CHAIN_SDK_DIR"
+    E2E_TARGET_CHAINS="Ethereum Sepolia" npx nx test core --runInBand --testPathPattern="__e2e__/evm/inbound/uea-to-push.spec.ts"
+  )
+
+  log_ok "Completed quick-testing-inbound-evm SDK E2E test"
+}
+
 step_devnet() {
   require_cmd bash jq
+  apply_nonlocal_chain_rpc_env_to_configs
 
   local sepolia_rpc_override arbitrum_rpc_override base_rpc_override bsc_rpc_override solana_rpc_override
 
@@ -1182,6 +1514,7 @@ step_ensure_tss_key_ready() {
 step_setup_environment() {
   require_cmd jq curl
   ensure_e2e_testnet_donut_configs
+  apply_nonlocal_chain_rpc_env_to_configs
 
   local has_docker="false"
   if command -v docker >/dev/null 2>&1; then
@@ -3054,6 +3387,7 @@ Commands:
   sdk-test-all           Replace PUSH_NETWORK TESTNET variants with LOCALNET and run all configured SDK E2E tests
   sdk-test-outbound-all  Replace PUSH_NETWORK TESTNET variants with LOCALNET and run all configured SDK outbound E2E tests (TESTING_ENV=LOCAL)
   quick-testing-outbound Run setup-sdk + fund-uea-prc20, then execute cea-to-eoa.spec.ts and cea-to-uea.spec.ts only
+  quick-testing-inbound-evm  Run uea-to-push.spec.ts on local Push Chain for Ethereum Sepolia origin only
   sdk-test-pctx-last-transaction  Run pctx-last-transaction.spec.ts
   sdk-test-send-to-self  Run send-to-self.spec.ts
   sdk-test-progress-hook Run progress-hook-per-tx.spec.ts
@@ -3083,6 +3417,11 @@ Important env:
   LOCAL_BSC_UV_RPC_URL=http://localhost:9548
   SURFPOOL_SOLANA_HOST_RPC_URL=http://localhost:8899
   LOCAL_SOLANA_UV_RPC_URL=http://localhost:8899
+  ETHEREUM_SEPOLIA_RPC_URL=https://...
+  ARBITRUM_SEPOLIA_RPC_URL=https://...
+  BASE_SEPOLIA_RPC_URL=https://...
+  BSC_TESTNET_RPC_URL=https://...
+  SOLANA_DEVNET_RPC_URL=https://...
 EOF
 }
 
@@ -3114,6 +3453,7 @@ main() {
     sdk-test-all) step_run_sdk_tests_all ;;
     sdk-test-outbound-all) step_run_sdk_outbound_tests_all ;;
     quick-testing-outbound) step_run_sdk_quick_testing_outbound ;;
+    quick-testing-inbound-evm) step_run_sdk_quick_testing_inbound_evm ;;
     sdk-test-pctx-last-transaction) step_run_sdk_test_file "pctx-last-transaction.spec.ts" ;;
     sdk-test-send-to-self) step_run_sdk_test_file "send-to-self.spec.ts" ;;
     sdk-test-progress-hook) step_run_sdk_test_file "progress-hook-per-tx.spec.ts" ;;

@@ -48,9 +48,10 @@ fi
 : "${DEPLOY_ADDRESSES_FILE:=$SCRIPT_DIR/deploy_addresses.json}"
 : "${LOG_DIR:=$SCRIPT_DIR/logs}"
 : "${TEST_ADDRESSES_PATH:=$SWAP_AMM_DIR/test-addresses.json}"
-: "${TOKENS_CONFIG_DIR:=./config/testnet-donut}"
-: "${TOKEN_CONFIG_PATH:=./config/testnet-donut/eth_sepolia/tokens/eth.json}"
-: "${CHAIN_CONFIG_PATH:=./config/testnet-donut/eth_sepolia/chain.json}"
+: "${SOURCE_CONFIG_DIR:=./config/testnet-donut}"
+: "${TOKENS_CONFIG_DIR:=./e2e-tests/config/testnet-donut}"
+: "${TOKEN_CONFIG_PATH:=./e2e-tests/config/testnet-donut/eth_sepolia/tokens/eth.json}"
+: "${CHAIN_CONFIG_PATH:=./e2e-tests/config/testnet-donut/eth_sepolia/chain.json}"
 
 abs_from_root() {
   local path="$1"
@@ -72,6 +73,7 @@ PUSH_CHAIN_SDK_DIR="$(abs_from_root "$PUSH_CHAIN_SDK_DIR")"
 DEPLOY_ADDRESSES_FILE="$(abs_from_root "$DEPLOY_ADDRESSES_FILE")"
 TEST_ADDRESSES_PATH="$(abs_from_root "$TEST_ADDRESSES_PATH")"
 LOG_DIR="$(abs_from_root "$LOG_DIR")"
+SOURCE_CONFIG_DIR="$(abs_from_root "$SOURCE_CONFIG_DIR")"
 TOKENS_CONFIG_DIR="$(abs_from_root "$TOKENS_CONFIG_DIR")"
 TOKEN_CONFIG_PATH="$(abs_from_root "$TOKEN_CONFIG_PATH")"
 CHAIN_CONFIG_PATH="$(abs_from_root "$CHAIN_CONFIG_PATH")"
@@ -131,6 +133,43 @@ prefer_sibling_repo_dirs() {
 }
 
 prefer_sibling_repo_dirs
+
+ensure_e2e_testnet_donut_configs() {
+  if [[ "$TOKENS_CONFIG_DIR" == "$SOURCE_CONFIG_DIR" ]]; then
+    log_warn "TOKENS_CONFIG_DIR points at SOURCE_CONFIG_DIR; setup may mutate source configs: $SOURCE_CONFIG_DIR"
+    return 0
+  fi
+
+  if [[ ! -d "$SOURCE_CONFIG_DIR" ]]; then
+    log_err "Source config directory missing: $SOURCE_CONFIG_DIR"
+    exit 1
+  fi
+
+  if [[ -d "$TOKENS_CONFIG_DIR" ]]; then
+    return 0
+  fi
+
+  mkdir -p "$(dirname "$TOKENS_CONFIG_DIR")"
+  cp -R "$SOURCE_CONFIG_DIR" "$TOKENS_CONFIG_DIR"
+  log_ok "Created e2e config working copy: $TOKENS_CONFIG_DIR"
+}
+
+reset_e2e_testnet_donut_configs() {
+  if [[ "$TOKENS_CONFIG_DIR" == "$SOURCE_CONFIG_DIR" ]]; then
+    log_warn "Skipping e2e config reset because TOKENS_CONFIG_DIR points at SOURCE_CONFIG_DIR: $SOURCE_CONFIG_DIR"
+    return 0
+  fi
+
+  if [[ ! -d "$SOURCE_CONFIG_DIR" ]]; then
+    log_err "Source config directory missing: $SOURCE_CONFIG_DIR"
+    exit 1
+  fi
+
+  rm -rf "$TOKENS_CONFIG_DIR"
+  mkdir -p "$(dirname "$TOKENS_CONFIG_DIR")"
+  cp -R "$SOURCE_CONFIG_DIR" "$TOKENS_CONFIG_DIR"
+  log_ok "Refreshed e2e config working copy from $SOURCE_CONFIG_DIR"
+}
 
 ensure_testing_env_var_in_env_file() {
   mkdir -p "$(dirname "$ENV_FILE")"
@@ -1141,6 +1180,7 @@ step_ensure_tss_key_ready() {
 
 step_setup_environment() {
   require_cmd jq curl
+  ensure_e2e_testnet_donut_configs
 
   local has_docker="false"
   if command -v docker >/dev/null 2>&1; then
@@ -1566,6 +1606,7 @@ step_sync_vault_tss_on_anvil() {
     return 0
   fi
   require_cmd cast jq python3
+  ensure_e2e_testnet_donut_configs
 
   # Derive the TSS EVM address from the on-chain TSS public key.
   # 1. Query compressed secp256k1 pubkey from the utss module.
@@ -2078,6 +2119,7 @@ find_matching_token_config_file() {
 step_update_deployed_token_configs() {
   require_cmd jq
   ensure_deploy_file
+  ensure_e2e_testnet_donut_configs
 
   if [[ ! -d "$TOKENS_CONFIG_DIR" ]]; then
     log_err "Tokens config directory missing: $TOKENS_CONFIG_DIR"
@@ -2405,6 +2447,7 @@ step_setup_gateway() {
 
 step_add_uregistry_configs() {
   require_cmd "$PUSH_CHAIN_DIR/build/pchaind" jq
+  ensure_e2e_testnet_donut_configs
 
   [[ -d "$TOKENS_CONFIG_DIR" ]] || { log_err "Missing tokens config directory: $TOKENS_CONFIG_DIR"; exit 1; }
 
@@ -2955,6 +2998,7 @@ NODE
 }
 
 cmd_all() {
+  reset_e2e_testnet_donut_configs
   step_setup_environment
   (cd "$PUSH_CHAIN_DIR" && make replace-addresses)
   (cd "$PUSH_CHAIN_DIR" && make build)

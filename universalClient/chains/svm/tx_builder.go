@@ -104,8 +104,8 @@ type TxBuilder struct {
 	gatewayAddress solana.PublicKey
 	nodeHome       string
 	logger         zerolog.Logger
-	protocolALT    solana.PublicKey                        // Protocol ALT pubkey (zero if not configured)
-	tokenALTs      map[solana.PublicKey]solana.PublicKey    // mint pubkey → token ALT pubkey
+	protocolALT    solana.PublicKey                      // Protocol ALT pubkey (zero if not configured)
+	tokenALTs      map[solana.PublicKey]solana.PublicKey // mint pubkey → token ALT pubkey
 }
 
 // NewTxBuilder creates a new Solana transaction builder.
@@ -1175,8 +1175,15 @@ func decodePayload(payload []byte) ([]GatewayAccountMeta, []byte, uint8, [32]byt
 	accountsCount := binary.BigEndian.Uint32(payload[offset : offset+4])
 	offset += 4
 
+	// Bound accountsCount by remaining payload size before allocation: each account
+	// requires 33 bytes (32 pubkey + 1 writable). Prevents an attacker-controlled
+	// uint32 from triggering a multi-GB allocation in make() below.
+	if uint64(accountsCount)*33 > uint64(len(payload)-offset) {
+		return nil, nil, 0, targetProgram, fmt.Errorf("accountsCount %d exceeds remaining payload capacity", accountsCount)
+	}
+
 	accounts := make([]GatewayAccountMeta, accountsCount)
-	for i := uint32(0); i < accountsCount; i++ {
+	for i := range accountsCount {
 		if offset+33 > len(payload) {
 			return nil, nil, 0, targetProgram, fmt.Errorf("payload too short for account %d", i)
 		}
@@ -1193,7 +1200,8 @@ func decodePayload(payload []byte) ([]GatewayAccountMeta, []byte, uint8, [32]byt
 	ixDataLen := binary.BigEndian.Uint32(payload[offset : offset+4])
 	offset += 4
 
-	if offset+int(ixDataLen) > len(payload) {
+	// uint64 arithmetic so the bound holds regardless of platform int width.
+	if uint64(offset)+uint64(ixDataLen) > uint64(len(payload)) {
 		return nil, nil, 0, targetProgram, fmt.Errorf("payload too short for ix_data")
 	}
 	ixData := make([]byte, ixDataLen)

@@ -231,7 +231,14 @@ TESTING_ENV=LOCAL bash e2e-tests/setup.sh all
 TESTING_ENV=LOCAL bash e2e-tests/setup.sh quick-testing-outbound
 ```
 
-`quick-testing-outbound` internally runs `setup-sdk`, then `fund-uea-prc20`, and finally executes just the two most important outbound specs — `cea-to-eoa.spec.ts` and `cea-to-uea.spec.ts` — so you get end-to-end outbound coverage without running the full outbound suite.
+`quick-testing-outbound` runs both quick outbound smoke suites:
+
+```bash
+TESTING_ENV=LOCAL bash e2e-tests/setup.sh quick-testing-outbound-evm
+TESTING_ENV=LOCAL bash e2e-tests/setup.sh quick-testing-outbound-svm
+```
+
+Each quick suite internally runs `setup-sdk`, then `fund-uea-prc20`, and finally executes just the two most important outbound specs — `cea-to-eoa.spec.ts` and `cea-to-uea.spec.ts` — so you get end-to-end outbound coverage without running the full outbound suite.
 
 ---
 
@@ -317,7 +324,9 @@ TESTING_ENV=LOCAL bash e2e-tests/setup.sh <command>
 | `setup-sdk` | Clone/install SDK, generate SDK `.env`, sync LOCALNET constants |
 | `sdk-test-all` | Run all configured inbound SDK E2E test files |
 | `sdk-test-outbound-all` | Run all configured outbound SDK E2E test files (LOCAL only) |
-| `quick-testing-outbound` | Run `setup-sdk` + `fund-uea-prc20`, then only `cea-to-eoa.spec.ts` and `cea-to-uea.spec.ts` (fast outbound smoke test) |
+| `quick-testing-outbound` | Run both quick outbound smoke suites: EVM, then SVM |
+| `quick-testing-outbound-evm` | Run `setup-sdk` + `fund-uea-prc20`, then EVM outbound `cea-to-eoa.spec.ts` and `cea-to-uea.spec.ts` |
+| `quick-testing-outbound-svm` | Run `setup-sdk` + `fund-uea-prc20`, then SVM outbound `cea-to-eoa.spec.ts` and `cea-to-uea.spec.ts` |
 | `sdk-test-pctx-last-transaction` | Run `pctx-last-transaction.spec.ts` |
 | `sdk-test-send-to-self` | Run `send-to-self.spec.ts` |
 | `sdk-test-progress-hook` | Run `progress-hook-per-tx.spec.ts` |

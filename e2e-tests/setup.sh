@@ -48,6 +48,7 @@ fi
 : "${DEPLOY_ADDRESSES_FILE:=$SCRIPT_DIR/deploy_addresses.json}"
 : "${LOG_DIR:=$SCRIPT_DIR/logs}"
 : "${TEST_ADDRESSES_PATH:=$SWAP_AMM_DIR/test-addresses.json}"
+: "${LOCAL_OUTBOUND_BASE_GAS_LIMIT:=500000}"
 : "${SOURCE_CONFIG_DIR:=./config/testnet-donut}"
 : "${TOKENS_CONFIG_DIR:=./e2e-tests/config/testnet-donut}"
 : "${TOKEN_CONFIG_PATH:=./e2e-tests/config/testnet-donut/eth_sepolia/tokens/eth.json}"
@@ -2436,7 +2437,7 @@ step_setup_gateway() {
     log_warn "UniversalCore BASE_GAS_LIMIT is 0. Applying local defaults for outbound chains"
 
     for ns in "eip155:11155111" "eip155:421614" "eip155:84532" "eip155:97" "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"; do
-      cast send "$C0" 'setBaseGasLimitByChain(string,uint256)' "$ns" 2000000 \
+      cast send "$C0" 'setBaseGasLimitByChain(string,uint256)' "$ns" "$LOCAL_OUTBOUND_BASE_GAS_LIMIT" \
         --rpc-url "$PUSH_RPC_URL" \
         --private-key "$PRIVATE_KEY" >/dev/null || true
     done

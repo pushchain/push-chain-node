@@ -128,6 +128,7 @@ Edit `e2e-tests/.env`. Key variables:
 | `PUSH_CHAIN_SDK_E2E_DIR` | `packages/core/__e2e__/evm/inbound` | Test directory inside SDK |
 | `PREFER_SIBLING_REPO_DIRS` | `true` | Prefer sibling dirs for core/gateway repos over cloning fresh |
 | `E2E_TARGET_CHAINS` | — | Restrict SDK E2E chains (passed through to SDK `.env`) |
+| `LOCAL_OUTBOUND_BASE_GAS_LIMIT` | `500000` | UniversalCore per-chain base gas limit seeded for local outbound tests |
 | `CORE_RESUME_MAX_ATTEMPTS` | `0` (unlimited) | Max `--resume` retry count for core forge script |
 | `GATEWAY_RESUME_MAX_ATTEMPTS` | `0` (unlimited) | Max `--resume` retry count for gateway forge script |
 | `CORE_CONFIGURE_RESUME_MAX_ATTEMPTS` | `0` (unlimited) | Max `--resume` retry count for `configureUniversalCore` |

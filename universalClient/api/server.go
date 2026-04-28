@@ -26,8 +26,12 @@ func NewServer(logger zerolog.Logger, port int) *Server {
 	mux := s.setupRoutes()
 
 	s.server = &http.Server{
-		Addr:    fmt.Sprintf(":%d", port),
-		Handler: mux,
+		Addr:              fmt.Sprintf(":%d", port),
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,  // max time to receive request headers
+		ReadTimeout:       10 * time.Second, // max time to read full request
+		WriteTimeout:      10 * time.Second, // max time to write response
+		IdleTimeout:       60 * time.Second, // max keep-alive idle time
 	}
 
 	return s

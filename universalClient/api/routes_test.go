@@ -17,19 +17,45 @@ func TestSetupRoutes(t *testing.T) {
 
 	mux := server.setupRoutes()
 
-	// Test that all routes are registered correctly
 	testCases := []struct {
 		name           string
+		method         string
 		path           string
 		expectedStatus int
 	}{
 		{
-			name:           "Health endpoint",
+			name:           "GET /health is allowed",
+			method:         http.MethodGet,
 			path:           "/health",
 			expectedStatus: http.StatusOK,
 		},
 		{
-			name:           "Non-existent endpoint",
+			name:           "POST /health is rejected",
+			method:         http.MethodPost,
+			path:           "/health",
+			expectedStatus: http.StatusMethodNotAllowed,
+		},
+		{
+			name:           "PUT /health is rejected",
+			method:         http.MethodPut,
+			path:           "/health",
+			expectedStatus: http.StatusMethodNotAllowed,
+		},
+		{
+			name:           "DELETE /health is rejected",
+			method:         http.MethodDelete,
+			path:           "/health",
+			expectedStatus: http.StatusMethodNotAllowed,
+		},
+		{
+			name:           "PATCH /health is rejected",
+			method:         http.MethodPatch,
+			path:           "/health",
+			expectedStatus: http.StatusMethodNotAllowed,
+		},
+		{
+			name:           "Non-existent endpoint returns 404",
+			method:         http.MethodGet,
 			path:           "/api/v1/non-existent",
 			expectedStatus: http.StatusNotFound,
 		},
@@ -37,7 +63,7 @@ func TestSetupRoutes(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, tc.path, nil)
+			req := httptest.NewRequest(tc.method, tc.path, nil)
 			w := httptest.NewRecorder()
 
 			mux.ServeHTTP(w, req)

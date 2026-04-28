@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
@@ -105,3 +106,16 @@ func TestServerIntegration(t *testing.T) {
 		assert.Equal(t, "text/plain", resp.Header.Get("Content-Type"))
 	})
 }
+
+// TestServerHasTimeoutsConfigured verifies the http.Server is constructed with
+// timeout fields set, defeating Slowloris-style slow-client DoS attacks.
+func TestServerHasTimeoutsConfigured(t *testing.T) {
+	logger := zerolog.New(zerolog.NewTestWriter(t))
+	server := NewServer(logger, 0)
+
+	assert.Greater(t, server.server.ReadHeaderTimeout, time.Duration(0), "ReadHeaderTimeout must be set (Slowloris guard)")
+	assert.Greater(t, server.server.ReadTimeout, time.Duration(0), "ReadTimeout must be set")
+	assert.Greater(t, server.server.WriteTimeout, time.Duration(0), "WriteTimeout must be set")
+	assert.Greater(t, server.server.IdleTimeout, time.Duration(0), "IdleTimeout must be set")
+}
+

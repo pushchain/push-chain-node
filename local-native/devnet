@@ -92,6 +92,31 @@ get_block_height() {
     echo "$height"
 }
 
+wait_chain_tx() {
+    local txhash="$1" node="$2" max="${3:-30}" i=0
+    while (( i < max )); do
+        local code
+        code=$("$PCHAIND_BIN" query tx "$txhash" --node="$node" --output json 2>/dev/null \
+            | jq -r '.code // empty' 2>/dev/null || true)
+        [[ "$code" == "0" ]] && return 0
+        [[ -n "$code" && "$code" != "0" ]] && return 1
+        sleep 1; (( i++ ))
+    done
+    return 1
+}
+
+get_current_tss_key_id() {
+    local genesis_rpc="tcp://127.0.0.1:26657"
+    "$PCHAIND_BIN" query utss current-key --node="$genesis_rpc" --output json 2>/dev/null \
+        | jq -r '.key.key_id // .current_key.key_id // empty' 2>/dev/null || echo ""
+}
+
+get_utss_admin() {
+    local genesis_rpc="tcp://127.0.0.1:26657"
+    "$PCHAIND_BIN" query utss params --node="$genesis_rpc" --output json 2>/dev/null \
+        | jq -r '.params.admin // ""' 2>/dev/null || echo ""
+}
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # STATUS DISPLAY
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -209,6 +234,23 @@ wait_for_rpc() {
     return 1
 }
 
+start_detached() {
+    local log_file=$1
+    shift
+
+    if command -v perl >/dev/null 2>&1; then
+        perl -MPOSIX=setsid -e '
+            setsid() or die "setsid failed: $!";
+            open STDIN, "<", "/dev/null" or die "stdin redirect failed: $!";
+            exec @ARGV or die "exec failed: $!";
+        ' "$@" > "$log_file" 2>&1 &
+    else
+        nohup "$@" > "$log_file" 2>&1 < /dev/null &
+    fi
+
+    echo $!
+}
+
 start_validator() {
     local id=$1
     local pid_file="$DATA_DIR/validator$id.pid"
@@ -224,18 +266,20 @@ start_validator() {
     
     if [ "$id" = "1" ]; then
         print_status "Starting validator 1 (genesis)..."
-        "$SCRIPT_DIR/scripts/setup-genesis-auto.sh" > "$DATA_DIR/validator$id/validator.log" 2>&1 &
+        start_detached "$DATA_DIR/validator$id/validator.log" "$SCRIPT_DIR/scripts/setup-genesis-auto.sh" >/tmp/push-chain-validator.pid
     else
         print_status "Starting validator $id..."
-        VALIDATOR_ID=$id "$SCRIPT_DIR/scripts/setup-validator-auto.sh" > "$DATA_DIR/validator$id/validator.log" 2>&1 &
+        start_detached "$DATA_DIR/validator$id/validator.log" env VALIDATOR_ID=$id "$SCRIPT_DIR/scripts/setup-validator-auto.sh" >/tmp/push-chain-validator.pid
     fi
     
-    echo $! > "$pid_file"
+    cat /tmp/push-chain-validator.pid > "$pid_file"
+    rm -f /tmp/push-chain-validator.pid
     print_success "Validator $id started (PID: $(cat $pid_file))"
 }
 
 start_universal() {
     local id=$1
+    local sepolia_start_height=${2:-}
     local pid_file="$DATA_DIR/universal$id.pid"
     
     # Check if already running
@@ -251,9 +295,10 @@ start_universal() {
     mkdir -p "$DATA_DIR/universal$id"
     
     print_status "Starting universal validator $id..."
-    UNIVERSAL_ID=$id "$SCRIPT_DIR/scripts/setup-universal.sh" > "$DATA_DIR/universal$id/universal.log" 2>&1 &
+    start_detached "$DATA_DIR/universal$id/universal.log" env UNIVERSAL_ID=$id SEPOLIA_EVENT_START_FROM="$sepolia_start_height" "$SCRIPT_DIR/scripts/setup-universal.sh" >/tmp/push-chain-universal.pid
     
-    echo $! > "$pid_file"
+    cat /tmp/push-chain-universal.pid > "$pid_file"
+    rm -f /tmp/push-chain-universal.pid
     print_success "Universal validator $id started (PID: $(cat $pid_file))"
 }
 
@@ -297,12 +342,23 @@ cmd_up() {
 cmd_start_uv() {
     require_binaries
     print_header "Starting Universal Validators..."
+
+    # Use SEPOLIA_EVENT_START_FROM from environment if already set (e.g. passed by e2e setup
+    # with a pre-fetched local anvil block number). Otherwise fetch from live Sepolia RPC.
+    local sepolia_start_height="${SEPOLIA_EVENT_START_FROM:-}"
+    if [[ -z "$sepolia_start_height" ]]; then
+        if ! sepolia_start_height=$(bash "$SCRIPT_DIR/scripts/configure-pushuv.sh" --get-height); then
+            print_error "Failed to fetch latest Sepolia height"
+            exit 1
+        fi
+    fi
+    print_status "Using Sepolia event_start_from: $sepolia_start_height"
     
     local num_uv=${1:-4}
     
     for i in $(seq 1 $num_uv); do
         if [ $i -le 4 ]; then
-            start_universal $i
+            start_universal $i "$sepolia_start_height"
             sleep 3
         fi
     done
@@ -311,6 +367,14 @@ cmd_start_uv() {
     print_success "Universal validators started!"
     echo
     cmd_status
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CONFIGURE COMMANDS
+# ═══════════════════════════════════════════════════════════════════════════════
+cmd_configure() {
+    print_header "Configuring local-native universal relayer configs..."
+    bash "$SCRIPT_DIR/scripts/configure-pushuv.sh"
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -415,18 +479,88 @@ cmd_clean() {
 cmd_tss_keygen() {
     require_binaries
     print_header "TSS Key Generation"
-    print_status "Initiating TSS keygen process..."
 
-    "$PCHAIND_BIN" tx utss initiate-tss-key-process \
-        --process-type tss-process-keygen \
-        --from genesis-acc-1 \
-        --chain-id "$CHAIN_ID" \
-        --keyring-backend test \
-        --home "$DATA_DIR/validator1/.pchain" \
-        --fees 1000000000000000upc \
-        --yes
+    # Check for existing TSS key — return early if already present
+    local existing
+    existing=$(get_current_tss_key_id)
+    if [[ -n "$existing" ]]; then
+        print_success "TSS key already present: $existing"
+        return 0
+    fi
 
-    print_success "TSS keygen initiated!"
+    # Validate that at least 2 universal validators are registered
+    local genesis_rpc="tcp://127.0.0.1:26657"
+    local uv_count
+    uv_count=$("$PCHAIND_BIN" query uvalidator all-universal-validators \
+        --node="$genesis_rpc" --output json 2>/dev/null \
+        | jq -r '.universal_validator | length // 0' 2>/dev/null || echo "0")
+    if (( uv_count < 2 )); then
+        print_error "Need at least 2 registered universal validators (found: $uv_count)"
+        return 1
+    fi
+
+    # Find the key whose address matches the UTSS admin
+    local admin_addr
+    admin_addr=$(get_utss_admin)
+    local val1_home="$DATA_DIR/validator1/.pchain"
+    local signer=""
+    while IFS= read -r key_name; do
+        local addr
+        addr=$("$PCHAIND_BIN" --home="$val1_home" keys show "$key_name" -a \
+            --keyring-backend "$KEYRING" 2>/dev/null || true)
+        if [[ "$addr" == "$admin_addr" ]]; then signer="$key_name"; break; fi
+    done < <("$PCHAIND_BIN" --home="$val1_home" keys list \
+        --keyring-backend "$KEYRING" --output json 2>/dev/null \
+        | jq -r '.[] | .name' 2>/dev/null || true)
+
+    if [[ -z "$signer" ]]; then
+        print_error "No local key matches UTSS admin address: $admin_addr"
+        return 1
+    fi
+
+    local attempt max_attempts=5
+    for (( attempt=1; attempt<=max_attempts; attempt++ )); do
+        print_status "Initiating TSS keygen (attempt $attempt/$max_attempts, signer=$signer)..."
+        local result tx_hash
+        result=$("$PCHAIND_BIN" --home="$val1_home" tx utss initiate-tss-key-process \
+            --process-type tss-process-keygen \
+            --from "$signer" \
+            --chain-id "$CHAIN_ID" \
+            --keyring-backend "$KEYRING" \
+            --node="$genesis_rpc" \
+            --fees 1000000000000000upc \
+            --yes --output json 2>&1 || true)
+
+        local code
+        code=$(echo "$result" | jq -r '.code // "0"' 2>/dev/null || echo "0")
+        tx_hash=$(echo "$result" | jq -r '.txhash // ""' 2>/dev/null || true)
+
+        if [[ "$code" != "0" ]]; then
+            print_warning "Keygen tx code=$code; retrying..."
+            sleep 5; continue
+        fi
+
+        if [[ -n "$tx_hash" ]]; then
+            wait_chain_tx "$tx_hash" "$genesis_rpc" 30 || true
+        fi
+
+        # Wait up to 300s for the TSS key to materialize on-chain
+        print_status "Waiting for TSS key to materialize on-chain..."
+        local waited=0
+        while (( waited < 300 )); do
+            local kid
+            kid=$(get_current_tss_key_id)
+            if [[ -n "$kid" ]]; then
+                print_success "TSS key ready: $kid"
+                return 0
+            fi
+            sleep 3; (( waited += 3 ))
+        done
+        print_warning "TSS key not ready after 300s on attempt $attempt"
+    done
+
+    print_error "TSS keygen failed after $max_attempts attempts"
+    return 1
 }
 
 cmd_tss_refresh() {
@@ -487,6 +621,7 @@ cmd_help() {
     echo -e "${BOLD}${CYAN}UNIVERSAL VALIDATORS${NC}"
     printf "  ${BOLD}%-20s${NC}%s\n" "setup-uvalidators" "Register UVs and create AuthZ grants"
     printf "  ${BOLD}%-20s${NC}%s\n" "start-uv [n]" "Start n universal validators (default: 4)"
+    printf "  ${BOLD}%-20s${NC}%s\n" "configure" "Set Sepolia event_start_from to latest block"
     echo
     echo -e "${BOLD}${CYAN}TSS COMMANDS${NC}"
     printf "  ${BOLD}%-20s${NC}%s\n" "tss-keygen" "Initiate TSS key generation"
@@ -536,6 +671,7 @@ case "${1:-help}" in
     # Universal validators
     setup-uvalidators) "$SCRIPT_DIR/scripts/setup-uvalidators.sh" ;;
     start-uv)       shift; cmd_start_uv "$@" ;;
+    configure)      cmd_configure ;;
 
     # Maintenance
     clean)          cmd_clean ;;

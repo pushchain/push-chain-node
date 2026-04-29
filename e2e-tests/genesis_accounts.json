@@ -1,0 +1,32 @@
+[
+  {
+    "id": 1,
+    "name": "genesis-acc-1",
+    "address": "push1h0lw8wvlwjjm2rezn4tsw2s7m6t66d6pmnwnld",
+    "mnemonic": "blouse clap marble arrange soccer hawk piano barrel dream interest axis fold napkin pioneer ladder saddle odor bachelor slender punch mind fan debris steel"
+  },
+  {
+    "id": 2,
+    "name": "genesis-acc-2",
+    "address": "push1vgdlzx40k9sff5cwx0wylucyv6trgv7pv5h4dp",
+    "mnemonic": "marble hammer tube smooth differ stone bring nuclear artwork small goose vanish main update lazy code confirm network cinnamon waste outdoor random false hill"
+  },
+  {
+    "id": 3,
+    "name": "genesis-acc-3",
+    "address": "push1ww7a3jmh2rcvx972zc5qlw5uxcpwdmpujm9eaz",
+    "mnemonic": "flag shallow burst clog age involve mention sunset trial bean limb bid shove lend pluck ancient stone tuition region creek quick foam same someone"
+  },
+  {
+    "id": 4,
+    "name": "genesis-acc-4",
+    "address": "push1dcgsat3ywftcwgzsy06vnr7mc39rawv785wr2w",
+    "mnemonic": "hundred nose broom fee bounce market ethics trap undo clinic blouse pretty scatter love wine cup crane bird finger school always add mechanic impulse"
+  },
+  {
+    "id": 5,
+    "name": "genesis-acc-5",
+    "address": "push14x6r4u4umcxcsqlnm67w8nzzn7ynsv4l66ytj4",
+    "mnemonic": "faith enemy fiscal bubble castle assault perfect breeze buddy region box blush slot clay scheme horn invest crazy name twice during much jeans build"
+  }
+]

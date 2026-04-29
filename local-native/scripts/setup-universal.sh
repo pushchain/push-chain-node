@@ -9,6 +9,12 @@ source "$SCRIPT_DIR/env.sh"
 UNIVERSAL_ID=${UNIVERSAL_ID:-1}
 # HOME_DIR will be set after we set HOME env var
 
+# Deterministic local SVM relayer used by the local-native devnet. The relayer
+# pays the Solana transaction fee for SVM outbound broadcasts.
+DEFAULT_SOLANA_RELAYER_PUBKEY="AdWDRaQfvWJqW4TaxTrXP5WogCWJMJBrtBfGjjHUDADM"
+DEFAULT_SOLANA_RELAYER_KEYPAIR_JSON='[226,7,176,193,18,2,55,106,191,150,176,87,157,216,118,97,236,128,2,104,181,206,160,147,5,152,0,115,23,8,103,189,143,19,31,194,227,248,222,123,219,13,143,47,154,104,201,235,13,16,11,45,117,154,117,37,130,196,58,154,89,228,136,32]'
+DEFAULT_SOLANA_RELAYER_UNIVERSAL_ID=""
+
 # Ports
 case "$UNIVERSAL_ID" in
     1) CORE_GRPC_PORT=9090; QUERY_PORT=8080; CORE_RPC_PORT=26657 ;;
@@ -70,6 +76,44 @@ export HOME="$UV_HOME"
 HOME_DIR="$UV_HOME/.puniversal"
 
 "$PUNIVERSALD_BIN" init
+
+provision_svm_relayer_keypair() {
+    local relayer_dir="$HOME_DIR/relayer"
+    local key_path="$relayer_dir/solana.json"
+    local keypair_json="${SOLANA_RELAYER_KEYPAIR_JSON:-$DEFAULT_SOLANA_RELAYER_KEYPAIR_JSON}"
+
+    mkdir -p "$relayer_dir"
+    printf '%s\n' "$keypair_json" > "$key_path"
+    chmod 600 "$key_path"
+    echo "✅ Provisioned Solana relayer keypair: $key_path"
+}
+
+fund_default_svm_relayer() {
+    local rpc_url="${SOLANA_RPC_URL_OVERRIDE:-${LOCAL_SOLANA_UV_RPC_URL:-${SURFPOOL_SOLANA_HOST_RPC_URL:-}}}"
+    local lamports="${SOLANA_RELAYER_AIRDROP_LAMPORTS:-10000000000}"
+    local relayer_pubkey="${SOLANA_RELAYER_PUBKEY:-$DEFAULT_SOLANA_RELAYER_PUBKEY}"
+    local response=""
+
+    [ -n "$rpc_url" ] || return 0
+
+    response=$(curl -sS --max-time 10 -X POST "$rpc_url" \
+        -H 'Content-Type: application/json' \
+        --data "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"requestAirdrop\",\"params\":[\"$relayer_pubkey\",$lamports]}" 2>/dev/null || true)
+
+    if echo "$response" | jq -e '.result // empty' >/dev/null 2>&1; then
+        echo "✅ Requested Solana relayer airdrop for $relayer_pubkey via $rpc_url"
+    elif [ -n "$response" ]; then
+        echo "⚠️  Solana relayer airdrop was not accepted by $rpc_url: $response"
+    fi
+}
+
+configured_solana_relayer_universal_id="${SOLANA_RELAYER_UNIVERSAL_ID:-$DEFAULT_SOLANA_RELAYER_UNIVERSAL_ID}"
+if [ -z "$configured_solana_relayer_universal_id" ] || [ "$configured_solana_relayer_universal_id" = "$UNIVERSAL_ID" ]; then
+    provision_svm_relayer_keypair
+    fund_default_svm_relayer
+else
+    echo "ℹ️  Skipping Solana relayer keypair on universal validator $UNIVERSAL_ID; relayer owner is universal validator $configured_solana_relayer_universal_id"
+fi
 
 # Update config
 jq --arg grpc "$CORE_GRPC" '.push_chain_grpc_urls = [$grpc] | .keyring_backend = "test"' \

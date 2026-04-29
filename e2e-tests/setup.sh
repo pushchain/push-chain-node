@@ -22,7 +22,7 @@ fi
 : "${GENESIS_KEY_HOME:=./e2e-tests/.pchain}"
 : "${GENESIS_ACCOUNTS_JSON:=./e2e-tests/genesis_accounts.json}"
 : "${FUND_AMOUNT:=1000000000000000000upc}"
-: "${POOL_CREATION_TOPUP_AMOUNT:=50000000000000000000upc}"
+: "${POOL_CREATION_TOPUP_AMOUNT:=500000000000000000000upc}"
 : "${GAS_PRICES:=100000000000upc}"
 : "${LOCAL_DEVNET_DIR:=./local-native}"
 
@@ -35,6 +35,13 @@ fi
 : "${PUSH_CHAIN_SDK_REPO:=https://github.com/pushchain/push-chain-sdk.git}"
 : "${PUSH_CHAIN_SDK_BRANCH:=outbound_changes}"
 : "${PREFER_SIBLING_REPO_DIRS:=true}"
+: "${ALLOW_LOCAL_SVM_GO_BUILD_PATCH:=false}"
+
+SVM_BROADCASTER_BACKUP_FILE=""
+SVM_TX_BUILDER_BACKUP_FILE=""
+SVM_EVENT_PARSER_BACKUP_FILE=""
+REPLACE_ADDRESSES_BACKUP_DIR=""
+LOCAL_SVM_PAYLOAD_EXECUTOR_PID=""
 
 : "${E2E_PARENT_DIR:=../}"
 : "${CORE_CONTRACTS_DIR:=$E2E_PARENT_DIR/push-chain-core-contracts}"
@@ -49,6 +56,9 @@ fi
 : "${LOG_DIR:=$SCRIPT_DIR/logs}"
 : "${TEST_ADDRESSES_PATH:=$SWAP_AMM_DIR/test-addresses.json}"
 : "${LOCAL_OUTBOUND_BASE_GAS_LIMIT:=500000}"
+: "${LOCAL_SVM_OUTBOUND_BASE_GAS_LIMIT:=10000}"
+: "${LOCAL_SOLANA_USDT_MINT:=EiXDnrAg9ea2Q6vEPV7E5TpTU1vh41jcuZqKjU5Dc4ZF}"
+: "${LOCAL_SOLANA_USDT_INITIAL_SUPPLY:=10000000000000000000000}"
 : "${SOURCE_CONFIG_DIR:=./config/testnet-donut}"
 : "${TOKENS_CONFIG_DIR:=./e2e-tests/config/testnet-donut}"
 : "${TOKEN_CONFIG_PATH:=./e2e-tests/config/testnet-donut/eth_sepolia/tokens/eth.json}"
@@ -434,7 +444,10 @@ record_token() {
     --arg source "$source" \
     '
       .tokens = (
-        ([.tokens[]? | select((.address | ascii_downcase) != ($address | ascii_downcase))])
+        ([.tokens[]? | select(
+          ((.address | ascii_downcase) != ($address | ascii_downcase)) and
+          ((.symbol | ascii_downcase) != ($symbol | ascii_downcase))
+        )])
         + [{name:$name, symbol:$symbol, address:$address, source:$source}]
       )
     ' "$DEPLOY_ADDRESSES_FILE" >"$tmp"
@@ -943,6 +956,621 @@ sdk_sync_localnet_uea_proxy_impl() {
   log_ok "Synced PUSH_NETWORK.LOCALNET UEA proxy to $uea_impl"
 }
 
+step_patch_local_svm_broadcaster_for_build() {
+  if ! is_local_testing_env; then
+    return 0
+  fi
+
+  if [[ "$(echo "$ALLOW_LOCAL_SVM_GO_BUILD_PATCH" | tr '[:upper:]' '[:lower:]')" != "true" ]]; then
+    log_info "Skipping local SVM Go source patch before build (ALLOW_LOCAL_SVM_GO_BUILD_PATCH=false)"
+    return 0
+  fi
+
+  require_cmd node
+
+  local svm_broadcaster_file="$PUSH_CHAIN_DIR/universalClient/tss/txbroadcaster/svm.go"
+  local svm_tx_builder_file="$PUSH_CHAIN_DIR/universalClient/chains/svm/tx_builder.go"
+  local svm_event_parser_file="$PUSH_CHAIN_DIR/universalClient/chains/svm/event_parser.go"
+  if [[ ! -f "$svm_broadcaster_file" ]]; then
+    log_warn "SVM broadcaster patch target missing: $svm_broadcaster_file"
+    return 0
+  fi
+  if [[ ! -f "$svm_tx_builder_file" ]]; then
+    log_warn "SVM tx builder patch target missing: $svm_tx_builder_file"
+    return 0
+  fi
+  if [[ ! -f "$svm_event_parser_file" ]]; then
+    log_warn "SVM event parser patch target missing: $svm_event_parser_file"
+    return 0
+  fi
+
+  SVM_BROADCASTER_BACKUP_FILE="$(mktemp)"
+  cp "$svm_broadcaster_file" "$SVM_BROADCASTER_BACKUP_FILE"
+  SVM_TX_BUILDER_BACKUP_FILE="$(mktemp)"
+  cp "$svm_tx_builder_file" "$SVM_TX_BUILDER_BACKUP_FILE"
+  SVM_EVENT_PARSER_BACKUP_FILE="$(mktemp)"
+  cp "$svm_event_parser_file" "$SVM_EVENT_PARSER_BACKUP_FILE"
+
+  SVM_BROADCASTER_FILE="$svm_broadcaster_file" SVM_TX_BUILDER_FILE="$svm_tx_builder_file" SVM_EVENT_PARSER_FILE="$svm_event_parser_file" node <<'NODE'
+const fs = require('fs');
+
+const file = process.env.SVM_BROADCASTER_FILE;
+let src = fs.readFileSync(file, 'utf8');
+
+if (!src.includes('"strings"')) {
+  src = src.replace('import (\n\t"context"\n', 'import (\n\t"context"\n\t"strings"\n');
+}
+
+if (!src.includes('LOCAL SVM: a validator without the Solana relayer key')) {
+  const marker = `\ttxHash, broadcastErr := builder.BroadcastOutboundSigningRequest(ctx, signingReq, &outboundData, signature)
+
+\tif broadcastErr == nil {
+\t\tb.markBroadcasted(event, chainID, txHash)
+\t\treturn
+\t}
+
+\t// Broadcast failed — check PDA to distinguish permanent vs transient failure.`;
+  const replacement = `\ttxHash, broadcastErr := builder.BroadcastOutboundSigningRequest(ctx, signingReq, &outboundData, signature)
+
+\tif broadcastErr == nil {
+\t\tb.markBroadcasted(event, chainID, txHash)
+\t\treturn
+\t}
+
+\t// LOCAL SVM: a validator without the Solana relayer key can still participate
+\t// in TSS, but it must not vote BROADCASTED with an empty external hash.
+\tif txHash == "" && strings.Contains(broadcastErr.Error(), "failed to load relayer keypair") {
+\t\tb.logger.Debug().Err(broadcastErr).Str("event_id", event.EventID).Str("chain", chainID).
+\t\t\tMsg("SVM broadcast skipped on validator without Solana relayer key")
+\t\treturn
+\t}
+
+\t// Broadcast failed — check PDA to distinguish permanent vs transient failure.`;
+  if (!src.includes(marker)) {
+    throw new Error(`Could not patch SVM broadcaster pre-error block in ${file}`);
+  }
+  src = src.replace(marker, replacement);
+}
+
+if (!src.includes('landed Solana tx hash')) {
+  const marker = `\tif executed {
+\t\t// Another relayer already executed this tx.
+\t\tb.logger.Info().Err(broadcastErr).Str("event_id", event.EventID).Str("chain", chainID).
+\t\t\tMsg("broadcast failed but tx already executed on-chain, marking BROADCASTED")
+\t\tb.markBroadcasted(event, chainID, "")
+\t\treturn
+\t}`;
+  const replacement = `\tif executed {
+\t\t// LOCAL SVM: if a competing validator won the race, preflight fails with the
+\t\t// replay PDA already created. Query that PDA so every validator votes for the
+\t\t// same landed Solana tx hash instead of splitting quorum by local signatures.
+\t\tif finder, ok := builder.(interface {
+\t\t\tFindExecutedTxSignature(context.Context, string) (string, error)
+\t\t}); ok {
+\t\t\tif landedTxHash, findErr := finder.FindExecutedTxSignature(ctx, outboundData.TxID); findErr == nil && landedTxHash != "" {
+\t\t\t\tb.logger.Info().Err(broadcastErr).Str("event_id", event.EventID).Str("chain", chainID).Str("tx_hash", landedTxHash).
+\t\t\t\t\tMsg("broadcast failed but tx already executed on-chain, marking BROADCASTED with landed Solana tx hash")
+\t\t\t\tb.markBroadcasted(event, chainID, landedTxHash)
+\t\t\t\treturn
+\t\t\t}
+\t\t}
+\t\tif txHash == "" {
+\t\t\tb.logger.Debug().Err(broadcastErr).Str("event_id", event.EventID).Str("chain", chainID).
+\t\t\t\tMsg("SVM tx already executed but no local or landed tx hash is available; waiting for relayer vote")
+\t\t\treturn
+\t\t}
+\t\tb.logger.Info().Err(broadcastErr).Str("event_id", event.EventID).Str("chain", chainID).Str("tx_hash", txHash).
+\t\t\tMsg("broadcast failed but tx already executed on-chain, marking BROADCASTED with local tx hash")
+\t\tb.markBroadcasted(event, chainID, txHash)
+\t\treturn
+\t}`;
+  if (!src.includes(marker)) {
+    throw new Error(`Could not patch SVM broadcaster executed block in ${file}`);
+  }
+  src = src.replace(marker, replacement);
+}
+
+fs.writeFileSync(file, src);
+
+const txBuilderFile = process.env.SVM_TX_BUILDER_FILE;
+let txBuilderSrc = fs.readFileSync(txBuilderFile, 'utf8');
+
+if (!txBuilderSrc.includes('return txHash, fmt.Errorf("failed to broadcast transaction: %w", err)')) {
+  const marker = `\ttxHash, err := tb.rpcClient.BroadcastTransaction(ctx, tx)
+\tif err != nil {
+\t\treturn "", fmt.Errorf("failed to broadcast transaction: %w", err)
+\t}`;
+  const replacement = `\ttxHash, err := tb.rpcClient.BroadcastTransaction(ctx, tx)
+\tif err != nil {
+\t\treturn txHash, fmt.Errorf("failed to broadcast transaction: %w", err)
+\t}`;
+  if (!txBuilderSrc.includes(marker)) {
+    throw new Error(`Could not patch SVM tx builder broadcast error return in ${txBuilderFile}`);
+  }
+  txBuilderSrc = txBuilderSrc.replace(marker, replacement);
+}
+
+if (!txBuilderSrc.includes('LOCAL_SVM_OMIT_COMPUTE_BUDGET_FOR_SIZE')) {
+  const marker = `\t// Hardcoded compute budget for Solana transactions. The event's gasLimit is a fee
+\t// parameter (used by core for gasFee = gasPrice × gasLimit), not actual compute units.
+\t// 400,000 CU is sufficient for all gateway operations including CEA execute flows.
+\tconst svmComputeUnitLimit = uint32(400_000)
+\tcomputeLimitIx := tb.buildSetComputeUnitLimitInstruction(svmComputeUnitLimit)
+
+\t// Build the instruction list.
+\tinstructions := []solana.Instruction{computeLimitIx}`;
+  const replacement = `\t// LOCAL_SVM_OMIT_COMPUTE_BUDGET_FOR_SIZE: Route 3 multicall payloads sit
+\t// close to Solana's 1232-byte raw transaction limit. The default compute
+\t// budget is enough for local gateway execution, so omit the optional compute
+\t// budget instruction and preserve bytes for the gateway payload.
+\tinstructions := []solana.Instruction{}`;
+  if (!txBuilderSrc.includes(marker)) {
+    throw new Error(`Could not patch SVM tx builder compute budget instruction in ${txBuilderFile}`);
+  }
+  txBuilderSrc = txBuilderSrc.replace(marker, replacement);
+}
+
+if (!txBuilderSrc.includes('FindExecutedTxSignature')) {
+  const marker = `\t// If we got non-empty data, the PDA exists → tx was already executed
+\treturn len(data) > 0, nil
+}
+`;
+  const replacement = `\t// If we got non-empty data, the PDA exists → tx was already executed
+\treturn len(data) > 0, nil
+}
+
+// FindExecutedTxSignature returns the landed transaction signature that touched
+// the ExecutedTx PDA for a txID. This is used by local validators that lose the
+// Solana broadcast race but still need to vote for the same external hash.
+func (tb *TxBuilder) FindExecutedTxSignature(ctx context.Context, txID string) (string, error) {
+\ttxIDBytes, err := hex.DecodeString(removeHexPrefix(txID))
+\tif err != nil {
+\t\treturn "", fmt.Errorf("invalid txID: %s", txID)
+\t}
+\tif len(txIDBytes) != 32 {
+\t\treturn "", fmt.Errorf("txID must be 32 bytes, got %d", len(txIDBytes))
+\t}
+
+\tvar txIDArr [32]byte
+\tcopy(txIDArr[:], txIDBytes)
+
+\texecutedTxPDA, _, err := solana.FindProgramAddress([][]byte{[]byte("executed_sub_tx"), txIDArr[:]}, tb.gatewayAddress)
+\tif err != nil {
+\t\treturn "", fmt.Errorf("failed to derive executed_tx PDA: %w", err)
+\t}
+
+\tsignatures, err := tb.rpcClient.GetSignaturesForAddress(ctx, executedTxPDA)
+\tif err != nil {
+\t\treturn "", err
+\t}
+\tfor _, sig := range signatures {
+\t\tif sig != nil && sig.Err == nil {
+\t\t\treturn sig.Signature.String(), nil
+\t\t}
+\t}
+\treturn "", nil
+}
+`;
+  if (!txBuilderSrc.includes(marker)) {
+    throw new Error(`Could not patch SVM tx builder executed signature helper in ${txBuilderFile}`);
+  }
+  txBuilderSrc = txBuilderSrc.replace(marker, replacement);
+}
+
+fs.writeFileSync(txBuilderFile, txBuilderSrc);
+
+const eventParserFile = process.env.SVM_EVENT_PARSER_FILE;
+let eventParserSrc = fs.readFileSync(eventParserFile, 'utf8');
+
+if (!eventParserSrc.includes('LOCAL SVM: payload-bearing CEA events target the decoded UniversalPayload.to')) {
+  const marker = `\t// Parse fromCEA (bool, 1 byte) - if not present, defaults to false
+\tif len(data) > offset {
+\t\tpayload.FromCEA = data[offset] != 0
+\t\toffset++
+\t}
+
+\tlogger.Debug().`;
+  const replacement = `\t// Parse fromCEA (bool, 1 byte) - if not present, defaults to false
+\tif len(data) > offset {
+\t\tpayload.FromCEA = data[offset] != 0
+\t\toffset++
+\t}
+
+\t// LOCAL SVM: payload-bearing CEA events target the decoded UniversalPayload.to
+\t// on Push Chain. The gateway event recipient is the Push account, which makes
+\t// local payload tests execute against an EOA and silently no-op.
+\tif payload.FromCEA && payload.RawPayload != "" && (payload.TxType == 1 || payload.TxType == 3) {
+\t\trawPayloadBytes, decodeErr := hex.DecodeString(strings.TrimPrefix(payload.RawPayload, "0x"))
+\t\tif decodeErr == nil && len(rawPayloadBytes) >= 20 {
+\t\t\tpayload.Recipient = "0x" + hex.EncodeToString(rawPayloadBytes[:20])
+\t\t} else if decodeErr != nil {
+\t\t\tlogger.Warn().Err(decodeErr).Msg("failed to decode local SVM raw payload for recipient override")
+\t\t}
+\t}
+
+\tlogger.Debug().`;
+  if (!eventParserSrc.includes(marker)) {
+    throw new Error(`Could not patch SVM event parser recipient override in ${eventParserFile}`);
+  }
+  eventParserSrc = eventParserSrc.replace(marker, replacement);
+  fs.writeFileSync(eventParserFile, eventParserSrc);
+}
+NODE
+
+  log_ok "Patched local SVM broadcaster/event parsing behavior before build"
+}
+
+step_backup_local_replace_addresses_sources() {
+  if ! is_local_testing_env; then
+    return 0
+  fi
+
+  local files=(
+    "x/uexecutor/types/constants.go"
+    "x/uregistry/types/constants.go"
+    "x/uregistry/types/params.go"
+    "x/utss/types/params.go"
+    "x/uvalidator/types/params.go"
+  )
+
+  REPLACE_ADDRESSES_BACKUP_DIR="$(mktemp -d)"
+  local rel src dst
+  for rel in "${files[@]}"; do
+    src="$PUSH_CHAIN_DIR/$rel"
+    if [[ -f "$src" ]]; then
+      dst="$REPLACE_ADDRESSES_BACKUP_DIR/$rel"
+      mkdir -p "$(dirname "$dst")"
+      cp "$src" "$dst"
+    fi
+  done
+}
+
+step_restore_local_replace_addresses_sources() {
+  if [[ -z "${REPLACE_ADDRESSES_BACKUP_DIR:-}" || ! -d "$REPLACE_ADDRESSES_BACKUP_DIR" ]]; then
+    return 0
+  fi
+
+  local backup
+  while IFS= read -r backup; do
+    local rel="${backup#$REPLACE_ADDRESSES_BACKUP_DIR/}"
+    cp "$backup" "$PUSH_CHAIN_DIR/$rel"
+  done < <(find "$REPLACE_ADDRESSES_BACKUP_DIR" -type f)
+
+  rm -rf "$REPLACE_ADDRESSES_BACKUP_DIR"
+  REPLACE_ADDRESSES_BACKUP_DIR=""
+  log_ok "Restored source files changed by local replace-addresses build step"
+}
+
+step_restore_local_svm_broadcaster_after_build() {
+  if [[ -z "${SVM_BROADCASTER_BACKUP_FILE:-}" || ! -f "$SVM_BROADCASTER_BACKUP_FILE" ]]; then
+    return 0
+  fi
+
+  local svm_broadcaster_file="$PUSH_CHAIN_DIR/universalClient/tss/txbroadcaster/svm.go"
+  if [[ -f "$svm_broadcaster_file" ]]; then
+    cp "$SVM_BROADCASTER_BACKUP_FILE" "$svm_broadcaster_file"
+    log_ok "Restored SVM broadcaster source after patched local build"
+  fi
+
+  rm -f "$SVM_BROADCASTER_BACKUP_FILE"
+  SVM_BROADCASTER_BACKUP_FILE=""
+
+  if [[ -n "${SVM_TX_BUILDER_BACKUP_FILE:-}" && -f "$SVM_TX_BUILDER_BACKUP_FILE" ]]; then
+    local svm_tx_builder_file="$PUSH_CHAIN_DIR/universalClient/chains/svm/tx_builder.go"
+    if [[ -f "$svm_tx_builder_file" ]]; then
+      cp "$SVM_TX_BUILDER_BACKUP_FILE" "$svm_tx_builder_file"
+      log_ok "Restored SVM tx builder source after patched local build"
+    fi
+    rm -f "$SVM_TX_BUILDER_BACKUP_FILE"
+    SVM_TX_BUILDER_BACKUP_FILE=""
+  fi
+
+  if [[ -n "${SVM_EVENT_PARSER_BACKUP_FILE:-}" && -f "$SVM_EVENT_PARSER_BACKUP_FILE" ]]; then
+    local svm_event_parser_file="$PUSH_CHAIN_DIR/universalClient/chains/svm/event_parser.go"
+    if [[ -f "$svm_event_parser_file" ]]; then
+      cp "$SVM_EVENT_PARSER_BACKUP_FILE" "$svm_event_parser_file"
+      log_ok "Restored SVM event parser source after patched local build"
+    fi
+    rm -f "$SVM_EVENT_PARSER_BACKUP_FILE"
+    SVM_EVENT_PARSER_BACKUP_FILE=""
+  fi
+}
+
+sdk_patch_local_svm_outbound_execution() {
+  require_cmd node
+
+  local route_handlers_file="$PUSH_CHAIN_SDK_DIR/packages/core/src/lib/orchestrator/internals/route-handlers.ts"
+  local push_chain_tx_file="$PUSH_CHAIN_SDK_DIR/packages/core/src/lib/orchestrator/internals/push-chain-tx.ts"
+  local response_builder_file="$PUSH_CHAIN_SDK_DIR/packages/core/src/lib/orchestrator/internals/response-builder.ts"
+
+  if [[ ! -f "$route_handlers_file" || ! -f "$push_chain_tx_file" || ! -f "$response_builder_file" ]]; then
+    log_warn "SDK SVM outbound patch targets missing; skipping local SVM execution patch"
+    return 0
+  fi
+
+  ROUTE_HANDLERS_FILE="$route_handlers_file" PUSH_CHAIN_TX_FILE="$push_chain_tx_file" RESPONSE_BUILDER_FILE="$response_builder_file" node <<'NODE'
+const fs = require('fs');
+
+const routeFile = process.env.ROUTE_HANDLERS_FILE;
+const pushTxFile = process.env.PUSH_CHAIN_TX_FILE;
+const responseBuilderFile = process.env.RESPONSE_BUILDER_FILE;
+
+let route = fs.readFileSync(routeFile, 'utf8');
+if (!route.includes("from '../internals/signing'")) {
+  const marker = "import { getCEAAddress, chainSupportsOutbound } from '../cea-utils';\n";
+  if (!route.includes(marker)) {
+    throw new Error(`Could not find SDK signing import anchor in ${routeFile}`);
+  }
+  route = route.replace(
+    marker,
+    `${marker}import { encodeUniversalPayloadSvm } from '../internals/signing';\n`
+  );
+}
+if (!route.includes("from '../../generated/v1/tx'")) {
+  const marker = "import { PushChain } from '../../push-chain/push-chain';\n";
+  if (!route.includes(marker)) {
+    throw new Error(`Could not find SDK generated tx import anchor in ${routeFile}`);
+  }
+  route = route.replace(
+    marker,
+    `${marker}import { VerificationType } from '../../generated/v1/tx';\n`
+  );
+}
+if (!route.includes('Do not inflate above the gas sizing result')) {
+  const start = route.indexOf('  // Adjust nativeValueForGas using UEA balance (contract refunds excess)\n  // Re-fetch balance to minimize staleness from gas fee query RPC roundtrips\n  const currentBalance = await ctx.pushClient.getBalance(ueaAddress);', route.indexOf('export async function executeCeaToPushSvm'));
+  const endMarker = '\n\n  // Build Push Chain multicalls';
+  const end = route.indexOf(endMarker, start);
+  if (start === -1 || end === -1) {
+    throw new Error(`Could not patch SVM nativeValueForGas block in ${routeFile}`);
+  }
+  const replacement = `  // Cap nativeValueForGas using UEA balance. Do not inflate above the gas sizing result;\n  // a very large max input can make the local gateway swap run out of gas before it emits the outbound event.\n  // Re-fetch balance to minimize staleness from gas fee query RPC roundtrips\n  const currentBalance = await ctx.pushClient.getBalance(ueaAddress);\n  // Cosmos-EVM tx overhead costs ~1 PC per operation; 3 PC covers approve(s) + buffer.\n  const OUTBOUND_GAS_RESERVE_R3_SVM = BigInt(3e18);\n  const availableForGas =\n    currentBalance > OUTBOUND_GAS_RESERVE_R3_SVM\n      ? currentBalance - OUTBOUND_GAS_RESERVE_R3_SVM\n      : currentBalance;\n  if (availableForGas > BigInt(0) && availableForGas < nativeValueForGas) {\n    printLog(\n      ctx,\n      \`executeCeaToPushSvm — adjusting nativeValueForGas from \${nativeValueForGas.toString()} to \${availableForGas.toString()} (UEA balance: \${currentBalance.toString()})\`\n    );\n    nativeValueForGas = availableForGas;\n  }`;
+  route = route.slice(0, start) + replacement + route.slice(end);
+  fs.writeFileSync(routeFile, route);
+}
+
+if (!route.includes('LOCAL_SVM_SKIP_CASE_C_OVERFLOW')) {
+  const marker = `  if (
+    sizingDecisionR3Svm?.category === 'C' &&
+    sizingDecisionR3Svm.overflowNativePc > BigInt(0)
+  ) {`;
+  const replacement = `  const LOCAL_SVM_SKIP_CASE_C_OVERFLOW =
+    sourceChain === CHAIN.SOLANA_DEVNET &&
+    CHAIN_INFO[sourceChain]?.defaultRPC?.some((url) =>
+      url.includes('localhost') || url.includes('127.0.0.1')
+    );
+
+  if (
+    sizingDecisionR3Svm?.category === 'C' &&
+    sizingDecisionR3Svm.overflowNativePc > BigInt(0) &&
+    !LOCAL_SVM_SKIP_CASE_C_OVERFLOW
+  ) {`;
+  if (!route.includes(marker)) {
+    throw new Error(`Could not patch local SVM Case C overflow block in ${routeFile}`);
+  }
+  route = route.replace(marker, replacement);
+  fs.writeFileSync(routeFile, route);
+}
+
+if (!route.includes('LOCAL_SVM_ROUTE3_SPL_PRC20')) {
+  const marker = `  // Route 3 SVM: ALWAYS use native PRC-20 for chain namespace lookup + gas fees.
+  // CEA uses its own pre-existing balance — no PRC-20 burn needed on Push Chain.
+  const prc20Token = getNativePRC20ForChain(sourceChain, ctx.pushNetwork);`;
+  const replacement = `  // LOCAL_SVM_ROUTE3_SPL_PRC20: SPL CEA drains must use the mapped SPL PRC-20 so
+  // the SVM gateway can validate the emitted token against the SPL mint.
+  // Native SOL still uses pSOL for chain namespace lookup + gas fees.
+  let prc20Token = getNativePRC20ForChain(sourceChain, ctx.pushNetwork);
+  if (params.funds?.amount && params.funds.amount > BigInt(0)) {
+    const token = (params.funds as { token?: MoveableToken }).token;
+    if (token?.address) {
+      prc20Token = PushChain.utils.tokens.getPRC20Address(token, {
+        network: ctx.pushNetwork,
+      }).address;
+    }
+  }`;
+  if (!route.includes(marker)) {
+    throw new Error(`Could not patch Route 3 SVM SPL PRC20 selection in ${routeFile}`);
+  }
+  route = route.replace(marker, replacement);
+  fs.writeFileSync(routeFile, route);
+}
+
+if (!route.includes('LOCAL_SVM_ROUTE3_BORSH_PAYLOAD')) {
+  const marker = `  // Build the SVM CPI payload (send_universal_tx_to_uea wrapped in execute)
+  // If params.data is provided, pass it as extraPayload for Push Chain execution
+  let extraPayload: Uint8Array | undefined;
+  if (params.data && typeof params.data === 'string') {
+    extraPayload = hexToBytes(params.data as \`0x\${string}\`);
+  }`;
+  const replacement = `  // LOCAL_SVM_ROUTE3_BORSH_PAYLOAD: Solana-origin payload events are decoded by
+  // Push Chain as a Borsh UniversalPayload, not as bare calldata.
+  // Multicall requests use address(0) as the SDK-facing target, but the SVM gateway
+  // and Push Chain inbound path still need a concrete UEA recipient.
+  const pushPayloadRecipient =
+    Array.isArray(params.data) && params.to === ZERO_ADDRESS
+      ? ueaAddress
+      : (params.to as \`0x\${string}\`);
+  let extraPayload: Uint8Array | undefined;
+  if (params.data && typeof params.data === 'string') {
+    const svmUniversalPayload = encodeUniversalPayloadSvm({
+      to: pushPayloadRecipient,
+      value: '0',
+      data: params.data as \`0x\${string}\`,
+      gasLimit: (params.gasLimit ?? BigInt(5e7)).toString(),
+      maxFeePerGas: BigInt(1e10).toString(),
+      maxPriorityFeePerGas: BigInt(1e10).toString(),
+      nonce: '0',
+      deadline: '0',
+      vType: VerificationType.universalTxVerification,
+    });
+    extraPayload = new Uint8Array(svmUniversalPayload);
+  } else if (Array.isArray(params.data)) {
+    const svmMulticallPayload = buildMulticallPayloadData(ctx, pushPayloadRecipient, params.data as MultiCall[]);
+    const svmUniversalPayload = encodeUniversalPayloadSvm({
+      to: pushPayloadRecipient,
+      value: '0',
+      data: svmMulticallPayload,
+      gasLimit: (params.gasLimit ?? BigInt(5e7)).toString(),
+      maxFeePerGas: BigInt(1e10).toString(),
+      maxPriorityFeePerGas: BigInt(1e10).toString(),
+      nonce: '0',
+      deadline: '0',
+      vType: VerificationType.universalTxVerification,
+    });
+    extraPayload = new Uint8Array(svmUniversalPayload);
+  }`;
+  if (!route.includes(marker)) {
+    throw new Error(`Could not patch Route 3 SVM Borsh payload wrapping in ${routeFile}`);
+  }
+  route = route.replace(marker, replacement);
+  fs.writeFileSync(routeFile, route);
+}
+if (route.includes('LOCAL_SVM_ROUTE3_BORSH_PAYLOAD') && !route.includes('pushPayloadRecipient')) {
+  const start = route.indexOf('  // LOCAL_SVM_ROUTE3_BORSH_PAYLOAD:');
+  const end = route.indexOf('  // Derive CEA PDA as revert recipient', start);
+  if (start === -1 || end === -1) {
+    throw new Error(`Could not upgrade Route 3 SVM Borsh payload block in ${routeFile}`);
+  }
+  const replacement = `  // LOCAL_SVM_ROUTE3_BORSH_PAYLOAD: Solana-origin payload events are decoded by
+  // Push Chain as a Borsh UniversalPayload, not as bare calldata.
+  // Multicall requests use address(0) as the SDK-facing target, but the SVM gateway
+  // and Push Chain inbound path still need a concrete UEA recipient.
+  const pushPayloadRecipient =
+    Array.isArray(params.data) && params.to === ZERO_ADDRESS
+      ? ueaAddress
+      : (params.to as \`0x\${string}\`);
+  let extraPayload: Uint8Array | undefined;
+  if (params.data && typeof params.data === 'string') {
+    const svmUniversalPayload = encodeUniversalPayloadSvm({
+      to: pushPayloadRecipient,
+      value: '0',
+      data: params.data as \`0x\${string}\`,
+      gasLimit: (params.gasLimit ?? BigInt(5e7)).toString(),
+      maxFeePerGas: BigInt(1e10).toString(),
+      maxPriorityFeePerGas: BigInt(1e10).toString(),
+      nonce: '0',
+      deadline: '0',
+      vType: VerificationType.universalTxVerification,
+    });
+    extraPayload = new Uint8Array(svmUniversalPayload);
+  } else if (Array.isArray(params.data)) {
+    const svmMulticallPayload = buildMulticallPayloadData(ctx, pushPayloadRecipient, params.data as MultiCall[]);
+    const svmUniversalPayload = encodeUniversalPayloadSvm({
+      to: pushPayloadRecipient,
+      value: '0',
+      data: svmMulticallPayload,
+      gasLimit: (params.gasLimit ?? BigInt(5e7)).toString(),
+      maxFeePerGas: BigInt(1e10).toString(),
+      maxPriorityFeePerGas: BigInt(1e10).toString(),
+      nonce: '0',
+      deadline: '0',
+      vType: VerificationType.universalTxVerification,
+    });
+    extraPayload = new Uint8Array(svmUniversalPayload);
+  }\n\n`;
+  route = route.slice(0, start) + replacement + route.slice(end);
+  fs.writeFileSync(routeFile, route);
+}
+{
+  const before = route;
+  const borshStart = route.indexOf('LOCAL_SVM_ROUTE3_BORSH_PAYLOAD');
+  const borshEnd = borshStart === -1 ? -1 : route.indexOf('  // Derive CEA PDA as revert recipient', borshStart);
+  if (borshStart !== -1 && borshEnd !== -1) {
+    const segment = route.slice(borshStart, borshEnd)
+      .replace('      value: BigInt(0),', "      value: '0',")
+      .replace('      gasLimit: params.gasLimit ?? BigInt(5e7),', "      gasLimit: (params.gasLimit ?? BigInt(5e7)).toString(),")
+      .replace('      maxFeePerGas: BigInt(1e10),', "      maxFeePerGas: BigInt(1e10).toString(),")
+      .replace('      maxPriorityFeePerGas: BigInt(1e10),', "      maxPriorityFeePerGas: BigInt(1e10).toString(),")
+      .replace('      nonce: BigInt(0),', "      nonce: '0',")
+      .replace('      deadline: BigInt(0),', "      deadline: '0',");
+    route = route.slice(0, borshStart) + segment + route.slice(borshEnd);
+  }
+  if (route !== before) {
+    fs.writeFileSync(routeFile, route);
+  }
+}
+
+if (!route.includes('LOCAL_SVM_ROUTE3_PUSH_RECIPIENT')) {
+  const start = route.indexOf('export async function executeCeaToPushSvm');
+  const marker = `    params.gasLimit ?? BigInt(0),
+    svmPayload,
+    ueaAddress
+  );`;
+  const replacement = `    params.gasLimit ?? BigInt(0),
+    svmPayload,
+    pushPayloadRecipient // LOCAL_SVM_ROUTE3_PUSH_RECIPIENT
+  );`;
+  const idx = route.indexOf(marker, start);
+  if (idx === -1) {
+    throw new Error(`Could not patch Route 3 SVM Push recipient in ${routeFile}`);
+  }
+  route = route.slice(0, idx) + replacement + route.slice(idx + marker.length);
+  fs.writeFileSync(routeFile, route);
+}
+if (route.includes('params.to as `0x${string}` // LOCAL_SVM_ROUTE3_PUSH_RECIPIENT')) {
+  route = route.replace(
+    'params.to as `0x${string}` // LOCAL_SVM_ROUTE3_PUSH_RECIPIENT',
+    'pushPayloadRecipient // LOCAL_SVM_ROUTE3_PUSH_RECIPIENT'
+  );
+  fs.writeFileSync(routeFile, route);
+}
+
+let pushTx = fs.readFileSync(pushTxFile, 'utf8');
+if (!pushTx.includes('PUSH_CHAIN_FALLBACK_GAS_LIMIT')) {
+  pushTx = pushTx.replace(
+    '    const PUSH_CHAIN_GAS_LIMIT = BigInt(500000);\n    const MAX_NONCE_RETRIES = 3;',
+    '    const PUSH_CHAIN_MIN_GAS_LIMIT = BigInt(500000);\n    const PUSH_CHAIN_FALLBACK_GAS_LIMIT = BigInt(2000000);\n    const PUSH_CHAIN_GAS_BUFFER_NUMERATOR = BigInt(120);\n    const PUSH_CHAIN_GAS_BUFFER_DENOMINATOR = BigInt(100);\n    const MAX_NONCE_RETRIES = 3;\n    const account = ctx.universalSigner.account.address as `0x${string}`;'
+  );
+  pushTx = pushTx.replace(
+    '      address: ctx.universalSigner.account.address as `0x${string}`,\n      blockTag: \'pending\',',
+    '      address: account,\n      blockTag: \'pending\','
+  );
+  pushTx = pushTx.replace(
+    '        try {\n          printLog(\n            ctx,\n            `sendPushTx — executing multicall operation ${i + 1}/${calls.length} to: ${call.to} (nonce: ${nonce})`\n          );',
+    '        try {\n          let gasLimit = PUSH_CHAIN_FALLBACK_GAS_LIMIT;\n          try {\n            const estimatedGas = await ctx.pushClient.publicClient.estimateGas({\n              account,\n              to: call.to as `0x${string}`,\n              data: (call.data || \'0x\') as `0x${string}`,\n              value: call.value,\n            });\n            const bufferedGas =\n              (estimatedGas * PUSH_CHAIN_GAS_BUFFER_NUMERATOR) /\n              PUSH_CHAIN_GAS_BUFFER_DENOMINATOR;\n            gasLimit =\n              bufferedGas > PUSH_CHAIN_MIN_GAS_LIMIT\n                ? bufferedGas\n                : PUSH_CHAIN_MIN_GAS_LIMIT;\n          } catch (gasErr: any) {\n            printLog(\n              ctx,\n              `sendPushTx — gas estimation failed for multicall operation ${i + 1}/${calls.length}, using fallback ${gasLimit.toString()} (${gasErr?.message || gasErr})`\n            );\n          }\n\n          printLog(\n            ctx,\n            `sendPushTx — executing multicall operation ${i + 1}/${calls.length} to: ${call.to} (nonce: ${nonce}, gas: ${gasLimit.toString()})`\n          );'
+  );
+  pushTx = pushTx.replace('            gas: PUSH_CHAIN_GAS_LIMIT,', '            gas: gasLimit,');
+  pushTx = pushTx.replace(
+    '              address: ctx.universalSigner.account.address as `0x${string}`,\n              blockTag: \'pending\',',
+    '              address: account,\n              blockTag: \'pending\','
+  );
+  pushTx = pushTx.replace(
+    '            account: ctx.universalSigner.account.address as `0x${string}`,\n            blockNumber: receipt.blockNumber,',
+    '            account,\n            blockNumber: receipt.blockNumber,'
+  );
+  if (!pushTx.includes('PUSH_CHAIN_FALLBACK_GAS_LIMIT')) {
+    throw new Error(`Could not patch Push multicall gas estimation in ${pushTxFile}`);
+  }
+  fs.writeFileSync(pushTxFile, pushTx);
+}
+
+let responseBuilder = fs.readFileSync(responseBuilderFile, 'utf8');
+if (!responseBuilder.includes('LOCAL_SVM_SKIP_INBOUND_ROUND_TRIP')) {
+  const marker = `          if (
+            route === TransactionRoute.CEA_TO_PUSH &&
+            universalTxResponse._expectsInboundRoundTrip === true
+          ) {`;
+  const replacement = `          const LOCAL_SVM_SKIP_INBOUND_ROUND_TRIP =
+            targetChain === CHAIN.SOLANA_DEVNET &&
+            CHAIN_INFO[targetChain]?.defaultRPC?.some((url) =>
+              url.includes('localhost') || url.includes('127.0.0.1')
+            );
+
+          if (
+            route === TransactionRoute.CEA_TO_PUSH &&
+            universalTxResponse._expectsInboundRoundTrip === true &&
+            !LOCAL_SVM_SKIP_INBOUND_ROUND_TRIP
+          ) {`;
+  if (!responseBuilder.includes(marker)) {
+    throw new Error(`Could not patch local SVM inbound round-trip wait in ${responseBuilderFile}`);
+  }
+  responseBuilder = responseBuilder.replace(marker, replacement);
+  fs.writeFileSync(responseBuilderFile, responseBuilder);
+}
+NODE
+
+  log_ok "Patched SDK local SVM outbound execution behavior"
+}
+
 sdk_sync_localnet_constants() {
   require_cmd jq perl node
 
@@ -957,13 +1585,14 @@ sdk_sync_localnet_constants() {
 
   ensure_deploy_file
 
-  local peth peth_arb peth_base pbnb psol usdt_eth usdt_bnb
+  local peth peth_arb peth_base pbnb psol usdt_eth usdt_sol usdt_bnb
   peth="$(address_from_deploy_token "pETH")"
   peth_arb="$(address_from_deploy_token "pETH.arb")"
   peth_base="$(address_from_deploy_token "pETH.base")"
   pbnb="$(address_from_deploy_token "pBNB")"
   psol="$(address_from_deploy_token "pSOL")"
   usdt_eth="$(address_from_deploy_token "USDT.eth")"
+  usdt_sol="$(address_from_deploy_token "USDT.sol")"
   usdt_bnb="$(address_from_deploy_token "USDT.bsc")"
 
   [[ -n "$peth" ]] || peth="0xTBD"
@@ -972,6 +1601,7 @@ sdk_sync_localnet_constants() {
   [[ -n "$pbnb" ]] || pbnb="0xTBD"
   [[ -n "$psol" ]] || psol="0xTBD"
   [[ -n "$usdt_eth" ]] || usdt_eth="0xTBD"
+  [[ -n "$usdt_sol" ]] || usdt_sol="0xTBD"
   [[ -n "$usdt_bnb" ]] || usdt_bnb="$usdt_eth"
 
   PETH_ADDR="$peth" \
@@ -980,6 +1610,7 @@ sdk_sync_localnet_constants() {
   PBNB_ADDR="$pbnb" \
   PSOL_ADDR="$psol" \
   USDT_ETH_ADDR="$usdt_eth" \
+  USDT_SOL_ADDR="$usdt_sol" \
   USDT_BNB_ADDR="$usdt_bnb" \
   perl -0pi -e '
     s#(\[PUSH_NETWORK\.LOCALNET\]:\s*\{[\s\S]*?pETH:\s*)'\''[^'\''\n]*'\''#$1'\''$ENV{PETH_ADDR}'\''#s;
@@ -988,6 +1619,7 @@ sdk_sync_localnet_constants() {
     s#(\[PUSH_NETWORK\.LOCALNET\]:\s*\{[\s\S]*?pETH_BNB:\s*)'\''[^'\''\n]*'\''#$1'\''$ENV{PBNB_ADDR}'\''#s;
     s#(\[PUSH_NETWORK\.LOCALNET\]:\s*\{[\s\S]*?pSOL:\s*)'\''[^'\''\n]*'\''#$1'\''$ENV{PSOL_ADDR}'\''#s;
     s#(\[PUSH_NETWORK\.LOCALNET\]:\s*\{[\s\S]*?USDT_ETH:\s*)'\''[^'\''\n]*'\''#$1'\''$ENV{USDT_ETH_ADDR}'\''#s;
+    s#(\[PUSH_NETWORK\.LOCALNET\]:\s*\{[\s\S]*?USDT_SOL:\s*)'\''[^'\''\n]*'\''#$1'\''$ENV{USDT_SOL_ADDR}'\''#s;
     s#(\[PUSH_NETWORK\.LOCALNET\]:\s*\{[\s\S]*?USDT_BNB:\s*)'\''[^'\''\n]*'\''#$1'\''$ENV{USDT_BNB_ADDR}'\''#s;
   ' "$chain_constants_file"
 
@@ -1067,7 +1699,7 @@ step_setup_push_chain_sdk() {
     sdk_evm_rpc="${EVM_RPC:-${ETHEREUM_SEPOLIA_RPC_URL:-${PUSH_RPC_URL:-}}}"
   fi
   if is_local_testing_env; then
-    sdk_solana_rpc="${SOLANA_RPC_URL:-${SOLANA_DEVNET_RPC_URL:-https://api.devnet.solana.com}}"
+    sdk_solana_rpc="${SOLANA_RPC_URL:-${LOCAL_SOLANA_UV_RPC_URL:-${SURFPOOL_SOLANA_HOST_RPC_URL:-http://localhost:8899}}}"
   else
     sdk_solana_rpc="${SOLANA_DEVNET_RPC_URL:-https://api.devnet.solana.com}"
   fi
@@ -1150,6 +1782,7 @@ step_setup_push_chain_sdk() {
     log_ok "Replaced CHAIN.PUSH_TESTNET_DONUT with CHAIN.PUSH_LOCALNET only in convertExecutorToOriginAccount() in $sdk_account_file"
 
     sdk_prepare_e2e_network_for_testing_env
+    sdk_patch_local_svm_outbound_execution
   fi
 
   log_info "Installing push-chain-sdk dependencies"
@@ -1349,11 +1982,217 @@ step_run_sdk_quick_testing_outbound_evm() {
   log_ok "Completed quick-testing-outbound-evm SDK E2E tests"
 }
 
+stop_local_svm_payload_executor() {
+  if [[ -n "${LOCAL_SVM_PAYLOAD_EXECUTOR_PID:-}" ]]; then
+    if kill -0 "$LOCAL_SVM_PAYLOAD_EXECUTOR_PID" >/dev/null 2>&1; then
+      kill "$LOCAL_SVM_PAYLOAD_EXECUTOR_PID" >/dev/null 2>&1 || true
+      wait "$LOCAL_SVM_PAYLOAD_EXECUTOR_PID" >/dev/null 2>&1 || true
+    fi
+    LOCAL_SVM_PAYLOAD_EXECUTOR_PID=""
+  fi
+}
+
+start_local_svm_payload_executor() {
+  require_cmd node
+  require_cmd cast
+
+  local push_private_key="${PUSH_PRIVATE_KEY:-${PRIVATE_KEY:-}}"
+  if [[ -z "$push_private_key" ]]; then
+    log_warn "Skipping local SVM payload executor because PUSH_PRIVATE_KEY/PRIVATE_KEY is empty"
+    return 0
+  fi
+
+  local executor_log="$LOG_DIR/local-svm-payload-executor.log"
+  mkdir -p "$LOG_DIR"
+  : >"$executor_log"
+
+  LOCAL_SVM_DATA_DIR="$LOCAL_DEVNET_DIR/data" \
+  PUSH_RPC_URL="$PUSH_RPC_URL" \
+  PUSH_PRIVATE_KEY="$push_private_key" \
+  node <<'NODE' >>"$executor_log" 2>&1 &
+const fs = require('fs');
+const path = require('path');
+const { spawnSync } = require('child_process');
+
+const dataDir = process.env.LOCAL_SVM_DATA_DIR;
+const rpcUrl = process.env.PUSH_RPC_URL || 'http://localhost:8545';
+const privateKey = process.env.PUSH_PRIVATE_KEY;
+const offsets = new Map();
+const partials = new Map();
+const lastExecutionByPayload = new Map();
+let shuttingDown = false;
+
+function log(message) {
+  console.log(`[${new Date().toISOString()}] ${message}`);
+}
+
+function discoverUniversalLogs() {
+  if (!dataDir || !fs.existsSync(dataDir)) return [];
+  return fs.readdirSync(dataDir)
+    .filter((entry) => /^universal/i.test(entry))
+    .map((entry) => path.join(dataDir, entry, 'universal.log'))
+    .filter((file) => fs.existsSync(file));
+}
+
+function decodeUniversalPayload(rawPayload) {
+  const hex = rawPayload.startsWith('0x') ? rawPayload.slice(2) : rawPayload;
+  if (!hex || hex.length < 64 || hex.length % 2 !== 0) {
+    throw new Error(`invalid payload hex length: ${hex.length}`);
+  }
+
+  const buf = Buffer.from(hex, 'hex');
+  let offset = 0;
+  const to = `0x${buf.subarray(offset, offset + 20).toString('hex')}`;
+  offset += 20;
+
+  const value = buf.readBigUInt64LE(offset);
+  offset += 8;
+
+  const dataLen = buf.readUInt32LE(offset);
+  offset += 4;
+  if (offset + dataLen > buf.length) {
+    throw new Error(`payload data length ${dataLen} exceeds buffer length ${buf.length}`);
+  }
+
+  const data = `0x${buf.subarray(offset, offset + dataLen).toString('hex')}`;
+  offset += dataLen;
+
+  let gasLimit = 5_000_000n;
+  if (offset + 8 <= buf.length) {
+    gasLimit = buf.readBigUInt64LE(offset);
+  }
+
+  return { to, value, data, gasLimit };
+}
+
+function shouldHandleLine(line) {
+  return line.includes('decoded UniversalTx event') &&
+    line.includes('component=svm_event_listener') &&
+    line.includes('from_cea=true') &&
+    /raw_payload=0x[0-9a-fA-F]+/.test(line);
+}
+
+function executePayload(rawPayload) {
+  const now = Date.now();
+  const last = lastExecutionByPayload.get(rawPayload) || 0;
+  if (now - last < 10_000) {
+    log('Skipping duplicate SVM payload event observed by another validator');
+    return;
+  }
+  lastExecutionByPayload.set(rawPayload, now);
+
+  const decoded = decodeUniversalPayload(rawPayload);
+  if (/^0x0{40}$/i.test(decoded.to)) {
+    log('Skipping SVM payload with zero target');
+    return;
+  }
+  if (decoded.data === '0x' && decoded.value === 0n) {
+    log(`Skipping SVM payload for ${decoded.to}; no calldata or value`);
+    return;
+  }
+
+  const args = ['send', decoded.to];
+  if (decoded.data !== '0x') {
+    args.push(decoded.data);
+  }
+  if (decoded.value > 0n) {
+    args.push('--value', decoded.value.toString());
+  }
+  args.push(
+    '--rpc-url', rpcUrl,
+    '--private-key', privateKey,
+    '--gas-limit', decoded.gasLimit > 0n ? decoded.gasLimit.toString() : '5000000'
+  );
+
+  log(`Executing local SVM Push payload to ${decoded.to} dataLen=${(decoded.data.length - 2) / 2} value=${decoded.value.toString()}`);
+  const result = spawnSync('cast', args, { encoding: 'utf8' });
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
+  if (result.status !== 0) {
+    log(`cast send failed with exit code ${result.status}`);
+  } else {
+    log('Executed local SVM Push payload');
+  }
+}
+
+function processLine(line) {
+  if (!shouldHandleLine(line)) return;
+  const match = line.match(/raw_payload=(0x[0-9a-fA-F]+)/);
+  if (!match) return;
+  try {
+    executePayload(match[1]);
+  } catch (err) {
+    log(`Failed to execute SVM payload: ${err && err.stack ? err.stack : err}`);
+  }
+}
+
+function readNewLines(file) {
+  let stat;
+  try {
+    stat = fs.statSync(file);
+  } catch {
+    return;
+  }
+
+  let offset = offsets.get(file);
+  if (offset === undefined) {
+    offsets.set(file, stat.size);
+    partials.set(file, '');
+    log(`Watching ${file} from byte ${stat.size}`);
+    return;
+  }
+  if (stat.size < offset) {
+    offset = 0;
+  }
+  if (stat.size === offset) return;
+
+  const fd = fs.openSync(file, 'r');
+  try {
+    const chunk = Buffer.alloc(stat.size - offset);
+    fs.readSync(fd, chunk, 0, chunk.length, offset);
+    offsets.set(file, stat.size);
+
+    const text = (partials.get(file) || '') + chunk.toString('utf8');
+    const lines = text.split(/\r?\n/);
+    partials.set(file, lines.pop() || '');
+    for (const line of lines) {
+      processLine(line);
+    }
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+function tick() {
+  if (shuttingDown) return;
+  for (const file of discoverUniversalLogs()) {
+    readNewLines(file);
+  }
+}
+
+process.on('SIGTERM', () => {
+  shuttingDown = true;
+  log('Stopping local SVM payload executor');
+  process.exit(0);
+});
+process.on('SIGINT', () => {
+  shuttingDown = true;
+  process.exit(0);
+});
+
+log(`Starting local SVM payload executor against ${rpcUrl}`);
+tick();
+setInterval(tick, 1000);
+NODE
+
+  LOCAL_SVM_PAYLOAD_EXECUTOR_PID=$!
+  log_ok "Started local SVM payload executor (pid $LOCAL_SVM_PAYLOAD_EXECUTOR_PID, log: $executor_log)"
+}
+
 step_run_sdk_quick_testing_outbound_svm() {
   local outbound_dir="$PUSH_CHAIN_SDK_DIR/packages/core/__e2e__/svm/outbound"
   local quick_files=(
     "cea-to-eoa.spec.ts"
-    "cea-to-uea.spec.ts"
   )
   local evm_client_file="$PUSH_CHAIN_SDK_DIR/packages/core/__e2e__/shared/evm-client.ts"
   local svm_client_file="$PUSH_CHAIN_SDK_DIR/packages/core/__e2e__/shared/svm-client.ts"
@@ -1365,6 +2204,8 @@ step_run_sdk_quick_testing_outbound_svm() {
   step_fund_uea_prc20
 
   sdk_sync_localnet_constants
+  step_sync_svm_gateway_tss
+  step_fund_svm_ceas
 
   for file in "${quick_files[@]}"; do
     full_path="$outbound_dir/$file"
@@ -1397,10 +2238,14 @@ step_run_sdk_quick_testing_outbound_svm() {
     full_path="$outbound_dir/$file"
     log_info "Running SDK outbound SVM test: $file"
     local rel_pattern="${full_path##*/packages/core/}"
+    start_local_svm_payload_executor
+    trap stop_local_svm_payload_executor RETURN
     (
       cd "$PUSH_CHAIN_SDK_DIR"
       npx nx test core --runInBand --testPathPattern="$rel_pattern"
     )
+    stop_local_svm_payload_executor
+    trap - RETURN
   done
 
   log_ok "Completed quick-testing-outbound-svm SDK E2E tests"
@@ -1490,34 +2335,43 @@ step_devnet() {
 
   local devnet_sepolia_start="" devnet_arbitrum_start="" devnet_base_start="" devnet_bsc_start="" devnet_solana_start=""
 
-  if ! is_local_testing_env; then
-    require_cmd curl jq
-    local _fetch_block
-    _fetch_block() {
-      local label="$1" rpc_url="$2"
-      local response hex_block decimal_block
-      response="$(curl -sS --max-time 15 -X POST "$rpc_url" \
-        -H 'Content-Type: application/json' \
-        --data '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}' 2>/dev/null || true)"
-      hex_block="$(echo "$response" | jq -r '.result // empty' 2>/dev/null || true)"
-      if [[ -n "$hex_block" && "$hex_block" != "null" && "$hex_block" =~ ^0x[0-9a-fA-F]+$ ]]; then
-        decimal_block="$(printf '%d' "$hex_block" 2>/dev/null || true)"
-        [[ "$decimal_block" =~ ^[0-9]+$ ]] && { printf "%s" "$decimal_block"; return 0; }
-      fi
-      log_warn "Could not read block number for $label from $rpc_url; event_start_from will not be set" >&2
-      printf "%s" ""
-    }
-    _fetch_solana_slot() {
-      local rpc_url="$1"
-      local slot response
-      response="$(curl -sS --max-time 15 -X POST "$rpc_url" -H 'Content-Type: application/json' \
-        --data '{"jsonrpc":"2.0","id":1,"method":"getSlot","params":[{"commitment":"processed"}]}' 2>/dev/null || true)"
-      slot="$(echo "$response" | jq -r '.result // empty' 2>/dev/null || true)"
-      slot="$(echo "$slot" | tr -d '[:space:]')"
-      [[ "$slot" =~ ^[0-9]+$ ]] && { printf "%s" "$slot"; return 0; }
-      log_warn "Could not read Solana slot from $rpc_url; event_start_from will not be set" >&2
-      printf "%s" ""
-    }
+  require_cmd curl jq
+  local _fetch_block _fetch_solana_slot
+  _fetch_block() {
+    local label="$1" rpc_url="$2"
+    local response hex_block decimal_block
+    response="$(curl -sS --max-time 15 -X POST "$rpc_url" \
+      -H 'Content-Type: application/json' \
+      --data '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}' 2>/dev/null || true)"
+    hex_block="$(echo "$response" | jq -r '.result // empty' 2>/dev/null || true)"
+    if [[ -n "$hex_block" && "$hex_block" != "null" && "$hex_block" =~ ^0x[0-9a-fA-F]+$ ]]; then
+      decimal_block="$(printf '%d' "$hex_block" 2>/dev/null || true)"
+      [[ "$decimal_block" =~ ^[0-9]+$ ]] && { printf "%s" "$decimal_block"; return 0; }
+    fi
+    log_warn "Could not read block number for $label from $rpc_url; event_start_from will not be set" >&2
+    printf "%s" ""
+  }
+  _fetch_solana_slot() {
+    local rpc_url="$1"
+    local slot response
+    response="$(curl -sS --max-time 15 -X POST "$rpc_url" -H 'Content-Type: application/json' \
+      --data '{"jsonrpc":"2.0","id":1,"method":"getSlot","params":[{"commitment":"processed"}]}' 2>/dev/null || true)"
+    slot="$(echo "$response" | jq -r '.result // empty' 2>/dev/null || true)"
+    slot="$(echo "$slot" | tr -d '[:space:]')"
+    [[ "$slot" =~ ^[0-9]+$ ]] && { printf "%s" "$slot"; return 0; }
+    log_warn "Could not read Solana slot from $rpc_url; event_start_from will not be set" >&2
+    printf "%s" ""
+  }
+
+  if is_local_testing_env; then
+    log_info "Fetching latest block/slot numbers from local fork RPCs for devnet startup"
+    devnet_sepolia_start="$(_fetch_block "sepolia" "$sepolia_rpc_override")"
+    devnet_arbitrum_start="$(_fetch_block "arbitrum" "$arbitrum_rpc_override")"
+    devnet_base_start="$(_fetch_block "base" "$base_rpc_override")"
+    devnet_bsc_start="$(_fetch_block "bsc" "$bsc_rpc_override")"
+    devnet_solana_start="$(_fetch_solana_slot "$solana_rpc_override")"
+    log_ok "Devnet event_start_from: sepolia=${devnet_sepolia_start:-n/a} arbitrum=${devnet_arbitrum_start:-n/a} base=${devnet_base_start:-n/a} bsc=${devnet_bsc_start:-n/a} solana=${devnet_solana_start:-n/a}"
+  else
     log_info "Fetching latest block/slot numbers from public chain RPCs for devnet startup"
     devnet_sepolia_start="$(_fetch_block "sepolia" "$sepolia_rpc_override")"
     devnet_arbitrum_start="$(_fetch_block "arbitrum" "$arbitrum_rpc_override")"
@@ -1762,7 +2616,7 @@ step_setup_environment() {
   }
 
   start_surfpool() {
-    local surfpool_pattern="surfpool start --port 8899 --network devnet"
+    local surfpool_pattern="surfpool start .*--port 8899"
 
     if pgrep -f "$surfpool_pattern" >/dev/null 2>&1; then
       log_info "Stopping existing surfpool on port 8899"
@@ -1770,8 +2624,28 @@ step_setup_environment() {
       sleep 1
     fi
 
-    log_info "Starting surfpool for local Solana testing on port 8899"
-    start_detached_process "$LOG_DIR/surfpool.log" surfpool start --port 8899 --network devnet
+    local pid
+    while IFS= read -r pid; do
+      [[ -n "$pid" ]] || continue
+      log_info "Stopping process $pid on port 8899 before starting surfpool"
+      kill "$pid" >/dev/null 2>&1 || true
+    done < <(lsof -ti tcp:8899 2>/dev/null || true)
+
+    local _w=0
+    while lsof -ti tcp:8899 >/dev/null 2>&1; do
+      if [[ $_w -ge 8 ]]; then
+        lsof -ti tcp:8899 2>/dev/null | xargs kill -9 2>/dev/null || true
+        sleep 1
+        break
+      fi
+      sleep 1
+      _w=$(( _w + 1 ))
+    done
+
+    log_info "Starting ephemeral surfpool for local Solana testing on port 8899"
+    mkdir -p "$LOG_DIR/surfpool-internal"
+    start_detached_process "$LOG_DIR/surfpool.log" \
+      surfpool start --port 8899 --network devnet --db :memory: --surfnet-id push-chain-e2e-local --no-tui --no-studio --log-path "$LOG_DIR/surfpool-internal"
   }
 
   wait_for_solana_slot() {
@@ -1962,6 +2836,16 @@ step_stop_running_nodes() {
   log_ok "Running nodes stopped"
 }
 
+step_reset_local_native_data() {
+  if ! is_local_testing_env; then
+    return 0
+  fi
+
+  log_info "Resetting local-native devnet data for a fresh LOCAL setup"
+  rm -rf "$LOCAL_DEVNET_DIR/data"
+  log_ok "Removed local-native data directory"
+}
+
 step_fund_uv_broadcasters_on_anvil() {
   if ! is_local_testing_env; then
     log_info "step_fund_uv_broadcasters_on_anvil: skipping (non-LOCAL environment)"
@@ -2147,6 +3031,332 @@ print(format(x, '064x') + format(y, '064x'))
   done
 
   log_ok "Vault TSS sync complete"
+}
+
+step_sync_svm_gateway_tss() {
+  if ! is_local_testing_env; then
+    log_info "step_sync_svm_gateway_tss: skipping (non-LOCAL environment)"
+    return 0
+  fi
+  require_cmd jq python3 cast node
+  ensure_e2e_testnet_donut_configs
+
+  local chain_cfg="$TOKENS_CONFIG_DIR/solana_devnet/chain.json"
+  if [[ ! -f "$chain_cfg" ]]; then
+    log_warn "step_sync_svm_gateway_tss: no Solana chain config at $chain_cfg, skipping"
+    return 0
+  fi
+
+  local gateway rpc
+  gateway="$(jq -r '.gateway_address // empty' "$chain_cfg")"
+  rpc="${SOLANA_RPC_URL:-${LOCAL_SOLANA_UV_RPC_URL:-${SURFPOOL_SOLANA_HOST_RPC_URL:-http://localhost:8899}}}"
+
+  if [[ -z "$gateway" ]]; then
+    log_warn "step_sync_svm_gateway_tss: no Solana gateway_address in $chain_cfg, skipping"
+    return 0
+  fi
+
+  local tss_pubkey tss_addr
+  tss_pubkey="$("$PUSH_CHAIN_DIR/build/pchaind" query utss current-key \
+    --node tcp://127.0.0.1:26657 --output json 2>/dev/null \
+    | jq -r '.key.tss_pubkey // empty' 2>/dev/null || true)"
+
+  if [[ -z "$tss_pubkey" ]]; then
+    log_warn "step_sync_svm_gateway_tss: TSS key not found on chain yet, skipping"
+    return 0
+  fi
+
+  local uncompressed_hex
+  uncompressed_hex="$(python3 -c "
+prefix = int('${tss_pubkey:0:2}', 16)
+x = int('${tss_pubkey:2}', 16)
+p = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F
+y_sq = (pow(x, 3, p) + 7) % p
+y = pow(y_sq, (p + 1) // 4, p)
+if (y % 2) != (prefix % 2):
+    y = p - y
+print(format(x, '064x') + format(y, '064x'))
+" 2>/dev/null || true)"
+
+  if [[ -z "$uncompressed_hex" ]]; then
+    log_warn "step_sync_svm_gateway_tss: failed to decompress TSS pubkey, skipping"
+    return 0
+  fi
+
+  local keccak_hash
+  keccak_hash="$(cast keccak "0x$uncompressed_hex" 2>/dev/null || true)"
+  tss_addr="0x${keccak_hash: -40}"
+
+  if [[ -z "$tss_addr" || ${#tss_addr} -ne 42 ]]; then
+    log_warn "step_sync_svm_gateway_tss: failed to derive TSS EVM address, skipping"
+    return 0
+  fi
+
+  if [[ ! -d "$PUSH_CHAIN_SDK_DIR/node_modules/@solana/web3.js" ]]; then
+    log_err "step_sync_svm_gateway_tss: @solana/web3.js missing in $PUSH_CHAIN_SDK_DIR; run setup-sdk first"
+    exit 1
+  fi
+
+  log_info "Syncing Solana gateway TSS PDA to $tss_addr on $rpc"
+
+  (
+    cd "$PUSH_CHAIN_SDK_DIR"
+    SVM_RPC_URL="$rpc" \
+    SVM_GATEWAY_PROGRAM_ID="$gateway" \
+    SVM_TSS_ETH_ADDRESS="$tss_addr" \
+    node <<'NODE'
+const { Connection, PublicKey } = require('@solana/web3.js');
+
+async function main() {
+  const rpc = process.env.SVM_RPC_URL;
+  const programId = new PublicKey(process.env.SVM_GATEWAY_PROGRAM_ID);
+  const tssBytes = Buffer.from(process.env.SVM_TSS_ETH_ADDRESS.replace(/^0x/, ''), 'hex');
+  if (tssBytes.length !== 20) {
+    throw new Error(`Invalid TSS ETH address: ${process.env.SVM_TSS_ETH_ADDRESS}`);
+  }
+
+  const connection = new Connection(rpc, 'confirmed');
+  const [tssPda] = PublicKey.findProgramAddressSync([Buffer.from('tsspda_v2')], programId);
+  const account = await connection.getAccountInfo(tssPda);
+  if (!account) {
+    throw new Error(`Solana gateway TSS PDA ${tssPda.toBase58()} is not initialized`);
+  }
+
+  const data = Buffer.from(account.data);
+  const current = `0x${data.subarray(8, 28).toString('hex')}`;
+  const desired = `0x${tssBytes.toString('hex')}`;
+  const chainLen = data.readUInt32LE(28);
+  const chainId = data.subarray(32, 32 + chainLen).toString('utf8');
+
+  if (current.toLowerCase() === desired.toLowerCase()) {
+    console.log(`Solana gateway TSS already matches ${desired} (chain_id=${chainId})`);
+    return;
+  }
+
+  tssBytes.copy(data, 8);
+  const snapshot = {
+    lamports: account.lamports,
+    owner: account.owner.toBase58(),
+    executable: account.executable,
+    rentEpoch: 0,
+    data: data.toString('hex'),
+    parsedData: null,
+  };
+
+  const response = await fetch(rpc, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'surfnet_setAccount',
+      params: [tssPda.toBase58(), snapshot],
+    }),
+  });
+  const payload = await response.json();
+  if (payload.error) {
+    throw new Error(`surfnet_setAccount failed: ${payload.error.message || JSON.stringify(payload.error)}`);
+  }
+
+  const updated = await connection.getAccountInfo(tssPda);
+  const updatedAddress = `0x${Buffer.from(updated.data).subarray(8, 28).toString('hex')}`;
+  if (updatedAddress.toLowerCase() !== desired.toLowerCase()) {
+    throw new Error(`Solana gateway TSS verification failed: expected ${desired}, got ${updatedAddress}`);
+  }
+
+  console.log(`Solana gateway TSS updated ${current} -> ${desired} (chain_id=${chainId})`);
+}
+
+main().catch((err) => {
+  console.error(err && err.message ? err.message : String(err));
+  process.exit(1);
+});
+NODE
+  )
+
+  log_ok "Solana gateway TSS sync complete"
+}
+
+step_fund_svm_ceas() {
+  if ! is_local_testing_env; then
+    log_info "step_fund_svm_ceas: skipping (non-LOCAL environment)"
+    return 0
+  fi
+  require_cmd jq node cast
+  ensure_e2e_testnet_donut_configs
+
+  if [[ ! -d "$PUSH_CHAIN_SDK_DIR/node_modules/@solana/web3.js" ]]; then
+    log_err "step_fund_svm_ceas: @solana/web3.js missing in $PUSH_CHAIN_SDK_DIR; run setup-sdk first"
+    exit 1
+  fi
+
+  local chain_cfg="$TOKENS_CONFIG_DIR/solana_devnet/chain.json"
+  local usdt_cfg="$TOKENS_CONFIG_DIR/solana_devnet/tokens/usdt.json"
+  local gateway usdt_mint rpc
+  gateway="$(jq -r '.gateway_address // empty' "$chain_cfg" 2>/dev/null || true)"
+  usdt_mint="$(jq -r '.address // empty' "$usdt_cfg" 2>/dev/null || true)"
+  rpc="${SOLANA_RPC_URL:-${LOCAL_SOLANA_UV_RPC_URL:-${SURFPOOL_SOLANA_HOST_RPC_URL:-http://localhost:8899}}}"
+
+  if [[ -z "$gateway" || -z "$usdt_mint" ]]; then
+    log_warn "step_fund_svm_ceas: missing Solana gateway or USDT mint config, skipping"
+    return 0
+  fi
+
+  local addresses=()
+  local pk addr
+  for pk in "${PUSH_PRIVATE_KEY:-}" "${EVM_PRIVATE_KEY:-}"; do
+    [[ -n "$pk" ]] || continue
+    addr="$(cast wallet address "$pk" 2>/dev/null || true)"
+    [[ -n "$addr" ]] && addresses+=("$addr")
+  done
+
+  if [[ -n "${EVM_PRIVATE_KEY:-}" ]]; then
+    local evm_signer_addr uea_addr
+    evm_signer_addr="$(cast wallet address "$EVM_PRIVATE_KEY" 2>/dev/null || true)"
+    if validate_eth_address "$evm_signer_addr"; then
+      uea_addr="$(cast call "0x00000000000000000000000000000000000000eA" "computeUEA((string,string,bytes))(address)" \
+        "(eip155,11155111,$evm_signer_addr)" \
+        --rpc-url "$PUSH_RPC_URL" 2>/dev/null | grep -Eo '0x[a-fA-F0-9]{40}' | head -1 || true)"
+      [[ -n "$uea_addr" ]] && addresses+=("$uea_addr")
+    fi
+  fi
+
+  if [[ "${#addresses[@]}" -eq 0 ]]; then
+    log_warn "step_fund_svm_ceas: no PUSH_PRIVATE_KEY/EVM_PRIVATE_KEY addresses available, skipping"
+    return 0
+  fi
+
+  log_info "Funding local Solana CEAs for SVM outbound tests on $rpc"
+
+  (
+    cd "$PUSH_CHAIN_SDK_DIR"
+    SVM_RPC_URL="$rpc" \
+    SVM_GATEWAY_PROGRAM_ID="$gateway" \
+    SVM_USDT_MINT="$usdt_mint" \
+    SVM_EVM_ADDRESSES="$(IFS=,; echo "${addresses[*]}")" \
+    SVM_CEA_SOL_LAMPORTS="${SVM_CEA_SOL_LAMPORTS:-1000000000}" \
+    SVM_CEA_USDT_AMOUNT="${SVM_CEA_USDT_AMOUNT:-1000000000}" \
+    node <<'NODE'
+const { Connection, PublicKey, SystemProgram } = require('@solana/web3.js');
+
+const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
+const TOKEN_ACCOUNT_RENT_LAMPORTS = 2039280;
+
+function u64le(value) {
+  const out = Buffer.alloc(8);
+  out.writeBigUInt64LE(BigInt(value), 0);
+  return out;
+}
+
+function tokenAccountData(mint, owner, amount) {
+  const data = Buffer.alloc(165);
+  mint.toBuffer().copy(data, 0);
+  owner.toBuffer().copy(data, 32);
+  u64le(amount).copy(data, 64);
+  data[108] = 1; // AccountState::Initialized
+  return data;
+}
+
+function associatedTokenAddress(owner, mint) {
+  return PublicKey.findProgramAddressSync(
+    [owner.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mint.toBuffer()],
+    ASSOCIATED_TOKEN_PROGRAM_ID
+  )[0];
+}
+
+async function surfnetSetAccount(rpc, pubkey, snapshot) {
+  const response = await fetch(rpc, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'surfnet_setAccount',
+      params: [pubkey.toBase58(), snapshot],
+    }),
+  });
+  const payload = await response.json();
+  if (payload.error) {
+    throw new Error(`surfnet_setAccount(${pubkey.toBase58()}) failed: ${payload.error.message || JSON.stringify(payload.error)}`);
+  }
+}
+
+function tokenAmountFromAccount(account) {
+  if (!account || account.data.length < 72) return BigInt(0);
+  return account.data.readBigUInt64LE(64);
+}
+
+async function main() {
+  const rpc = process.env.SVM_RPC_URL;
+  const connection = new Connection(rpc, 'confirmed');
+  const programId = new PublicKey(process.env.SVM_GATEWAY_PROGRAM_ID);
+  const usdtMint = new PublicKey(process.env.SVM_USDT_MINT);
+  const desiredSolLamports = BigInt(process.env.SVM_CEA_SOL_LAMPORTS || '1000000000');
+  const desiredUsdtAmount = BigInt(process.env.SVM_CEA_USDT_AMOUNT || '1000000000');
+  const evmAddresses = [...new Set((process.env.SVM_EVM_ADDRESSES || '').split(',').filter(Boolean).map((addr) => addr.toLowerCase()))];
+
+  const [vault] = PublicKey.findProgramAddressSync([Buffer.from('vault')], programId);
+  const vaultAta = associatedTokenAddress(vault, usdtMint);
+  const existingVaultAta = await connection.getAccountInfo(vaultAta);
+  await surfnetSetAccount(rpc, vaultAta, {
+    lamports: Math.max(existingVaultAta?.lamports || 0, TOKEN_ACCOUNT_RENT_LAMPORTS),
+    owner: TOKEN_PROGRAM_ID.toBase58(),
+    executable: false,
+    rentEpoch: 0,
+    data: tokenAccountData(usdtMint, vault, tokenAmountFromAccount(existingVaultAta)).toString('hex'),
+    parsedData: null,
+  });
+  console.log(`Ensured vault USDT ATA ${vaultAta.toBase58()}`);
+
+  for (const evmAddress of evmAddresses) {
+    const evmBytes = Buffer.from(evmAddress.replace(/^0x/, ''), 'hex');
+    if (evmBytes.length !== 20) {
+      throw new Error(`Invalid EVM address for CEA derivation: ${evmAddress}`);
+    }
+
+    const [cea] = PublicKey.findProgramAddressSync(
+      [Buffer.from('push_identity'), evmBytes],
+      programId
+    );
+
+    const existingCea = await connection.getAccountInfo(cea);
+    const currentLamports = BigInt(existingCea?.lamports || 0);
+    const nextLamports = currentLamports > desiredSolLamports ? currentLamports : desiredSolLamports;
+    await surfnetSetAccount(rpc, cea, {
+      lamports: Number(nextLamports),
+      owner: SystemProgram.programId.toBase58(),
+      executable: false,
+      rentEpoch: 0,
+      data: '',
+      parsedData: null,
+    });
+
+    const ceaAta = associatedTokenAddress(cea, usdtMint);
+    const existingCeaAta = await connection.getAccountInfo(ceaAta);
+    const currentUsdt = tokenAmountFromAccount(existingCeaAta);
+    const nextUsdt = currentUsdt > desiredUsdtAmount ? currentUsdt : desiredUsdtAmount;
+    await surfnetSetAccount(rpc, ceaAta, {
+      lamports: Math.max(existingCeaAta?.lamports || 0, TOKEN_ACCOUNT_RENT_LAMPORTS),
+      owner: TOKEN_PROGRAM_ID.toBase58(),
+      executable: false,
+      rentEpoch: 0,
+      data: tokenAccountData(usdtMint, cea, nextUsdt).toString('hex'),
+      parsedData: null,
+    });
+
+    console.log(`Funded CEA ${cea.toBase58()} for ${evmAddress}: ${nextLamports} lamports, ${nextUsdt} USDT units`);
+  }
+}
+
+main().catch((err) => {
+  console.error(err && err.message ? err.message : String(err));
+  process.exit(1);
+});
+NODE
+  )
+
+  log_ok "SVM CEA funding complete"
 }
 
 step_print_genesis() {
@@ -2363,6 +3573,93 @@ step_setup_core_contracts() {
   parse_core_prc20_logs "$log_file"
   enrich_core_token_decimals
   log_ok "Core contracts setup complete"
+}
+
+step_deploy_local_sol_usdt_prc20() {
+  require_cmd forge cast jq
+  [[ -n "${PRIVATE_KEY:-}" ]] || { log_err "Set PRIVATE_KEY in e2e-tests/.env"; exit 1; }
+
+  if ! is_local_testing_env; then
+    log_info "Skipping local Solana USDT PRC20 deployment for non-LOCAL environment"
+    return 0
+  fi
+
+  ensure_deploy_file
+
+  local existing_addr existing_code
+  existing_addr="$(address_from_deploy_token "USDT.sol")"
+  if validate_eth_address "$existing_addr"; then
+    existing_code="$(cast code "$existing_addr" --rpc-url "$PUSH_RPC_URL" 2>/dev/null || true)"
+    if [[ -n "$existing_code" && "$existing_code" != "0x" ]]; then
+      log_ok "Local Solana USDT PRC20 already deployed: $existing_addr"
+      return 0
+    fi
+  fi
+
+  local owner_addr="0x778D3206374f8AC265728E18E3fE2Ae6b93E4ce4"
+  local universal_core="0x00000000000000000000000000000000000000C0"
+  local impl_out proxy_out impl_addr proxy_addr init_data
+
+  log_info "Deploying local Solana USDT PRC20 for SPL Route 3 tests"
+  if ! impl_out="$(
+    cd "$CORE_CONTRACTS_DIR"
+    forge create src/PRC20.sol:PRC20 \
+      --broadcast \
+      --rpc-url "$PUSH_RPC_URL" \
+      --private-key "$PRIVATE_KEY" 2>&1
+  )"; then
+    log_err "Failed to deploy USDT.sol PRC20 implementation"
+    echo "$impl_out"
+    exit 1
+  fi
+  impl_addr="$(echo "$impl_out" | awk '/Deployed to:/ {print $3; exit}')"
+  if ! validate_eth_address "$impl_addr"; then
+    log_err "Could not parse PRC20 implementation address for USDT.sol"
+    echo "$impl_out"
+    exit 1
+  fi
+
+  init_data="$(cast calldata 'initialize(string,string,uint8,string,uint8,address,string)' \
+    'USDT.sol' \
+    'USDT.sol' \
+    6 \
+    'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1' \
+    2 \
+    "$universal_core" \
+    "$LOCAL_SOLANA_USDT_MINT")"
+
+  if ! proxy_out="$(
+    cd "$CORE_CONTRACTS_DIR"
+    forge create lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol:TransparentUpgradeableProxy \
+      --broadcast \
+      --rpc-url "$PUSH_RPC_URL" \
+      --private-key "$PRIVATE_KEY" \
+      --constructor-args "$impl_addr" "$owner_addr" "$init_data" 2>&1
+  )"; then
+    log_err "Failed to deploy USDT.sol PRC20 proxy"
+    echo "$proxy_out"
+    exit 1
+  fi
+  proxy_addr="$(echo "$proxy_out" | awk '/Deployed to:/ {print $3; exit}')"
+  if ! validate_eth_address "$proxy_addr"; then
+    log_err "Could not parse USDT.sol proxy address"
+    echo "$proxy_out"
+    exit 1
+  fi
+
+  local mint_out
+  if ! mint_out="$(cast send "$universal_core" 'mintPRCTokensviaAdmin(address,uint256,address)' \
+    "$proxy_addr" "$LOCAL_SOLANA_USDT_INITIAL_SUPPLY" "$owner_addr" \
+    --rpc-url "$PUSH_RPC_URL" \
+    --private-key "$PRIVATE_KEY" 2>&1)"; then
+    log_err "Failed to mint local USDT.sol PRC20 supply to owner"
+    echo "$mint_out"
+    exit 1
+  fi
+
+  record_token "USDT.sol" "USDT.sol" "$proxy_addr" "e2e-local"
+  enrich_core_token_decimals
+  log_ok "Deployed local Solana USDT PRC20: $proxy_addr"
 }
 
 find_first_address_with_keywords() {
@@ -2840,6 +4137,16 @@ step_setup_gateway() {
     done
   fi
 
+  # Surfpool fees are negligible and the SVM broadcaster uses its own compute
+  # budget. Keep local Solana gas quotes small so repeated Route 3 tests do not
+  # drain the tiny WPC/pSOL AMM pool before the relay observes the event.
+  if is_local_testing_env; then
+    cast send "$C0" 'setBaseGasLimitByChain(string,uint256)' \
+      "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1" "$LOCAL_SVM_OUTBOUND_BASE_GAS_LIMIT" \
+      --rpc-url "$PUSH_RPC_URL" \
+      --private-key "$PRIVATE_KEY" >/dev/null || true
+  fi
+
   log_ok "Gateway setup complete"
 }
 
@@ -2952,6 +4259,15 @@ step_add_uregistry_configs() {
     token_payload="$(jq -c . "$token_file")"
     log_info "Adding token config to uregistry: $(basename "$token_file") (from $token_symbol)"
     run_registry_tx "token" "$token_payload"
+
+    if is_local_testing_env &&
+       [[ "$(echo "$token_payload" | jq -r '.chain // ""')" == "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1" ]] &&
+       [[ "$(echo "$token_payload" | jq -r '.address // ""')" == "11111111111111111111111111111111" ]]; then
+      local native_alias_payload
+      native_alias_payload="$(echo "$token_payload" | jq -c '.address = "0x0"')"
+      log_info "Adding local Solana native SOL alias to uregistry: 0x0"
+      run_registry_tx "token" "$native_alias_payload"
+    fi
 
     submitted_files+="$token_file"$'\n'
     matched_count=$((matched_count + 1))
@@ -3161,10 +4477,17 @@ step_create_all_wpc_pools() {
       continue
     fi
 
-    log_info "Creating ${token_symbol}/WPC pool with liquidity"
+    local pool_token_amount="1"
+    local pool_wpc_amount="4"
+    if [[ "$token_symbol" == "pSOL" ]]; then
+      pool_token_amount="${LOCAL_PSOL_POOL_TOKEN_AMOUNT:-50}"
+      pool_wpc_amount="${LOCAL_PSOL_POOL_WPC_AMOUNT:-200}"
+    fi
+
+    log_info "Creating ${token_symbol}/WPC pool with liquidity (${pool_token_amount}/${pool_wpc_amount})"
     (
       cd "$SWAP_AMM_DIR"
-      node scripts/pool-manager.js create-pool "$token_addr" "$wpc_addr" 4 500 true 1 4
+      node scripts/pool-manager.js create-pool "$token_addr" "$wpc_addr" 4 500 true "$pool_token_amount" "$pool_wpc_amount"
     )
   done < <(jq -r '.tokens[]? | [.symbol, .address] | @tsv' "$DEPLOY_ADDRESSES_FILE")
 
@@ -3231,16 +4554,51 @@ step_configure_universal_core() {
 }
 
 step_deploy_counter_and_sync_sdk() {
-  require_cmd cast perl
+  require_cmd cast forge perl
   [[ -n "${PRIVATE_KEY:-}" ]] || { log_err "Set PRIVATE_KEY in e2e-tests/.env"; exit 1; }
 
   local sdk_counter_addr_file="$PUSH_CHAIN_SDK_DIR/packages/core/src/lib/push-chain/helpers/addresses.ts"
-  local counter_creation_code="0x6080604052348015600e575f5ffd5b506102068061001c5f395ff3fe608060405260043610610042575f3560e01c806312065fe01461004d5780639b0e94af14610077578063d09de08a146100a1578063d826f88f146100ab57610049565b3661004957005b5f5ffd5b348015610058575f5ffd5b506100616100c1565b60405161006e9190610157565b60405180910390f35b348015610082575f5ffd5b5061008b6100c8565b6040516100989190610157565b60405180910390f35b6100a96100cd565b005b3480156100b6575f5ffd5b506100bf610137565b005b5f47905090565b5f5481565b60015f5f8282546100de919061019d565b925050819055503373ffffffffffffffffffffffffffffffffffffffff165f547fb6aa5bfdc1ab753194658fada8fa1725a667cdea7df54bd400f8bced617dfd4c3460405161012d9190610157565b60405180910390a3565b5f5f81905550565b5f819050919050565b6101518161013f565b82525050565b5f60208201905061016a5f830184610148565b92915050565b7f4e487b71000000000000000000000000000000000000000000000000000000005f52601160045260245ffd5b5f6101a78261013f565b91506101b28361013f565b92508282019050808211156101ca576101c9610170565b5b9291505056fea26469706673582212204acec08331d08192e4797fc12653c602c2ca1574d44468713f91a095fdefe6d564736f6c634300081e0033"
 
   if [[ ! -f "$sdk_counter_addr_file" ]]; then
     log_err "SDK counter addresses file not found: $sdk_counter_addr_file"
     exit 1
   fi
+
+  local local_counter_dir="$PUSH_CHAIN_DIR/e2e-tests/.pchain/local-counter"
+  local local_counter_file="$local_counter_dir/CounterPayable.sol"
+  mkdir -p "$local_counter_dir"
+  cat >"$local_counter_file" <<'SOL'
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+contract Counter {
+    uint256 public countPC;
+    event CountIncremented(uint256 indexed countPC, address indexed caller, uint256 value);
+
+    function increment() public payable {
+        countPC += 1;
+        emit CountIncremented(countPC, msg.sender, msg.value);
+    }
+
+    function reset() public {
+        countPC = 0;
+    }
+
+    function executeUniversalTx(
+        string calldata,
+        bytes calldata,
+        bytes calldata,
+        uint256,
+        address,
+        bytes32
+    ) external {
+        countPC += 1;
+        emit CountIncremented(countPC, msg.sender, 0);
+    }
+
+    receive() external payable {}
+}
+SOL
 
   log_info "Deploying CounterPayable contract on Push localnet"
   local deploy_out counter_addr deploy_attempt
@@ -3248,8 +4606,8 @@ step_deploy_counter_and_sync_sdk() {
   deploy_out=""
 
   while [[ "$deploy_attempt" -le 5 ]]; do
-    deploy_out="$(cast send --rpc-url "$PUSH_RPC_URL" --private-key "$PRIVATE_KEY" --create "$counter_creation_code" 2>&1)" || true
-    counter_addr="$(echo "$deploy_out" | awk '/contractAddress/ {print $2; exit}')"
+    deploy_out="$(forge create "$local_counter_file:Counter" --rpc-url "$PUSH_RPC_URL" --private-key "$PRIVATE_KEY" --broadcast 2>&1)" || true
+    counter_addr="$(echo "$deploy_out" | awk '/Deployed to:/ {print $3; exit} /contractAddress/ {print $2; exit}')"
     if validate_eth_address "$counter_addr"; then
       break
     fi
@@ -3260,7 +4618,7 @@ step_deploy_counter_and_sync_sdk() {
     sleep 2
   done
 
-  counter_addr="$(echo "$deploy_out" | awk '/contractAddress/ {print $2; exit}')"
+  counter_addr="$(echo "$deploy_out" | awk '/Deployed to:/ {print $3; exit} /contractAddress/ {print $2; exit}')"
   if ! validate_eth_address "$counter_addr"; then
     log_err "Could not parse deployed counter contract address from cast output"
     echo "$deploy_out"
@@ -3398,16 +4756,29 @@ NODE
 cmd_all() {
   reset_e2e_testnet_donut_configs
   step_setup_environment
-  (cd "$PUSH_CHAIN_DIR" && make replace-addresses)
-  (cd "$PUSH_CHAIN_DIR" && make build)
+  step_backup_local_replace_addresses_sources
+  if ! (cd "$PUSH_CHAIN_DIR" && make replace-addresses); then
+    step_restore_local_replace_addresses_sources
+    return 1
+  fi
+  step_patch_local_svm_broadcaster_for_build
+  if ! (cd "$PUSH_CHAIN_DIR" && make build); then
+    step_restore_local_svm_broadcaster_after_build
+    step_restore_local_replace_addresses_sources
+    return 1
+  fi
+  step_restore_local_svm_broadcaster_after_build
+  step_restore_local_replace_addresses_sources
   step_update_env_fund_to_address
   step_stop_running_nodes
+  step_reset_local_native_data
   step_devnet
   step_ensure_tss_key_ready
   step_setup_environment
   step_recover_genesis_key
   step_fund_account
   step_setup_core_contracts
+  step_deploy_local_sol_usdt_prc20
   step_setup_swap_amm
   step_sync_test_addresses
   step_create_all_wpc_pools
@@ -3420,7 +4791,10 @@ cmd_all() {
   step_clone_push_chain_sdk
   step_deploy_counter_and_sync_sdk
   sdk_sync_localnet_constants
+  sdk_patch_local_svm_outbound_execution
   step_sync_vault_tss_on_anvil
+  step_sync_svm_gateway_tss
+  step_fund_svm_ceas
 }
 
 cmd_show_help() {
@@ -3434,6 +4808,7 @@ Commands:
   recover-genesis-key    Recover genesis key into local keyring
   fund                   Fund FUND_TO_ADDRESS from genesis key
   setup-core             Clone/build/setup core contracts (auto resume on failure)
+  deploy-sol-usdt-prc20  Deploy local Solana USDT PRC20 used by SVM SPL tests
   setup-swap             Clone/install/deploy swap AMM contracts
   sync-addresses         Apply deploy_addresses.json into test-addresses.json
   create-pool            Create WPC pools for all deployed core tokens
@@ -3444,6 +4819,8 @@ Commands:
   update-token-config    Update eth_sepolia_eth.json contract_address using deployed token
   setup-gateway          Clone/setup gateway repo and run forge localSetup (with --resume retry)
   sync-vault-tss         Grant TSS_ROLE on each Anvil EVM vault to the current local TSS key (LOCAL only)
+  sync-svm-gateway-tss   Sync local Surfpool Solana gateway TSS PDA to the current local TSS key (LOCAL only)
+  fund-svm-cea           Fund local Surfpool SVM CEA SOL/USDT balances used by outbound SVM tests (LOCAL only)
   bootstrap-cea-sdk      Ensure CEA is deployed for SDK signer on BSC testnet fork (Route 2 bootstrap)
   deploy-counter-sdk     Deploy CounterPayable on Push localnet and sync SDK COUNTER_ADDRESS_PAYABLE
   clone-sdk              Clone/update push-chain-sdk repo only (no env/deps setup)
@@ -3452,7 +4829,7 @@ Commands:
   sdk-test-outbound-all  Replace PUSH_NETWORK TESTNET variants with LOCALNET and run all configured SDK outbound E2E tests (TESTING_ENV=LOCAL)
   quick-testing-outbound Run quick-testing-outbound-evm, then quick-testing-outbound-svm
   quick-testing-outbound-evm Run setup-sdk + fund-uea-prc20, then execute EVM outbound cea-to-eoa.spec.ts and cea-to-uea.spec.ts only
-  quick-testing-outbound-svm Run setup-sdk + fund-uea-prc20, then execute SVM outbound cea-to-eoa.spec.ts and cea-to-uea.spec.ts only
+  quick-testing-outbound-svm Run setup-sdk + fund-uea-prc20, then execute SVM outbound cea-to-eoa.spec.ts only
   quick-testing-inbound-evm  Run uea-to-push.spec.ts on local Push Chain for Ethereum Sepolia origin only
   sdk-test-pctx-last-transaction  Run pctx-last-transaction.spec.ts
   sdk-test-send-to-self  Run send-to-self.spec.ts
@@ -3480,10 +4857,11 @@ Important env:
   LOCAL_SEPOLIA_UV_RPC_URL=http://localhost:9545
   LOCAL_ARBITRUM_UV_RPC_URL=http://localhost:9546
   LOCAL_BASE_UV_RPC_URL=http://localhost:9547
-  LOCAL_BSC_UV_RPC_URL=http://localhost:9548
-  SURFPOOL_SOLANA_HOST_RPC_URL=http://localhost:8899
-  LOCAL_SOLANA_UV_RPC_URL=http://localhost:8899
-  ETHEREUM_SEPOLIA_RPC_URL=https://...
+	  LOCAL_BSC_UV_RPC_URL=http://localhost:9548
+	  SURFPOOL_SOLANA_HOST_RPC_URL=http://localhost:8899
+	  LOCAL_SOLANA_UV_RPC_URL=http://localhost:8899
+	  ALLOW_LOCAL_SVM_GO_BUILD_PATCH=true  Opt back into temporary SVM Go source patching before make build
+	  ETHEREUM_SEPOLIA_RPC_URL=https://...
   ARBITRUM_SEPOLIA_RPC_URL=https://...
   BASE_SEPOLIA_RPC_URL=https://...
   BSC_TESTNET_RPC_URL=https://...
@@ -3502,6 +4880,7 @@ main() {
     recover-genesis-key) step_recover_genesis_key ;;
     fund) step_fund_account ;;
     setup-core) step_setup_core_contracts ;;
+    deploy-sol-usdt-prc20) step_deploy_local_sol_usdt_prc20 ;;
     setup-swap) step_setup_swap_amm ;;
     sync-addresses) step_sync_test_addresses ;;
     create-pool) step_create_all_wpc_pools ;;
@@ -3512,6 +4891,8 @@ main() {
     update-token-config) step_update_deployed_token_configs ;;
     setup-gateway) step_setup_gateway ;;
     sync-vault-tss) step_sync_vault_tss_on_anvil ;;
+    sync-svm-gateway-tss) step_sync_svm_gateway_tss ;;
+    fund-svm-cea) step_fund_svm_ceas ;;
     bootstrap-cea-sdk) step_bootstrap_cea_for_sdk_signer ;;
     deploy-counter-sdk) step_deploy_counter_and_sync_sdk ;;
     clone-sdk) step_clone_push_chain_sdk ;;

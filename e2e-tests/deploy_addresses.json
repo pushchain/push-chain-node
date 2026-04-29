@@ -1,13 +1,13 @@
 {
-  "generatedAt": "2026-04-27T09:57:28Z",
+  "generatedAt": "2026-04-29T06:50:27Z",
   "contracts": {
-    "WPC": "0xB5B1e1ADc1b8fc1066975aa09f9371a5f67C54F5",
-    "Factory": "0x140b9f84fCbccB4129AC6F32b1243ea808d18261",
-    "SwapRouter": "0x95cE5e63366D3A11E9BCCe71917bB37C23Fd0002",
-    "QuoterV2": "0xE9cb561141553DFa0A576cCd34546BECffb64Af1",
-    "PositionManager": "0x484aC6ED747090fe8C82c5F10427ccC2F2998930",
+    "WPC": "0x4dCe46Eb5909aC32B6C0ad086e74008Fdb292CB5",
+    "Factory": "0x95cE5e63366D3A11E9BCCe71917bB37C23Fd0002",
+    "SwapRouter": "0x6f423619F7dF3023c08Bb94FE79FA8B2BA22B0b4",
+    "QuoterV2": "0x6F030f96Edb6CC73D8b1752E8D4571283c014056",
+    "PositionManager": "0xAC1645b69D7F04044B4057F9326461c05455e62d",
     "UEA_PROXY_IMPLEMENTATION": "0x2C297101b7d3e0911296b9A64d106684a161b4C9",
-    "COUNTER_ADDRESS_PAYABLE": "0xDaC125f9350cD25786Cfd5c8eb2b6837c5e7Ce6B"
+    "COUNTER_ADDRESS_PAYABLE": "0xa58F4F5FB4977151E99291FCa5b92d95021be0f4"
   },
   "tokens": [
     {
@@ -53,9 +53,16 @@
       "decimals": 9
     },
     {
+      "name": "USDT.sol",
+      "symbol": "USDT.sol",
+      "address": "0xC329d4EbF8814eEFfA2Fd9612655e490b112523F",
+      "source": "core-contracts",
+      "decimals": 6
+    },
+    {
       "name": "USDT.bsc",
       "symbol": "USDT.bsc",
-      "address": "0xC329d4EbF8814eEFfA2Fd9612655e490b112523F",
+      "address": "0xe0b7A8833f77C5728295D489F4B64f9DA236E4C8",
       "source": "core-contracts",
       "decimals": 6
     }

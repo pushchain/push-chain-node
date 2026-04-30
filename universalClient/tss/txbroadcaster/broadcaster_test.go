@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"reflect"
 	"testing"
 	"time"
@@ -452,6 +453,11 @@ const testNewTSSPubkey = "02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac
 
 func makeSignedFundMigrationData(t *testing.T, chainID string, nonce uint64) []byte {
 	t.Helper()
+	return makeSignedFundMigrationDataWithTransfer(t, chainID, nonce, nil)
+}
+
+func makeSignedFundMigrationDataWithTransfer(t *testing.T, chainID string, nonce uint64, transferAmount *big.Int) []byte {
+	t.Helper()
 	sig := hex.EncodeToString(make([]byte, 65))
 	hash := hex.EncodeToString(make([]byte, 32))
 	data := SignedFundMigrationData{
@@ -463,12 +469,14 @@ func makeSignedFundMigrationData(t *testing.T, chainID string, nonce uint64) []b
 			CurrentTssPubkey: testNewTSSPubkey,
 			Chain:            chainID,
 			GasPrice:         "1000000000",
-			GasLimit:         21000,
+			GasLimit:         21100,
+			L1GasFee:         "150",
 		},
 		SigningData: &SigningData{
-			Signature:   sig,
-			SigningHash: hash,
-			Nonce:       nonce,
+			Signature:              sig,
+			SigningHash:            hash,
+			Nonce:                  nonce,
+			TSSFundMigrationAmount: transferAmount,
 		},
 	}
 	b, err := json.Marshal(data)
@@ -498,7 +506,18 @@ func TestFundMigrationEVM_BroadcastSuccess(t *testing.T) {
 
 	insertSignedFundMigrationEvent(t, db, "fm-1", "eip155:1", 0)
 
-	builder.On("BroadcastFundMigrationTx", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+	// Assert the broadcaster forwards gas-limit and L1 gas fee from the signed
+	// event payload into FundMigrationData; otherwise sweep math diverges
+	// from what the signer hashed.
+	builder.On("BroadcastFundMigrationTx",
+		mock.Anything,
+		mock.Anything,
+		mock.MatchedBy(func(d *common.FundMigrationData) bool {
+			return d.GasLimit == 21100 &&
+				d.L1GasFee != nil && d.L1GasFee.String() == "150" &&
+				d.GasPrice != nil && d.GasPrice.String() == "1000000000"
+		}),
+		mock.Anything).
 		Return("0xmigrate123", nil)
 
 	b := newBroadcaster(evtStore, ch, "")
@@ -507,6 +526,46 @@ func TestFundMigrationEVM_BroadcastSuccess(t *testing.T) {
 	ev := getEvent(t, db, "fm-1")
 	require.Equal(t, store.StatusBroadcasted, ev.Status)
 	require.Equal(t, "eip155:1:0xmigrate123", ev.BroadcastedTxHash)
+	builder.AssertExpectations(t)
+}
+
+// TestFundMigrationEVM_TSSFundMigrationAmountThreaded asserts the tss_fund_migration_amount captured
+// at signing time is decoded onto the signing req passed to BroadcastFundMigrationTx. Without
+// this, the second validator's broadcast queries balance=0 (post-sweep) and the assembler
+// returns "insufficient balance" — leaving the event stuck in SIGNED forever and blocking
+// migration consensus.
+func TestFundMigrationEVM_TSSFundMigrationAmountThreaded(t *testing.T) {
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "eip155:1", uregistrytypes.VmType_EVM, client)
+
+	event := store.Event{
+		EventID:           "fm-transfer",
+		BlockHeight:       100,
+		ExpiryBlockHeight: 99999,
+		Type:              store.EventTypeSignFundMigrate,
+		ConfirmationType:  "INSTANT",
+		Status:            store.StatusSigned,
+		EventData:         makeSignedFundMigrationDataWithTransfer(t, "eip155:1", 0, new(big.Int).SetUint64(777_000_000_000_000_000)),
+	}
+	require.NoError(t, db.Create(&event).Error)
+
+	builder.On("BroadcastFundMigrationTx",
+		mock.Anything,
+		mock.MatchedBy(func(req *common.UnsignedSigningReq) bool {
+			return req.TSSFundMigrationAmount != nil && req.TSSFundMigrationAmount.String() == "777000000000000000"
+		}),
+		mock.Anything,
+		mock.Anything).
+		Return("0xmigrate777", nil)
+
+	b := newBroadcaster(evtStore, ch, "")
+	b.processSigned(context.Background())
+
+	ev := getEvent(t, db, "fm-transfer")
+	require.Equal(t, store.StatusBroadcasted, ev.Status)
+	builder.AssertExpectations(t)
 }
 
 func TestFundMigrationEVM_BroadcastFails_NonceConsumed(t *testing.T) {

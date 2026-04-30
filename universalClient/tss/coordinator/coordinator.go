@@ -723,14 +723,19 @@ func (c *Coordinator) createFundMigrationSignSetup(ctx context.Context, eventDat
 	if assignedNonce == nil {
 		return nil, nil, fmt.Errorf("assigned nonce is required for fund migration transaction")
 	}
+
 	gasPrice := new(big.Int)
 	gasPrice.SetString(migrationData.GasPrice, 10)
+
+	l1GasFee := new(big.Int)
+	l1GasFee.SetString(migrationData.L1GasFee, 10)
 
 	migrationFundData := &common.FundMigrationData{
 		From:     oldTSSAddr,
 		To:       currentTSSAddr,
 		GasPrice: gasPrice,
 		GasLimit: migrationData.GasLimit,
+		L1GasFee: l1GasFee,
 	}
 	signingReq, err := builder.GetFundMigrationSigningRequest(ctx, migrationFundData, *assignedNonce)
 	if err != nil {

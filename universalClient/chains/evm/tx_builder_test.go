@@ -1049,3 +1049,97 @@ func TestNewTxBuilderZeroGatewayAddress(t *testing.T) {
 	assert.Nil(t, tb)
 	assert.Contains(t, err.Error(), "invalid gateway address")
 }
+
+// ---------------------------------------------------------------------------
+// Fund migration transfer math
+// ---------------------------------------------------------------------------
+
+// TestComputeFundMigrationTransfer covers the sweep-amount formula
+// balance - (gasPrice * gasLimit) - l1GasFee for both L1 and L2-style chains.
+// All validators must compute the same value — any drift breaks the TSS hash.
+func TestComputeFundMigrationTransfer(t *testing.T) {
+	t.Run("no L1 fee (mainnet-style) nil", func(t *testing.T) {
+		// balance 1 ETH, gasPrice 20 gwei, gasLimit 21000 → gasCost = 420000 gwei
+		balance := new(big.Int).SetUint64(1_000_000_000_000_000_000)
+		gasPrice := new(big.Int).SetUint64(20_000_000_000)
+		got, err := computeFundMigrationTransfer(balance, gasPrice, 21000, nil)
+		require.NoError(t, err)
+		want := new(big.Int).Sub(balance, new(big.Int).Mul(gasPrice, big.NewInt(21000)))
+		assert.Equal(t, want.String(), got.String())
+	})
+
+	t.Run("zero L1 fee (mainnet-style) treated as zero", func(t *testing.T) {
+		balance := new(big.Int).SetUint64(1_000_000_000_000_000_000)
+		gasPrice := new(big.Int).SetUint64(20_000_000_000)
+		got, err := computeFundMigrationTransfer(balance, gasPrice, 21000, big.NewInt(0))
+		require.NoError(t, err)
+		want := new(big.Int).Sub(balance, new(big.Int).Mul(gasPrice, big.NewInt(21000)))
+		assert.Equal(t, want.String(), got.String())
+	})
+
+	t.Run("non-zero L1 fee (OP-stack) is subtracted on top of L2 gas cost", func(t *testing.T) {
+		// 1 ETH balance, L2 gasCost=420000 gwei, L1 data-availability fee=150 gwei
+		balance := new(big.Int).SetUint64(1_000_000_000_000_000_000)
+		gasPrice := new(big.Int).SetUint64(20_000_000_000)
+		l1Fee := new(big.Int).SetUint64(150_000_000_000)
+		got, err := computeFundMigrationTransfer(balance, gasPrice, 21000, l1Fee)
+		require.NoError(t, err)
+		gasCost := new(big.Int).Mul(gasPrice, big.NewInt(21000))
+		want := new(big.Int).Sub(balance, new(big.Int).Add(gasCost, l1Fee))
+		assert.Equal(t, want.String(), got.String())
+	})
+
+	t.Run("balance exactly equals total fee → insufficient", func(t *testing.T) {
+		gasPrice := new(big.Int).SetUint64(20_000_000_000)
+		l1Fee := big.NewInt(100)
+		gasCost := new(big.Int).Mul(gasPrice, big.NewInt(21000))
+		balance := new(big.Int).Add(gasCost, l1Fee)
+		_, err := computeFundMigrationTransfer(balance, gasPrice, 21000, l1Fee)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "insufficient balance")
+	})
+
+	t.Run("L1 fee tips balance into insufficient", func(t *testing.T) {
+		// Without L1 fee, balance covers gas and leaves 100 wei. With L1 fee of 200, it's insufficient.
+		gasPrice := new(big.Int).SetUint64(20_000_000_000)
+		gasCost := new(big.Int).Mul(gasPrice, big.NewInt(21000))
+		balance := new(big.Int).Add(gasCost, big.NewInt(100))
+		_, err := computeFundMigrationTransfer(balance, gasPrice, 21000, big.NewInt(200))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "insufficient balance")
+	})
+
+	t.Run("deterministic across equivalent l1 fee representations", func(t *testing.T) {
+		// big.NewInt(0) and nil must produce identical results — the TSS signing
+		// hash depends on it.
+		balance := new(big.Int).SetUint64(500_000_000_000_000_000)
+		gasPrice := new(big.Int).SetUint64(15_000_000_000)
+		withNil, err := computeFundMigrationTransfer(balance, gasPrice, 21000, nil)
+		require.NoError(t, err)
+		withZero, err := computeFundMigrationTransfer(balance, gasPrice, 21000, big.NewInt(0))
+		require.NoError(t, err)
+		assert.Equal(t, withNil.String(), withZero.String())
+	})
+}
+
+func TestL1GasFeeString(t *testing.T) {
+	assert.Equal(t, "0", l1GasFeeString(nil))
+	assert.Equal(t, "0", l1GasFeeString(big.NewInt(0)))
+	assert.Equal(t, "12345", l1GasFeeString(big.NewInt(12345)))
+}
+
+// TestGetFundMigrationSigningRequest_RejectsZeroGasLimit verifies that a
+// missing / zero gasLimit on the event (which would otherwise encode to 0)
+// is rejected before any RPC call — deterministic failure, not a broken tx.
+func TestGetFundMigrationSigningRequest_RejectsZeroGasLimit(t *testing.T) {
+	tb := newTestTxBuilder(t)
+	data := &common.FundMigrationData{
+		From:     "0x1111111111111111111111111111111111111111",
+		To:       "0x2222222222222222222222222222222222222222",
+		GasPrice: big.NewInt(20_000_000_000),
+		GasLimit: 0,
+	}
+	_, err := tb.GetFundMigrationSigningRequest(context.Background(), data, 0)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "gas limit must be provided")
+}

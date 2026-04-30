@@ -19,6 +19,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module"
 
 	"github.com/pushchain/push-chain-node/x/utss/keeper"
+	v4 "github.com/pushchain/push-chain-node/x/utss/migrations/v4"
 	"github.com/pushchain/push-chain-node/x/utss/types"
 )
 

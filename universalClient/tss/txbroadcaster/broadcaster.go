@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -24,9 +25,10 @@ import (
 
 // SigningData holds the signing parameters persisted by sessionManager when marking SIGNED.
 type SigningData struct {
-	Signature   string `json:"signature"`    // hex-encoded 64/65 byte signature
-	SigningHash string `json:"signing_hash"` // hex-encoded signing hash
-	Nonce       uint64 `json:"nonce"`
+	Signature              string   `json:"signature"`    // hex-encoded 64/65 byte signature
+	SigningHash            string   `json:"signing_hash"` // hex-encoded signing hash
+	Nonce                  uint64   `json:"nonce"`
+	TSSFundMigrationAmount *big.Int `json:"tss_fund_migration_amount,omitempty"`
 }
 
 // SignedOutboundData wraps OutboundCreatedEvent with signing data.
@@ -208,8 +210,9 @@ func decodeSigningData(sd *SigningData) (*common.UnsignedSigningReq, []byte, err
 	}
 
 	return &common.UnsignedSigningReq{
-		SigningHash: signingHash,
-		Nonce:       sd.Nonce,
+		SigningHash:            signingHash,
+		Nonce:                  sd.Nonce,
+		TSSFundMigrationAmount: sd.TSSFundMigrationAmount,
 	}, signature, nil
 }
 

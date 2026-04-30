@@ -8,8 +8,6 @@ import (
 	"github.com/pushchain/push-chain-node/x/utss/types"
 )
 
-const nativeTransferGasLimit = 21000
-
 // InitiateFundMigration validates and creates a fund migration from an old TSS key vault
 // to the current TSS key vault for a specific chain.
 func (k Keeper) InitiateFundMigration(ctx context.Context, oldKeyId, chain string) (uint64, error) {
@@ -64,10 +62,24 @@ func (k Keeper) InitiateFundMigration(ctx context.Context, oldKeyId, chain strin
 		return 0, err
 	}
 
-	// 7. Fetch gas price from EVM oracle
+	// 7. Fetch gas price, fund-migration gas limit, and L1 gas fee from UniversalCore.
 	gasPrice, err := k.uexecutorKeeper.GetGasPriceByChain(sdkCtx, chain)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get gas price for chain %s: %w", chain, err)
+	}
+
+	gasLimitBig, err := k.uexecutorKeeper.GetTssFundMigrationGasLimitByChain(sdkCtx, chain)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get tss fund migration gas limit for chain %s: %w", chain, err)
+	}
+	if gasLimitBig == nil || !gasLimitBig.IsUint64() || gasLimitBig.Uint64() == 0 {
+		return 0, fmt.Errorf("invalid tss fund migration gas limit for chain %s: %s", chain, gasLimitBig)
+	}
+	gasLimit := gasLimitBig.Uint64()
+
+	l1GasFee, err := k.uexecutorKeeper.GetL1GasFeeByChain(sdkCtx, chain)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get l1 gas fee for chain %s: %w", chain, err)
 	}
 
 	// 8. Create migration record
@@ -86,7 +98,8 @@ func (k Keeper) InitiateFundMigration(ctx context.Context, oldKeyId, chain strin
 		Status:           types.FundMigrationStatus_FUND_MIGRATION_STATUS_PENDING,
 		InitiatedBlock:   sdkCtx.BlockHeight(),
 		GasPrice:         gasPrice.String(),
-		GasLimit:         nativeTransferGasLimit,
+		GasLimit:         gasLimit,
+		L1GasFee:         l1GasFee.String(),
 	}
 
 	if err := k.FundMigrations.Set(ctx, migrationId, migration); err != nil {
@@ -106,7 +119,8 @@ func (k Keeper) InitiateFundMigration(ctx context.Context, oldKeyId, chain strin
 		Chain:            chain,
 		BlockHeight:      sdkCtx.BlockHeight(),
 		GasPrice:         gasPrice.String(),
-		GasLimit:         nativeTransferGasLimit,
+		GasLimit:         gasLimit,
+		L1GasFee:         l1GasFee.String(),
 	})
 	if err != nil {
 		return 0, fmt.Errorf("failed to create migration event: %w", err)

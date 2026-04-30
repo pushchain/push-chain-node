@@ -1,0 +1,70 @@
+{
+  "generatedAt": "2026-04-29T06:50:27Z",
+  "contracts": {
+    "WPC": "0x4dCe46Eb5909aC32B6C0ad086e74008Fdb292CB5",
+    "Factory": "0x95cE5e63366D3A11E9BCCe71917bB37C23Fd0002",
+    "SwapRouter": "0x6f423619F7dF3023c08Bb94FE79FA8B2BA22B0b4",
+    "QuoterV2": "0x6F030f96Edb6CC73D8b1752E8D4571283c014056",
+    "PositionManager": "0xAC1645b69D7F04044B4057F9326461c05455e62d",
+    "UEA_PROXY_IMPLEMENTATION": "0x2C297101b7d3e0911296b9A64d106684a161b4C9",
+    "COUNTER_ADDRESS_PAYABLE": "0xa58F4F5FB4977151E99291FCa5b92d95021be0f4"
+  },
+  "tokens": [
+    {
+      "name": "pETH.eth",
+      "symbol": "pETH",
+      "address": "0x373D3F1B2b26729A308C5641970247bc9d4ddDa4",
+      "source": "core-contracts",
+      "decimals": 18
+    },
+    {
+      "name": "USDT.eth",
+      "symbol": "USDT.eth",
+      "address": "0x6a20557430be6412AF423681e35CC96797506F3a",
+      "source": "core-contracts",
+      "decimals": 6
+    },
+    {
+      "name": "pETH.base",
+      "symbol": "pETH.base",
+      "address": "0xCcd71bc096E2225048cD167447e164E8571BcCA6",
+      "source": "core-contracts",
+      "decimals": 18
+    },
+    {
+      "name": "pETH.arb",
+      "symbol": "pETH.arb",
+      "address": "0xE74A512688E53d6Ed2cf64a327fABE8ECE27aDD6",
+      "source": "core-contracts",
+      "decimals": 18
+    },
+    {
+      "name": "pBNB",
+      "symbol": "pBNB",
+      "address": "0x2ddB499C3a35a60c809d878eFf5Fa248bb5eAdbd",
+      "source": "core-contracts",
+      "decimals": 18
+    },
+    {
+      "name": "pSOL",
+      "symbol": "pSOL",
+      "address": "0x31F3Dcb417970EBe9AC1e254Ee42b91e49e30EE2",
+      "source": "core-contracts",
+      "decimals": 9
+    },
+    {
+      "name": "USDT.sol",
+      "symbol": "USDT.sol",
+      "address": "0xC329d4EbF8814eEFfA2Fd9612655e490b112523F",
+      "source": "core-contracts",
+      "decimals": 6
+    },
+    {
+      "name": "USDT.bsc",
+      "symbol": "USDT.bsc",
+      "address": "0xe0b7A8833f77C5728295D489F4B64f9DA236E4C8",
+      "source": "core-contracts",
+      "decimals": 6
+    }
+  ]
+}

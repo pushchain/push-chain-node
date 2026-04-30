@@ -6,66 +6,11 @@ import (
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 
 	"github.com/pushchain/push-chain-node/app/upgrades"
-	aiauditfixes "github.com/pushchain/push-chain-node/app/upgrades/ai-audit-fixes"
-	aiauditfixes2 "github.com/pushchain/push-chain-node/app/upgrades/ai-audit-fixes-2"
-	purgeexpiredoutbounds "github.com/pushchain/push-chain-node/app/upgrades/purge-expired-outbounds"
-	removeutxverifier "github.com/pushchain/push-chain-node/app/upgrades/remove-utxverifier"
-	tssfundmigrationfixes "github.com/pushchain/push-chain-node/app/upgrades/tss-fund-migration-fixes"
-	tssmigration "github.com/pushchain/push-chain-node/app/upgrades/tss-migration"
-	ueamigration "github.com/pushchain/push-chain-node/app/upgrades/uea-migration"
-	ceagasandpayload "github.com/pushchain/push-chain-node/app/upgrades/cea-gas-and-payload"
-	ceapayloadverificationfix "github.com/pushchain/push-chain-node/app/upgrades/cea-payload-verification-fix"
-	chainmeta "github.com/pushchain/push-chain-node/app/upgrades/chain-meta"
-	chainmetavotegasless "github.com/pushchain/push-chain-node/app/upgrades/chain-meta-vote-gasless"
-	ethhashfix "github.com/pushchain/push-chain-node/app/upgrades/eth-hash-fix"
-	evmrpcfix "github.com/pushchain/push-chain-node/app/upgrades/evm-rpc-fix"
-	feeabs "github.com/pushchain/push-chain-node/app/upgrades/fee-abs"
-	gasoracle "github.com/pushchain/push-chain-node/app/upgrades/gas-oracle"
 	"github.com/pushchain/push-chain-node/app/upgrades/noop"
-	outbound "github.com/pushchain/push-chain-node/app/upgrades/outbound"
-	pcmintcap "github.com/pushchain/push-chain-node/app/upgrades/pc-mint-cap"
-	proxybytecodefix "github.com/pushchain/push-chain-node/app/upgrades/proxy-bytecode-fix"
-	removefeeabsv1 "github.com/pushchain/push-chain-node/app/upgrades/remove-fee-abs-v1"
-	solanafix "github.com/pushchain/push-chain-node/app/upgrades/solana-fix"
-	supplyburn "github.com/pushchain/push-chain-node/app/upgrades/supply-burn"
-	supplyslash "github.com/pushchain/push-chain-node/app/upgrades/supply-slash"
-	tsscore "github.com/pushchain/push-chain-node/app/upgrades/tss-core"
-	tsscoreevmparamsfix "github.com/pushchain/push-chain-node/app/upgrades/tss-core-evm-params-fix"
-	tsscorefix "github.com/pushchain/push-chain-node/app/upgrades/tss-core-fix"
-	tssvotegasless "github.com/pushchain/push-chain-node/app/upgrades/tss-vote-gasless"
-	universaltxv1 "github.com/pushchain/push-chain-node/app/upgrades/universal-tx-v1"
 )
 
 // Upgrades list of chain upgrades
-var Upgrades = []upgrades.Upgrade{
-	feeabs.NewUpgrade(),
-	solanafix.NewUpgrade(),
-	ethhashfix.NewUpgrade(),
-	gasoracle.NewUpgrade(),
-	pcmintcap.NewUpgrade(),
-	tsscore.NewUpgrade(),
-	tsscorefix.NewUpgrade(),
-	tsscoreevmparamsfix.NewUpgrade(),
-	evmrpcfix.NewUpgrade(),
-	tssvotegasless.NewUpgrade(),
-	removefeeabsv1.NewUpgrade(),
-	outbound.NewUpgrade(),
-	universaltxv1.NewUpgrade(),
-	proxybytecodefix.NewUpgrade(),
-	supplyslash.NewUpgrade(),
-	supplyburn.NewUpgrade(),
-	chainmeta.NewUpgrade(),
-	chainmetavotegasless.NewUpgrade(),
-	ceagasandpayload.NewUpgrade(),
-	ceapayloadverificationfix.NewUpgrade(),
-	aiauditfixes.NewUpgrade(),
-	aiauditfixes2.NewUpgrade(),
-	ueamigration.NewUpgrade(),
-	tssmigration.NewUpgrade(),
-	purgeexpiredoutbounds.NewUpgrade(),
-	removeutxverifier.NewUpgrade(),
-	tssfundmigrationfixes.NewUpgrade(),
-}
+var Upgrades = []upgrades.Upgrade{}
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers
 func (app *ChainApp) RegisterUpgradeHandlers() {
@@ -86,10 +31,10 @@ func (app *ChainApp) RegisterUpgradeHandlers() {
 		BankKeeper:            app.BankKeeper,
 
 		// Module keepers
-		UExecutorKeeper:   &app.UexecutorKeeper,
-		URegistryKeeper:   &app.UregistryKeeper,
-		UValidatorKeeper:  &app.UvalidatorKeeper,
-		UTssKeeper:        &app.UtssKeeper,
+		UExecutorKeeper:  &app.UexecutorKeeper,
+		URegistryKeeper:  &app.UregistryKeeper,
+		UValidatorKeeper: &app.UvalidatorKeeper,
+		UTssKeeper:       &app.UtssKeeper,
 	}
 
 	// register all upgrade handlers

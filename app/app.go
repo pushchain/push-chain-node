@@ -313,11 +313,11 @@ type ChainApp struct {
 	EVMKeeper           *evmkeeper.Keeper
 	Erc20Keeper         erc20keeper.Keeper
 
-	ScopedWasmKeeper  capabilitykeeper.ScopedKeeper
-	UexecutorKeeper   uexecutorkeeper.Keeper
-	UregistryKeeper   uregistrykeeper.Keeper
-	UvalidatorKeeper  uvalidatorkeeper.Keeper
-	UtssKeeper        utsskeeper.Keeper
+	ScopedWasmKeeper capabilitykeeper.ScopedKeeper
+	UexecutorKeeper  uexecutorkeeper.Keeper
+	UregistryKeeper  uregistrykeeper.Keeper
+	UvalidatorKeeper uvalidatorkeeper.Keeper
+	UtssKeeper       utsskeeper.Keeper
 
 	// the module manager
 	ModuleManager      *module.Manager
@@ -778,17 +778,8 @@ func NewChainApp(
 		app.EvidenceKeeper,
 	)
 
-	// Add the usigverifier precompile for Ed25519 verification (old address: 0xCA)
-	usigverifierPrecompile, err := usigverifierprecompile.NewPrecompile()
-	if err != nil {
-		panic(fmt.Errorf("failed to instantiate usigverifier precompile: %w", err))
-	}
-	corePrecompiles[usigverifierPrecompile.Address()] = usigverifierPrecompile
-
-	// New address (0xEC..01) — reserved Push precompile range.
-	// Both old and new addresses are registered simultaneously for backward compatibility
-	// with deployed contracts that have old addresses hardcoded in their bytecode.
-	usigverifierPrecompileV2, err := usigverifierprecompile.NewPrecompileV2()
+	// usigverifier precompile (0xEC..01) — core precompile range
+	usigverifierPrecompileV2, err := usigverifierprecompile.NewPrecompile()
 	if err != nil {
 		panic(fmt.Errorf("failed to instantiate usigverifier v2 precompile: %w", err))
 	}

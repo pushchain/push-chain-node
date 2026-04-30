@@ -3,12 +3,12 @@ package keeper
 import (
 	"context"
 	"fmt"
-	"math/big"
 	"sort"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/holiman/uint256"
 
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/pushchain/push-chain-node/x/uregistry/types"
@@ -26,7 +26,7 @@ func deployProxyContract(ctx context.Context, evmKeeper types.EVMKeeper, proxyAd
 	// Create the EVM account object
 	evmAccount := statedb.Account{
 		Nonce:    1,
-		Balance:  big.NewInt(0),
+		Balance:  new(uint256.Int),
 		CodeHash: codeHash,
 	}
 
@@ -53,7 +53,7 @@ func deployImplementationContract(ctx context.Context, evmKeeper types.EVMKeeper
 	// Create the EVM account object
 	evmAccount := statedb.Account{
 		Nonce:    1,             // prevent tx nonce=0 conflicts
-		Balance:  big.NewInt(0), // zero balance by default
+		Balance:  new(uint256.Int), // zero balance by default
 		CodeHash: codeHash,
 	}
 
@@ -77,7 +77,7 @@ func deployProxyAdminContract(ctx context.Context, evmKeeper types.EVMKeeper, pr
 	// Create the EVM account object
 	evmAccount := statedb.Account{
 		Nonce:    1,             // to prevent tx nonce=0 conflicts
-		Balance:  big.NewInt(0), // zero balance by default
+		Balance:  new(uint256.Int), // zero balance by default
 		CodeHash: codeHash,      // link to deployed code
 	}
 

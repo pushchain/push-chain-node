@@ -110,7 +110,7 @@ import (
 	cosmosevmencoding "github.com/cosmos/evm/encoding"
 	srvflags "github.com/cosmos/evm/server/flags"
 	cosmosevmtypes "github.com/cosmos/evm/types"
-	cosmosevmutils "github.com/cosmos/evm/utils"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/cosmos/evm/x/erc20"
 	erc20keeper "github.com/cosmos/evm/x/erc20/keeper"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
@@ -185,7 +185,8 @@ const (
 	NodeDir      = ".pchain"
 	Bech32Prefix = "push"
 
-	ChainID = "localchain_9000-1"
+	ChainID    = "localchain_9000-1"
+	EVMChainID = uint64(9000)
 )
 
 var (
@@ -345,7 +346,7 @@ func NewChainApp(
 
 	// TODO: verify
 
-	encodingConfig := cosmosevmencoding.MakeConfig()
+	encodingConfig := cosmosevmencoding.MakeConfig(EVMChainID)
 	interfaceRegistry := encodingConfig.InterfaceRegistry
 	appCodec := encodingConfig.Codec
 	legacyAmino := encodingConfig.Amino
@@ -686,11 +687,13 @@ func NewChainApp(
 		appCodec,
 		keys[evmtypes.StoreKey],
 		tkeys[evmtypes.TransientKey],
+		keys,
 		authtypes.NewModuleAddress(govtypes.ModuleName),
-		app.AccountKeeper,
+		accountKeeperWrapper{app.AccountKeeper},
 		app.BankKeeper,
 		app.StakingKeeper,
 		app.FeeMarketKeeper,
+		app.ConsensusParamsKeeper,
 		&app.Erc20Keeper,
 		tracer,
 	)
@@ -776,6 +779,7 @@ func NewChainApp(
 		app.GovKeeper,
 		app.SlashingKeeper,
 		app.EvidenceKeeper,
+		appCodec,
 	)
 
 	// Add the usigverifier precompile for Ed25519 verification (old address: 0xCA)
@@ -1027,7 +1031,7 @@ func NewChainApp(
 		packetforward.NewAppModule(app.PacketForwardKeeper, app.GetSubspace(packetforwardtypes.ModuleName)),
 		wasmlc.NewAppModule(app.WasmClientKeeper),
 		ratelimit.NewAppModule(appCodec, app.RatelimitKeeper),
-		vm.NewAppModule(app.EVMKeeper, app.AccountKeeper),
+		vm.NewAppModule(app.EVMKeeper, accountKeeperWrapper{app.AccountKeeper}, app.AccountKeeper.AddressCodec()),
 		feemarket.NewAppModule(app.FeeMarketKeeper),
 		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper),
 		uexecutor.NewAppModule(appCodec, app.UexecutorKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper, app.AccountKeeper, app.UregistryKeeper, app.UvalidatorKeeper),
@@ -1208,7 +1212,7 @@ func NewChainApp(
 
 	app.setAnteHandler(chainante.HandlerOptions{
 		Cdc:                   app.appCodec,
-		AccountKeeper:         app.AccountKeeper,
+		AccountKeeper:         accountKeeperWrapper{app.AccountKeeper},
 		BankKeeper:            app.BankKeeper,
 		FeegrantKeeper:        app.FeeGrantKeeper,
 		FeeMarketKeeper:       app.FeeMarketKeeper,
@@ -1437,7 +1441,7 @@ func (a *ChainApp) DefaultGenesis() map[string]json.RawMessage {
 	// which is the base denomination of the chain (i.e. the WTOKEN contract)
 	erc20GenState := erc20types.DefaultGenesisState()
 	erc20GenState.TokenPairs = ExampleTokenPairs
-	erc20GenState.Params.NativePrecompiles = append(erc20GenState.Params.NativePrecompiles, WTokenContractMainnet)
+	erc20GenState.NativePrecompiles = append(erc20GenState.NativePrecompiles, WTokenContractMainnet)
 	genesis[erc20types.ModuleName] = a.appCodec.MustMarshalJSON(erc20GenState)
 
 	return genesis
@@ -1560,7 +1564,7 @@ func BlockedAddresses() map[string]bool {
 	}
 
 	for _, precompile := range blockedPrecompilesHex {
-		blockedAddrs[cosmosevmutils.EthHexToCosmosAddr(precompile).String()] = true
+		blockedAddrs[sdk.AccAddress(common.HexToAddress(precompile).Bytes()).String()] = true
 	}
 
 	return blockedAddrs

@@ -2,11 +2,11 @@ package keeper
 
 import (
 	"context"
-	"math/big"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/holiman/uint256"
 
 	"github.com/cosmos/evm/x/vm/statedb"
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
@@ -24,7 +24,7 @@ func deployFactoryProxy(ctx context.Context, evmKeeper types.EVMKeeper) {
 	// Create the EVM account object
 	evmAccount := statedb.Account{
 		Nonce:    1,             // to prevent tx nonce=0 conflicts
-		Balance:  big.NewInt(0), // zero balance by default
+		Balance:  new(uint256.Int), // zero balance by default
 		CodeHash: codeHash,      // link to deployed code
 	}
 
@@ -54,7 +54,7 @@ func deployFactoryImplContract(ctx context.Context, evmKeeper types.EVMKeeper) {
 	// Create the EVM account object
 	evmAccount := statedb.Account{
 		Nonce:    1,             // to prevent tx nonce=0 conflicts
-		Balance:  big.NewInt(0), // zero balance by default
+		Balance:  new(uint256.Int), // zero balance by default
 		CodeHash: codeHash,      // link to deployed code
 	}
 
@@ -79,7 +79,7 @@ func deployProxyAdminContract(ctx context.Context, evmKeeper types.EVMKeeper) {
 	// Create the EVM account object
 	evmAccount := statedb.Account{
 		Nonce:    1,             // to prevent tx nonce=0 conflicts
-		Balance:  big.NewInt(0), // zero balance by default
+		Balance:  new(uint256.Int), // zero balance by default
 		CodeHash: codeHash,      // link to deployed code
 	}
 

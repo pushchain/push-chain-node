@@ -367,17 +367,10 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 			instructionID = fallbackID
 		}
 
-		// Validate instruction_id
-		if instructionID != 1 && instructionID != 2 {
-			return nil, fmt.Errorf("invalid instruction_id: %d (expected 1=withdraw or 2=execute)", instructionID)
-		}
-
-		// Validate mode-specific constraints per integration guide
+		// Mode-specific semantic checks. Shape (instruction_id ∈ {1,2}, withdraw ⇒
+		// no accounts/ix_data) is already guaranteed by decodePayload + determineInstructionID.
 		switch instructionID {
 		case 1: // Withdraw mode
-			if len(accounts) > 0 || len(ixData) > 0 {
-				return nil, fmt.Errorf("withdraw mode: accounts and ixData must be empty")
-			}
 			if amount.Uint64() == 0 {
 				return nil, fmt.Errorf("withdraw mode: amount must be > 0")
 			}
@@ -692,10 +685,6 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 				return nil, 0, fmt.Errorf("failed to determine instruction ID: %w", fbErr)
 			}
 			instructionID = fallbackID
-		}
-
-		if instructionID != 1 && instructionID != 2 {
-			return nil, 0, fmt.Errorf("invalid instruction_id: %d", instructionID)
 		}
 	}
 
@@ -1153,71 +1142,77 @@ func (tb *TxBuilder) loadRelayerKeypair() (solana.PrivateKey, error) {
 // The payload is built off-chain and encodes the operation type plus any
 // target program data needed for execution:
 //
-//	[u32 BE]         accounts_count — how many accounts the target program needs
-//	[33 bytes] × N   accounts — each is [pubkey(32) + is_writable(1)]
-//	[u32 BE]         ix_data_len — length of the instruction data for the target program
-//	[N bytes]        ix_data — the raw instruction data to pass to the target program
-//	[u8]             instruction_id — 1=withdraw, 2=execute
-//	[32 bytes]       target_program — the Solana program to invoke
+//	bytes [0       ..   4)       accountsCount     u32  — number of CPI accounts (N)
+//	bytes [4       ..   4+33N)   accounts          N × {pubkey[32], isWritable[1]}
+//	bytes [4+33N   ..   8+33N)   ixDataLen         u32  — length of ix_data in bytes (M)
+//	bytes [8+33N   ..   8+33N+M) ixData            M raw bytes for the target program
+//	byte  [8+33N+M]              instructionID    u8   — 1=withdraw, 2=execute
+//	bytes [9+33N+M .. 41+33N+M)  targetProgram    32 bytes — the Solana program to invoke
 //
 // For withdraw (instruction_id=1): accounts_count=0, ix_data_len=0
-// For execute (instruction_id=2): accounts and ix_data contain CPI data
+// For execute  (instruction_id=2): accounts and ix_data contain CPI data
 func decodePayload(payload []byte) ([]GatewayAccountMeta, []byte, uint8, [32]byte, error) {
+	const (
+		sizeAccountsCount = 4
+		sizeAccount       = 33 // 32-byte pubkey + 1-byte is_writable
+		sizeIxDataLen     = 4
+		sizeInstructionID = 1
+		sizeTargetProgram = 32
+
+		minPayloadLen = sizeAccountsCount + sizeIxDataLen + sizeInstructionID + sizeTargetProgram
+	)
+
 	var targetProgram [32]byte
 
-	// Minimum payload: accounts_count(4) + ix_data_len(4) + instruction_id(1) + target_program(32) = 41
-	if len(payload) < 41 {
-		return nil, nil, 0, targetProgram, fmt.Errorf("payload too short: %d bytes (minimum 41)", len(payload))
+	// --- Validate structure and bounds ---
+
+	if len(payload) < minPayloadLen {
+		return nil, nil, 0, targetProgram, fmt.Errorf("payload too short: %d bytes (minimum %d)", len(payload), minPayloadLen)
 	}
 
-	offset := 0
+	accountsCount := binary.BigEndian.Uint32(payload[0:sizeAccountsCount])
 
-	accountsCount := binary.BigEndian.Uint32(payload[offset : offset+4])
-	offset += 4
-
-	// Bound accountsCount by remaining payload size before allocation: each account
-	// requires 33 bytes (32 pubkey + 1 writable). Prevents an attacker-controlled
-	// uint32 from triggering a multi-GB allocation in make() below.
-	if uint64(accountsCount)*33 > uint64(len(payload)-offset) {
-		return nil, nil, 0, targetProgram, fmt.Errorf("accountsCount %d exceeds remaining payload capacity", accountsCount)
+	ixDataLenOff := uint64(sizeAccountsCount) + uint64(accountsCount)*sizeAccount
+	if ixDataLenOff+sizeIxDataLen > uint64(len(payload)) {
+		return nil, nil, 0, targetProgram, fmt.Errorf("payload too short for %d accounts: need %d bytes through ix_data length, have %d", accountsCount, ixDataLenOff+sizeIxDataLen, len(payload))
 	}
+	// Past this check ixDataLenOff is bounded by len(payload), so int conversion is safe.
+	ixDataLen := binary.BigEndian.Uint32(payload[ixDataLenOff : ixDataLenOff+sizeIxDataLen])
+
+	// Payload must be consumed exactly — no truncation, no trailing bytes.
+	expectedLen := ixDataLenOff + sizeIxDataLen + uint64(ixDataLen) + sizeInstructionID + sizeTargetProgram
+	switch {
+	case uint64(len(payload)) < expectedLen:
+		return nil, nil, 0, targetProgram, fmt.Errorf("payload too short: expected %d bytes, got %d (accountsCount=%d, ixDataLen=%d)", expectedLen, len(payload), accountsCount, ixDataLen)
+	case uint64(len(payload)) > expectedLen:
+		return nil, nil, 0, targetProgram, fmt.Errorf("payload has %d trailing bytes (expected %d, got %d)", uint64(len(payload))-expectedLen, expectedLen, len(payload))
+	}
+
+	ixDataOff := int(ixDataLenOff) + sizeIxDataLen
+	instrIDOff := ixDataOff + int(ixDataLen)
+	targetOff := instrIDOff + sizeInstructionID
+
+	instructionID := payload[instrIDOff]
+	if instructionID != 1 && instructionID != 2 {
+		return nil, nil, 0, targetProgram, fmt.Errorf("invalid instruction_id %d (expected 1=withdraw or 2=execute)", instructionID)
+	}
+	if instructionID == 1 && (accountsCount != 0 || ixDataLen != 0) {
+		return nil, nil, 0, targetProgram, fmt.Errorf("withdraw payload must have accountsCount=0 and ixDataLen=0, got %d/%d", accountsCount, ixDataLen)
+	}
+
+	// --- Parse validated payload ---
 
 	accounts := make([]GatewayAccountMeta, accountsCount)
 	for i := range accountsCount {
-		if offset+33 > len(payload) {
-			return nil, nil, 0, targetProgram, fmt.Errorf("payload too short for account %d", i)
-		}
-		var pubkey [32]byte
-		copy(pubkey[:], payload[offset:offset+32])
-		isWritable := payload[offset+32] == 1
-		accounts[i] = GatewayAccountMeta{Pubkey: pubkey, IsWritable: isWritable}
-		offset += 33
+		base := sizeAccountsCount + int(i)*sizeAccount
+		copy(accounts[i].Pubkey[:], payload[base:base+32])
+		accounts[i].IsWritable = payload[base+32] == 1
 	}
 
-	if offset+4 > len(payload) {
-		return nil, nil, 0, targetProgram, fmt.Errorf("payload too short for ix_data length")
-	}
-	ixDataLen := binary.BigEndian.Uint32(payload[offset : offset+4])
-	offset += 4
-
-	// uint64 arithmetic so the bound holds regardless of platform int width.
-	if uint64(offset)+uint64(ixDataLen) > uint64(len(payload)) {
-		return nil, nil, 0, targetProgram, fmt.Errorf("payload too short for ix_data")
-	}
 	ixData := make([]byte, ixDataLen)
-	copy(ixData, payload[offset:offset+int(ixDataLen)])
-	offset += int(ixDataLen)
+	copy(ixData, payload[ixDataOff:instrIDOff])
 
-	if offset >= len(payload) {
-		return nil, nil, 0, targetProgram, fmt.Errorf("payload too short for instruction_id")
-	}
-	instructionID := payload[offset]
-	offset++
-
-	if offset+32 > len(payload) {
-		return nil, nil, 0, targetProgram, fmt.Errorf("payload too short for target_program")
-	}
-	copy(targetProgram[:], payload[offset:offset+32])
+	copy(targetProgram[:], payload[targetOff:targetOff+sizeTargetProgram])
 
 	return accounts, ixData, instructionID, targetProgram, nil
 }

@@ -693,7 +693,7 @@ func TestDecodePayload(t *testing.T) {
 				binary.BigEndian.PutUint32(p[4:8], 100) // ixDataLen
 				return p
 			}(),
-			wantErr: "payload too short for ix_data",
+			wantErr: "payload too short: expected",
 		},
 		{
 			name: "oversized accountsCount: 0xFFFFFFFF would OOM-panic on make()",
@@ -702,7 +702,7 @@ func TestDecodePayload(t *testing.T) {
 				binary.BigEndian.PutUint32(p[0:4], 0xFFFFFFFF)
 				return p
 			}(),
-			wantErr: "exceeds remaining payload capacity",
+			wantErr: "payload too short for 4294967295 accounts",
 		},
 		{
 			name: "accountsCount exceeds remaining bytes by one (off-by-one boundary)",
@@ -712,7 +712,7 @@ func TestDecodePayload(t *testing.T) {
 				binary.BigEndian.PutUint32(p[0:4], 2)
 				return p
 			}(),
-			wantErr: "exceeds remaining payload capacity",
+			wantErr: "payload too short for 2 accounts",
 		},
 		{
 			name: "oversized ixDataLen: 0xFFFFFFFF must reject before make([]byte)",
@@ -722,7 +722,46 @@ func TestDecodePayload(t *testing.T) {
 				binary.BigEndian.PutUint32(p[4:8], 0xFFFFFFFF) // ixDataLen
 				return p
 			}(),
-			wantErr: "payload too short for ix_data",
+			wantErr: "payload too short: expected",
+		},
+		{
+			name: "invalid instruction_id (3 is not withdraw/execute)",
+			payload: func() []byte {
+				return buildMockPayload(nil, nil, 3, [32]byte{})
+			}(),
+			wantErr: "invalid instruction_id 3",
+		},
+		{
+			name: "invalid instruction_id (0)",
+			payload: func() []byte {
+				return buildMockPayload(nil, nil, 0, [32]byte{})
+			}(),
+			wantErr: "invalid instruction_id 0",
+		},
+		{
+			name: "withdraw with non-zero accountsCount",
+			payload: func() []byte {
+				return buildMockPayload(
+					[]GatewayAccountMeta{{Pubkey: makeTxID(0x11), IsWritable: true}},
+					nil, 1, [32]byte{},
+				)
+			}(),
+			wantErr: "withdraw payload must have accountsCount=0",
+		},
+		{
+			name: "withdraw with non-zero ixDataLen",
+			payload: func() []byte {
+				return buildMockPayload(nil, []byte{0xAB}, 1, [32]byte{})
+			}(),
+			wantErr: "withdraw payload must have accountsCount=0",
+		},
+		{
+			name: "trailing bytes after target_program",
+			payload: func() []byte {
+				p := buildMockPayload(nil, nil, 1, [32]byte{})
+				return append(p, 0x00, 0x01, 0x02)
+			}(),
+			wantErr: "trailing bytes",
 		},
 	}
 

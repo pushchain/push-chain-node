@@ -110,7 +110,12 @@ func (k Keeper) DeleteBallot(ctx context.Context, id string) error {
 	return nil
 }
 
-// MarkBallotExpired moves a ballot from active to expired
+// MarkBallotExpired moves a ballot from active to expired.
+// Side-effect ordering: secondary indexes are updated before the canonical
+// ballot record is rewritten, so the status field is only persisted once the
+// active/expired set membership is in its final shape (defensive CEI-style
+// ordering; collections.KeySet.Remove is a no-op on absent keys, so retries
+// remain safe).
 func (k Keeper) MarkBallotExpired(ctx context.Context, id string) error {
 	ballot, err := k.Ballots.Get(ctx, id)
 	if err != nil {
@@ -122,18 +127,20 @@ func (k Keeper) MarkBallotExpired(ctx context.Context, id string) error {
 		"expiry_height", ballot.BlockHeightExpiry,
 	)
 
-	ballot.Status = types.BallotStatus_BALLOT_STATUS_EXPIRED
-	if err := k.Ballots.Set(ctx, id, ballot); err != nil {
-		return err
-	}
-
 	if err := k.ActiveBallotIDs.Remove(ctx, id); err != nil {
 		return err
 	}
-	return k.ExpiredBallotIDs.Set(ctx, id)
+	if err := k.ExpiredBallotIDs.Set(ctx, id); err != nil {
+		return err
+	}
+
+	ballot.Status = types.BallotStatus_BALLOT_STATUS_EXPIRED
+	return k.Ballots.Set(ctx, id, ballot)
 }
 
-// MarkBallotFinalized moves a ballot from active to finalized (PASSED or REJECTED)
+// MarkBallotFinalized moves a ballot from active to finalized (PASSED or REJECTED).
+// Side-effect ordering matches MarkBallotExpired: secondary indexes are
+// updated before the canonical ballot record is rewritten with its final status.
 func (k Keeper) MarkBallotFinalized(ctx context.Context, id string, status types.BallotStatus) error {
 	if status != types.BallotStatus_BALLOT_STATUS_PASSED && status != types.BallotStatus_BALLOT_STATUS_REJECTED {
 		return fmt.Errorf("invalid finalization status: %v", status)
@@ -149,15 +156,15 @@ func (k Keeper) MarkBallotFinalized(ctx context.Context, id string, status types
 		"final_status", status.String(),
 	)
 
-	ballot.Status = status
-	if err := k.Ballots.Set(ctx, id, ballot); err != nil {
-		return err
-	}
-
 	if err := k.ActiveBallotIDs.Remove(ctx, id); err != nil {
 		return err
 	}
-	return k.FinalizedBallotIDs.Set(ctx, id)
+	if err := k.FinalizedBallotIDs.Set(ctx, id); err != nil {
+		return err
+	}
+
+	ballot.Status = status
+	return k.Ballots.Set(ctx, id, ballot)
 }
 
 // ExpireBallotsBeforeHeight checks active ballots and marks expired ones.

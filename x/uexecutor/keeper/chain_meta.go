@@ -13,9 +13,23 @@ import (
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
-// chainMetaVoteStalenessSeconds is the maximum age (in seconds) of a stored vote
-// that is still eligible to be included in the median calculation.
-const chainMetaVoteStalenessSeconds uint64 = 300
+const (
+	// chainMetaVoteStalenessSeconds is the maximum age (in seconds) of a stored vote
+	// that is still eligible to be included in the median calculation.
+	chainMetaVoteStalenessSeconds uint64 = 300
+
+	// chainMetaMinVotesForFirstWrite is the number of fresh votes required
+	// before the first EVM oracle write happens for a given observed chain.
+	// This prevents a single validator from defining the oracle's initial
+	// values without aggregation. After bootstrap (LastAppliedChainHeight > 0),
+	// the normal median-on-each-fresh-vote behaviour applies.
+	//
+	// Note on the tradeoff: median of 2 returns the upper of the two values,
+	// so a single outlier validator can still sway the bootstrap write.
+	// Raising this to 3 would make the bootstrap median robust against one
+	// outlier, at the cost of needing one more vote to initialise the oracle.
+	chainMetaMinVotesForFirstWrite int = 2
+)
 
 func (k Keeper) GetChainMeta(ctx context.Context, chainID string) (types.ChainMeta, bool, error) {
 	cm, err := k.ChainMetas.Get(ctx, chainID)
@@ -35,54 +49,32 @@ func (k Keeper) SetChainMeta(ctx context.Context, chainID string, chainMeta type
 // VoteChainMeta processes a universal validator's vote on chain metadata (gas price + chain height).
 //
 // Rules:
-//  1. If blockNumber <= entry.LastAppliedChainHeight the tx is rejected — the validator
-//     must re-vote with a newer block height.
-//  2. Each vote is stamped with the current block time (storedAt) when it is recorded.
-//  3. When computing medians, only votes whose storedAt is within the last
+//  1. Each vote is stamped with the current block time (storedAt) when it is recorded
+//     and either inserted (new validator) or updated in place (existing validator).
+//  2. The oracle is bootstrapped on the first EVM write only after at least
+//     chainMetaMinVotesForFirstWrite fresh votes have accumulated. Earlier
+//     votes are stored but do not yet drive an on-chain update — this prevents
+//     a single validator from defining the oracle's initial values.
+//  3. Once bootstrapped (LastAppliedChainHeight > 0), votes whose blockNumber
+//     is not strictly greater than entry.LastAppliedChainHeight are rejected —
+//     the validator must re-vote with a newer block height.
+//  4. When computing medians, only votes whose storedAt is within the last
 //     chainMetaVoteStalenessSeconds seconds are considered.
-//  4. Price median and chain-height median are computed independently (upper median = len/2).
-//  5. After a successful EVM call, LastAppliedChainHeight is updated.
+//  5. Price median and chain-height median are computed independently (upper median = len/2).
+//  6. After a successful EVM call, LastAppliedChainHeight is updated.
 func (k Keeper) VoteChainMeta(ctx context.Context, universalValidator sdk.ValAddress, observedChainId string, price, blockNumber uint64) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	now := uint64(sdkCtx.BlockTime().Unix())
 
-	entry, found, err := k.GetChainMeta(ctx, observedChainId)
+	entry, _, err := k.GetChainMeta(ctx, observedChainId)
 	if err != nil {
 		return sdkerrors.Wrap(err, "failed to fetch chain meta entry")
 	}
+	bootstrapped := entry.LastAppliedChainHeight > 0
 
-	if !found {
-		// First vote for this chain — no height check needed yet.
-		k.Logger().Info("chain meta first vote, initializing entry",
-			"chain_id", observedChainId,
-			"validator", universalValidator.String(),
-			"price", price,
-			"block_number", blockNumber,
-		)
-		priceBig := math.NewUint(price).BigInt()
-		chainHeightBig := math.NewUint(blockNumber).BigInt()
-		if _, evmErr := k.CallUniversalCoreSetChainMeta(sdkCtx, observedChainId, priceBig, chainHeightBig); evmErr != nil {
-			return sdkerrors.Wrap(evmErr, "failed to call EVM setChainMeta")
-		}
-
-		newEntry := types.ChainMeta{
-			ObservedChainId:        observedChainId,
-			Signers:                []string{universalValidator.String()},
-			Prices:                 []uint64{price},
-			ChainHeights:           []uint64{blockNumber},
-			StoredAts:              []uint64{now},
-			MedianIndex:            0,
-			LastAppliedChainHeight: blockNumber,
-		}
-		if err := k.SetChainMeta(ctx, observedChainId, newEntry); err != nil {
-			return sdkerrors.Wrap(err, "failed to set initial chain meta entry")
-		}
-
-		return nil
-	}
-
-	// Reject votes whose chain height has already been committed to the contract.
-	if blockNumber <= entry.LastAppliedChainHeight {
+	// Stale-height check applies only after bootstrap. During cold-start there
+	// is no committed reference height yet, so any positive vote is acceptable.
+	if bootstrapped && blockNumber <= entry.LastAppliedChainHeight {
 		k.Logger().Warn("chain meta vote rejected: stale block height",
 			"chain_id", observedChainId,
 			"validator", universalValidator.String(),
@@ -93,6 +85,11 @@ func (k Keeper) VoteChainMeta(ctx context.Context, universalValidator sdk.ValAdd
 			"vote chain height %d is not greater than last applied chain height %d; re-vote with a newer block",
 			blockNumber, entry.LastAppliedChainHeight,
 		)
+	}
+
+	// Ensure the entry has its observed-chain id set on first-ever vote.
+	if entry.ObservedChainId == "" {
+		entry.ObservedChainId = observedChainId
 	}
 
 	// Update or insert vote for this validator.
@@ -106,7 +103,6 @@ func (k Keeper) VoteChainMeta(ctx context.Context, universalValidator sdk.ValAdd
 			break
 		}
 	}
-
 	if !updated {
 		entry.Signers = append(entry.Signers, universalValidator.String())
 		entry.Prices = append(entry.Prices, price)
@@ -133,12 +129,27 @@ func (k Keeper) VoteChainMeta(ctx context.Context, universalValidator sdk.ValAdd
 		}
 	}
 
+	// Cold-start gate: the first EVM write requires at least N fresh votes
+	// so the oracle is never defined by a single validator. Once bootstrapped,
+	// the existing fresh-votes-median path handles every subsequent vote.
+	if !bootstrapped && len(fresh) < chainMetaMinVotesForFirstWrite {
+		k.Logger().Info("chain meta vote recorded, awaiting bootstrap quorum",
+			"chain_id", observedChainId,
+			"validator", universalValidator.String(),
+			"have_fresh_votes", len(fresh),
+			"need_fresh_votes", chainMetaMinVotesForFirstWrite,
+		)
+		if err := k.SetChainMeta(ctx, observedChainId, entry); err != nil {
+			return sdkerrors.Wrap(err, "failed to set chain meta entry during bootstrap")
+		}
+		return nil
+	}
+
 	if len(fresh) == 0 {
 		k.Logger().Debug("chain meta vote recorded, no fresh votes for EVM update",
 			"chain_id", observedChainId,
 			"validator", universalValidator.String(),
 		)
-		// No fresh votes — persist the updated entry but skip EVM call.
 		if err := k.SetChainMeta(ctx, observedChainId, entry); err != nil {
 			return sdkerrors.Wrap(err, "failed to set updated chain meta entry")
 		}

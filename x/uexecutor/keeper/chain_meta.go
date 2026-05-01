@@ -20,15 +20,12 @@ const (
 
 	// chainMetaMinVotesForFirstWrite is the number of fresh votes required
 	// before the first EVM oracle write happens for a given observed chain.
-	// This prevents a single validator from defining the oracle's initial
-	// values without aggregation. After bootstrap (LastAppliedChainHeight > 0),
+	// This prevents a single validator (or a single outlier) from defining
+	// the oracle's initial values. With 3 votes, the upper median (index
+	// len/2 = 1) is the middle value, which is robust against a single
+	// outlier on either side. After bootstrap (LastAppliedChainHeight > 0),
 	// the normal median-on-each-fresh-vote behaviour applies.
-	//
-	// Note on the tradeoff: median of 2 returns the upper of the two values,
-	// so a single outlier validator can still sway the bootstrap write.
-	// Raising this to 3 would make the bootstrap median robust against one
-	// outlier, at the cost of needing one more vote to initialise the oracle.
-	chainMetaMinVotesForFirstWrite int = 2
+	chainMetaMinVotesForFirstWrite int = 3
 )
 
 func (k Keeper) GetChainMeta(ctx context.Context, chainID string) (types.ChainMeta, bool, error) {

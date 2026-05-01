@@ -57,7 +57,10 @@ func TestVoteChainMetaIntegration(t *testing.T) {
 	t.Parallel()
 	chainId := "eip155:11155111"
 
-	t.Run("single validator vote stores chain meta", func(t *testing.T) {
+	t.Run("single validator vote stores chain meta but does not bootstrap oracle", func(t *testing.T) {
+		// With chainMetaMinVotesForFirstWrite = 2, a single vote is recorded in
+		// state but does NOT trigger an EVM oracle write. LastAppliedChainHeight
+		// stays 0 until at least 2 fresh votes accumulate.
 		testApp, ctx, uvals, vals := setupVoteChainMetaTest(t, 1)
 
 		coreVal, err := sdk.ValAddressFromBech32(vals[0].OperatorAddress)
@@ -76,7 +79,29 @@ func TestVoteChainMetaIntegration(t *testing.T) {
 		require.Equal(t, uint64(12345), stored.ChainHeights[0])
 		require.Len(t, stored.StoredAts, 1)
 		require.Equal(t, uint64(ctx.BlockTime().Unix()), stored.StoredAts[0])
-		require.Equal(t, uint64(12345), stored.LastAppliedChainHeight)
+		require.Equal(t, uint64(0), stored.LastAppliedChainHeight, "single vote should not bootstrap the oracle")
+	})
+
+	t.Run("second fresh vote bootstraps the oracle and sets LastAppliedChainHeight", func(t *testing.T) {
+		testApp, ctx, uvals, vals := setupVoteChainMetaTest(t, 2)
+
+		coreAccs := make([]string, 2)
+		for i := range vals {
+			coreVal, _ := sdk.ValAddressFromBech32(vals[i].OperatorAddress)
+			coreAccs[i] = sdk.AccAddress(coreVal).String()
+		}
+
+		// First vote — stored only, no EVM write yet
+		require.NoError(t, utils.ExecVoteChainMeta(t, ctx, testApp, uvals[0], coreAccs[0], chainId, 100_000_000_000, 12345))
+		stored, _, _ := testApp.UexecutorKeeper.GetChainMeta(ctx, chainId)
+		require.Equal(t, uint64(0), stored.LastAppliedChainHeight)
+
+		// Second vote — now ≥2 fresh votes, EVM write happens with upper-median values
+		require.NoError(t, utils.ExecVoteChainMeta(t, ctx, testApp, uvals[1], coreAccs[1], chainId, 200_000_000_000, 12346))
+		stored, _, _ = testApp.UexecutorKeeper.GetChainMeta(ctx, chainId)
+		require.Len(t, stored.Prices, 2)
+		// Upper median of [100B, 200B] @ index 1 = 200B; same for heights [12345, 12346] = 12346
+		require.Equal(t, uint64(12346), stored.LastAppliedChainHeight)
 	})
 
 	t.Run("multiple validators vote and independent medians calculated", func(t *testing.T) {
@@ -156,27 +181,35 @@ func TestVoteChainMetaIntegration(t *testing.T) {
 	})
 
 	t.Run("vote rejected when chain height not greater than last applied", func(t *testing.T) {
-		testApp, ctx, uvals, vals := setupVoteChainMetaTest(t, 1)
+		// Bootstrap requires 2 fresh votes before LastAppliedChainHeight is set,
+		// so the height-staleness check only applies after both validators have voted.
+		testApp, ctx, uvals, vals := setupVoteChainMetaTest(t, 2)
 
-		coreVal, err := sdk.ValAddressFromBech32(vals[0].OperatorAddress)
-		require.NoError(t, err)
-		coreAcc := sdk.AccAddress(coreVal).String()
+		coreAccs := make([]string, 2)
+		for i := range vals {
+			coreVal, _ := sdk.ValAddressFromBech32(vals[i].OperatorAddress)
+			coreAccs[i] = sdk.AccAddress(coreVal).String()
+		}
 
-		// First vote — establishes lastAppliedChainHeight=100
-		require.NoError(t, utils.ExecVoteChainMeta(t, ctx, testApp, uvals[0], coreAcc, chainId, 100_000_000_000, 100))
+		// Two votes to bootstrap — heights 99 and 100. Upper median = 100, so LastApplied = 100.
+		require.NoError(t, utils.ExecVoteChainMeta(t, ctx, testApp, uvals[0], coreAccs[0], chainId, 100_000_000_000, 99))
+		require.NoError(t, utils.ExecVoteChainMeta(t, ctx, testApp, uvals[1], coreAccs[1], chainId, 100_000_000_000, 100))
+
+		stored, _, _ := testApp.UexecutorKeeper.GetChainMeta(ctx, chainId)
+		require.Equal(t, uint64(100), stored.LastAppliedChainHeight)
 
 		// Same height → rejected
-		err = utils.ExecVoteChainMeta(t, ctx, testApp, uvals[0], coreAcc, chainId, 200_000_000_000, 100)
+		err := utils.ExecVoteChainMeta(t, ctx, testApp, uvals[0], coreAccs[0], chainId, 200_000_000_000, 100)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "not greater than last applied chain height")
 
 		// Lower height → rejected
-		err = utils.ExecVoteChainMeta(t, ctx, testApp, uvals[0], coreAcc, chainId, 200_000_000_000, 99)
+		err = utils.ExecVoteChainMeta(t, ctx, testApp, uvals[0], coreAccs[0], chainId, 200_000_000_000, 99)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "not greater than last applied chain height")
 
 		// Higher height → accepted
-		require.NoError(t, utils.ExecVoteChainMeta(t, ctx, testApp, uvals[0], coreAcc, chainId, 200_000_000_000, 101))
+		require.NoError(t, utils.ExecVoteChainMeta(t, ctx, testApp, uvals[0], coreAccs[0], chainId, 200_000_000_000, 101))
 	})
 
 	t.Run("stale votes excluded from median", func(t *testing.T) {
@@ -322,13 +355,21 @@ func TestVoteChainMetaContractState(t *testing.T) {
 		height = uint64(12345)
 	)
 
-	testApp, ctx, uvals, vals := setupVoteChainMetaTest(t, 1)
+	// Bootstrap requires chainMetaMinVotesForFirstWrite (2) fresh votes before
+	// the EVM oracle is written. Both validators submit identical price/height
+	// so the upper median equals the voted values.
+	testApp, ctx, uvals, vals := setupVoteChainMetaTest(t, 2)
 
-	coreVal, err := sdk.ValAddressFromBech32(vals[0].OperatorAddress)
-	require.NoError(t, err)
-	coreAcc := sdk.AccAddress(coreVal).String()
+	coreAccs := make([]string, 2)
+	for i := range vals {
+		coreVal, err := sdk.ValAddressFromBech32(vals[i].OperatorAddress)
+		require.NoError(t, err)
+		coreAccs[i] = sdk.AccAddress(coreVal).String()
+	}
 
-	require.NoError(t, utils.ExecVoteChainMeta(t, ctx, testApp, uvals[0], coreAcc, chainId, price, height))
+	// Two agreeing votes → median == voted values, oracle is written.
+	require.NoError(t, utils.ExecVoteChainMeta(t, ctx, testApp, uvals[0], coreAccs[0], chainId, price, height))
+	require.NoError(t, utils.ExecVoteChainMeta(t, ctx, testApp, uvals[1], coreAccs[1], chainId, price, height))
 
 	// Read from the UniversalCore contract using the public mapping getters
 	universalCoreAddr := utils.GetDefaultAddresses().HandlerAddr

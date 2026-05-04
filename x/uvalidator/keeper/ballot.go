@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
+
 	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
@@ -116,6 +118,11 @@ func (k Keeper) DeleteBallot(ctx context.Context, id string) error {
 // active/expired set membership is in its final shape (defensive CEI-style
 // ordering; collections.KeySet.Remove is a no-op on absent keys, so retries
 // remain safe).
+//
+// Fires the BallotHooks terminal callback (if registered) AFTER all writes
+// have committed. Hook errors are logged but do NOT block the terminal
+// transition — the terminal status is the desired outcome regardless of
+// secondary-index side-effect failure.
 func (k Keeper) MarkBallotExpired(ctx context.Context, id string) error {
 	ballot, err := k.Ballots.Get(ctx, id)
 	if err != nil {
@@ -135,12 +142,21 @@ func (k Keeper) MarkBallotExpired(ctx context.Context, id string) error {
 	}
 
 	ballot.Status = types.BallotStatus_BALLOT_STATUS_EXPIRED
-	return k.Ballots.Set(ctx, id, ballot)
+	if err := k.Ballots.Set(ctx, id, ballot); err != nil {
+		return err
+	}
+
+	k.fireBallotTerminalHook(ctx, ballot.Id, ballot.BallotType, types.BallotStatus_BALLOT_STATUS_EXPIRED)
+	return nil
 }
 
 // MarkBallotFinalized moves a ballot from active to finalized (PASSED or REJECTED).
 // Side-effect ordering matches MarkBallotExpired: secondary indexes are
 // updated before the canonical ballot record is rewritten with its final status.
+//
+// Fires the BallotHooks terminal callback (if registered) AFTER all writes
+// have committed. Hook errors are logged but do NOT block the terminal
+// transition.
 func (k Keeper) MarkBallotFinalized(ctx context.Context, id string, status types.BallotStatus) error {
 	if status != types.BallotStatus_BALLOT_STATUS_PASSED && status != types.BallotStatus_BALLOT_STATUS_REJECTED {
 		return fmt.Errorf("invalid finalization status: %v", status)
@@ -164,7 +180,35 @@ func (k Keeper) MarkBallotFinalized(ctx context.Context, id string, status types
 	}
 
 	ballot.Status = status
-	return k.Ballots.Set(ctx, id, ballot)
+	if err := k.Ballots.Set(ctx, id, ballot); err != nil {
+		return err
+	}
+
+	k.fireBallotTerminalHook(ctx, ballot.Id, ballot.BallotType, status)
+	return nil
+}
+
+// fireBallotTerminalHook invokes the registered BallotHooks (if any) and
+// log-swallows any error. Terminal transitions must never be blocked by
+// secondary-index side-effect failure.
+func (k Keeper) fireBallotTerminalHook(
+	ctx context.Context,
+	ballotID string,
+	ballotType types.BallotObservationType,
+	status types.BallotStatus,
+) {
+	if k.ballotHooks == nil {
+		return
+	}
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	if err := k.ballotHooks.AfterBallotTerminal(sdkCtx, ballotID, ballotType, status); err != nil {
+		k.Logger().Warn("ballot terminal hook returned error",
+			"ballot_id", ballotID,
+			"ballot_type", ballotType.String(),
+			"status", status.String(),
+			"err", err.Error(),
+		)
+	}
 }
 
 // ExpireBallotsBeforeHeight checks active ballots and marks expired ones.

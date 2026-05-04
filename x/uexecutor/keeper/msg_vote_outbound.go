@@ -75,6 +75,18 @@ func (k Keeper) VoteOutbound(
 		return err
 	}
 
+	// Step 3b: Record this validator's vote in the per-outbound PendingOutbounds
+	// entry (variant-aware audit trail). Each unique ObservedTx payload becomes
+	// its own variant; multiple variants per outbound_id indicate validator
+	// divergence on the destination-chain observation.
+	ballotKey, err := types.GetOutboundBallotKey(utxId, outboundId, observedTx)
+	if err != nil {
+		return fmt.Errorf("failed to derive outbound ballot key: %w", err)
+	}
+	if err := k.RecordOutboundVote(tmpCtx, outboundId, observedTx, universalValidator.String(), ballotKey); err != nil {
+		return err
+	}
+
 	commit()
 
 	// Step 4: Exit if not finalized yet

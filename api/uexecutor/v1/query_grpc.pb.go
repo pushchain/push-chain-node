@@ -29,6 +29,7 @@ const (
 	Query_AllChainMetas_FullMethodName       = "/uexecutor.v1.Query/AllChainMetas"
 	Query_GetPendingOutbound_FullMethodName  = "/uexecutor.v1.Query/GetPendingOutbound"
 	Query_AllPendingOutbounds_FullMethodName = "/uexecutor.v1.Query/AllPendingOutbounds"
+	Query_AllExpiredInbounds_FullMethodName  = "/uexecutor.v1.Query/AllExpiredInbounds"
 )
 
 // QueryClient is the client API for Query service.
@@ -55,6 +56,10 @@ type QueryClient interface {
 	GetPendingOutbound(ctx context.Context, in *QueryGetPendingOutboundRequest, opts ...grpc.CallOption) (*QueryGetPendingOutboundResponse, error)
 	// Get all pending outbounds (paginated)
 	AllPendingOutbounds(ctx context.Context, in *QueryAllPendingOutboundsRequest, opts ...grpc.CallOption) (*QueryAllPendingOutboundsResponse, error)
+	// Queries all expired inbound entries (per-variant audit trail of
+	// inbounds whose ballots all reached EXPIRED/REJECTED without producing
+	// a UniversalTx). Consumed by the future escape-hatch refund flow.
+	AllExpiredInbounds(ctx context.Context, in *QueryAllExpiredInboundsRequest, opts ...grpc.CallOption) (*QueryAllExpiredInboundsResponse, error)
 }
 
 type queryClient struct {
@@ -155,6 +160,15 @@ func (c *queryClient) AllPendingOutbounds(ctx context.Context, in *QueryAllPendi
 	return out, nil
 }
 
+func (c *queryClient) AllExpiredInbounds(ctx context.Context, in *QueryAllExpiredInboundsRequest, opts ...grpc.CallOption) (*QueryAllExpiredInboundsResponse, error) {
+	out := new(QueryAllExpiredInboundsResponse)
+	err := c.cc.Invoke(ctx, Query_AllExpiredInbounds_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // QueryServer is the server API for Query service.
 // All implementations must embed UnimplementedQueryServer
 // for forward compatibility
@@ -179,6 +193,10 @@ type QueryServer interface {
 	GetPendingOutbound(context.Context, *QueryGetPendingOutboundRequest) (*QueryGetPendingOutboundResponse, error)
 	// Get all pending outbounds (paginated)
 	AllPendingOutbounds(context.Context, *QueryAllPendingOutboundsRequest) (*QueryAllPendingOutboundsResponse, error)
+	// Queries all expired inbound entries (per-variant audit trail of
+	// inbounds whose ballots all reached EXPIRED/REJECTED without producing
+	// a UniversalTx). Consumed by the future escape-hatch refund flow.
+	AllExpiredInbounds(context.Context, *QueryAllExpiredInboundsRequest) (*QueryAllExpiredInboundsResponse, error)
 	mustEmbedUnimplementedQueryServer()
 }
 
@@ -215,6 +233,9 @@ func (UnimplementedQueryServer) GetPendingOutbound(context.Context, *QueryGetPen
 }
 func (UnimplementedQueryServer) AllPendingOutbounds(context.Context, *QueryAllPendingOutboundsRequest) (*QueryAllPendingOutboundsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AllPendingOutbounds not implemented")
+}
+func (UnimplementedQueryServer) AllExpiredInbounds(context.Context, *QueryAllExpiredInboundsRequest) (*QueryAllExpiredInboundsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AllExpiredInbounds not implemented")
 }
 func (UnimplementedQueryServer) mustEmbedUnimplementedQueryServer() {}
 
@@ -409,6 +430,24 @@ func _Query_AllPendingOutbounds_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Query_AllExpiredInbounds_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryAllExpiredInboundsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).AllExpiredInbounds(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_AllExpiredInbounds_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).AllExpiredInbounds(ctx, req.(*QueryAllExpiredInboundsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Query_ServiceDesc is the grpc.ServiceDesc for Query service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -455,6 +494,10 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AllPendingOutbounds",
 			Handler:    _Query_AllPendingOutbounds_Handler,
+		},
+		{
+			MethodName: "AllExpiredInbounds",
+			Handler:    _Query_AllExpiredInbounds_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

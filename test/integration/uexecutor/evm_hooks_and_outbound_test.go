@@ -23,6 +23,8 @@ import (
 // ---------------------------------------------------------------------------
 
 func TestQueryAllPendingInbounds(t *testing.T) {
+	const voter = "cosmosvaloper1testvoter000000000000000000000000000"
+
 	t.Run("empty result when no pending inbounds", func(t *testing.T) {
 		app, ctx, _ := utils.SetAppWithValidators(t)
 
@@ -34,10 +36,10 @@ func TestQueryAllPendingInbounds(t *testing.T) {
 		)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
-		require.Empty(t, resp.InboundIds)
+		require.Empty(t, resp.Entries)
 	})
 
-	t.Run("returns inbound ids after adding pending inbounds", func(t *testing.T) {
+	t.Run("returns entries after recording inbound votes", func(t *testing.T) {
 		app, ctx, _ := utils.SetAppWithValidators(t)
 
 		inbound1 := uexecutortypes.Inbound{
@@ -51,11 +53,13 @@ func TestQueryAllPendingInbounds(t *testing.T) {
 			LogIndex:    "0",
 		}
 
-		err := app.UexecutorKeeper.AddPendingInbound(ctx, inbound1)
+		ballotKey1, err := uexecutortypes.GetInboundBallotKey(inbound1)
+		require.NoError(t, err)
+		ballotKey2, err := uexecutortypes.GetInboundBallotKey(inbound2)
 		require.NoError(t, err)
 
-		err = app.UexecutorKeeper.AddPendingInbound(ctx, inbound2)
-		require.NoError(t, err)
+		require.NoError(t, app.UexecutorKeeper.RecordInboundVote(ctx, inbound1, voter, ballotKey1))
+		require.NoError(t, app.UexecutorKeeper.RecordInboundVote(ctx, inbound2, voter, ballotKey2))
 
 		resp, err := app.UexecutorKeeper.AllPendingInbounds(
 			sdk.WrapSDKContext(ctx),
@@ -65,14 +69,16 @@ func TestQueryAllPendingInbounds(t *testing.T) {
 		)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
-		require.Len(t, resp.InboundIds, 2)
+		require.Len(t, resp.Entries, 2)
 
 		expectedKey1 := uexecutortypes.GetInboundUniversalTxKey(inbound1)
 		expectedKey2 := uexecutortypes.GetInboundUniversalTxKey(inbound2)
 
-		idSet := make(map[string]bool, len(resp.InboundIds))
-		for _, id := range resp.InboundIds {
-			idSet[id] = true
+		idSet := make(map[string]bool, len(resp.Entries))
+		for _, e := range resp.Entries {
+			idSet[e.UtxKey] = true
+			require.Len(t, e.Variants, 1, "each entry has one variant from the single voter")
+			require.Equal(t, []string{voter}, e.Variants[0].Voters)
 		}
 		require.True(t, idSet[expectedKey1], "expected key for inbound1 to be present")
 		require.True(t, idSet[expectedKey2], "expected key for inbound2 to be present")
@@ -85,7 +91,7 @@ func TestQueryAllPendingInbounds(t *testing.T) {
 		require.Error(t, err)
 	})
 
-	t.Run("adding same inbound twice does not create duplicate entries", func(t *testing.T) {
+	t.Run("recording same vote twice does not create duplicate entries or voters", func(t *testing.T) {
 		app, ctx, _ := utils.SetAppWithValidators(t)
 
 		inbound := uexecutortypes.Inbound{
@@ -93,13 +99,12 @@ func TestQueryAllPendingInbounds(t *testing.T) {
 			TxHash:      "0xduplicate001",
 			LogIndex:    "0",
 		}
-
-		err := app.UexecutorKeeper.AddPendingInbound(ctx, inbound)
+		ballotKey, err := uexecutortypes.GetInboundBallotKey(inbound)
 		require.NoError(t, err)
 
-		// Adding again must be idempotent
-		err = app.UexecutorKeeper.AddPendingInbound(ctx, inbound)
-		require.NoError(t, err)
+		require.NoError(t, app.UexecutorKeeper.RecordInboundVote(ctx, inbound, voter, ballotKey))
+		// Recording again with the same voter must be idempotent.
+		require.NoError(t, app.UexecutorKeeper.RecordInboundVote(ctx, inbound, voter, ballotKey))
 
 		resp, err := app.UexecutorKeeper.AllPendingInbounds(
 			sdk.WrapSDKContext(ctx),
@@ -108,7 +113,9 @@ func TestQueryAllPendingInbounds(t *testing.T) {
 			},
 		)
 		require.NoError(t, err)
-		require.Len(t, resp.InboundIds, 1, "duplicate add must not create a second entry")
+		require.Len(t, resp.Entries, 1, "duplicate vote must not create a second entry")
+		require.Len(t, resp.Entries[0].Variants, 1)
+		require.Len(t, resp.Entries[0].Variants[0].Voters, 1, "duplicate voter must not be appended")
 	})
 }
 

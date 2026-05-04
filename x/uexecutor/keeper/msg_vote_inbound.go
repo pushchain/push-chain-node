@@ -50,8 +50,14 @@ func (k Keeper) VoteInbound(ctx context.Context, universalValidator sdk.ValAddre
 	// use a temporary context to not commit any ballot state change in case of error
 	tmpCtx, commit := sdkCtx.CacheContext()
 
-	// Step 2: Add inbound synthetic to pending set - adds if not present, else does nothing
-	if err := k.AddPendingInbound(tmpCtx, inbound); err != nil {
+	// Step 2: Record this validator's vote in the per-utx PendingInbounds entry
+	// (variant-aware audit trail). Each unique Inbound payload becomes its own
+	// variant; multiple variants per utx_key indicate validator divergence.
+	ballotKey, err := types.GetInboundBallotKey(inbound)
+	if err != nil {
+		return errors.Wrap(err, "failed to derive inbound ballot key")
+	}
+	if err := k.RecordInboundVote(tmpCtx, inbound, universalValidator.String(), ballotKey); err != nil {
 		return err
 	}
 

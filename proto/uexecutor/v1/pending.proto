@@ -1,0 +1,107 @@
+syntax = "proto3";
+package uexecutor.v1;
+
+import "gogoproto/gogo.proto";
+import "uexecutor/v1/types.proto";
+import "uvalidator/v1/ballot.proto";
+
+option go_package = "github.com/pushchain/push-chain-node/x/uexecutor/types";
+
+// ========================================================================
+// Per-variant audit-trail types for PendingInbounds and PendingOutbounds.
+//
+// Background: when validators observe the same source-chain inbound or
+// destination-chain outbound, byte-level differences in their submitted
+// payloads (different decoded fields, formatting, etc.) produce different
+// ballot keys and therefore separate ballots. The variant types below
+// preserve, on-chain, which validators voted what payload — so operators
+// (and the future escape-hatch refund flow) can investigate stuck items.
+//
+// See:
+//   plan-pending-inbound-cleanup.md
+//   plan-pending-outbound-cleanup.md
+// ========================================================================
+
+// InboundVariant captures one Inbound payload variant submitted by one
+// or more validators against a single logical inbound event (identified
+// by the UTX key = sha256(source_chain:tx_hash:log_index)). Multiple
+// variants may exist for the same UTX key when validators marshal
+// slightly different bytes for the same logical event.
+message InboundVariant {
+  option (gogoproto.equal) = true;
+
+  // ballot_id == hex(marshal(Inbound)) — the ballot key used by uvalidator.
+  string ballot_id = 1;
+  // The full Inbound payload exactly as voted (the bytes that produced
+  // this ballot_id).
+  Inbound inbound = 2;
+  // Validator addresses (bech32) that voted on this exact variant.
+  repeated string voters = 3;
+  // Block height of the first vote on this variant.
+  uint64 first_voted_at_height = 4;
+  // Block height of the most recent vote on this variant.
+  uint64 last_voted_at_height = 5;
+  // Terminal status of this variant's ballot. PENDING while in-flight.
+  // Populated by the uvalidator BallotHooks terminal callback.
+  uvalidator.v1.BallotStatus terminal_status = 6;
+}
+
+// PendingInboundEntry tracks all ballot variants for a single logical
+// inbound event (identified by utx_key). Created by the first vote
+// (RecordInboundVote). Removed only when ALL variants reach a terminal
+// state. If any variant ended PASSED, the existing post-finalization
+// path produces the UniversalTx. If ALL variants ended EXPIRED/REJECTED,
+// the entry is moved to ExpiredInbounds.
+message PendingInboundEntry {
+  option (gogoproto.equal) = true;
+
+  // sha256(source_chain:tx_hash:log_index) — same key used by
+  // GetInboundUniversalTxKey and the UniversalTx record (when it
+  // eventually exists).
+  string utx_key = 1;
+  repeated InboundVariant variants = 2 [(gogoproto.nullable) = false];
+  // Block height when this entry was created (first vote on any variant).
+  uint64 created_at_height = 3;
+}
+
+// ExpiredInboundEntry preserves the full per-variant audit trail of an
+// inbound that failed to reach quorum on any variant. Consumed by the
+// future escape-hatch refund flow.
+message ExpiredInboundEntry {
+  option (gogoproto.equal) = true;
+
+  string utx_key = 1;
+  // Each variant carries its terminal_status (EXPIRED or REJECTED).
+  repeated InboundVariant variants = 2 [(gogoproto.nullable) = false];
+  // Block height when the entry was moved here (i.e. when the LAST
+  // variant's ballot reached a terminal state).
+  uint64 expired_at_height = 3;
+}
+
+// OutboundObservationVariant captures one OutboundObservation variant
+// submitted by one or more validators against a single outbound (the
+// outbound itself is deterministic — chain-side at outbound creation —
+// so all variants share the same outbound_id). Multiple variants exist
+// when validators see different destination-chain results (different
+// success/tx_hash/error_msg/gas_fee_used).
+//
+// NOTE: Unlike inbound variants, outbound variants do not carry a
+// terminal_status field. Outbound PendingOutbounds entries persist
+// until validators reach consensus (existing inline removal in
+// msg_vote_outbound.go on PASSED). Operators investigate stuck
+// outbounds by correlating each variant's ballot_id with the
+// uvalidator ballot status separately.
+message OutboundObservationVariant {
+  option (gogoproto.equal) = true;
+
+  // ballot_id == sha256(utxId:outboundId:marshal(observedTx)).
+  string ballot_id = 1;
+  // The exact OutboundObservation that produced this ballot_id.
+  OutboundObservation observed_tx = 2 [(gogoproto.nullable) = false];
+  // Validator addresses (bech32) that voted on this exact variant.
+  repeated string voters = 3;
+  // Block height of the first vote on this variant.
+  uint64 first_voted_at_height = 4;
+  // Block height of the most recent vote on this variant.
+  uint64 last_voted_at_height = 5;
+}

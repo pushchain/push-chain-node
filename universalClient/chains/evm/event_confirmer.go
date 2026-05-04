@@ -145,6 +145,19 @@ func (ec *EventConfirmer) processPendingEvents(ctx context.Context) error {
 			continue
 		}
 
+		// eth_getLogs only returns logs from txs with receipt status 1, so this
+		// branch should never fire on a healthy RPC. Kept as defense-in-depth and
+		// for symmetry with the SVM confirmer, which has a real path here.
+		if receipt.Status != 1 {
+			if _, updateErr := ec.chainStore.UpdateEventStatus(event.EventID, store.StatusPending, store.StatusReverted); updateErr != nil {
+				ec.logger.Error().
+					Err(updateErr).
+					Str("event_id", event.EventID).
+					Msg("failed to mark failed-tx event as REVERTED")
+			}
+			continue
+		}
+
 		// Check if transaction is confirmed based on confirmation type
 		requiredConfirmations := ec.getRequiredConfirmations(event.ConfirmationType)
 		confirmations := latestBlock - receipt.BlockNumber.Uint64() + 1

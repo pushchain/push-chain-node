@@ -205,20 +205,48 @@ func (k Querier) AllUniversalTx(goCtx context.Context, req *types.QueryAllUniver
 }
 
 // AllPendingInbounds implements types.QueryServer.
+//
+// Returns full per-variant audit-trail entries (which validators voted what
+// payload, terminal status per variant). This replaces the previous
+// "list of UTX keys" response shape — callers that previously consumed
+// inbound_ids should switch to entries[].utx_key.
 func (k Keeper) AllPendingInbounds(goCtx context.Context, req *types.QueryAllPendingInboundsRequest) (*types.QueryAllPendingInboundsResponse, error) {
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid request")
 	}
 	ctx := sdk.UnwrapSDKContext(goCtx)
-	inbounds, pageRes, err := query.CollectionPaginate(ctx, k.PendingInbounds, req.Pagination, func(key string, _ collections.NoValue) (string, error) {
-		return key, nil
+	entries, pageRes, err := query.CollectionPaginate(ctx, k.PendingInbounds, req.Pagination, func(_ string, value types.PendingInboundEntry) (types.PendingInboundEntry, error) {
+		return value, nil
 	})
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	return &types.QueryAllPendingInboundsResponse{
-		InboundIds: inbounds,
+		Entries:    entries,
+		Pagination: pageRes,
+	}, nil
+}
+
+// AllExpiredInbounds implements types.QueryServer.
+//
+// Returns the full per-variant audit trail of inbounds whose ballots all
+// reached EXPIRED/REJECTED without producing a UniversalTx. Consumed by
+// the future escape-hatch refund flow.
+func (k Keeper) AllExpiredInbounds(goCtx context.Context, req *types.QueryAllExpiredInboundsRequest) (*types.QueryAllExpiredInboundsResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid request")
+	}
+	ctx := sdk.UnwrapSDKContext(goCtx)
+	entries, pageRes, err := query.CollectionPaginate(ctx, k.ExpiredInbounds, req.Pagination, func(_ string, value types.ExpiredInboundEntry) (types.ExpiredInboundEntry, error) {
+		return value, nil
+	})
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &types.QueryAllExpiredInboundsResponse{
+		Entries:    entries,
 		Pagination: pageRes,
 	}, nil
 }

@@ -19,8 +19,11 @@ var (
 	ChainConfigsKey  = collections.NewPrefix(1) // ChainConfigsKey saves the current module chainConfigs collection prefix
 	ChainConfigsName = "chain_configs"          // ChainConfigsName is the name of the chainConfigs collection.
 
-	InboundsKey  = collections.NewPrefix(2)
-	InboundsName = "inbound_synthetics"
+	// PendingInboundsKey stores the per-variant audit trail of in-flight
+	// inbounds (Map[utx_key → PendingInboundEntry]). See
+	// plan-pending-inbound-cleanup.md.
+	PendingInboundsKey  = collections.NewPrefix(2)
+	PendingInboundsName = "pending_inbounds"
 
 	UniversalTxKey  = collections.NewPrefix(3)
 	UniversalTxName = "universal_tx"
@@ -36,6 +39,13 @@ var (
 
 	PendingOutboundsKey  = collections.NewPrefix(7)
 	PendingOutboundsName = "pending_outbounds"
+
+	// ExpiredInboundsKey stores the per-variant audit trail of inbounds
+	// whose ballots all reached a terminal-failure state (EXPIRED/REJECTED)
+	// without producing a UniversalTx. Consumed by the future escape-hatch
+	// refund flow. See plan-pending-inbound-cleanup.md.
+	ExpiredInboundsKey  = collections.NewPrefix(8)
+	ExpiredInboundsName = "expired_inbounds"
 )
 
 const (

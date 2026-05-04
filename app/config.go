@@ -59,7 +59,7 @@ func EVMAppOptions(chainID string) error {
 		return err
 	}
 
-	ethCfg := evmtypes.DefaultChainConfig(chainID)
+	ethCfg := evmtypes.DefaultChainConfig(EVMChainID)
 
 	err := evmtypes.NewEVMConfigurator().
 		WithChainConfig(ethCfg).

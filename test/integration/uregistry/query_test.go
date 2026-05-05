@@ -60,9 +60,12 @@ func TestQueryParams(t *testing.T) {
 	querier := uregistrykeeper.NewQuerier(chainApp.UregistryKeeper)
 
 	// The full test app does not run InitChain, so uregistry Params are not
-	// seeded automatically. Seed them here before exercising the query.
-	defaultParams := uregistrytypes.DefaultParams()
-	err := chainApp.UregistryKeeper.Params.Set(ctx, defaultParams)
+	// seeded automatically. Seed an explicit admin here — DefaultParams() now
+	// returns an empty Admin (production operators must set it explicitly in
+	// genesis), so the query test supplies its own.
+	const testAdmin = "push1negskcfqu09j5zvpk7nhvacnwyy2mafffy7r6a"
+	params := uregistrytypes.Params{Admin: testAdmin}
+	err := chainApp.UregistryKeeper.Params.Set(ctx, params)
 	require.NoError(t, err)
 
 	resp, err := querier.Params(sdk.WrapSDKContext(ctx), &uregistrytypes.QueryParamsRequest{})
@@ -70,7 +73,7 @@ func TestQueryParams(t *testing.T) {
 	require.NotNil(t, resp)
 	require.NotNil(t, resp.Params)
 	require.NotEmpty(t, resp.Params.Admin)
-	require.Equal(t, defaultParams.Admin, resp.Params.Admin)
+	require.Equal(t, testAdmin, resp.Params.Admin)
 }
 
 // TestQueryChainConfig verifies that a stored chain config is returned by the

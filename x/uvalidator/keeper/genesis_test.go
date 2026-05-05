@@ -12,7 +12,7 @@ func TestGenesis(t *testing.T) {
 	f := SetupTest(t)
 
 	genesisState := &types.GenesisState{
-		Params: types.DefaultParams(),
+		Params: types.Params{Admin: f.addrs[0].String()},
 	}
 
 	f.k.InitGenesis(f.ctx, genesisState)
@@ -23,7 +23,7 @@ func TestGenesis(t *testing.T) {
 
 func TestGenesisExportImportRoundTrip(t *testing.T) {
 	f := SetupTest(t)
-	f.k.InitGenesis(f.ctx, &types.GenesisState{Params: types.DefaultParams()})
+	f.k.InitGenesis(f.ctx, &types.GenesisState{Params: types.Params{Admin: f.addrs[0].String()}})
 
 	// Populate state: add a universal validator
 	valAddr := sdk.ValAddress(f.addrs[0])

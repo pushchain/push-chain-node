@@ -190,11 +190,13 @@ func TestGetUniversalValidator(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestQueryParams(t *testing.T) {
+	// DefaultParams() now returns an empty Admin (production operators must
+	// set it explicitly in genesis), so the query tests supply their own.
+	const testAdmin = "push1negskcfqu09j5zvpk7nhvacnwyy2mafffy7r6a"
+
 	t.Run("returns module params without error", func(t *testing.T) {
 		chainApp, ctx, _, _ := utils.SetAppWithMultipleValidators(t, 1)
-		// Initialize params so they exist in state
-		defaultParams := uvalidatortypes.DefaultParams()
-		require.NoError(t, chainApp.UvalidatorKeeper.Params.Set(ctx, defaultParams))
+		require.NoError(t, chainApp.UvalidatorKeeper.Params.Set(ctx, uvalidatortypes.Params{Admin: testAdmin}))
 
 		querier := uvalidatorkeepermod.NewQuerier(chainApp.UvalidatorKeeper)
 
@@ -204,16 +206,15 @@ func TestQueryParams(t *testing.T) {
 		require.NotNil(t, resp.Params)
 	})
 
-	t.Run("returned admin matches default params", func(t *testing.T) {
+	t.Run("returned admin matches stored params", func(t *testing.T) {
 		chainApp, ctx, _, _ := utils.SetAppWithMultipleValidators(t, 1)
-		defaultParams := uvalidatortypes.DefaultParams()
-		require.NoError(t, chainApp.UvalidatorKeeper.Params.Set(ctx, defaultParams))
+		require.NoError(t, chainApp.UvalidatorKeeper.Params.Set(ctx, uvalidatortypes.Params{Admin: testAdmin}))
 
 		querier := uvalidatorkeepermod.NewQuerier(chainApp.UvalidatorKeeper)
 
 		resp, err := querier.Params(ctx, &uvalidatortypes.QueryParamsRequest{})
 		require.NoError(t, err)
-		require.NotEmpty(t, resp.Params.Admin)
+		require.Equal(t, testAdmin, resp.Params.Admin)
 	})
 }
 

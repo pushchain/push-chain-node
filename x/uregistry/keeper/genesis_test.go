@@ -12,7 +12,7 @@ func TestGenesis(t *testing.T) {
 
 	// Use Exported=true to skip contract deployment (no real EVM keeper in unit tests)
 	genesisState := &types.GenesisState{
-		Params:   types.DefaultParams(),
+		Params:   types.Params{Admin: f.addrs[0].String()},
 		Exported: true,
 	}
 	f.k.InitGenesis(f.ctx, genesisState)
@@ -23,7 +23,7 @@ func TestGenesis(t *testing.T) {
 
 func TestGenesisExportImportRoundTrip(t *testing.T) {
 	f := SetupTest(t)
-	f.k.InitGenesis(f.ctx, &types.GenesisState{Params: types.DefaultParams(), Exported: true})
+	f.k.InitGenesis(f.ctx, &types.GenesisState{Params: types.Params{Admin: f.addrs[0].String()}, Exported: true})
 
 	// Populate state: ChainConfigs
 	chainConfig := types.ChainConfig{
@@ -69,7 +69,7 @@ func TestGenesisExportedSkipsDeployment(t *testing.T) {
 	f := SetupTest(t)
 
 	exported := &types.GenesisState{
-		Params:   types.DefaultParams(),
+		Params:   types.Params{Admin: f.addrs[0].String()},
 		Exported: true,
 	}
 	// Should not panic — Exported=true skips contract deployment

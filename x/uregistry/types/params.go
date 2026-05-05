@@ -6,11 +6,10 @@ import (
 	"strings"
 )
 
-// DefaultParams returns default module parameters.
+// Default Admin needs to be added explicityly in genesis file
 func DefaultParams() Params {
-	// TODO:
 	return Params{
-		Admin: "push1negskcfqu09j5zvpk7nhvacnwyy2mafffy7r6a",
+		Admin: "",
 	}
 }
 

@@ -87,7 +87,7 @@ jobs:
             git push --delete origin "$FULL_TAG" || true
           fi
 
-          git tag -a "$FULL_TAG" "$COMMIT_REF" -m "Release $FULL_TAG"
+          git tag -a "$FULL_TAG" HEAD -m "Release $FULL_TAG"
           git push origin "$FULL_TAG"
 
       - name: Set up Go

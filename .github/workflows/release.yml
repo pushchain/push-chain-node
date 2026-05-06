@@ -571,6 +571,42 @@ jobs:
 
           cat changelog.md
 
+      - name: Build Cosmovisor upgrade-info JSON
+        id: cosmovisor
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          VERSION_NO_V="${VERSION#v}"
+          REPO="${{ github.repository }}"
+          BASE_URL="https://github.com/${REPO}/releases/download/${VERSION}"
+          PROJECT="${PROJECT_NAME}"
+
+          read_hash() {
+            awk '{print $1}' "release/${PROJECT}_${VERSION_NO_V}_$1.tar.gz.sha256"
+          }
+
+          DARWIN_ARM64_HASH=$(read_hash darwin_arm64)
+          LINUX_AMD64_HASH=$(read_hash linux_amd64)
+          LINUX_ARM64_HASH=$(read_hash linux_arm64)
+
+          JSON=$(cat <<JSON
+          {
+            "binaries": {
+              "darwin/arm64": "${BASE_URL}/${PROJECT}_${VERSION_NO_V}_darwin_arm64.tar.gz?checksum=sha256:${DARWIN_ARM64_HASH}",
+              "linux/amd64": "${BASE_URL}/${PROJECT}_${VERSION_NO_V}_linux_amd64.tar.gz?checksum=sha256:${LINUX_AMD64_HASH}",
+              "linux/arm64": "${BASE_URL}/${PROJECT}_${VERSION_NO_V}_linux_arm64.tar.gz?checksum=sha256:${LINUX_ARM64_HASH}"
+            }
+          }
+          JSON
+          )
+
+          echo "$JSON"
+
+          {
+            echo "json<<COSMOVISOR_EOF"
+            echo "$JSON"
+            echo "COSMOVISOR_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -584,6 +620,14 @@ jobs:
             | Linux | AMD64 (x86_64) | `${{ env.PROJECT_NAME }}_*_linux_amd64.tar.gz` |
             | Linux | ARM64 (aarch64) | `${{ env.PROJECT_NAME }}_*_linux_arm64.tar.gz` |
             | macOS | Apple Silicon (arm64) | `${{ env.PROJECT_NAME }}_*_darwin_arm64.tar.gz` |
+
+            ## 🚀 Cosmovisor upgrade-info
+
+            Use this payload as the `--upgrade-info` argument when submitting a software-upgrade governance proposal. URLs include `?checksum=sha256:…` so cosmovisor can verify auto-downloaded binaries.
+
+            ```json
+            ${{ steps.cosmovisor.outputs.json }}
+            ```
 
             ## ✅ Verification
 

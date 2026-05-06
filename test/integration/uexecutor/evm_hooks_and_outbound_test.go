@@ -9,6 +9,7 @@ import (
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 
@@ -269,7 +270,7 @@ func TestPostTxProcessing_NoMatchingLogs(t *testing.T) {
 		hooks := uexecutorkeeper.NewEVMHooks(app.UexecutorKeeper)
 
 		sender := common.HexToAddress(utils.GetDefaultAddresses().DefaultTestAddr)
-		err := hooks.PostTxProcessing(ctx, sender, nil, nil)
+		err := hooks.PostTxProcessing(ctx, sender, core.Message{}, nil)
 		require.NoError(t, err)
 	})
 
@@ -284,7 +285,7 @@ func TestPostTxProcessing_NoMatchingLogs(t *testing.T) {
 			Logs:    []*ethtypes.Log{},
 		}
 
-		err := hooks.PostTxProcessing(ctx, sender, nil, receipt)
+		err := hooks.PostTxProcessing(ctx, sender, core.Message{}, receipt)
 		require.NoError(t, err)
 	})
 
@@ -306,7 +307,7 @@ func TestPostTxProcessing_NoMatchingLogs(t *testing.T) {
 		}
 
 		// Should be a no-op: no UniversalTx should be created
-		err := hooks.PostTxProcessing(ctx, sender, nil, receipt)
+		err := hooks.PostTxProcessing(ctx, sender, core.Message{}, receipt)
 		require.NoError(t, err)
 
 		// Confirm no UTX was created
@@ -546,7 +547,7 @@ func TestPostTxProcessing_WithSyntheticOutboundEvent(t *testing.T) {
 		sender := common.HexToAddress(utils.GetDefaultAddresses().DefaultTestAddr)
 		hooks := uexecutorkeeper.NewEVMHooks(chainApp.UexecutorKeeper)
 
-		err = hooks.PostTxProcessing(ctx, sender, nil, receipt)
+		err = hooks.PostTxProcessing(ctx, sender, core.Message{}, receipt)
 		require.NoError(t, err)
 
 		querier := uexecutorkeeper.NewQuerier(chainApp.UexecutorKeeper)
@@ -613,7 +614,7 @@ func TestPostTxProcessing_WithSyntheticOutboundEvent(t *testing.T) {
 		sender := common.HexToAddress(utils.GetDefaultAddresses().DefaultTestAddr)
 		hooks := uexecutorkeeper.NewEVMHooks(chainApp.UexecutorKeeper)
 
-		err = hooks.PostTxProcessing(ctx, sender, nil, receipt)
+		err = hooks.PostTxProcessing(ctx, sender, core.Message{}, receipt)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "outbound is disabled")
 	})

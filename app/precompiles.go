@@ -5,6 +5,7 @@ import (
 	"maps"
 
 	evidencekeeper "cosmossdk.io/x/evidence/keeper"
+	"github.com/cosmos/cosmos-sdk/codec"
 	distributionkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
 	govkeeper "github.com/cosmos/cosmos-sdk/x/gov/keeper"
 	slashingkeeper "github.com/cosmos/cosmos-sdk/x/slashing/keeper"
@@ -43,6 +44,7 @@ func NewAvailableStaticPrecompiles(
 	govKeeper govkeeper.Keeper,
 	slashingKeeper slashingkeeper.Keeper,
 	evidenceKeeper evidencekeeper.Keeper,
+	appCodec codec.Codec,
 ) map[common.Address]vm.PrecompiledContract {
 	// Clone the mapping from the latest EVM fork.
 	precompiles := maps.Clone(vm.PrecompiledContractsBerlin)
@@ -55,13 +57,14 @@ func NewAvailableStaticPrecompiles(
 		panic(fmt.Errorf("failed to instantiate bech32 precompile: %w", err))
 	}
 
-	stakingPrecompile, err := stakingprecompile.NewPrecompile(stakingKeeper)
+	stakingPrecompile, err := stakingprecompile.NewPrecompile(stakingKeeper, bankKeeper)
 	if err != nil {
 		panic(fmt.Errorf("failed to instantiate staking precompile: %w", err))
 	}
 
 	distributionPrecompile, err := distprecompile.NewPrecompile(
 		distributionKeeper,
+		bankKeeper,
 		stakingKeeper,
 		evmKeeper,
 	)
@@ -71,6 +74,7 @@ func NewAvailableStaticPrecompiles(
 
 	ibcTransferPrecompile, err := ics20precompile.NewPrecompile(
 		stakingKeeper,
+		bankKeeper,
 		transferKeeper,
 		channelKeeper,
 		evmKeeper,
@@ -84,17 +88,17 @@ func NewAvailableStaticPrecompiles(
 		panic(fmt.Errorf("failed to instantiate bank precompile: %w", err))
 	}
 
-	govPrecompile, err := govprecompile.NewPrecompile(govKeeper)
+	govPrecompile, err := govprecompile.NewPrecompile(govKeeper, bankKeeper, appCodec)
 	if err != nil {
 		panic(fmt.Errorf("failed to instantiate gov precompile: %w", err))
 	}
 
-	slashingPrecompile, err := slashingprecompile.NewPrecompile(slashingKeeper)
+	slashingPrecompile, err := slashingprecompile.NewPrecompile(slashingKeeper, bankKeeper)
 	if err != nil {
 		panic(fmt.Errorf("failed to instantiate slashing precompile: %w", err))
 	}
 
-	evidencePrecompile, err := evidenceprecompile.NewPrecompile(evidenceKeeper)
+	evidencePrecompile, err := evidenceprecompile.NewPrecompile(evidenceKeeper, bankKeeper)
 	if err != nil {
 		panic(fmt.Errorf("failed to instantiate evidence precompile: %w", err))
 	}

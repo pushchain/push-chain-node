@@ -416,11 +416,12 @@ jobs:
 
       - name: Build dkls23-rs dependency
         run: |
-          # Build the go-dkls crate explicitly so libgodkls.dylib is produced.
-          # The workspace-root `cargo build` does not include go-dkls in default members.
-          cd dkls23-rs/wrapper/go-dkls
-          cargo build --release
-          cd ../../..
+          # Build go-dkls from the workspace root using `-p` so the wrapper's
+          # .cargo/config.toml (which injects Linux-only `-soname` linker flags)
+          # stays out of scope on macOS.
+          cd dkls23-rs
+          cargo build -p go-dkls --release
+          cd ..
           echo "Verifying libgodkls was built..."
           ls -la dkls23-rs/target/release/libgodkls* || \
             (echo "ERROR: libgodkls not found." && find dkls23-rs/target -name "*godkls*" -type f && exit 1)

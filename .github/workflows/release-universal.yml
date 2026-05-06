@@ -405,10 +405,25 @@ jobs:
           rsync -a ../garbling/ ./garbling/
           sed -i '' 's|go-wrapper => ../dkls23-rs/wrapper/go-wrappers|go-wrapper => ./dkls23-rs/wrapper/go-wrappers|' go.mod
 
+      - name: Patch dkls23-rs hd-migration to local garbling path
+        run: |
+          # puniversald pulls in go-dkls (and its hd-migration dep) which is normally fetched from git;
+          # redirect to the locally copied garbling tree so cargo doesn't need GitHub auth.
+          find dkls23-rs -name "Cargo.toml" -type f -exec grep -l "hd-migration" {} \; | while read -r file; do
+            sed -i '' 's|hd-migration = { git = "https://github.com/pushchain/garbling.git", branch = "main" }|hd-migration = { path = "../garbling/crates/hd-migration" }|g' "$file"
+            sed -i '' 's|hd-migration = { git = "https://github.com/pushchain/garbling.git", branch = "main"}|hd-migration = { path = "../garbling/crates/hd-migration" }|g' "$file"
+          done
+
       - name: Build dkls23-rs dependency
         run: |
-          cd dkls23-rs
+          # Build the go-dkls crate explicitly so libgodkls.dylib is produced.
+          # The workspace-root `cargo build` does not include go-dkls in default members.
+          cd dkls23-rs/wrapper/go-dkls
           cargo build --release
+          cd ../../..
+          echo "Verifying libgodkls was built..."
+          ls -la dkls23-rs/target/release/libgodkls* || \
+            (echo "ERROR: libgodkls not found." && find dkls23-rs/target -name "*godkls*" -type f && exit 1)
 
       - name: Import Code Signing Certificate
         env:

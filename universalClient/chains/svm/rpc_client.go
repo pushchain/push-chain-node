@@ -252,12 +252,19 @@ func calculateMedian(fees []uint64) uint64 {
 	return fees[n/2]
 }
 
-// GetSignaturesForAddress gets transaction signatures for an address
-func (rc *RPCClient) GetSignaturesForAddress(ctx context.Context, address solana.PublicKey) ([]*rpc.TransactionSignature, error) {
+// GetSignaturesForAddress gets transaction signatures for an address. If
+// `before` is the zero signature, fetching starts from the most recent block;
+// otherwise it returns signatures strictly older than `before`, enabling
+// backward pagination.
+func (rc *RPCClient) GetSignaturesForAddress(ctx context.Context, address solana.PublicKey, before solana.Signature) ([]*rpc.TransactionSignature, error) {
+	var opts *rpc.GetSignaturesForAddressOpts
+	if !before.IsZero() {
+		opts = &rpc.GetSignaturesForAddressOpts{Before: before}
+	}
 	var signatures []*rpc.TransactionSignature
 	err := rc.executeWithFailover(ctx, "get_signatures_for_address", func(client *rpc.Client) error {
 		var innerErr error
-		signatures, innerErr = client.GetSignaturesForAddress(ctx, address)
+		signatures, innerErr = client.GetSignaturesForAddressWithOpts(ctx, address, opts)
 		return innerErr
 	})
 	return signatures, err

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gagliardetto/solana-go"
+	solanarpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/rs/zerolog"
 
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
@@ -17,10 +18,23 @@ import (
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
+// Warn (not refuse) once a single poll has processed this many in-range sigs;
+// re-emitted per subsequent page so ops sees a sustained signal, not a blip.
+const largePollWarnThreshold uint64 = 100_000
+
+// rpcClientInterface is the subset of *RPCClient methods the listener depends on.
+// Defined as an interface so tests can supply a mock without spinning up a real
+// JSON-RPC server. *RPCClient satisfies it implicitly.
+type rpcClientInterface interface {
+	GetLatestSlot(ctx context.Context) (uint64, error)
+	GetSignaturesForAddress(ctx context.Context, address solana.PublicKey, before solana.Signature) ([]*solanarpc.TransactionSignature, error)
+	GetTransaction(ctx context.Context, signature solana.Signature) (*solanarpc.GetTransactionResult, error)
+}
+
 // EventListener listens for gateway events on SVM chains and stores them in the database
 type EventListener struct {
 	// Core dependencies
-	rpcClient  *RPCClient
+	rpcClient  rpcClientInterface
 	chainStore *common.ChainStore
 	database   *db.DB
 
@@ -40,7 +54,7 @@ type EventListener struct {
 
 // NewEventListener creates a new SVM event listener
 func NewEventListener(
-	rpcClient *RPCClient,
+	rpcClient rpcClientInterface,
 	gatewayAddress string,
 	chainID string,
 	gatewayMethods []*uregistrytypes.GatewayMethods,
@@ -206,20 +220,72 @@ func (el *EventListener) processSlotRange(
 		return fmt.Errorf("invalid gateway address: %w", err)
 	}
 
-	// Get signatures for the gateway program
-	signatures, err := el.rpcClient.GetSignaturesForAddress(ctx, gatewayAddr)
-	if err != nil {
-		return fmt.Errorf("failed to get signatures: %w", err)
+	// Per-page streaming so memory stays bounded on long bootstraps. Termination
+	// and cursor use min(slot) of the batch — per
+	// https://github.com/solana-labs/solana/issues/22456 in-page order is not
+	// guaranteed descending, so batch[len-1] would risk an early break.
+	var beforeSig solana.Signature
+	var processedInRange uint64
+	for page := 0; ; page++ {
+		batch, err := el.rpcClient.GetSignaturesForAddress(ctx, gatewayAddr, beforeSig)
+		if err != nil {
+			return fmt.Errorf("failed to get signatures (page %d): %w", page, err)
+		}
+		if len(batch) == 0 {
+			break
+		}
+
+		processed, err := el.processSignatureBatch(ctx, batch, fromSlot, toSlot)
+		if err != nil {
+			return err
+		}
+		processedInRange += processed
+		if processedInRange >= largePollWarnThreshold {
+			el.logger.Warn().
+				Uint64("processed_in_range", processedInRange).
+				Uint64("threshold", largePollWarnThreshold).
+				Uint64("from_slot", fromSlot).
+				Uint64("to_slot", toSlot).
+				Int("pages", page+1).
+				Msg("large signature backlog being processed; if this is unexpected, " +
+					"restart with EventStartFrom set to -1 (latest) or a recent slot, " +
+					"and verify the RPC tier can sustain the request volume")
+		}
+
+		minSlot := batch[0].Slot
+		minSig := batch[0].Signature
+		for _, s := range batch[1:] {
+			if s.Slot < minSlot {
+				minSlot = s.Slot
+				minSig = s.Signature
+			}
+		}
+
+		if minSlot < fromSlot {
+			break
+		}
+		beforeSig = minSig
 	}
 
-	// Process signatures in the slot range
-	for _, sig := range signatures {
+	return nil
+}
+
+// Processes in-range sigs from `batch`, returns how many. `continue` on both
+// bounds so it tolerates any in-page order.
+func (el *EventListener) processSignatureBatch(
+	ctx context.Context,
+	batch []*solanarpc.TransactionSignature,
+	fromSlot, toSlot uint64,
+) (uint64, error) {
+	var processed uint64
+	for _, sig := range batch {
 		if sig.Slot < fromSlot {
 			continue
 		}
 		if sig.Slot > toSlot {
-			break
+			continue
 		}
+		processed++
 
 		// Get transaction details
 		tx, err := el.rpcClient.GetTransaction(ctx, sig.Signature)
@@ -264,7 +330,7 @@ func (el *EventListener) processSlotRange(
 		}
 	}
 
-	return nil
+	return processed, nil
 }
 
 // getStartSlot returns the slot to start watching from

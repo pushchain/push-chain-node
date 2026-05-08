@@ -25,6 +25,12 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/tss/networking"
 )
 
+// MaxFrameSize bounds a single length-prefixed frame on TSS streams. The cap
+// rejects oversize length prefixes before allocation so a peer cannot trigger
+// large attacker-chosen heap allocations. Sized well above the largest
+// observed DKLS Step() + coordinator.Message wrapping for our committee sizes.
+const MaxFrameSize = 1 * 1024 * 1024 // 1 MiB
+
 // Network implements networking.Network using libp2p.
 type Network struct {
 	cfg        Config
@@ -224,6 +230,9 @@ func loadIdentity(base64Key string) (crypto.PrivKey, error) {
 }
 
 func writeFramed(w io.Writer, data []byte) error {
+	if len(data) > MaxFrameSize {
+		return fmt.Errorf("frame size %d exceeds maximum %d", len(data), MaxFrameSize)
+	}
 	bw := bufio.NewWriter(w)
 	if err := binary.Write(bw, binary.BigEndian, uint32(len(data))); err != nil {
 		return err
@@ -235,10 +244,17 @@ func writeFramed(w io.Writer, data []byte) error {
 }
 
 func readFramed(r io.Reader) ([]byte, error) {
-	br := bufio.NewReader(r)
+	// Cap the underlying reader at MaxFrameSize+4 (4 bytes length prefix +
+	// payload) as defense-in-depth: even if the explicit length check below is
+	// ever bypassed by a future change, the reader cannot consume more than
+	// this many bytes from the peer.
+	br := bufio.NewReader(io.LimitReader(r, int64(MaxFrameSize)+4))
 	var length uint32
 	if err := binary.Read(br, binary.BigEndian, &length); err != nil {
 		return nil, err
+	}
+	if length > MaxFrameSize {
+		return nil, fmt.Errorf("frame size %d exceeds maximum %d", length, MaxFrameSize)
 	}
 	buf := make([]byte, length)
 	if _, err := io.ReadFull(br, buf); err != nil {

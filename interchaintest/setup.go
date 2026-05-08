@@ -57,6 +57,14 @@ var (
 		cosmos.NewGenesisKV("app_state.feemarket.params.base_fee", "0.000000000000000000"),
 		cosmos.NewGenesisKV("app_state.evm.params.evm_denom", Denom),
 		cosmos.NewGenesisKV("app_state.evm.params.active_static_precompiles", Precompiles),
+		// uregistry / utss / uvalidator now require an explicit admin in genesis
+		// (DefaultParams.Admin is intentionally empty, validated by ValidateBasic).
+		// Mirror the production testnet genesis script (scripts/test_node.sh) by
+		// using the AccMnemonic-derived address as the test admin (see comment
+		// on AccMnemonic below).
+		cosmos.NewGenesisKV("app_state.uregistry.params.admin", "cosmos1hj5fveer5cjtn4wd6wstzugjfdxzl0xpxvjjvr"),
+		cosmos.NewGenesisKV("app_state.utss.params.admin", "cosmos1hj5fveer5cjtn4wd6wstzugjfdxzl0xpxvjjvr"),
+		cosmos.NewGenesisKV("app_state.uvalidator.params.admin", "cosmos1hj5fveer5cjtn4wd6wstzugjfdxzl0xpxvjjvr"),
 	}
 
 	DefaultChainConfig = ibc.ChainConfig{

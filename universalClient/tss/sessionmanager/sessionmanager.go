@@ -138,13 +138,22 @@ func (sm *SessionManager) handleSetupMessage(ctx context.Context, senderPeerID s
 		return nil
 	}
 
-	// 2. Validate event exists in DB
+	// 2. Validate sender is coordinator
+	isCoord, err := sm.coordinator.IsPeerCoordinator(ctx, senderPeerID)
+	if err != nil {
+		return fmt.Errorf("failed to check if sender is coordinator: %w", err)
+	}
+	if !isCoord {
+		return fmt.Errorf("sender %s is not the coordinator", senderPeerID)
+	}
+
+	// 3. Validate event exists in DB
 	event, err := sm.eventStore.GetEvent(msg.EventID)
 	if err != nil {
 		return fmt.Errorf("event %s not found in database: %w", msg.EventID, err)
 	}
 
-	// 3. Validate event is CONFIRMED and not expired
+	// 4. Validate event is CONFIRMED and not expired
 	if event.Status != store.StatusConfirmed {
 		return fmt.Errorf("event %s is not in confirmed status (got %s)", msg.EventID, event.Status)
 	}
@@ -154,15 +163,6 @@ func (sm *SessionManager) handleSetupMessage(ctx context.Context, senderPeerID s
 	}
 	if event.ExpiryBlockHeight > 0 && event.ExpiryBlockHeight <= currentBlock {
 		return fmt.Errorf("event %s has expired (expiry_block_height %d <= current_block %d)", msg.EventID, event.ExpiryBlockHeight, currentBlock)
-	}
-
-	// 4. Validate sender is coordinator
-	isCoord, err := sm.coordinator.IsPeerCoordinator(ctx, senderPeerID)
-	if err != nil {
-		return fmt.Errorf("failed to check if sender is coordinator: %w", err)
-	}
-	if !isCoord {
-		return fmt.Errorf("sender %s is not the coordinator", senderPeerID)
 	}
 
 	// 5. Validate participants list matches event protocol requirements

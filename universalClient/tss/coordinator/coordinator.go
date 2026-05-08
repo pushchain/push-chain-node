@@ -19,7 +19,6 @@ import (
 
 	"github.com/pushchain/push-chain-node/universalClient/chains"
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
-	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
@@ -27,6 +26,15 @@ import (
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
+
+// PushCoreClient is the subset of pushcore.Client the coordinator depends on.
+// Defined as an interface so tests can inject a mock without spinning up a
+// real Push Chain RPC endpoint. *pushcore.Client satisfies this interface.
+type PushCoreClient interface {
+	GetLatestBlock(ctx context.Context) (uint64, error)
+	GetCurrentKey(ctx context.Context) (*utsstypes.TssKey, error)
+	GetAllUniversalValidators(ctx context.Context) ([]*types.UniversalValidator, error)
+}
 
 const (
 	// PerChainCap is the max in-flight SIGN events per destination chain (default 16; below EVM mempool accountqueue 64).
@@ -47,7 +55,7 @@ type ackState struct {
 type Coordinator struct {
 	// Dependencies
 	eventStore      *eventstore.Store
-	pushCore        *pushcore.Client
+	pushCore        PushCoreClient
 	keyshareManager *keyshare.Manager
 	chains          *chains.Chains
 
@@ -76,7 +84,7 @@ type Coordinator struct {
 // NewCoordinator creates a new coordinator.
 func NewCoordinator(
 	eventStore *eventstore.Store,
-	pushCore *pushcore.Client,
+	pushCore PushCoreClient,
 	keyshareManager *keyshare.Manager,
 	chains *chains.Chains,
 	validatorAddress string,

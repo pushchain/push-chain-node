@@ -230,8 +230,14 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 			payload = common.FromHex(utx.InboundTx.UniversalPayload.Data)
 		}
 
+		// Wrap the EVM call + fee deduction in a CacheContext so they
+		// commit/revert together. If fee deduction fails, the EVM state
+		// changes from executeUniversalTx are discarded — closes the
+		// free-execution gap when the recipient contract has no native
+		// UPC to cover gas.
+		cacheCtx, writeCache := sdkCtx.CacheContext()
 		contractReceipt, contractErr := k.CallExecuteUniversalTx(
-			sdkCtx,
+			cacheCtx,
 			ueaAddr,
 			utx.InboundTx.SourceChain,
 			[]byte(utx.InboundTx.Sender),
@@ -240,6 +246,14 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 			prc20Addr,
 			txId,
 		)
+
+		var feeErr error
+		if contractErr == nil && contractReceipt != nil {
+			feeErr = k.DeductGasFeesFromReceipt(cacheCtx, cacheCtx, ueaAddr, contractReceipt, utx.InboundTx.UniversalPayload)
+			if feeErr == nil {
+				writeCache()
+			}
+		}
 
 		callPcTx := types.PCTx{
 			Sender:      ueModuleAddressStr,
@@ -250,16 +264,15 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 			callPcTx.TxHash = contractReceipt.Hash
 			callPcTx.GasUsed = contractReceipt.GasUsed
 		}
-		if contractErr != nil {
+		switch {
+		case contractErr != nil:
 			callPcTx.ErrorMsg = contractErr.Error()
-		} else if contractReceipt != nil {
-			// Deduct gas fees from the recipient contract address
-			if feeErr := k.DeductGasFeesFromReceipt(ctx, sdkCtx, ueaAddr, contractReceipt, utx.InboundTx.UniversalPayload); feeErr != nil {
-				callPcTx.Status = "FAILED"
-				callPcTx.ErrorMsg = fmt.Sprintf("gas fee deduction failed: %s", feeErr.Error())
-			} else {
-				callPcTx.Status = "SUCCESS"
-			}
+		case contractReceipt == nil:
+			// EVM call returned nil receipt without error — leave Status FAILED, no message.
+		case feeErr != nil:
+			callPcTx.ErrorMsg = fmt.Sprintf("gas fee deduction failed: %s", feeErr.Error())
+		default:
+			callPcTx.Status = "SUCCESS"
 		}
 		if updateErr := k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
 			utx.PcTx = append(utx.PcTx, &callPcTx)

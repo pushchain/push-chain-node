@@ -253,16 +253,18 @@ func TestUpdateParams(t *testing.T) {
 func TestQueryParams(t *testing.T) {
 	app, ctx, _ := setupTssKeyProcessTest(t, 2)
 
-	// Initialize params so they exist in state
-	defaultParams := utsstypes.DefaultParams()
-	require.NoError(t, app.UtssKeeper.Params.Set(ctx, defaultParams))
+	// Initialize params so they exist in state. DefaultParams() now returns an
+	// empty Admin (production operators must set it explicitly in genesis), so
+	// the query test supplies its own.
+	const testAdmin = "push1negskcfqu09j5zvpk7nhvacnwyy2mafffy7r6a"
+	require.NoError(t, app.UtssKeeper.Params.Set(ctx, utsstypes.Params{Admin: testAdmin}))
 
 	querier := keeper.NewQuerier(app.UtssKeeper)
 	resp, err := querier.Params(ctx, &utsstypes.QueryParamsRequest{})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	require.NotNil(t, resp.Params)
-	require.NotEmpty(t, resp.Params.Admin)
+	require.Equal(t, testAdmin, resp.Params.Admin)
 }
 
 // ---------------------------------------------------------------------------

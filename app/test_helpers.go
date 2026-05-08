@@ -44,9 +44,48 @@ import (
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
+
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
+	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
+	uvalidatortypes "github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
 const chainID = "testing"
+
+// testAdminAddr is a placeholder bech32 admin address used by test setup
+// helpers to override the empty Admin field in DefaultParams() for the
+// uregistry, uvalidator, and utss modules. DefaultParams returns an empty
+// Admin in production code (see plan-pending-inbound-cleanup.md) so that
+// operators must explicitly set a real admin in the production genesis.
+// Tests don't have that operator step, so this helper injects a valid
+// bech32 address before InitChain runs param validation.
+const testAdminAddr = "push1negskcfqu09j5zvpk7nhvacnwyy2mafffy7r6a"
+
+// injectTestAdminIntoGenesis mutates a DefaultGenesis()-produced GenesisState
+// to set a non-empty Admin on every module whose Params reject empty Admin
+// (uregistry, uvalidator, utss). Without this, ValidateBasic during InitChain
+// panics with "admin address cannot be empty".
+func injectTestAdminIntoGenesis(cdc codec.JSONCodec, genesisState GenesisState) GenesisState {
+	if raw, ok := genesisState[uregistrytypes.ModuleName]; ok {
+		var gs uregistrytypes.GenesisState
+		cdc.MustUnmarshalJSON(raw, &gs)
+		gs.Params.Admin = testAdminAddr
+		genesisState[uregistrytypes.ModuleName] = cdc.MustMarshalJSON(&gs)
+	}
+	if raw, ok := genesisState[uvalidatortypes.ModuleName]; ok {
+		var gs uvalidatortypes.GenesisState
+		cdc.MustUnmarshalJSON(raw, &gs)
+		gs.Params.Admin = testAdminAddr
+		genesisState[uvalidatortypes.ModuleName] = cdc.MustMarshalJSON(&gs)
+	}
+	if raw, ok := genesisState[utsstypes.ModuleName]; ok {
+		var gs utsstypes.GenesisState
+		cdc.MustUnmarshalJSON(raw, &gs)
+		gs.Params.Admin = testAdminAddr
+		genesisState[utsstypes.ModuleName] = cdc.MustMarshalJSON(&gs)
+	}
+	return genesisState
+}
 
 // SetupOptions defines arguments that are passed into `ChainApp` constructor.
 type SetupOptions struct {
@@ -88,7 +127,7 @@ func setup(
 		bam.SetSnapshot(snapshotStore, snapshottypes.SnapshotOptions{KeepRecent: 2}),
 	)
 	if withGenesis {
-		return app, app.DefaultGenesis()
+		return app, injectTestAdminIntoGenesis(app.AppCodec(), app.DefaultGenesis())
 	}
 	return app, GenesisState{}
 }
@@ -120,7 +159,7 @@ func NewChainAppWithCustomOptions(t *testing.T, isCheckTx bool, options SetupOpt
 		options.WasmOpts,
 		EVMAppOptions,
 	)
-	genesisState := app.DefaultGenesis()
+	genesisState := injectTestAdminIntoGenesis(app.AppCodec(), app.DefaultGenesis())
 	genesisState, err = GenesisStateWithValSet(app.AppCodec(), genesisState, valSet, []authtypes.GenesisAccount{acc}, balance)
 	require.NoError(t, err)
 

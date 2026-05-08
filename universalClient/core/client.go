@@ -115,7 +115,7 @@ func (uc *UniversalClient) Start() error {
 
 // shutdown stops all subsystems in reverse startup order.
 func (uc *UniversalClient) shutdown() {
-	uc.log.Info().Msg("shutting down universal client")
+	uc.log.Debug().Msg("shutting down universal client")
 
 	if err := uc.queryServer.Stop(); err != nil {
 		uc.log.Error().Err(err).Str("subsystem", "query_server").Msg("subsystem failed to stop")

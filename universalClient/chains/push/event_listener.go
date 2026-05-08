@@ -89,7 +89,6 @@ func (el *EventListener) Start(ctx context.Context) error {
 	el.wg.Add(1)
 	go el.run(childCtx)
 
-	el.logger.Info().Msg("Push event listener started")
 	return nil
 }
 
@@ -106,7 +105,6 @@ func (el *EventListener) Stop() error {
 	el.wg.Wait()
 	el.running = false
 
-	el.logger.Info().Msg("Push event listener stopped")
 	return nil
 }
 

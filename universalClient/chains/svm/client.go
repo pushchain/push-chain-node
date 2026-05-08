@@ -105,7 +105,7 @@ func NewClient(
 func (c *Client) Start(ctx context.Context) error {
 	c.ctx, c.cancel = context.WithCancel(context.Background())
 
-	c.logger.Info().Str("chain", c.chainIDStr).Msg("starting Solana chain client")
+	c.logger.Debug().Str("chain", c.chainIDStr).Msg("starting Solana chain client")
 
 	// Initialize RPC client first (required for other components)
 	if err := c.createRPCClient(); err != nil {
@@ -128,7 +128,7 @@ func (c *Client) Start(ctx context.Context) error {
 
 // Stop gracefully shuts down the Solana chain client
 func (c *Client) Stop() error {
-	c.logger.Info().Msg("stopping Solana chain client")
+	c.logger.Debug().Msg("stopping Solana chain client")
 
 	// Cancel context first to signal shutdown
 	if c.cancel != nil {
@@ -314,7 +314,7 @@ func (c *Client) createRPCClient() error {
 	}
 
 	c.rpcClient = rpcClient
-	c.logger.Info().Msg("Solana RPC clients initialized successfully")
+	c.logger.Info().Int("connected_count", len(rpcClient.clients)).Msg("RPC clients initialized successfully")
 	return nil
 }
 

@@ -113,7 +113,6 @@ func (el *EventListener) Start(ctx context.Context) error {
 	el.wg.Add(1)
 	go el.listen(ctx)
 
-	el.logger.Info().Msg("SVM event listener started")
 	return nil
 }
 
@@ -123,12 +122,11 @@ func (el *EventListener) Stop() error {
 		return nil
 	}
 
-	el.logger.Info().Msg("stopping SVM event listener")
+	el.logger.Debug().Msg("stopping SVM event listener")
 	close(el.stopCh)
 	el.running = false
 
 	el.wg.Wait()
-	el.logger.Info().Msg("SVM event listener stopped")
 	return nil
 }
 
@@ -151,7 +149,7 @@ func (el *EventListener) listen(ctx context.Context) {
 		return
 	}
 
-	el.logger.Info().
+	el.logger.Debug().
 		Uint64("from_slot", fromSlot).
 		Dur("poll_interval", pollInterval).
 		Msg("starting event watching")
@@ -163,10 +161,10 @@ func (el *EventListener) listen(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			el.logger.Info().Msg("context cancelled, stopping event listener")
+			el.logger.Debug().Msg("context cancelled, stopping event listener")
 			return
 		case <-el.stopCh:
-			el.logger.Info().Msg("stop signal received, stopping event listener")
+			el.logger.Debug().Msg("stop signal received, stopping event listener")
 			return
 		case <-ticker.C:
 			if err := el.processNewSlots(ctx, &currentSlot); err != nil {

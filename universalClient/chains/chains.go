@@ -75,14 +75,17 @@ func (c *Chains) Start(ctx context.Context) error {
 		return fmt.Errorf("pushCore must be non-nil")
 	}
 
+	// Push chain client is a hard requirement: the universal client cannot
+	// do meaningful work (TSS coordination, signing, validator-set discovery)
+	// without it, so a startup failure here surfaces immediately rather than
+	// running degraded and relying on the periodic loop to recover.
+	if err := c.ensurePushChain(ctx); err != nil {
+		return fmt.Errorf("failed to attach push chain client: %w", err)
+	}
+
 	c.running = true
 	c.stopCh = make(chan struct{})
 	c.wg.Add(1)
-
-	// Always create push chain client first
-	if err := c.ensurePushChain(ctx); err != nil {
-		c.logger.Warn().Err(err).Msg("failed to create push chain client; continuing")
-	}
 
 	go c.run(ctx)
 	return nil
@@ -207,11 +210,6 @@ func (c *Chains) fetchAndUpdate(parent context.Context) error {
 		}
 	}
 	c.chainsMu.RUnlock()
-
-	// Ensure Push chain is always present
-	if err := c.ensurePushChain(parent); err != nil {
-		c.logger.Warn().Err(err).Msg("failed to ensure push chain client")
-	}
 
 	return nil
 }

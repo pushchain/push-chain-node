@@ -114,7 +114,13 @@ func (s *Sweeper) sweep(ctx context.Context) {
 		swept++
 	}
 
-	s.logger.Info().
+	// Only surface at Info when we actually swept something; routine no-op
+	// sweeps drop to Debug to avoid steady-state log noise.
+	level := s.logger.Debug()
+	if swept > 0 {
+		level = s.logger.Info()
+	}
+	level.
 		Int("swept", swept).
 		Int("total_expired", len(events)).
 		Uint64("current_block", currentBlock).

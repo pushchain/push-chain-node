@@ -298,7 +298,7 @@ func (c *Coordinator) Start(ctx context.Context) {
 	c.running = true
 	c.mu.Unlock()
 
-	c.logger.Info().Msg("starting coordinator")
+	c.logger.Debug().Msg("starting coordinator")
 	go c.pollLoop(ctx)
 }
 
@@ -313,7 +313,7 @@ func (c *Coordinator) Stop() {
 	close(c.stopCh)
 	c.mu.Unlock()
 
-	c.logger.Info().Msg("stopping coordinator")
+	c.logger.Debug().Msg("stopping coordinator")
 }
 
 // pollLoop polls the database for pending events and processes them.
@@ -380,7 +380,7 @@ func (c *Coordinator) processConfirmedEvents(ctx context.Context) error {
 		return nil
 	}
 
-	c.logger.Info().Msg("processConfirmedEvents: we ARE coordinator, processing events")
+	c.logger.Debug().Msg("processConfirmedEvents: we ARE coordinator, processing events")
 
 	events, err := c.eventStore.GetNonExpiredConfirmedEvents(currentBlock, 10, 0)
 	if err != nil {
@@ -392,10 +392,14 @@ func (c *Coordinator) processConfirmedEvents(ctx context.Context) error {
 		return fmt.Errorf("failed to get in-flight sign count per chain: %w", err)
 	}
 
-	c.logger.Info().
-		Int("count", len(events)).
-		Uint64("current_block", currentBlock).
-		Msg("found confirmed events")
+	// Only surface at Info when we actually have events to process; otherwise
+	// the per-poll Debug above is sufficient and avoids steady-state log noise.
+	if len(events) > 0 {
+		c.logger.Info().
+			Int("count", len(events)).
+			Uint64("current_block", currentBlock).
+			Msg("found confirmed events")
+	}
 
 	// Per-chain nonce cache: fetched once per chain per poll, then incremented locally (n, n+1, n+2, …).
 	nonceByChain := make(map[string]uint64)
@@ -440,7 +444,7 @@ func (c *Coordinator) processConfirmedEvents(ctx context.Context) error {
 			}
 		}
 
-		c.logger.Info().
+		c.logger.Debug().
 			Str("event_id", event.EventID).
 			Str("type", event.Type).
 			Uint64("block_height", event.BlockHeight).
@@ -565,7 +569,7 @@ func (c *Coordinator) processEventAsCoordinator(ctx context.Context, event store
 				Msg("failed to send setup message")
 			// Continue - other participants may still receive it
 		} else {
-			c.logger.Info().
+			c.logger.Debug().
 				Str("event_id", event.EventID).
 				Str("receiver", receiverAddr).
 				Msg("sent setup message to participant")
@@ -1109,7 +1113,7 @@ func (c *Coordinator) assignSignNonce(
 		// Cap is intentionally bypassed: stuck events have stale nonces and will
 		// be cleared by broadcaster → resolver → REVERTED.
 		useFinalized = true
-		c.logger.Info().
+		c.logger.Debug().
 			Str("chain", chain).
 			Int("in_flight", inFlightPerChain[chain]).
 			Int("consecutive_wait", consecutiveWait).

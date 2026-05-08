@@ -281,7 +281,7 @@ func (n *Node) Start(ctx context.Context) error {
 	n.ctx = ctx
 	n.mu.Unlock()
 
-	n.logger.Info().Msg("starting TSS node")
+	n.logger.Debug().Msg("starting TSS node")
 
 	// Start libp2p network
 	net, err := libp2pnet.New(ctx, n.networkCfg, n.logger)
@@ -295,11 +295,6 @@ func (n *Node) Start(ctx context.Context) error {
 		net.Close()
 		return fmt.Errorf("failed to register message handler: %w", err)
 	}
-
-	n.logger.Info().
-		Str("peer_id", net.ID()).
-		Strs("addrs", net.ListenAddrs()).
-		Msg("libp2p network started")
 
 	// Reset all IN_PROGRESS events to PENDING on startup
 	// This handles cases where the node crashed while events were in progress,
@@ -386,7 +381,7 @@ func (n *Node) Stop() error {
 	close(n.stopCh)
 	n.mu.Unlock()
 
-	n.logger.Info().Msg("stopping TSS node")
+	n.logger.Debug().Msg("stopping TSS node")
 
 	// Stop coordinator
 	n.coordinator.Stop()

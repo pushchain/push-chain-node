@@ -100,6 +100,13 @@ FROM alpine:3.21
 
 COPY --from=build-env /code/build/pchaind /usr/bin/pchaind
 
+# ictest-only wrapper: patches the three modules' admin into genesis.json
+# right after `pchaind init`, before strangelove moves on to gentx (which
+# would otherwise fail validate-genesis on empty admin). Production never
+# invokes this script. See scripts/pchaind-ictest-wrapper.sh for details.
+COPY scripts/pchaind-ictest-wrapper.sh /usr/bin/pchaind-ictest
+RUN chmod +x /usr/bin/pchaind-ictest
+
 RUN apk add --no-cache \
     ca-certificates \
     curl \

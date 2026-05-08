@@ -69,7 +69,7 @@ func NewTxBuilder(
 		logger:         logger.With().Str("component", "evm_tx_builder").Str("chain", chainID).Logger(),
 	}
 
-	tb.logger.Info().
+	tb.logger.Debug().
 		Str("vault", vaultAddress.Hex()).
 		Str("gateway", gwAddr.Hex()).
 		Msg("tx builder initialized")
@@ -499,7 +499,7 @@ func (tb *TxBuilder) GetFundMigrationSigningRequest(ctx context.Context, data *c
 		return nil, err
 	}
 
-	tb.logger.Info().
+	tb.logger.Debug().
 		Str("from", data.From).
 		Str("to", data.To).
 		Str("balance", balance.String()).
@@ -577,9 +577,6 @@ func (tb *TxBuilder) BroadcastFundMigrationTx(ctx context.Context, req *common.U
 
 	tb.logger.Info().
 		Str("tx_hash", txHashStr).
-		Str("from", data.From).
-		Str("to", data.To).
-		Str("amount", maxTransfer.String()).
 		Msg("fund migration tx broadcast successfully")
 
 	return txHashStr, nil

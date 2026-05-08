@@ -125,10 +125,10 @@ func (c *Chains) run(parent context.Context) {
 	for {
 		select {
 		case <-parent.Done():
-			c.logger.Info().Msg("chains: context canceled; stopping")
+			c.logger.Debug().Msg("context canceled; stopping")
 			return
 		case <-c.stopCh:
-			c.logger.Info().Msg("chains: stop requested; stopping")
+			c.logger.Debug().Msg("stop requested; stopping")
 			return
 		case <-ticker.C:
 			if err := c.fetchAndUpdate(parent); err != nil {
@@ -241,10 +241,10 @@ func (c *Chains) determineChainAction(cfg *uregistrytypes.ChainConfig) chainActi
 
 	if bothDisabled {
 		if exists {
-			c.logger.Info().Str("chain", chainID).Msg("chain fully disabled (inbound+outbound off), removing")
+			c.logger.Info().Str("chain", chainID).Msg("chain disabled, removing")
 			return chainActionRemove
 		}
-		c.logger.Debug().Str("chain", chainID).Msg("chain fully disabled, skipping")
+		c.logger.Debug().Str("chain", chainID).Msg("chain disabled, skipping")
 		return chainActionSkip
 	}
 
@@ -304,7 +304,7 @@ func (c *Chains) addChain(ctx context.Context, cfg *uregistrytypes.ChainConfig) 
 
 	c.logger.Info().
 		Str("chain", cfg.Chain).
-		Msg("successfully added chain client")
+		Msg("chain client added")
 
 	return nil
 }
@@ -318,11 +318,6 @@ func (c *Chains) removeChain(chainID string) error {
 	if !exists {
 		return nil
 	}
-
-	c.logger.Info().
-		Str("chain", chainID).
-		Msg("removing chain client")
-
 	// Stop the client
 	if err := client.Stop(); err != nil {
 		c.logger.Error().
@@ -333,6 +328,11 @@ func (c *Chains) removeChain(chainID string) error {
 
 	delete(c.chains, chainID)
 	delete(c.chainConfigs, chainID)
+
+	c.logger.Info().
+		Str("chain", chainID).
+		Msg("chain client removed")
+
 	return nil
 }
 
@@ -341,7 +341,7 @@ func (c *Chains) StopAll() {
 	c.chainsMu.Lock()
 	defer c.chainsMu.Unlock()
 
-	c.logger.Info().Msg("stopping all chain clients")
+	c.logger.Debug().Msg("stopping all chain clients")
 
 	for chainID, client := range c.chains {
 		if err := client.Stop(); err != nil {
@@ -420,8 +420,8 @@ func (c *Chains) getChainDB(chainID string) (*db.DB, error) {
 		return nil, fmt.Errorf("failed to create database for chain %s: %w", chainID, err)
 	}
 
-	c.logger.Info().
-		Str("chain_id", chainID).
+	c.logger.Debug().
+		Str("chain", chainID).
 		Str("db_path", filepath.Join(baseDir, dbFilename)).
 		Msg("created file database for chain")
 
@@ -488,7 +488,7 @@ func (c *Chains) ensurePushChain(ctx context.Context) error {
 
 	c.logger.Info().
 		Str("chain", c.pushChainID).
-		Msg("successfully added push chain client")
+		Msg("chain client added")
 
 	return nil
 }

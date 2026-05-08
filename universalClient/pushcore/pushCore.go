@@ -57,7 +57,7 @@ func New(urls []string, logger zerolog.Logger) (*Client, error) {
 	for i, u := range urls {
 		conn, err := createGRPCConnection(u)
 		if err != nil {
-			c.logger.Warn().Str("url", u).Int("index", i).Err(err).Msg("dial failed; skipping endpoint")
+			c.logger.Warn().Int("index", i).Err(err).Msg("dial failed; skipping endpoint")
 			continue
 		}
 		c.conns = append(c.conns, conn)
@@ -127,10 +127,11 @@ func retryWithRoundRobin[T any](
 
 		lastErr = err
 		logger.Debug().
+			Str("operation", operationName).
 			Int("attempt", i+1).
 			Int("endpoint_index", idx).
 			Err(err).
-			Msgf("%s failed; trying next endpoint", operationName)
+			Msg("operation failed; trying next endpoint")
 	}
 
 	return zero, fmt.Errorf("pushcore: %s failed on all %d endpoints: %w", operationName, numClients, lastErr)

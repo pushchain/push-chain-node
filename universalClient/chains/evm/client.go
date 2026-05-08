@@ -96,7 +96,7 @@ func NewClient(
 func (c *Client) Start(ctx context.Context) error {
 	c.ctx, c.cancel = context.WithCancel(context.Background())
 
-	c.logger.Info().Str("chain", c.chainIDStr).Msg("starting EVM chain client")
+	c.logger.Debug().Str("chain", c.chainIDStr).Msg("starting EVM chain client")
 
 	// Initialize RPC client first (required for other components)
 	if err := c.createRPCClient(); err != nil {
@@ -119,7 +119,7 @@ func (c *Client) Start(ctx context.Context) error {
 
 // Stop gracefully shuts down the EVM chain client
 func (c *Client) Stop() error {
-	c.logger.Info().Msg("stopping EVM chain client")
+	c.logger.Debug().Msg("stopping EVM chain client")
 
 	// Cancel context first to signal shutdown
 	if c.cancel != nil {
@@ -129,7 +129,7 @@ func (c *Client) Stop() error {
 	// Stop components in reverse order of initialization
 	if c.eventListener != nil {
 		if err := c.eventListener.Stop(); err != nil {
-			c.logger.Error().Err(err).Msg("error stopping event listener")
+			c.logger.Error().Err(err).Str("subsystem", "event_listener").Msg("subsystem failed to stop")
 		}
 	}
 
@@ -139,7 +139,7 @@ func (c *Client) Stop() error {
 
 	if c.eventProcessor != nil {
 		if err := c.eventProcessor.Stop(); err != nil {
-			c.logger.Error().Err(err).Msg("error stopping event processor")
+			c.logger.Error().Err(err).Str("subsystem", "event_processor").Msg("subsystem failed to stop")
 		}
 	}
 
@@ -208,7 +208,6 @@ func (c *Client) initializeComponents() error {
 		if err != nil {
 			return fmt.Errorf("failed to fetch vault address from gateway: %w", err)
 		}
-		c.logger.Info().Str("vault_address", vaultAddr.Hex()).Msg("vault address fetched from gateway")
 
 		eventListener, err := NewEventListener(
 			c.rpcClient,
@@ -320,7 +319,7 @@ func (c *Client) createRPCClient() error {
 	}
 
 	c.rpcClient = rpcClient
-	c.logger.Info().Int("connected_count", len(rpcClient.clients)).Msg("EVM RPC clients initialized successfully")
+	c.logger.Info().Int("connected_count", len(rpcClient.clients)).Msg("RPC clients initialized successfully")
 	return nil
 }
 

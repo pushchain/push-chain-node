@@ -36,19 +36,19 @@ func NewRPCClient(rpcURLs []string, expectedGenesisHash string, logger zerolog.L
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	for _, url := range rpcURLs {
+	for i, url := range rpcURLs {
 		client := rpc.New(url)
 
 		// Verify connection by checking health
 		health, err := client.GetHealth(ctx)
 		if err != nil {
-			log.Warn().Err(err).Str("url", url).Msg("failed to connect to RPC endpoint, skipping")
+			log.Warn().Err(err).Int("index", i).Msg("failed to connect to RPC endpoint, skipping")
 			continue
 		}
 
 		if health != "ok" {
 			log.Warn().
-				Str("url", url).
+				Int("index", i).
 				Str("health", health).
 				Msg("node is not healthy, skipping")
 			continue
@@ -62,11 +62,10 @@ func NewRPCClient(rpcURLs []string, expectedGenesisHash string, logger zerolog.L
 				// This allows the system to continue even if verification is slow/unavailable
 				log.Warn().
 					Err(err).
-					Str("url", url).
+					Int("index", i).
 					Str("expected_genesis_hash", expectedGenesisHash).
 					Msg("failed to verify genesis hash (timeout or error), proceeding with client anyway")
 				clients = append(clients, client)
-				log.Info().Str("url", url).Msg("connected to RPC endpoint (genesis hash verification skipped)")
 				continue
 			}
 
@@ -77,7 +76,7 @@ func NewRPCClient(rpcURLs []string, expectedGenesisHash string, logger zerolog.L
 
 			if actualHash != expectedGenesisHash {
 				log.Warn().
-					Str("url", url).
+					Int("index", i).
 					Str("expected_genesis_hash", expectedGenesisHash).
 					Str("actual_genesis_hash", genesisHash.String()).
 					Msg("genesis hash mismatch, skipping")
@@ -86,7 +85,7 @@ func NewRPCClient(rpcURLs []string, expectedGenesisHash string, logger zerolog.L
 		}
 
 		clients = append(clients, client)
-		log.Info().Str("url", url).Msg("connected to RPC endpoint")
+		log.Debug().Int("index", i).Msg("RPC client added to pool")
 	}
 
 	if len(clients) == 0 {

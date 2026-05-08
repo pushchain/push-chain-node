@@ -58,7 +58,8 @@ func New(
 	chainID string,
 	granter string,
 ) (*Signer, error) {
-	log.Info().Msg("Validating hotkey and AuthZ permissions...")
+	log = log.With().Str("component", "push_signer").Logger()
+	log.Debug().Msg("Validating hotkey and AuthZ permissions...")
 
 	validationResult, err := validateKeysAndGrants(ctx, keyringBackend, keyringPassword, nodeHome, pushCore, granter)
 	if err != nil {
@@ -95,14 +96,14 @@ func New(
 		Str("key_name", validationResult.KeyName).
 		Str("key_address", validationResult.KeyAddr).
 		Str("granter", validationResult.Granter).
-		Msg("Signer initialized successfully")
+		Msg("signer initialized successfully")
 
 	return &Signer{
 		keys:      universalKeys,
 		clientCtx: clientCtx,
 		pushCore:  pushCore,
 		granter:   validationResult.Granter,
-		log:       log.With().Str("component", "signer").Logger(),
+		log:       log,
 	}, nil
 }
 

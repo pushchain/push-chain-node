@@ -424,9 +424,12 @@ func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID str
 func (sm *SessionManager) handleSignFinished(ctx context.Context, eventID string, result *dkls.Result, signingReq *common.UnsignedSigningReq) error {
 	sm.logger.Info().
 		Str("event_id", eventID).
+		Msg("signature generated from sign session")
+	sm.logger.Debug().
+		Str("event_id", eventID).
 		Str("signature", hex.EncodeToString(result.Signature)).
 		Str("public_key", hex.EncodeToString(result.PublicKey)).
-		Msg("signature generated from sign session")
+		Msg("sign session crypto material")
 
 	event, err := sm.eventStore.GetEvent(eventID)
 	if err != nil {
@@ -459,9 +462,12 @@ func (sm *SessionManager) handleKeyFinished(ctx context.Context, eventID, protoc
 		Str("event_id", eventID).
 		Str("protocol", protocolType).
 		Str("storage_id", storageID).
+		Msg("saved keyshare")
+	sm.logger.Debug().
+		Str("event_id", eventID).
 		Str("public_key", hex.EncodeToString(result.PublicKey)).
 		Str("keyshare_hash", hex.EncodeToString(keyshareHash[:])).
-		Msg("saved keyshare")
+		Msg("saved keyshare crypto material")
 
 	// Vote on Push chain
 	var voteTxHash string

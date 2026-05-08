@@ -68,17 +68,17 @@ func (g *ChainMetaOracle) fetchAndVoteChainMeta(ctx context.Context) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	g.logger.Info().
+	g.logger.Debug().
 		Dur("interval", interval).
 		Msg("starting gas price fetching and voting")
 
 	for {
 		select {
 		case <-ctx.Done():
-			g.logger.Info().Msg("context cancelled, stopping gas price fetcher")
+			g.logger.Debug().Msg("context cancelled, stopping gas price fetcher")
 			return
 		case <-g.stopCh:
-			g.logger.Info().Msg("stop signal received, stopping gas price fetcher")
+			g.logger.Debug().Msg("stop signal received, stopping gas price fetcher")
 			return
 		case <-ticker.C:
 			// Fetch current gas price

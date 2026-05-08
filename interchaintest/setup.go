@@ -32,7 +32,19 @@ var (
 	Name  = "pchain"
 
 	ChainID = "localchain_9000-1"
-	Binary  = "pchaind"
+	// Binary points at the pchaind-ictest wrapper (installed in the runtime
+	// docker image alongside /usr/bin/pchaind). The wrapper passes every
+	// command through to the real pchaind transparently, except for
+	// `genesis gentx` — which it precedes by resolving the validator key's
+	// bech32 address and patching uregistry/utss/uvalidator admin into
+	// genesis.json with it. This is the only way to seed admin BEFORE the
+	// validate-genesis check that gentx runs internally (strangelove
+	// exposes no pre-gentx hook, and the audit fix F-2026-16648 leaves
+	// DefaultParams.Admin empty so validate-genesis would otherwise reject
+	// the chain on bring-up).
+	//
+	// Production never invokes this wrapper. See scripts/pchaind-ictest-wrapper.sh.
+	Binary  = "pchaind-ictest"
 	Bech32  = "push"
 	ibcPath = "ibc-path"
 
@@ -57,14 +69,6 @@ var (
 		cosmos.NewGenesisKV("app_state.feemarket.params.base_fee", "0.000000000000000000"),
 		cosmos.NewGenesisKV("app_state.evm.params.evm_denom", Denom),
 		cosmos.NewGenesisKV("app_state.evm.params.active_static_precompiles", Precompiles),
-		// uregistry / utss / uvalidator now require an explicit admin in genesis
-		// (DefaultParams.Admin is intentionally empty, validated by ValidateBasic).
-		// Mirror the production testnet genesis script (scripts/test_node.sh) by
-		// using the AccMnemonic-derived address as the test admin (see comment
-		// on AccMnemonic below).
-		cosmos.NewGenesisKV("app_state.uregistry.params.admin", "cosmos1hj5fveer5cjtn4wd6wstzugjfdxzl0xpxvjjvr"),
-		cosmos.NewGenesisKV("app_state.utss.params.admin", "cosmos1hj5fveer5cjtn4wd6wstzugjfdxzl0xpxvjjvr"),
-		cosmos.NewGenesisKV("app_state.uvalidator.params.admin", "cosmos1hj5fveer5cjtn4wd6wstzugjfdxzl0xpxvjjvr"),
 	}
 
 	DefaultChainConfig = ibc.ChainConfig{

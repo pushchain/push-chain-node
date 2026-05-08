@@ -82,13 +82,14 @@ func (el *EventListener) Start(ctx context.Context) error {
 	el.cancel = cancel
 	el.running = true
 
-	el.logger.Info().
+	el.logger.Debug().
 		Dur("poll_interval", el.cfg.PollInterval).
 		Msg("starting Push event listener")
 
 	el.wg.Add(1)
 	go el.run(childCtx)
 
+	el.logger.Info().Msg("Push event listener started")
 	return nil
 }
 

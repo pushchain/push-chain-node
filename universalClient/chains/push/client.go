@@ -73,7 +73,7 @@ func NewClient(
 func (c *Client) Start(ctx context.Context) error {
 	c.ctx, c.cancel = context.WithCancel(context.Background())
 
-	c.logger.Info().Msg("starting Push chain client")
+	c.logger.Debug().Msg("starting Push chain client")
 
 	// Start event listener
 	if err := c.eventListener.Start(c.ctx); err != nil {
@@ -94,7 +94,7 @@ func (c *Client) Start(ctx context.Context) error {
 
 // Stop gracefully shuts down the Push chain client
 func (c *Client) Stop() error {
-	c.logger.Info().Msg("stopping Push chain client")
+	c.logger.Debug().Msg("stopping Push chain client")
 
 	// Cancel context
 	if c.cancel != nil {
@@ -104,7 +104,7 @@ func (c *Client) Stop() error {
 	// Stop event listener
 	if c.eventListener != nil {
 		if err := c.eventListener.Stop(); err != nil {
-			c.logger.Error().Err(err).Msg("error stopping event listener")
+			c.logger.Error().Err(err).Str("subsystem", "event_listener").Msg("subsystem failed to stop")
 		}
 	}
 

@@ -211,6 +211,7 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 
 		var contractReceipt *evmtypes.MsgEthereumTxResponse
 		var contractErr error
+		var feeErr error
 
 		if tcErr != nil {
 			contractErr = fmt.Errorf("token config lookup failed: %w", tcErr)
@@ -229,8 +230,15 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 					payload = common.FromHex(utx.InboundTx.UniversalPayload.Data)
 				}
 
+				// Wrap the EVM call + fee deduction in a CacheContext so they
+				// commit/revert together. If fee deduction fails, the EVM state
+				// changes from executeUniversalTx are discarded — closes the
+				// free-execution gap when the recipient contract has no native
+				// UPC to cover gas. The deposit (above this scope) stays
+				// committed regardless.
+				cacheCtx, writeCache := sdkCtx.CacheContext()
 				contractReceipt, contractErr = k.CallExecuteUniversalTx(
-					sdkCtx,
+					cacheCtx,
 					ueaAddr,
 					utx.InboundTx.SourceChain,
 					[]byte(utx.InboundTx.Sender),
@@ -239,6 +247,12 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 					prc20Addr,
 					txId,
 				)
+				if contractErr == nil {
+					feeErr = k.DeductGasFeesFromReceipt(cacheCtx, cacheCtx, ueaAddr, contractReceipt, utx.InboundTx.UniversalPayload)
+					if feeErr == nil {
+						writeCache()
+					}
+				}
 			}
 		}
 
@@ -251,16 +265,13 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 			callPcTx.TxHash = contractReceipt.Hash
 			callPcTx.GasUsed = contractReceipt.GasUsed
 		}
-		if contractErr != nil {
+		switch {
+		case contractErr != nil:
 			callPcTx.ErrorMsg = contractErr.Error()
-		} else {
-			// Deduct gas fees from the recipient contract address
-			if feeErr := k.DeductGasFeesFromReceipt(ctx, sdkCtx, ueaAddr, contractReceipt, utx.InboundTx.UniversalPayload); feeErr != nil {
-				callPcTx.Status = "FAILED"
-				callPcTx.ErrorMsg = fmt.Sprintf("gas fee deduction failed: %s", feeErr.Error())
-			} else {
-				callPcTx.Status = "SUCCESS"
-			}
+		case feeErr != nil:
+			callPcTx.ErrorMsg = fmt.Sprintf("gas fee deduction failed: %s", feeErr.Error())
+		default:
+			callPcTx.Status = "SUCCESS"
 		}
 		if updateErr := k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {
 			utx.PcTx = append(utx.PcTx, &callPcTx)

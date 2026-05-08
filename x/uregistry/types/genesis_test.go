@@ -9,19 +9,26 @@ import (
 )
 
 func TestGenesisState_Validate(t *testing.T) {
+	// Bech32 is irrelevant for Validate (it only checks non-empty), but we use a
+	// realistic-looking placeholder to make the test intent obvious.
+	const testAdmin = "push1negskcfqu09j5zvpk7nhvacnwyy2mafffy7r6a"
+
 	tests := []struct {
 		desc     string
 		genState *types.GenesisState
 		valid    bool
 	}{
 		{
-			desc:     "default is valid",
+			// DefaultParams now returns an empty Admin so the operator MUST
+			// explicitly set one in production genesis. The default genesis is
+			// therefore intentionally invalid.
+			desc:     "default genesis is invalid (admin must be explicitly set)",
 			genState: types.DefaultGenesis(),
-			valid:    true,
+			valid:    false,
 		},
 		{
-			desc:     "valid genesis state",
-			genState: &types.GenesisState{Params: types.DefaultParams()},
+			desc:     "valid genesis state with explicit admin",
+			genState: &types.GenesisState{Params: types.Params{Admin: testAdmin}},
 			valid:    true,
 		},
 		{

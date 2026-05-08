@@ -21,7 +21,7 @@ func TestParams(t *testing.T) {
 			name: "fail; invalid authority",
 			request: &types.MsgUpdateParams{
 				Authority: f.addrs[0].String(),
-				Params:    types.DefaultParams(),
+				Params:    types.Params{Admin: f.addrs[0].String()},
 			},
 			err: true,
 		},
@@ -29,7 +29,7 @@ func TestParams(t *testing.T) {
 			name: "success",
 			request: &types.MsgUpdateParams{
 				Authority: f.govModAddr,
-				Params:    types.DefaultParams(),
+				Params:    types.Params{Admin: f.addrs[0].String()},
 			},
 			err: false,
 		},

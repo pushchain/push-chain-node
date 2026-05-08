@@ -19,7 +19,6 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/chains"
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/config"
-	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss/coordinator"
 	"github.com/pushchain/push-chain-node/universalClient/tss/dkls"
@@ -40,6 +39,25 @@ func containsAny(s string, substrings []string) bool {
 		}
 	}
 	return false
+}
+
+// mockPushCore is a stub PushCoreClient for tests so the coordinator's
+// IsPeerCoordinator path doesn't need a live Push Chain RPC. Returns a fixed
+// block height (0 by default) so coordinator-at-block math is deterministic.
+type mockPushCore struct {
+	block uint64
+}
+
+func (m *mockPushCore) GetLatestBlock(_ context.Context) (uint64, error) {
+	return m.block, nil
+}
+
+func (m *mockPushCore) GetCurrentKey(_ context.Context) (*utsstypes.TssKey, error) {
+	return &utsstypes.TssKey{KeyId: "test-key"}, nil
+}
+
+func (m *mockPushCore) GetAllUniversalValidators(_ context.Context) ([]*types.UniversalValidator, error) {
+	return nil, nil
 }
 
 // mockSession is a mock implementation of dkls.Session for testing.
@@ -73,7 +91,7 @@ func (m *mockSession) Close() {
 }
 
 // setupTestSessionManager creates a test session manager with real coordinator and test dependencies.
-func setupTestSessionManager(t *testing.T) (*SessionManager, *coordinator.Coordinator, *eventstore.Store, *keyshare.Manager, *pushcore.Client, *gorm.DB) {
+func setupTestSessionManager(t *testing.T) (*SessionManager, *coordinator.Coordinator, *eventstore.Store, *keyshare.Manager, *mockPushCore, *gorm.DB) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(&store.Event{}))
@@ -82,8 +100,8 @@ func setupTestSessionManager(t *testing.T) (*SessionManager, *coordinator.Coordi
 	keyshareMgr, err := keyshare.NewManager(t.TempDir(), "test-password")
 	require.NoError(t, err)
 
-	// Create a minimal client (will fail on actual calls, but that's OK for most tests)
-	testClient := &pushcore.Client{}
+	// Inject a stub PushCoreClient so coordinator RPC paths return canned data.
+	testClient := &mockPushCore{block: 0}
 
 	sendFn := func(ctx context.Context, peerID string, data []byte) error {
 		return nil
@@ -193,6 +211,8 @@ func TestHandleSetupMessage_Validation(t *testing.T) {
 	require.NoError(t, testDB.Create(&event).Error)
 
 	t.Run("event not found", func(t *testing.T) {
+		// peer1 is the coordinator at block 0 (validator1, slot 0), so the
+		// sender check passes and we reach the DB lookup, which fails.
 		msg := coordinator.Message{
 			Type:    "setup",
 			EventID: "nonexistent",
@@ -204,25 +224,18 @@ func TestHandleSetupMessage_Validation(t *testing.T) {
 	})
 
 	t.Run("sender not coordinator", func(t *testing.T) {
-		// peer2 is not the coordinator at block 0 (epoch 0, index 0 = validator1/peer1)
-		// So sending from peer2 should fail coordinator check
+		// peer2 is not the coordinator at block 0 (validator1/peer1 is).
 		msg := coordinator.Message{
 			Type:    "setup",
 			EventID: event.EventID,
 		}
 		data, _ := json.Marshal(msg)
-		err := sm.HandleIncomingMessage(ctx, "peer2", data) // Send from peer2
-		// This will fail because GetLatestBlockNum needs real client
-		// But the error should indicate coordinator check failed
+		err := sm.HandleIncomingMessage(ctx, "peer2", data)
 		assert.Error(t, err)
-		// Error will be about no endpoints, but that's expected
-		assert.Contains(t, err.Error(), "no endpoints")
+		assert.Contains(t, err.Error(), "is not the coordinator")
 	})
 
 	t.Run("invalid participants", func(t *testing.T) {
-		// Note: This test will also fail on GetLatestBlockNum, but we can test
-		// the participants validation logic by ensuring the coordinator check passes
-		// For now, we'll accept that GetLatestBlockNum will fail
 		msg := coordinator.Message{
 			Type:         "setup",
 			EventID:      event.EventID,
@@ -230,11 +243,79 @@ func TestHandleSetupMessage_Validation(t *testing.T) {
 		}
 		data, _ := json.Marshal(msg)
 		err := sm.HandleIncomingMessage(ctx, "peer1", data)
-		// Will fail on GetLatestBlockNum, but that's expected
 		assert.Error(t, err)
-		// Error should be about no endpoints (from GetLatestBlockNum)
-		assert.Contains(t, err.Error(), "no endpoints")
+		assert.Contains(t, err.Error(), "participants validation failed")
 	})
+
+	t.Run("non-coordinator sender for non-existent event hits coord check first", func(t *testing.T) {
+		// Locks in the ordering invariant: IsPeerCoordinator runs before the
+		// DB lookup, so a bogus SETUP from a non-coordinator peer is rejected
+		// without touching the event store even when the event id is unknown.
+		msg := coordinator.Message{
+			Type:    "setup",
+			EventID: "nonexistent",
+		}
+		data, _ := json.Marshal(msg)
+		err := sm.HandleIncomingMessage(ctx, "peer2", data)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "is not the coordinator")
+		assert.NotContains(t, err.Error(), "not found in database")
+	})
+}
+
+func TestHandleSetupMessage_Expiry(t *testing.T) {
+	sm, _, _, _, _, testDB := setupTestSessionManager(t)
+	ctx := context.Background()
+
+	t.Run("event with ExpiryBlockHeight <= current block is rejected", func(t *testing.T) {
+		past := store.Event{
+			EventID:           "past-event",
+			BlockHeight:       1,
+			Type:              "KEYGEN",
+			Status:            store.StatusConfirmed,
+			ExpiryBlockHeight: 1,
+		}
+		require.NoError(t, testDB.Create(&past).Error)
+
+		// Bump the coordinator's mock to block 5 so 1 <= 5 fires the guard.
+		setCoordinatorPushCore(sm.coordinator, &mockPushCore{block: 5})
+
+		msg := coordinator.Message{Type: "setup", EventID: past.EventID}
+		data, _ := json.Marshal(msg)
+		err := sm.HandleIncomingMessage(ctx, "peer1", data)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "has expired")
+	})
+
+	t.Run("event with ExpiryBlockHeight 0 is treated as no-expiry", func(t *testing.T) {
+		event := store.Event{
+			EventID:           "no-expiry-event",
+			BlockHeight:       1,
+			Type:              "KEYGEN",
+			Status:            store.StatusConfirmed,
+			ExpiryBlockHeight: 0,
+		}
+		require.NoError(t, testDB.Create(&event).Error)
+
+		setCoordinatorPushCore(sm.coordinator, &mockPushCore{block: 0})
+		msg := coordinator.Message{Type: "setup", EventID: event.EventID}
+		data, _ := json.Marshal(msg)
+		err := sm.HandleIncomingMessage(ctx, "peer1", data)
+		// A later check (participants) fails, but the expiry branch must not fire.
+		assert.Error(t, err)
+		assert.NotContains(t, err.Error(), "has expired")
+	})
+}
+
+// setCoordinatorPushCore swaps the coordinator's pushCore field via reflect+unsafe
+// so individual tests can override the mock per-case.
+func setCoordinatorPushCore(coord *coordinator.Coordinator, client coordinator.PushCoreClient) {
+	coordValue := reflect.ValueOf(coord).Elem()
+	field := coordValue.FieldByName("pushCore")
+	if !field.IsValid() {
+		return
+	}
+	*(*coordinator.PushCoreClient)(unsafe.Pointer(field.UnsafeAddr())) = client
 }
 
 func TestHandleStepMessage_Validation(t *testing.T) {

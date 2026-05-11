@@ -40,6 +40,12 @@
       "identifier": "0x",
       "event_identifier": "0xb689a5db58af5de77bfea50b6d5844e1c1aeed8b24edd7996a9f8b18ac133819",
       "confirmation_type": 1
+    },
+    {
+      "name": "rescueFunds",
+      "identifier": "0x",
+      "event_identifier": "0x25a3527f55f5a35edc28d8df3c716bcd0f3a42c4d82103e716d4ae8263a95e0f",
+      "confirmation_type": 1
     }
   ],
   "enabled": {

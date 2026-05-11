@@ -327,6 +327,50 @@ const UNIVERSAL_CORE_ABI = `[
     },
     {
       "type": "function",
+      "name": "l1GasFeeByChainNamespace",
+      "inputs": [{ "name": "", "type": "string", "internalType": "string" }],
+      "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "tssFundMigrationGasLimitByChainNamespace",
+      "inputs": [{ "name": "", "type": "string", "internalType": "string" }],
+      "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "grantRole",
+      "inputs": [
+        { "name": "role",    "type": "bytes32", "internalType": "bytes32" },
+        { "name": "account", "type": "address", "internalType": "address" }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setL1GasFeeByChain",
+      "inputs": [
+        { "name": "chainNamespace", "type": "string", "internalType": "string" },
+        { "name": "l1GasFee", "type": "uint256", "internalType": "uint256" }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setTssFundMigrationGasLimitByChain",
+      "inputs": [
+        { "name": "chainNamespace", "type": "string", "internalType": "string" },
+        { "name": "gasLimit", "type": "uint256", "internalType": "uint256" }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
       "name": "timestampObservedAtByChainNamespace",
       "inputs": [{ "name": "", "type": "string", "internalType": "string" }],
       "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],

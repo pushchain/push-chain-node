@@ -11,15 +11,15 @@ The execution layer for Push Chain's crosschain protocol. Owns the lifecycle of 
 
 ## State (KV layout)
 
-| Prefix | Collection | Type | Purpose |
-|---|---|---|---|
-| `0` | `Params` | `Item[Params]` | Module parameters |
-| `2` | `PendingInbounds` | `KeySet[string]` | UTX IDs of inbounds awaiting tally / execution |
-| `3` | `UniversalTx` | `Map[string, UniversalTx]` | Canonical UTX record. Key = `sha256(sourceChain:txHash:logIndex)` |
-| `4` | `ModuleAccountNonce` | `Item[uint64]` | Manual nonce for `DerivedEVMCall` from the module account |
-| `5` | `GasPrices` | `Map[string, GasPrice]` | **Deprecated** — replaced by `ChainMetas`, kept only for genesis import |
-| `6` | `ChainMetas` | `Map[string, ChainMeta]` | Aggregated gas price + block height per CAIP-2 chain |
-| `7` | `PendingOutbounds` | `Map[string, PendingOutboundEntry]` | Secondary index of outbounds in `PENDING` status |
+| Prefix | Collection           | Type                                | Purpose                                                                 |
+| ------ | -------------------- | ----------------------------------- | ----------------------------------------------------------------------- |
+| `0`    | `Params`             | `Item[Params]`                      | Module parameters                                                       |
+| `2`    | `PendingInbounds`    | `KeySet[string]`                    | UTX IDs of inbounds awaiting tally / execution                          |
+| `3`    | `UniversalTx`        | `Map[string, UniversalTx]`          | Canonical UTX record. Key = `sha256(sourceChain:txHash:logIndex)`       |
+| `4`    | `ModuleAccountNonce` | `Item[uint64]`                      | Manual nonce for `DerivedEVMCall` from the module account               |
+| `5`    | `GasPrices`          | `Map[string, GasPrice]`             | **Deprecated** — replaced by `ChainMetas`, kept only for genesis import |
+| `6`    | `ChainMetas`         | `Map[string, ChainMeta]`            | Aggregated gas price + block height per CAIP-2 chain                    |
+| `7`    | `PendingOutbounds`   | `Map[string, PendingOutboundEntry]` | Secondary index of outbounds in `PENDING` status                        |
 
 ## The `UniversalTx` Record
 
@@ -124,15 +124,15 @@ message OutboundObservation {
 
 The same enum is used on both `Inbound` and `OutboundTx` to describe what the message is for.
 
-| `TxType` | Inbound semantics | Outbound semantics |
-|---|---|---|
-| `GAS` | User pre-paid gas on the source chain. Mints PC to the recipient as a gas top-up. | Refund of unused gas back to a source chain. |
-| `GAS_AND_PAYLOAD` | Gas top-up + executes a payload through the recipient's UEA in the same Push Chain tx. | Same combo on the destination side. |
-| `FUNDS` | Pure synthetic transfer — mints PRC20 representation of an external token. | Pure transfer of a PRC20 back out of Push Chain. |
-| `FUNDS_AND_PAYLOAD` | Mints funds + runs a payload (e.g. deposit + DEX swap atomically). | Funds delivery with a destination-side call. |
-| `PAYLOAD` | Pure payload execution, no value movement. | Pure call on the destination chain. |
-| `INBOUND_REVERT` | Reverts a previously-executed inbound (returns funds to the source-chain sender). | — |
-| `RESCUE_FUNDS` | Admin-driven rescue path for stuck funds. | Outbound that delivers the rescue. |
+| `TxType`            | Inbound semantics                                                                      | Outbound semantics                               |
+| ------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `GAS`               | User pre-paid gas on the source chain. Mints PC to the recipient as a gas top-up.      | Refund of unused gas back to a source chain.     |
+| `GAS_AND_PAYLOAD`   | Gas top-up + executes a payload through the recipient's UEA in the same Push Chain tx. | Same combo on the destination side.              |
+| `FUNDS`             | Pure synthetic transfer — mints PRC20 representation of an external token.             | Pure transfer of a PRC20 back out of Push Chain. |
+| `FUNDS_AND_PAYLOAD` | Mints funds + runs a payload (e.g. deposit + DEX swap atomically).                     | Funds delivery with a destination-side call.     |
+| `PAYLOAD`           | Pure payload execution, no value movement.                                             | Pure call on the destination chain.              |
+| `INBOUND_REVERT`    | Reverts a previously-executed inbound (returns funds to the source-chain sender).      | —                                                |
+| `RESCUE_FUNDS`      | Admin-driven rescue path for stuck funds.                                              | Outbound that delivers the rescue.               |
 
 ### Status is derived from component state, not stored
 
@@ -152,12 +152,12 @@ The priority for any rollup view is **outbounds > PC txs > inbound presence**: a
 
 `OutboundTx.outbound_status` uses a separate, narrower enum:
 
-| `Status` | Meaning |
-|---|---|
-| `PENDING` | Outbound created on Push Chain, waiting for UVs to broadcast and vote |
+| `Status`   | Meaning                                                                    |
+| ---------- | -------------------------------------------------------------------------- |
+| `PENDING`  | Outbound created on Push Chain, waiting for UVs to broadcast and vote      |
 | `OBSERVED` | UVs voted the outbound was successfully broadcast on the destination chain |
-| `REVERTED` | UVs voted the outbound permanently failed; revert path triggered |
-| `ABORTED` | Finalization or revert attachment failed and requires manual intervention |
+| `REVERTED` | UVs voted the outbound permanently failed; revert path triggered           |
+| `ABORTED`  | Finalization or revert attachment failed and requires manual intervention  |
 
 ### Lifecycle Walkthrough
 
@@ -195,45 +195,17 @@ At every step the UTX is mutated **append-only**: new entries are added to `pc_t
 
 ## Messages (`MsgServer`)
 
-| Message | Authority | Gasless? | Purpose |
-|---|---|---|---|
-| `MsgVoteInbound` | bonded UV | yes | Vote an observed source-chain inbound |
-| `MsgVoteOutbound` | bonded UV | yes | Vote that an outbound was broadcast (or failed) on the destination chain |
-| `MsgVoteChainMeta` | bonded UV | yes | Vote on observed gas price + block height for a chain |
-| `MsgExecutePayload` | any | yes | Execute a payload on a UEA (the UEA itself authenticates via `verificationData`) |
-| `MsgUpdateParams` | gov | no | Update module params |
+| Message             | Authority | Gasless? | Purpose                                                                          |
+| ------------------- | --------- | -------- | -------------------------------------------------------------------------------- |
+| `MsgVoteInbound`    | bonded UV | yes      | Vote an observed source-chain inbound                                            |
+| `MsgVoteOutbound`   | bonded UV | yes      | Vote that an outbound was broadcast (or failed) on the destination chain         |
+| `MsgVoteChainMeta`  | bonded UV | yes      | Vote on observed gas price + block height for a chain                            |
+| `MsgExecutePayload` | any       | yes      | Execute a payload on a UEA (the UEA itself authenticates via `verificationData`) |
+| `MsgUpdateParams`   | gov       | no       | Update module params                                                             |
 
 > **UEA migration is now part of payload execution.** There used to be a separate `MsgMigrateUEA` message; that path has been removed. UEAs are upgraded by submitting a normal `MsgExecutePayload` whose payload calls the UEA's migration entry point on the EVM side. The Cosmos layer no longer has a dedicated migration message — the UEA contract is the source of truth for who is allowed to migrate it and to what implementation.
 
 Vote messages check `IsBondedUniversalValidator` and `IsTombstonedUniversalValidator` on `x/uvalidator` before accepting the vote. Tombstoned validators are silently rejected.
-
-### Authorization model for `MsgExecutePayload` (contract-only binding)
-
-`MsgExecutePayload` follows a **contract-only binding** authorization model. The Cosmos signer of the message and the owner of the target Universal Account are intentionally distinct roles:
-
-- **`Signer`** identifies the Cosmos transaction signer — the party that delivers the owner's pre-authorized payload to Push Chain. `MsgExecutePayload` is a gasless message type (see `app/txpolicy/gasless.go`), so the signer pays no Cosmos transaction fee. Any account may submit the message.
-- **`UniversalAccountId.Owner`** identifies the UEA whose pre-authorized payload is being executed. The actual EVM execution gas is deducted from this UEA;s balance (`DeductGasFeesFromReceipt`), not from the signer.
-
-**The chain module deliberately does not enforce `Signer == EVM(Owner)`.** If it did, third-party delivery of owner-signed payloads would be impossible — every owner would have to submit their own Cosmos transactions even though the chain charges them no Cosmos fee for doing so, defeating the cross-chain UX promise of letting an external account act on Push Chain through delivered payloads.
-
-#### Where authorization actually lives
-
-The cryptographic binding is enforced inside the UEA contract's `executeUniversalTx` (see [`UEA_EVM.sol`](https://github.com/pushchain/push-chain-core-contracts/blob/86e20e2d26819e7cc885549f08c66895221dfab0/src/uea/UEA_EVM.sol#L145) and [`UEA_SVM.sol`](https://github.com/pushchain/push-chain-core-contracts/blob/86e20e2d26819e7cc885549f08c66895221dfab0/src/uea/UEA_SVM.sol)):
-
-1. The contract holds the owner's public key as **immutable bytes** set at UEA deployment via `initialize(_id, _factory)`. There is no code path that mutates this after init.
-2. `executeUniversalTx(payload, signature)` verifies the `signature` (passed in as `MsgExecutePayload.VerificationData`) against this stored owner — ECDSA recovery for EVM-origin owners, the Ed25519 precompile (`0x00…00ca`) for SVM-origin owners.
-3. The signed payload hash includes a contract-tracked `nonce` (monotonic per UEA) and optional `deadline`, providing replay and freshness protection.
-4. If signature verification fails, the contract reverts. The revert propagates as `execErr` from `CallUEAExecutePayload`; the keeper returns the error from `ExecutePayload`; the entire Cosmos transaction (including any partial gas-fee deduction) rolls back atomically. **No state changes survive a failed signature check.**
-
-#### Why this is safe under `Signer ≠ Owner`
-
-An attacker submitting `MsgExecutePayload` with their own `Signer` and a victim's `UniversalAccountId` produces no exploitable outcome:
-
-- The factory resolves the victim's UEA address from the embedded `UniversalAccountId` — correct.
-- `evmFrom` (derived from `Signer`) becomes the EVM-level `msg.sender` of the call to the UEA. Since `evmFrom != UNIVERSAL_EXECUTOR_MODULE` (`0x14191Ea54B4c176fCf86f51b0FAc7CB1E71Df7d7`), the contract enforces the signature check.
-- The attacker cannot forge `VerificationData` that recovers to the victim's owner key.
-- The contract reverts → the keeper returns an error → the Cosmos transaction reverts in full.
-- Net effect: zero state change. No EVM gas is charged to the victim UEA (the deduction is rolled back with the rest of the transaction). The submission costs the attacker nothing on chain (gasless), but also achieves nothing.
 
 ## Queries
 
@@ -246,6 +218,7 @@ See `keeper/query_server.go` and `keeper/query_server_v2.go` for the full surfac
 ## Inter-module Dependencies
 
 The keeper holds references to:
+
 - `evmKeeper` — for `DerivedEVMCall` (deploy contracts, mint, refund, push chain meta)
 - `feemarketKeeper` — for current Push Chain gas price
 - `bankKeeper` — for native transfers

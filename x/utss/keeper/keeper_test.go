@@ -54,6 +54,14 @@ func (m mockUExecutorKeeper) GetGasPriceByChain(_ sdk.Context, _ string) (*big.I
 	return big.NewInt(1000000000), nil // 1 gwei
 }
 
+func (m mockUExecutorKeeper) GetL1GasFeeByChain(_ sdk.Context, _ string) (*big.Int, error) {
+	return big.NewInt(0), nil
+}
+
+func (m mockUExecutorKeeper) GetTssFundMigrationGasLimitByChain(_ sdk.Context, _ string) (*big.Int, error) {
+	return big.NewInt(21000), nil
+}
+
 var maccPerms = map[string][]string{
 	authtypes.FeeCollectorName:     nil,
 	stakingtypes.BondedPoolName:    {authtypes.Burner, authtypes.Staking},

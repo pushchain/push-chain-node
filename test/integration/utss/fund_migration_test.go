@@ -2,10 +2,15 @@ package integrationtest
 
 import (
 	"fmt"
+	"math/big"
 	"strconv"
+	"strings"
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 
 	"github.com/pushchain/push-chain-node/app"
@@ -18,12 +23,84 @@ import (
 
 const testChain = "eip155:11155111"
 
+// universalCoreSetupABI exposes the admin methods needed to configure
+// per-chain mappings during test setup. These are intentionally kept out of
+// the production ABI (x/uexecutor/types/abi.go) — Go-side keeper code never
+// calls them; only tests do.
+const universalCoreSetupABI = `[
+    {
+      "type": "function",
+      "name": "grantRole",
+      "inputs": [
+        { "name": "role",    "type": "bytes32", "internalType": "bytes32" },
+        { "name": "account", "type": "address", "internalType": "address" }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setL1GasFeeByChain",
+      "inputs": [
+        { "name": "chainNamespace", "type": "string",  "internalType": "string" },
+        { "name": "l1GasFee",       "type": "uint256", "internalType": "uint256" }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setTssFundMigrationGasLimitByChain",
+      "inputs": [
+        { "name": "chainNamespace", "type": "string",  "internalType": "string" },
+        { "name": "gasLimit",       "type": "uint256", "internalType": "uint256" }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    }
+]`
+
+// seedFundMigrationChainValues grants MANAGER_ROLE to the admin and seeds the
+// per-chain tss-fund-migration gas limit and L1 gas fee on UniversalCore.
+// InitiateFundMigration rejects a zero gas limit, so without this seeding the
+// keeper read returns 0 and the migration fails validation.
+func seedFundMigrationChainValues(
+	t *testing.T,
+	chainApp *app.ChainApp,
+	ctx sdk.Context,
+	admin common.Address,
+	chain string,
+	gasLimit, l1GasFee *big.Int,
+) {
+	t.Helper()
+
+	handlerAddr := utils.GetDefaultAddresses().HandlerAddr
+	setupABI, err := abi.JSON(strings.NewReader(universalCoreSetupABI))
+	require.NoError(t, err)
+
+	managerRole := crypto.Keccak256Hash([]byte("MANAGER_ROLE"))
+	var roleArg [32]byte
+	copy(roleArg[:], managerRole.Bytes())
+
+	_, err = chainApp.EVMKeeper.CallEVM(ctx, setupABI, admin, handlerAddr, true, "grantRole", roleArg, admin)
+	require.NoError(t, err, "grant MANAGER_ROLE")
+
+	_, err = chainApp.EVMKeeper.CallEVM(ctx, setupABI, admin, handlerAddr, true, "setTssFundMigrationGasLimitByChain", chain, gasLimit)
+	require.NoError(t, err, "seed tss fund migration gas limit")
+
+	_, err = chainApp.EVMKeeper.CallEVM(ctx, setupABI, admin, handlerAddr, true, "setL1GasFeeByChain", chain, l1GasFee)
+	require.NoError(t, err, "seed l1 gas fee")
+}
+
 // setupFundMigrationTest initializes app with validators, a finalized keygen key, and a chain config.
 // Returns app, ctx, validator addresses, and the finalized key ID.
 func setupFundMigrationTest(t *testing.T, numVals int, outboundEnabled bool) (*app.ChainApp, sdk.Context, []string, string) {
 	t.Helper()
 
-	app, ctx, _, validators := utils.SetAppWithMultipleValidators(t, numVals)
+	app, ctx, baseAccounts, validators := utils.SetAppWithMultipleValidators(t, numVals)
+
+	admin := common.BytesToAddress(baseAccounts[0].GetAddress().Bytes())
+	seedFundMigrationChainValues(t, app, ctx, admin, testChain, big.NewInt(21000), big.NewInt(150))
 
 	// Register universal validators
 	universalVals := make([]string, len(validators))
@@ -129,7 +206,10 @@ func TestInitiateFundMigration(t *testing.T) {
 		require.Equal(t, utsstypes.FundMigrationStatus_FUND_MIGRATION_STATUS_PENDING, migration.Status)
 		require.Equal(t, oldKeyId, migration.OldKeyId)
 		require.Equal(t, testChain, migration.Chain)
+		// GasLimit and L1GasFee come from UniversalCore's per-chain mappings,
+		// seeded by seedFundMigrationChainValues.
 		require.Equal(t, uint64(21000), migration.GasLimit)
+		require.Equal(t, "150", migration.L1GasFee)
 		require.NotEmpty(t, migration.GasPrice)
 
 		// Verify pending index

@@ -158,6 +158,19 @@ func (ec *EventConfirmer) processPendingEvents(ctx context.Context) error {
 			continue
 		}
 
+		// Solana preserves meta.logMessages even when meta.err is set, so a Program
+		// data: line from a failed tx can reach the listener. Mark such events
+		// REVERTED here so they never promote to CONFIRMED and trigger a vote.
+		if tx.Meta.Err != nil {
+			if _, updateErr := ec.chainStore.UpdateEventStatus(event.EventID, store.StatusPending, store.StatusReverted); updateErr != nil {
+				ec.logger.Error().
+					Err(updateErr).
+					Str("event_id", event.EventID).
+					Msg("failed to mark failed-tx event as REVERTED")
+			}
+			continue
+		}
+
 		// Get transaction slot
 		txSlot := tx.Slot
 		if txSlot == 0 {

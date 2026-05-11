@@ -3,6 +3,9 @@ package evm
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -450,4 +453,77 @@ func TestEventConfirmer_GetRequiredConfirmations_LargeValues(t *testing.T) {
 		assert.Equal(t, uint64(10), standard)
 		assert.Equal(t, uint64(10), unknown)
 	})
+}
+
+// A pending event whose tx receipt reports status=0 must transition to
+// REVERTED, never to CONFIRMED — even when confirmation depth is satisfied.
+func TestProcessPendingEvents_FailedReceiptMarkedReverted(t *testing.T) {
+	txHash := "0x1111111111111111111111111111111111111111111111111111111111111111"
+	const (
+		eventBlockHex  = "0x64" // 100
+		latestBlockHex = "0x96" // 150 — well past the 12-block confirmation horizon
+	)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		body := make([]byte, r.ContentLength)
+		r.Body.Read(body)
+		bodyStr := string(body)
+
+		switch {
+		case strings.Contains(bodyStr, "eth_chainId"):
+			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":"0x1"}`))
+		case strings.Contains(bodyStr, "eth_blockNumber"):
+			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":"` + latestBlockHex + `"}`))
+		case strings.Contains(bodyStr, "eth_getTransactionReceipt"):
+			// status: 0x0 indicates a failed/reverted transaction.
+			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":{` +
+				`"transactionHash":"` + txHash + `",` +
+				`"blockNumber":"` + eventBlockHex + `",` +
+				`"blockHash":"0x2222222222222222222222222222222222222222222222222222222222222222",` +
+				`"transactionIndex":"0x0",` +
+				`"gasUsed":"0x5208",` +
+				`"cumulativeGasUsed":"0x5208",` +
+				`"logsBloom":"0x` + strings.Repeat("0", 512) + `",` +
+				`"logs":[],` +
+				`"status":"0x0",` +
+				`"type":"0x2"` +
+				`}}`))
+		default:
+			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":null}`))
+		}
+	}))
+	defer server.Close()
+
+	logger := zerolog.Nop()
+	rpcClient, err := NewRPCClient([]string{server.URL}, 1, logger)
+	require.NoError(t, err)
+	defer rpcClient.Close()
+
+	memDB, err := db.OpenInMemoryDB(true)
+	require.NoError(t, err)
+	defer memDB.Close()
+
+	ec := NewEventConfirmer(rpcClient, memDB, "eip155:1", 5, 5, 12, logger)
+	cs := common.NewChainStore(memDB)
+
+	pending := &store.Event{
+		EventID:          txHash + ":0",
+		BlockHeight:      100,
+		Type:             store.EventTypeInbound,
+		ConfirmationType: store.ConfirmationStandard,
+		Status:           store.StatusPending,
+		EventData:        []byte(`{}`),
+	}
+	inserted, err := cs.InsertEventIfNotExists(pending)
+	require.NoError(t, err)
+	require.True(t, inserted)
+
+	require.NoError(t, ec.processPendingEvents(context.Background()))
+
+	// Event must end up REVERTED, not CONFIRMED, even though it has well over
+	// the required confirmations.
+	var got store.Event
+	require.NoError(t, memDB.Client().Where("event_id = ?", pending.EventID).First(&got).Error)
+	assert.Equal(t, store.StatusReverted, got.Status, "failed receipt must transition to REVERTED, not CONFIRMED")
 }

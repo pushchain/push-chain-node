@@ -2,6 +2,9 @@ package svm
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -9,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/db"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 )
@@ -333,6 +337,81 @@ func TestEventConfirmerGetRequiredConfirmations_MoreEdgeCases(t *testing.T) {
 		result := ec.getRequiredConfirmations(store.ConfirmationStandard)
 		assert.Equal(t, uint64(12), result) // default 12
 	})
+}
+
+// A pending event whose tx response has meta.err set must transition to
+// REVERTED, never to CONFIRMED. Solana preserves meta.logMessages even on
+// failed txs, so without this branch a Program-data line from a failed tx
+// could otherwise reach confirmation and vote paths.
+func TestProcessPendingEvents_FailedMetaErrMarkedReverted(t *testing.T) {
+	// 64 base58 '1' chars decode to all-zero bytes — a syntactically valid
+	// Solana signature that the test confirmer can parse.
+	sigStr := strings.Repeat("1", 64)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		body := make([]byte, r.ContentLength)
+		r.Body.Read(body)
+		bodyStr := string(body)
+
+		switch {
+		case strings.Contains(bodyStr, `"getHealth"`):
+			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":"ok"}`))
+		case strings.Contains(bodyStr, `"getSlot"`):
+			// Slot well beyond the event's recorded slot to satisfy
+			// the confirmation-depth check if execution had been successful.
+			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":1000}`))
+		case strings.Contains(bodyStr, `"getTransaction"`):
+			// meta.err non-null indicates a failed transaction. The exact
+			// shape mirrors a real Solana RPC failure response.
+			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":{` +
+				`"slot":100,` +
+				`"meta":{` +
+				`"err":{"InstructionError":[0,"Custom: 1"]},` +
+				`"fee":5000,` +
+				`"preBalances":[],` +
+				`"postBalances":[],` +
+				`"logMessages":["Program log: would have been a Program data: line"],` +
+				`"status":{"Err":{"InstructionError":[0,"Custom: 1"]}}` +
+				`},` +
+				`"transaction":["AQ==","base64"]` +
+				`}}`))
+		default:
+			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":null}`))
+		}
+	}))
+	defer server.Close()
+
+	logger := zerolog.Nop()
+	// Pass empty expectedGenesisHash to skip the getGenesisHash probe.
+	rpcClient, err := NewRPCClient([]string{server.URL}, "", logger)
+	require.NoError(t, err)
+	defer rpcClient.Close()
+
+	memDB, err := db.OpenInMemoryDB(true)
+	require.NoError(t, err)
+	defer memDB.Close()
+
+	ec := NewEventConfirmer(rpcClient, memDB, "solana:mainnet", 5, 5, 12, logger)
+	cs := common.NewChainStore(memDB)
+
+	pending := &store.Event{
+		EventID:          sigStr + ":0",
+		BlockHeight:      100,
+		Type:             store.EventTypeInbound,
+		ConfirmationType: store.ConfirmationStandard,
+		Status:           store.StatusPending,
+		EventData:        []byte(`{}`),
+	}
+	inserted, err := cs.InsertEventIfNotExists(pending)
+	require.NoError(t, err)
+	require.True(t, inserted)
+
+	require.NoError(t, ec.processPendingEvents(context.Background()))
+
+	var got store.Event
+	require.NoError(t, memDB.Client().Where("event_id = ?", pending.EventID).First(&got).Error)
+	assert.Equal(t, store.StatusReverted, got.Status, "failed-meta tx must transition to REVERTED, not CONFIRMED")
 }
 
 func TestEventConfirmer_StartStop_ZeroPollInterval(t *testing.T) {

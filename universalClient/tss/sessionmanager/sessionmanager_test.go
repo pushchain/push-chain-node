@@ -156,6 +156,12 @@ func setupTestSessionManager(t *testing.T) (*SessionManager, *coordinator.Coordi
 		fieldPtr := unsafe.Pointer(allValidatorsField.UnsafeAddr())
 		*(*[]*types.UniversalValidator)(fieldPtr) = testValidators
 	}
+	// Also mark the cache as freshly refreshed so IsPeerCoordinator doesn't
+	// trip the staleness halt (the test fixture doesn't run the poll loop
+	// that would normally populate lastValidatorsRefreshAt).
+	if refreshField := coordValue.FieldByName("lastValidatorsRefreshAt"); refreshField.IsValid() {
+		*(*time.Time)(unsafe.Pointer(refreshField.UnsafeAddr())) = time.Now()
+	}
 
 	sm := NewSessionManager(
 		evtStore,

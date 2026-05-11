@@ -386,23 +386,23 @@ func parseEVMChainID(caip2 string) (int64, error) {
 	return chainID, nil
 }
 
-// FetchVaultAddress calls the gateway's VAULT() public getter to retrieve the vault address.
+// FetchVaultAddress calls the gateway's vault() public getter to retrieve the vault address.
 func FetchVaultAddress(ctx context.Context, rpcClient *RPCClient, gatewayAddress ethcommon.Address) (ethcommon.Address, error) {
-	// vaultCallSelector is the 4-byte selector for VAULT() public getter
-	vaultCallSelector := crypto.Keccak256([]byte("VAULT()"))[:4]
+	// vaultCallSelector is the 4-byte selector for vault() public getter
+	vaultCallSelector := crypto.Keccak256([]byte("vault()"))[:4]
 
 	result, err := rpcClient.CallContract(ctx, gatewayAddress, vaultCallSelector, nil)
 	if err != nil {
-		return ethcommon.Address{}, fmt.Errorf("VAULT() call failed: %w", err)
+		return ethcommon.Address{}, fmt.Errorf("vault() call failed: %w", err)
 	}
 
 	if len(result) < 32 {
-		return ethcommon.Address{}, fmt.Errorf("VAULT() returned invalid data (len=%d)", len(result))
+		return ethcommon.Address{}, fmt.Errorf("vault() returned invalid data (len=%d)", len(result))
 	}
 
 	addr := ethcommon.BytesToAddress(result[12:32])
 	if addr == (ethcommon.Address{}) {
-		return ethcommon.Address{}, fmt.Errorf("VAULT() returned zero address")
+		return ethcommon.Address{}, fmt.Errorf("vault() returned zero address")
 	}
 
 	return addr, nil

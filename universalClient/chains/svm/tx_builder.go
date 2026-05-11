@@ -322,6 +322,7 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 	var ixData []byte
 	var revertRecipient [32]byte
 	var revertMint [32]byte
+	var revertMsg []byte
 
 	if txType == uetypes.TxType_INBOUND_REVERT || txType == uetypes.TxType_RESCUE_FUNDS {
 		// Revert (id=3) and rescue (id=4): instruction_id determined by TxType, no payload decode
@@ -332,6 +333,14 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 		copy(revertRecipient[:], recipientPubkey.Bytes())
 		if !isNative {
 			copy(revertMint[:], token[:])
+		}
+		// Only revert (id=3) binds keccak256(revert_msg) in the TSS message.
+		// Rescue (id=4) doesn't carry a revert reason. Treat decode failure
+		// as empty so the signing hash is still deterministic.
+		if instructionID == 3 {
+			if decoded, decErr := hex.DecodeString(removeHexPrefix(data.RevertMsg)); decErr == nil {
+				revertMsg = decoded
+			}
 		}
 	} else {
 		// Non-revert flows: decode payload to get instruction_id.
@@ -392,7 +401,7 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 		instructionID, chainID, amount.Uint64(),
 		txID, universalTxID, sender, token, gasFee,
 		targetProgram, accounts, ixData,
-		revertRecipient, revertMint,
+		revertRecipient, revertMint, revertMsg,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct TSS message: %w", err)
@@ -699,7 +708,7 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 		return nil, 0, fmt.Errorf("failed to derive vault PDA: %w", err)
 	}
 
-	tssPDA, _, err := solana.FindProgramAddress([][]byte{[]byte("tsspda_v2")}, tb.gatewayAddress)
+	tssPDA, _, err := solana.FindProgramAddress([][]byte{[]byte("final_tss_pda")}, tb.gatewayAddress)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to derive TSS PDA: %w", err)
 	}
@@ -882,9 +891,9 @@ func removeHexPrefix(s string) string {
 //   - tss_eth_address: the 20-byte Ethereum address of the TSS signing group
 //   - chain_id: identifies this Solana cluster (for cross-chain replay protection)
 //
-// Seed: ["tsspda_v2"] — must match the Rust constant TSS_SEED in state.rs
+// Seed: ["final_tss_pda"] — must match the Rust constant TSS_SEED in state.rs
 func (tb *TxBuilder) deriveTSSPDA() (solana.PublicKey, error) {
-	seeds := [][]byte{[]byte("tsspda_v2")}
+	seeds := [][]byte{[]byte("final_tss_pda")}
 	address, _, err := solana.FindProgramAddress(seeds, tb.gatewayAddress)
 	return address, err
 }
@@ -898,8 +907,7 @@ func (tb *TxBuilder) deriveTSSPDA() (solana.PublicKey, error) {
 //	8       20       tss_eth_address [u8; 20]
 //	28      4        chain_id length (u32, little-endian) — Borsh String prefix
 //	32      N        chain_id bytes (UTF-8, variable length)
-//	32+N    32       authority (Pubkey)
-//	32+N+32 1        bump
+//	32+N    1        bump
 func (tb *TxBuilder) fetchTSSChainID(ctx context.Context, tssPDA solana.PublicKey) (string, error) {
 	accountData, err := tb.rpcClient.GetAccountData(ctx, tssPDA)
 	if err != nil {
@@ -915,7 +923,7 @@ func (tb *TxBuilder) fetchTSSChainID(ctx context.Context, tssPDA solana.PublicKe
 	// This is NOT fixed-length — different clusters have different chain IDs.
 	chainIDLen := binary.LittleEndian.Uint32(accountData[28:32])
 
-	requiredLen := 32 + int(chainIDLen) + 32 + 1
+	requiredLen := 32 + int(chainIDLen) + 1
 	if len(accountData) < requiredLen {
 		return "", fmt.Errorf("invalid TSS PDA account data: too short for chain_id length %d (%d bytes)", chainIDLen, len(accountData))
 	}
@@ -1001,6 +1009,7 @@ func (tb *TxBuilder) constructTSSMessage(
 	ixData []byte,
 	revertRecipient [32]byte,
 	revertMint [32]byte,
+	revertMsg []byte,
 ) ([]byte, error) {
 	message := []byte("PUSH_CHAIN_SVM")
 	message = append(message, instructionID)
@@ -1049,7 +1058,21 @@ func (tb *TxBuilder) constructTSSMessage(
 		message = append(message, ixDataLen...)
 		message = append(message, ixData...)
 
-	case 3, 4: // revert (id=3) or rescue (id=4) — same message format
+	case 3: // revert
+		message = append(message, txID[:]...)
+		message = append(message, universalTxID[:]...)
+		if revertMint != ([32]byte{}) {
+			// SPL: include mint before recipient
+			message = append(message, revertMint[:]...)
+		}
+		message = append(message, revertRecipient[:]...)
+		message = append(message, gasFeeBytes...)
+		// revert_universal_tx binds keccak256(revert_msg) as the trailing
+		// additional-data element so a forged revert reason cannot be
+		// substituted under the same TSS signature.
+		message = append(message, crypto.Keccak256(revertMsg)...)
+
+	case 4: // rescue — same wire format as revert minus the revert_msg binding
 		message = append(message, txID[:]...)
 		message = append(message, universalTxID[:]...)
 		if revertMint != ([32]byte{}) {
@@ -1065,9 +1088,7 @@ func (tb *TxBuilder) constructTSSMessage(
 
 	// Hash with keccak256. Solana's keccak::hash is the same algorithm as Ethereum's keccak256.
 	// NOT sha256 — Anchor uses sha256 for discriminators, but TSS messages use keccak256.
-	messageHash := crypto.Keccak256(message)
-
-	return messageHash, nil
+	return crypto.Keccak256(message), nil
 }
 
 // =============================================================================

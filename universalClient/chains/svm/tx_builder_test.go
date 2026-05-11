@@ -55,9 +55,9 @@ func makeSender(fill byte) [20]byte {
 }
 
 // buildMockTSSPDAData builds a raw byte slice simulating a TssPda account.
-// Layout: discriminator(8) + tss_eth_address(20) + chain_id(Borsh String: 4 LE len + bytes) + authority(32) + bump(1)
-func buildMockTSSPDAData(tssAddr [20]byte, chainID string, authority [32]byte, bump byte) []byte {
-	data := make([]byte, 0, 8+20+4+len(chainID)+32+1)
+// Layout: discriminator(8) + tss_eth_address(20) + chain_id(Borsh String: 4 LE len + bytes) + bump(1)
+func buildMockTSSPDAData(tssAddr [20]byte, chainID string, bump byte) []byte {
+	data := make([]byte, 0, 8+20+4+len(chainID)+1)
 	// discriminator (8 bytes of zeros)
 	data = append(data, make([]byte, 8)...)
 	// tss_eth_address (20 bytes)
@@ -67,8 +67,6 @@ func buildMockTSSPDAData(tssAddr [20]byte, chainID string, authority [32]byte, b
 	binary.LittleEndian.PutUint32(chainIDLenBytes, uint32(len(chainID)))
 	data = append(data, chainIDLenBytes...)
 	data = append(data, []byte(chainID)...)
-	// authority (32 bytes)
-	data = append(data, authority[:]...)
 	// bump (1 byte)
 	data = append(data, bump)
 	return data
@@ -215,21 +213,23 @@ func TestDeriveTSSPDA(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, pda.IsZero(), "TSS PDA should be non-zero")
 
-	// Verify it matches FindProgramAddress with seed "tsspda_v2"
-	expected, _, err := solana.FindProgramAddress([][]byte{[]byte("tsspda_v2")}, builder.gatewayAddress)
+	// Verify it matches FindProgramAddress with seed "final_tss_pda"
+	expected, _, err := solana.FindProgramAddress([][]byte{[]byte("final_tss_pda")}, builder.gatewayAddress)
 	require.NoError(t, err)
 	assert.Equal(t, expected, pda)
 
-	// Verify it does NOT match the old seed "tsspda"
-	oldPDA, _, err := solana.FindProgramAddress([][]byte{[]byte("tsspda")}, builder.gatewayAddress)
-	require.NoError(t, err)
-	assert.NotEqual(t, oldPDA, pda, "TSS PDA must NOT use old seed 'tsspda'")
+	// Verify it does NOT match any prior seed
+	for _, stale := range []string{"tsspda", "tsspda_v2"} {
+		stalePDA, _, err := solana.FindProgramAddress([][]byte{[]byte(stale)}, builder.gatewayAddress)
+		require.NoError(t, err)
+		assert.NotEqual(t, stalePDA, pda, "TSS PDA must NOT use old seed %q", stale)
+	}
 }
 
 func TestFetchTSSChainID(t *testing.T) {
 	t.Run("parses valid TssPda with short chain_id", func(t *testing.T) {
 		chainIDStr := "devnet"
-		data := buildMockTSSPDAData([20]byte{}, chainIDStr, [32]byte{}, 255)
+		data := buildMockTSSPDAData([20]byte{}, chainIDStr, 255)
 
 		chainID, err := parseTSSPDAData(data)
 		require.NoError(t, err)
@@ -238,7 +238,7 @@ func TestFetchTSSChainID(t *testing.T) {
 
 	t.Run("parses valid TssPda with mainnet cluster pubkey", func(t *testing.T) {
 		chainIDStr := "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d"
-		data := buildMockTSSPDAData([20]byte{}, chainIDStr, [32]byte{}, 1)
+		data := buildMockTSSPDAData([20]byte{}, chainIDStr, 1)
 
 		chainID, err := parseTSSPDAData(data)
 		require.NoError(t, err)
@@ -251,7 +251,7 @@ func TestFetchTSSChainID(t *testing.T) {
 		assert.Contains(t, err.Error(), "too short")
 	})
 
-	t.Run("rejects data too short for chain_id + authority", func(t *testing.T) {
+	t.Run("rejects data too short for chain_id + bump", func(t *testing.T) {
 		// Build header with chain_id_len = 100, but only provide 40 total bytes
 		data := make([]byte, 40)
 		binary.LittleEndian.PutUint32(data[28:32], 100) // chain_id_len = 100
@@ -263,7 +263,7 @@ func TestFetchTSSChainID(t *testing.T) {
 	t.Run("chain_id at correct offset after variable-length chain_id", func(t *testing.T) {
 		// Two different chain_id lengths — verify parsing is dynamic
 		for _, cid := range []string{"a", "abcdefghij"} {
-			data := buildMockTSSPDAData([20]byte{}, cid, [32]byte{}, 0)
+			data := buildMockTSSPDAData([20]byte{}, cid, 0)
 			chainID, err := parseTSSPDAData(data)
 			require.NoError(t, err, "chain_id=%q", cid)
 			assert.Equal(t, cid, chainID)
@@ -278,7 +278,7 @@ func parseTSSPDAData(accountData []byte) (string, error) {
 		return "", fmt.Errorf("invalid TSS PDA account data: too short (%d bytes)", len(accountData))
 	}
 	chainIDLen := binary.LittleEndian.Uint32(accountData[28:32])
-	requiredLen := 32 + int(chainIDLen) + 32 + 1
+	requiredLen := 32 + int(chainIDLen) + 1
 	if len(accountData) < requiredLen {
 		return "", fmt.Errorf("invalid TSS PDA account data: too short for chain_id length %d (%d bytes)", chainIDLen, len(accountData))
 	}
@@ -362,7 +362,7 @@ func TestConstructTSSMessage(t *testing.T) {
 			txID, utxID, sender, token,
 			0, // gasFee
 			target, nil, nil,
-			[32]byte{}, [32]byte{},
+			[32]byte{}, [32]byte{}, nil,
 		)
 		require.NoError(t, err)
 		assert.Len(t, hash, 32, "message hash must be 32 bytes (keccak256)")
@@ -399,7 +399,7 @@ func TestConstructTSSMessage(t *testing.T) {
 			txID, utxID, sender, token,
 			100, // gasFee
 			target, accs, ixData,
-			[32]byte{}, [32]byte{},
+			[32]byte{}, [32]byte{}, nil,
 		)
 		require.NoError(t, err)
 		assert.Len(t, hash, 32)
@@ -445,7 +445,7 @@ func TestConstructTSSMessage(t *testing.T) {
 			3, "devnet", 500000,
 			txID, utxID, sender, token,
 			0, [32]byte{}, nil, nil,
-			revertRecipient, [32]byte{},
+			revertRecipient, [32]byte{}, nil,
 		)
 		require.NoError(t, err)
 
@@ -455,12 +455,14 @@ func TestConstructTSSMessage(t *testing.T) {
 		amountBE := make([]byte, 8)
 		binary.BigEndian.PutUint64(amountBE, 500000)
 		msg = append(msg, amountBE...)
-		// additional: tx_id, utx_id, recipient, gas_fee
+		// additional: tx_id, utx_id, recipient, gas_fee, keccak256(revert_msg)
 		msg = append(msg, txID[:]...)
 		msg = append(msg, utxID[:]...)
 		msg = append(msg, revertRecipient[:]...)
 		gasBE := make([]byte, 8)
 		msg = append(msg, gasBE...)
+		// revert_universal_tx binds keccak256(revert_msg); nil revert_msg here.
+		msg = append(msg, crypto.Keccak256(nil)...)
 
 		expected := crypto.Keccak256(msg)
 		assert.Equal(t, expected, hash, "revert SOL message hash mismatch")
@@ -473,7 +475,7 @@ func TestConstructTSSMessage(t *testing.T) {
 			3, "devnet", 750000,
 			txID, utxID, sender, token,
 			0, [32]byte{}, nil, nil,
-			revertRecipient, revertMint,
+			revertRecipient, revertMint, nil,
 		)
 		require.NoError(t, err)
 
@@ -483,16 +485,63 @@ func TestConstructTSSMessage(t *testing.T) {
 		amountBE := make([]byte, 8)
 		binary.BigEndian.PutUint64(amountBE, 750000)
 		msg = append(msg, amountBE...)
-		// additional: tx_id, utx_id, mint, recipient, gas_fee
+		// additional: tx_id, utx_id, mint, recipient, gas_fee, keccak256(revert_msg)
 		msg = append(msg, txID[:]...)
 		msg = append(msg, utxID[:]...)
 		msg = append(msg, revertMint[:]...)
 		msg = append(msg, revertRecipient[:]...)
 		gasBE := make([]byte, 8)
 		msg = append(msg, gasBE...)
+		// revert_universal_tx binds keccak256(revert_msg); nil revert_msg here.
+		msg = append(msg, crypto.Keccak256(nil)...)
 
 		expected := crypto.Keccak256(msg)
 		assert.Equal(t, expected, hash, "revert SPL message hash mismatch")
+	})
+
+	t.Run("revert (id=3) binds revert_msg into the signed hash", func(t *testing.T) {
+		// Two otherwise-identical revert signing requests with different
+		// revert_msg values must hash to different messages — the trailing
+		// keccak256(revert_msg) prevents a forged reason being swapped under
+		// the same TSS signature.
+		revertRecipient := makeTxID(0xEE)
+		hashA, err := builder.constructTSSMessage(
+			3, "devnet", 500000,
+			txID, utxID, sender, token,
+			0, [32]byte{}, nil, nil,
+			revertRecipient, [32]byte{}, []byte("reason A"),
+		)
+		require.NoError(t, err)
+		hashB, err := builder.constructTSSMessage(
+			3, "devnet", 500000,
+			txID, utxID, sender, token,
+			0, [32]byte{}, nil, nil,
+			revertRecipient, [32]byte{}, []byte("reason B"),
+		)
+		require.NoError(t, err)
+		assert.NotEqual(t, hashA, hashB, "different revert_msg values must produce different hashes")
+	})
+
+	t.Run("rescue (id=4) does not bind revert_msg", func(t *testing.T) {
+		// Rescue uses the same message prefix as revert but does NOT bind
+		// revert_msg. Two rescue messages with different revertMsg args must
+		// still produce the same hash.
+		rescueRecipient := makeTxID(0xEE)
+		hashA, err := builder.constructTSSMessage(
+			4, "devnet", 300000,
+			txID, utxID, sender, token,
+			50, [32]byte{}, nil, nil,
+			rescueRecipient, [32]byte{}, []byte("reason A"),
+		)
+		require.NoError(t, err)
+		hashB, err := builder.constructTSSMessage(
+			4, "devnet", 300000,
+			txID, utxID, sender, token,
+			50, [32]byte{}, nil, nil,
+			rescueRecipient, [32]byte{}, []byte("reason B"),
+		)
+		require.NoError(t, err)
+		assert.Equal(t, hashA, hashB, "rescue must not bind revert_msg")
 	})
 
 	t.Run("rescue SOL (id=4) message format", func(t *testing.T) {
@@ -501,7 +550,7 @@ func TestConstructTSSMessage(t *testing.T) {
 			4, "devnet", 300000,
 			txID, utxID, sender, token,
 			50, [32]byte{}, nil, nil,
-			rescueRecipient, [32]byte{},
+			rescueRecipient, [32]byte{}, nil,
 		)
 		require.NoError(t, err)
 
@@ -529,7 +578,7 @@ func TestConstructTSSMessage(t *testing.T) {
 			4, "devnet", 400000,
 			txID, utxID, sender, token,
 			75, [32]byte{}, nil, nil,
-			rescueRecipient, rescueMint,
+			rescueRecipient, rescueMint, nil,
 		)
 		require.NoError(t, err)
 
@@ -558,7 +607,7 @@ func TestConstructTSSMessage(t *testing.T) {
 			1, chainID, 0,
 			[32]byte{}, [32]byte{}, [20]byte{}, [32]byte{},
 			0, [32]byte{}, nil, nil,
-			[32]byte{}, [32]byte{},
+			[32]byte{}, [32]byte{}, nil,
 		)
 		require.NoError(t, err)
 
@@ -583,7 +632,7 @@ func TestConstructTSSMessage(t *testing.T) {
 			99, "devnet", 0,
 			[32]byte{}, [32]byte{}, [20]byte{}, [32]byte{},
 			0, [32]byte{}, nil, nil,
-			[32]byte{}, [32]byte{},
+			[32]byte{}, [32]byte{}, nil,
 		)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "unknown instruction ID")
@@ -598,7 +647,7 @@ func TestConstructTSSMessage_HashIsKeccak256(t *testing.T) {
 		1, "x", 0,
 		[32]byte{}, [32]byte{}, [20]byte{}, [32]byte{},
 		0, [32]byte{}, nil, nil,
-		[32]byte{}, [32]byte{},
+		[32]byte{}, [32]byte{}, nil,
 	)
 	require.NoError(t, err)
 
@@ -1278,6 +1327,48 @@ func TestBuildSetComputeUnitLimitInstruction(t *testing.T) {
 	assert.Equal(t, uint32(300000), binary.LittleEndian.Uint32(data[1:5]))
 }
 
+// TestSVMFinalizeTx_SingleSignerProtocolAssumption pins the contract-side
+// protocol assumption that UV's finalize transactions are single-signature
+// with the relayer as sole fee payer. The audited gateway charges
+// SIGNATURE_FEE_LAMPORTS once per signer, so any future change that
+// introduces a co-signer (guardian, multi-sig payer, etc.) would also need
+// the contract-side accounting updated — this test fails loudly if the
+// shape drifts.
+//
+// The pattern mirrors BuildOutboundTransaction: TransactionPayer is the
+// relayer pubkey, and the signing closure only ever returns the relayer's
+// private key.
+func TestSVMFinalizeTx_SingleSignerProtocolAssumption(t *testing.T) {
+	relayer, err := solana.NewRandomPrivateKey()
+	require.NoError(t, err)
+
+	instr := solana.NewInstruction(
+		solana.SystemProgramID,
+		solana.AccountMetaSlice{
+			solana.NewAccountMeta(relayer.PublicKey(), true, true),
+		},
+		[]byte{0},
+	)
+	tx, err := solana.NewTransaction(
+		[]solana.Instruction{instr},
+		solana.Hash{},
+		solana.TransactionPayer(relayer.PublicKey()),
+	)
+	require.NoError(t, err)
+
+	_, err = tx.Sign(func(key solana.PublicKey) *solana.PrivateKey {
+		if key.Equals(relayer.PublicKey()) {
+			return &relayer
+		}
+		return nil
+	})
+	require.NoError(t, err)
+
+	require.Len(t, tx.Signatures, 1, "SVM finalize tx must have exactly one signature (relayer/fee-payer)")
+	require.NotEmpty(t, tx.Message.AccountKeys, "tx must have at least one account key")
+	assert.Equal(t, relayer.PublicKey(), tx.Message.AccountKeys[0], "relayer must be the fee payer (account[0])")
+}
+
 func TestGatewayAccountMetaStruct(t *testing.T) {
 	var pk [32]byte
 	for i := range pk {
@@ -1303,7 +1394,7 @@ func TestEndToEndWithdrawMessageAndData(t *testing.T) {
 		1, "devnet", 1000000,
 		txID, utxID, sender, token,
 		0, target, nil, nil,
-		[32]byte{}, [32]byte{},
+		[32]byte{}, [32]byte{}, nil,
 	)
 	require.NoError(t, err)
 
@@ -1349,7 +1440,7 @@ func TestEndToEndWithRealSignature(t *testing.T) {
 			1, "devnet", amount,
 			txID, utxID, sender, token,
 			0, target, nil, nil,
-			[32]byte{}, [32]byte{},
+			[32]byte{}, [32]byte{}, nil,
 		)
 		require.NoError(t, err)
 
@@ -1382,7 +1473,7 @@ func TestEndToEndWithRealSignature(t *testing.T) {
 			2, "devnet", amount,
 			txID, utxID, sender, token,
 			0, target, accs, ixData,
-			[32]byte{}, [32]byte{},
+			[32]byte{}, [32]byte{}, nil,
 		)
 		require.NoError(t, err)
 
@@ -1411,7 +1502,7 @@ func TestEndToEndWithRealSignature(t *testing.T) {
 			3, "devnet", amount,
 			txID, utxID, sender, token,
 			0, [32]byte{}, nil, nil,
-			revertRecipient, [32]byte{},
+			revertRecipient, [32]byte{}, nil,
 		)
 		require.NoError(t, err)
 
@@ -1437,7 +1528,7 @@ func TestEndToEndWithRealSignature(t *testing.T) {
 			4, "devnet", amount,
 			txID, utxID, sender, token,
 			50, [32]byte{}, nil, nil,
-			rescueRecipient, [32]byte{},
+			rescueRecipient, [32]byte{}, nil,
 		)
 		require.NoError(t, err)
 
@@ -1737,7 +1828,7 @@ func buildAndSimulateRescue(t *testing.T, rpcClient *RPCClient, builder *TxBuild
 		4, chainID, amount,
 		txID, universalTxID, sender, token, gasFee,
 		[32]byte{}, nil, nil,
-		revertRecipient, revertMint,
+		revertRecipient, revertMint, nil,
 	)
 	require.NoError(t, err)
 

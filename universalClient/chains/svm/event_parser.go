@@ -104,7 +104,10 @@ func parseSendFundsEvent(log string, signature string, slot uint64, logIndex uin
 // - discriminator (8 bytes)
 // - sub_tx_id (32 bytes)
 // - universal_tx_id (32 bytes)
-// - gas_fee (8 bytes, u64 lamports)
+// - gas_fee (8 bytes, u64 lamports)        — prepaid budget
+// - gas_used (8 bytes, u64 lamports)       — actual lamports consumed
+// - gas_to_refund (8 bytes, u64 lamports)  — gas_fee - gas_used returned to caller
+// - ata_created (1 byte, bool)             — true if SPL ATA was newly created
 // - push_account (20 bytes)
 // - target (32 bytes, Pubkey)
 // - token (32 bytes, Pubkey)
@@ -121,11 +124,12 @@ func parseOutboundObservationEvent(log string, signature string, slot uint64, lo
 		return nil
 	}
 
-	// Minimum: 8 disc + 32 sub_tx_id + 32 universal_tx_id + 8 gas_fee = 80 bytes
-	if len(decoded) < 80 {
+	// Minimum: 8 disc + 32 sub_tx_id + 32 universal_tx_id + 8 gas_fee + 8 gas_used
+	// + 8 gas_to_refund + 1 ata_created = 97 bytes.
+	if len(decoded) < 97 {
 		logger.Warn().
 			Int("data_len", len(decoded)).
-			Msg("data too short for outboundObservation event; need at least 80 bytes")
+			Msg("data too short for outboundObservation event; need at least 97 bytes")
 		return nil
 	}
 
@@ -150,14 +154,18 @@ func parseOutboundObservationEvent(log string, signature string, slot uint64, lo
 	universalTxID := "0x" + hex.EncodeToString(decoded[offset:offset+32])
 	offset += 32
 
-	// Extract gas_fee (8 bytes, u64 little-endian lamports)
-	gasFee := binary.LittleEndian.Uint64(decoded[offset : offset+8])
+	// Skip gas_fee (prepaid budget, 8 bytes); the audited finalize event reports
+	// gas_used separately and that's the value we want to surface as GasFeeUsed.
+	offset += 8
+
+	// Extract gas_used (8 bytes, u64 little-endian lamports) — actual gas consumed.
+	gasUsed := binary.LittleEndian.Uint64(decoded[offset : offset+8])
 
 	// Create OutboundEvent payload
 	payload := common.OutboundEvent{
 		TxID:          txID,
 		UniversalTxID: universalTxID,
-		GasFeeUsed:    fmt.Sprintf("%d", gasFee),
+		GasFeeUsed:    fmt.Sprintf("%d", gasUsed),
 	}
 
 	// Marshal payload to JSON
@@ -185,7 +193,7 @@ func parseOutboundObservationEvent(log string, signature string, slot uint64, lo
 		Str("event_id", eventID).
 		Str("tx_id", txID).
 		Str("universal_tx_id", universalTxID).
-		Str("gas_fee", fmt.Sprintf("%d", gasFee)).
+		Str("gas_used", fmt.Sprintf("%d", gasUsed)).
 		Msg("parsed outboundObservation event")
 
 	return event

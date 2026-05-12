@@ -18,6 +18,7 @@ import (
 	ceapayloadverificationfix "github.com/pushchain/push-chain-node/app/upgrades/cea-payload-verification-fix"
 	chainmeta "github.com/pushchain/push-chain-node/app/upgrades/chain-meta"
 	chainmetavotegasless "github.com/pushchain/push-chain-node/app/upgrades/chain-meta-vote-gasless"
+	contractauditchanges "github.com/pushchain/push-chain-node/app/upgrades/contract-audit-changes"
 	ethhashfix "github.com/pushchain/push-chain-node/app/upgrades/eth-hash-fix"
 	evmrpcfix "github.com/pushchain/push-chain-node/app/upgrades/evm-rpc-fix"
 	feeabs "github.com/pushchain/push-chain-node/app/upgrades/fee-abs"
@@ -67,6 +68,7 @@ var Upgrades = []upgrades.Upgrade{
 	removeutxverifier.NewUpgrade(),
 	tssfundmigrationfixes.NewUpgrade(),
 	evmupgrade032.NewUpgrade(),
+	contractauditchanges.NewUpgrade(),
 }
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers

@@ -48,14 +48,12 @@ func (k Keeper) GetOutboundTxGasAndFees(ctx sdk.Context, prc20 common.Address, g
 	gasFee := results[1].(*big.Int)
 	// protocolFee := results[2].(*big.Int) — not needed for outbound fields
 	gasPrice := results[3].(*big.Int)
-
-	// Derive gasLimit from gasFee / gasPrice
-	var gasLimit *big.Int
-	if gasPrice.Sign() > 0 {
-		gasLimit = new(big.Int).Div(gasFee, gasPrice)
-	} else {
-		gasLimit = big.NewInt(0)
-	}
+	// chainNamespace := results[4].(string) — not needed for outbound fields
+	// gasLimitUsed (results[5]) is the exact gas limit the contract resolved
+	// (caller-supplied or per-chain baseGasLimitByChainNamespace fallback).
+	// Reading it directly avoids the gasFee/gasPrice round-trip and keeps us
+	// in lock-step with the contract's own resolution.
+	gasLimit := results[5].(*big.Int)
 
 	return &GasFeeInfo{
 		GasToken: gasToken,

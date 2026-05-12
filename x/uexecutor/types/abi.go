@@ -292,16 +292,6 @@ const UNIVERSAL_CORE_ABI = `[
     },
     {
       "type": "function",
-      "name": "setGasPrice",
-      "inputs": [
-        { "name": "chainID", "type": "string", "internalType": "string" },
-        { "name": "price", "type": "uint256", "internalType": "uint256" }
-      ],
-      "outputs": [],
-      "stateMutability": "nonpayable"
-    },
-    {
-      "type": "function",
       "name": "setChainMeta",
       "inputs": [
         { "name": "chainNamespace", "type": "string", "internalType": "string" },
@@ -379,7 +369,8 @@ const UNIVERSAL_CORE_ABI = `[
         { "name": "gasFee", "type": "uint256", "internalType": "uint256" },
         { "name": "protocolFee", "type": "uint256", "internalType": "uint256" },
         { "name": "gasPrice", "type": "uint256", "internalType": "uint256" },
-        { "name": "chainNamespace", "type": "string", "internalType": "string" }
+        { "name": "chainNamespace", "type": "string", "internalType": "string" },
+        { "name": "gasLimitUsed", "type": "uint256", "internalType": "uint256" }
       ],
       "stateMutability": "view"
     },

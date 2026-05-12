@@ -33,7 +33,7 @@ func ExecuteMsg(
 
 	// If the contract is the executor, we don't need an origin check
 	// Otherwise check if the origin matches the sender address
-	isContractExec := contract.CallerAddress == signer && contract.CallerAddress != origin
+	isContractExec := contract.Caller() == signer && contract.Caller() != origin
 	if !isContractExec && origin != signer {
 		return nil, fmt.Errorf(ErrDifferentOrigin, origin.String(), signer.String())
 	}

@@ -123,6 +123,7 @@ jobs:
       - name: Patch chain ID for production
         run: |
           sed -i 's/"localchain_9000-1"/"push_42101-1"/' app/app.go
+          sed -i 's/EVMChainID = uint64(9000)/EVMChainID = uint64(42101)/' app/app.go
           grep -n "ChainID" app/app.go
 
       - name: Build Linux binary
@@ -247,6 +248,7 @@ jobs:
       - name: Patch chain ID for production
         run: |
           sed -i 's/"localchain_9000-1"/"push_42101-1"/' app/app.go
+          sed -i 's/EVMChainID = uint64(9000)/EVMChainID = uint64(42101)/' app/app.go
           grep -n "ChainID" app/app.go
 
       - name: Build Linux ARM64 binary
@@ -390,6 +392,7 @@ jobs:
       - name: Patch chain ID for production
         run: |
           sed -i '' 's/"localchain_9000-1"/"push_42101-1"/' app/app.go
+          sed -i '' 's/EVMChainID = uint64(9000)/EVMChainID = uint64(42101)/' app/app.go
           grep -n "ChainID" app/app.go
 
       - name: Build Mac Binary (ARM64 only - native build)

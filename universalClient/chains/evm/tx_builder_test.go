@@ -22,7 +22,7 @@ import (
 const testVaultAddress = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
 // newTestTxBuilder creates a TxBuilder for unit tests by directly setting the
-// vault address, bypassing the constructor's RPC call to VAULT().
+// vault address, bypassing the constructor's RPC call to vault().
 func newTestTxBuilder(t *testing.T) *TxBuilder {
 	t.Helper()
 	logger := zerolog.Nop()
@@ -834,15 +834,15 @@ func TestSimulateBSC_FetchVaultFromGateway(t *testing.T) {
 	defer cancel()
 
 	gwAddr := ethcommon.HexToAddress(bscGatewayAddress)
-	vaultCallSelector := crypto.Keccak256([]byte("VAULT()"))[:4]
+	vaultCallSelector := crypto.Keccak256([]byte("vault()"))[:4]
 	result, err := rpcClient.CallContract(ctx, gwAddr, vaultCallSelector, nil)
-	require.NoError(t, err, "VAULT() call should succeed")
-	require.True(t, len(result) >= 32, "VAULT() should return at least 32 bytes")
+	require.NoError(t, err, "vault() call should succeed")
+	require.True(t, len(result) >= 32, "vault() should return at least 32 bytes")
 
 	vaultAddr := ethcommon.BytesToAddress(result[12:32])
-	assert.NotEqual(t, ethcommon.Address{}, vaultAddr, "VAULT() should not return zero address")
-	assert.Equal(t, ethcommon.HexToAddress(bscVaultAddress), vaultAddr, "VAULT() should match expected vault address")
-	t.Logf("VAULT() returned: %s", vaultAddr.Hex())
+	assert.NotEqual(t, ethcommon.Address{}, vaultAddr, "vault() should not return zero address")
+	assert.Equal(t, ethcommon.HexToAddress(bscVaultAddress), vaultAddr, "vault() should match expected vault address")
+	t.Logf("vault() returned: %s", vaultAddr.Hex())
 }
 
 func TestSimulateBSC_RevertUniversalTx_Native(t *testing.T) {

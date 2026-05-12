@@ -1317,7 +1317,7 @@ if (!route.includes("from '../../generated/v1/tx'")) {
   );
 }
 if (!route.includes('Do not inflate above the gas sizing result')) {
-  const start = route.indexOf('  // Adjust nativeValueForGas using UEA balance (contract refunds excess)\n  // Re-fetch balance to minimize staleness from gas fee query RPC roundtrips\n  const currentBalance = await ctx.pushClient.getBalance(ueaAddress);', route.indexOf('export async function executeCeaToPushSvm'));
+  const start = route.indexOf('  // Re-fetch balance to minimize staleness from gas fee query RPC roundtrips.\n  const currentBalance = await ctx.pushClient.getBalance(ueaAddress);', route.indexOf('export async function executeCeaToPushSvm'));
   const endMarker = '\n\n  // Build Push Chain multicalls';
   const end = route.indexOf(endMarker, start);
   if (start === -1 || end === -1) {
@@ -2065,6 +2065,10 @@ function decodeUniversalPayload(rawPayload) {
   return { to, value, data, gasLimit };
 }
 
+function stripAnsi(str) {
+  return str.replace(/\x1b\[[0-9;]*m/g, '');
+}
+
 function shouldHandleLine(line) {
   return line.includes('decoded UniversalTx event') &&
     line.includes('component=svm_event_listener') &&
@@ -2115,7 +2119,8 @@ function executePayload(rawPayload) {
   }
 }
 
-function processLine(line) {
+function processLine(rawLine) {
+  const line = stripAnsi(rawLine);
   if (!shouldHandleLine(line)) return;
   const match = line.match(/raw_payload=(0x[0-9a-fA-F]+)/);
   if (!match) return;

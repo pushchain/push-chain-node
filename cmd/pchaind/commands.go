@@ -95,6 +95,7 @@ func initAppConfig() (string, interface{}) {
 		JSONRPC: *cosmosevmserverconfig.DefaultJSONRPCConfig(),
 		TLS:     *cosmosevmserverconfig.DefaultTLSConfig(),
 	}
+	customAppConfig.EVM.EVMChainID = app.EVMChainID
 
 	customAppTemplate := serverconfig.DefaultConfigTemplate
 

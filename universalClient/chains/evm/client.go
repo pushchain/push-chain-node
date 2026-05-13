@@ -385,24 +385,34 @@ func parseEVMChainID(caip2 string) (int64, error) {
 	return chainID, nil
 }
 
-// FetchVaultAddress calls the gateway's vault() public getter to retrieve the vault address.
+// FetchVaultAddress retrieves the vault address from the gateway's public getter.
+// Tries the post-upgrade camelCase vault() first and falls back to the
+// pre-upgrade uppercase VAULT() so the client works against gateways on either
+// side of the casing change.
 func FetchVaultAddress(ctx context.Context, rpcClient *RPCClient, gatewayAddress ethcommon.Address) (ethcommon.Address, error) {
-	// vaultCallSelector is the 4-byte selector for vault() public getter
-	vaultCallSelector := crypto.Keccak256([]byte("vault()"))[:4]
+	var lastErr error
+	for _, sig := range []string{"vault()", "VAULT()"} {
+		selector := crypto.Keccak256([]byte(sig))[:4]
 
-	result, err := rpcClient.CallContract(ctx, gatewayAddress, vaultCallSelector, nil)
-	if err != nil {
-		return ethcommon.Address{}, fmt.Errorf("vault() call failed: %w", err)
+		result, err := rpcClient.CallContract(ctx, gatewayAddress, selector, nil)
+		if err != nil {
+			lastErr = fmt.Errorf("%s call failed: %w", sig, err)
+			continue
+		}
+
+		if len(result) < 32 {
+			lastErr = fmt.Errorf("%s returned invalid data (len=%d)", sig, len(result))
+			continue
+		}
+
+		addr := ethcommon.BytesToAddress(result[12:32])
+		if addr == (ethcommon.Address{}) {
+			lastErr = fmt.Errorf("%s returned zero address", sig)
+			continue
+		}
+
+		return addr, nil
 	}
 
-	if len(result) < 32 {
-		return ethcommon.Address{}, fmt.Errorf("vault() returned invalid data (len=%d)", len(result))
-	}
-
-	addr := ethcommon.BytesToAddress(result[12:32])
-	if addr == (ethcommon.Address{}) {
-		return ethcommon.Address{}, fmt.Errorf("vault() returned zero address")
-	}
-
-	return addr, nil
+	return ethcommon.Address{}, fmt.Errorf("failed to fetch vault address: %w", lastErr)
 }

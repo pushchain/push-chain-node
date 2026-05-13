@@ -834,15 +834,11 @@ func TestSimulateBSC_FetchVaultFromGateway(t *testing.T) {
 	defer cancel()
 
 	gwAddr := ethcommon.HexToAddress(bscGatewayAddress)
-	vaultCallSelector := crypto.Keccak256([]byte("vault()"))[:4]
-	result, err := rpcClient.CallContract(ctx, gwAddr, vaultCallSelector, nil)
-	require.NoError(t, err, "vault() call should succeed")
-	require.True(t, len(result) >= 32, "vault() should return at least 32 bytes")
-
-	vaultAddr := ethcommon.BytesToAddress(result[12:32])
-	assert.NotEqual(t, ethcommon.Address{}, vaultAddr, "vault() should not return zero address")
-	assert.Equal(t, ethcommon.HexToAddress(bscVaultAddress), vaultAddr, "vault() should match expected vault address")
-	t.Logf("vault() returned: %s", vaultAddr.Hex())
+	vaultAddr, err := FetchVaultAddress(ctx, rpcClient, gwAddr)
+	require.NoError(t, err, "FetchVaultAddress should succeed against either vault() or VAULT()")
+	assert.NotEqual(t, ethcommon.Address{}, vaultAddr, "vault address should not be zero")
+	assert.Equal(t, ethcommon.HexToAddress(bscVaultAddress), vaultAddr, "vault address should match expected")
+	t.Logf("vault address: %s", vaultAddr.Hex())
 }
 
 func TestSimulateBSC_RevertUniversalTx_Native(t *testing.T) {

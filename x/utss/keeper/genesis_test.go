@@ -3,6 +3,7 @@ package keeper_test
 import (
 	"testing"
 
+	"github.com/pushchain/push-chain-node/x/utss/keeper"
 	"github.com/pushchain/push-chain-node/x/utss/types"
 	"github.com/stretchr/testify/require"
 )
@@ -88,4 +89,69 @@ func TestGenesisEmptyState(t *testing.T) {
 	require.Nil(t, exported.CurrentTssProcess)
 	require.Empty(t, exported.TssKeyHistory)
 	require.Empty(t, exported.ProcessHistory)
+}
+
+// TestGenesisRebuildsPendingTssEventsIndex (F-2026-17038): InitGenesis must
+// rebuild the PendingTssEvents index from active process-initiated entries.
+func TestGenesisRebuildsPendingTssEventsIndex(t *testing.T) {
+	f := SetupTest(t)
+	require.NoError(t, f.k.InitGenesis(f.ctx, &types.GenesisState{Params: types.Params{Admin: f.addrs[0].String()}}))
+
+	// Three events covering both filter axes: only the ACTIVE+initiated one
+	// should land in the rebuilt index.
+	activeEvent := types.TssEvent{
+		Id:        10,
+		EventType: types.TssEventType_TSS_EVENT_PROCESS_INITIATED,
+		Status:    types.TssEventStatus_TSS_EVENT_ACTIVE,
+		ProcessId: 1,
+	}
+	expiredEvent := types.TssEvent{
+		Id:        11,
+		EventType: types.TssEventType_TSS_EVENT_PROCESS_INITIATED,
+		Status:    types.TssEventStatus_TSS_EVENT_EXPIRED,
+		ProcessId: 2,
+	}
+	finalizedEvent := types.TssEvent{
+		Id:        12,
+		EventType: types.TssEventType_TSS_EVENT_KEY_FINALIZED,
+		Status:    types.TssEventStatus_TSS_EVENT_ACTIVE,
+		ProcessId: 3,
+	}
+
+	gs := &types.GenesisState{
+		Params:         types.Params{Admin: f.addrs[0].String()},
+		TssEvents:      []types.TssEvent{activeEvent, expiredEvent, finalizedEvent},
+		NextTssEventId: 13,
+	}
+
+	// Re-import on a fresh fixture (simulates genesis-based restart).
+	f2 := SetupTest(t)
+	require.NoError(t, f2.k.InitGenesis(f2.ctx, gs))
+
+	// All three rows survive the round-trip in TssEvents.
+	got, err := f2.k.TssEvents.Get(f2.ctx, 10)
+	require.NoError(t, err)
+	require.Equal(t, activeEvent.ProcessId, got.ProcessId)
+
+	// The ACTIVE process-initiated event is queryable via the rebuilt index.
+	q := keeper.NewQuerier(f2.k)
+	resp, err := q.GetPendingTssEvent(f2.ctx, &types.QueryGetPendingTssEventRequest{ProcessId: 1})
+	require.NoError(t, err, "active process-initiated event must be queryable via rebuilt index")
+	require.NotNil(t, resp.Event)
+	require.Equal(t, uint64(10), resp.Event.Id)
+
+	// The EXPIRED entry must NOT be in the pending index.
+	_, err = q.GetPendingTssEvent(f2.ctx, &types.QueryGetPendingTssEventRequest{ProcessId: 2})
+	require.Error(t, err, "expired process must not be in pending index")
+
+	// The ACTIVE non-initiated entry (e.g., KEY_FINALIZED) must NOT be in the
+	// pending index — only PROCESS_INITIATED entries are tracked there.
+	_, err = q.GetPendingTssEvent(f2.ctx, &types.QueryGetPendingTssEventRequest{ProcessId: 3})
+	require.Error(t, err, "non-initiated event type must not be in pending index")
+
+	// AllPendingTssEvents reflects the same filter: exactly one entry.
+	all, err := q.AllPendingTssEvents(f2.ctx, &types.QueryAllPendingTssEventsRequest{})
+	require.NoError(t, err)
+	require.Len(t, all.Events, 1)
+	require.Equal(t, uint64(10), all.Events[0].Id)
 }

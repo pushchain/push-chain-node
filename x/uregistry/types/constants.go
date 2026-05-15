@@ -1,6 +1,12 @@
 package types
 
-import "github.com/ethereum/go-ethereum/common"
+import (
+	"encoding/hex"
+	"fmt"
+	"strings"
+
+	"github.com/ethereum/go-ethereum/common"
+)
 
 var GATEWAY_METHOD = struct {
 	SVM struct {
@@ -100,4 +106,73 @@ var BYTECODE = map[string]ByteCodes{
 		PROXY_RUNTIME: common.FromHex("0x608060405261000c61000e565b005b7f000000000000000000000000f2000000000000000000000000000000000000b273ffffffffffffffffffffffffffffffffffffffff1633036100d1575f357fffffffff00000000000000000000000000000000000000000000000000000000167f4f1ef28600000000000000000000000000000000000000000000000000000000146100c7576040517fd2b576ec00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6100cf6100d9565b565b6100cf610107565b5f806100e8366004818461043e565b8101906100f59190610492565b915091506101038282610117565b5050565b6100cf61011261017e565b6101c2565b610120826101e0565b60405173ffffffffffffffffffffffffffffffffffffffff8316907fbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b905f90a28051156101765761017182826102b3565b505050565b610103610332565b5f6101bd7f360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc5473ffffffffffffffffffffffffffffffffffffffff1690565b905090565b365f80375f80365f845af43d5f803e8080156101dc573d5ff35b3d5ffd5b8073ffffffffffffffffffffffffffffffffffffffff163b5f0361024d576040517f4c9c8ce300000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff821660048201526024015b60405180910390fd5b7f360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc80547fffffffffffffffffffffffff00000000000000000000000000000000000000001673ffffffffffffffffffffffffffffffffffffffff92909216919091179055565b60605f808473ffffffffffffffffffffffffffffffffffffffff16846040516102dc91906105ad565b5f60405180830381855af49150503d805f8114610314576040519150601f19603f3d011682016040523d82523d5f602084013e610319565b606091505b509150915061032985838361036a565b95945050505050565b34156100cf576040517fb398979f00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b60608261037f5761037a826103fc565b6103f5565b81511580156103a3575073ffffffffffffffffffffffffffffffffffffffff84163b155b156103f2576040517f9996b31500000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff85166004820152602401610244565b50805b9392505050565b80511561040c5780518082602001fd5b6040517fd6bda27500000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b5f808585111561044c575f80fd5b83861115610458575f80fd5b5050820193919092039150565b7f4e487b71000000000000000000000000000000000000000000000000000000005f52604160045260245ffd5b5f80604083850312156104a3575f80fd5b823573ffffffffffffffffffffffffffffffffffffffff811681146104c6575f80fd5b9150602083013567ffffffffffffffff8111156104e1575f80fd5b8301601f810185136104f1575f80fd5b803567ffffffffffffffff81111561050b5761050b610465565b6040517fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0603f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0601f8501160116810181811067ffffffffffffffff8211171561057757610577610465565b60405281815282820160200187101561058e575f80fd5b816020840160208301375f602083830101528093505050509250929050565b5f82515f5b818110156105cc57602081860181015185830152016105b2565b505f92019182525091905056fea2646970667358221220e70393c35b3e95d53f92887d1108e4b563be364c093a130a7bb2e621a0aa9b8f64736f6c634300081a0033"),
 		ADMIN_RUNTIME: ProxyAdminRuntimeBytecode,
 	},
+}
+
+// templateProxyAdminLowerHex is the admin address embedded as a PUSH32 literal
+// inside RESERVED_0's PROXY_RUNTIME (lowercase hex, 40 chars / 20 bytes).
+// reservedProxyBytecode below uses this as the substitution anchor.
+const templateProxyAdminLowerHex = "f2000000000000000000000000000000000000b0"
+
+// reservedProxyBytecode synthesizes PROXY_RUNTIME for a reserved-address
+// proxy at low-byte slotByte. Takes RESERVED_0's PROXY_RUNTIME as a template
+// and substitutes the embedded admin address (0xF2…B0) with 0xF2…<slotByte>.
+// Used by init() below to populate SYSTEM_CONTRACTS / BYTECODE for every
+// reserved slot in the A/B/C address ranges.
+//
+// Defends against EOA squatting on protocol-owned address space (F-2026-17025
+// upstream prevention): a third party could otherwise send value to e.g.
+// 0x…A5 before genesis or before a future redeploy and turn that slot into a
+// non-deployable EOA. With every slot occupied by a real proxy from genesis,
+// the predicate fix and the address claim work together.
+func reservedProxyBytecode(slotByte byte) []byte {
+	template := strings.ToLower("0x" + hex.EncodeToString(BYTECODE["RESERVED_0"].PROXY_RUNTIME))
+	if strings.Count(template, templateProxyAdminLowerHex) != 1 {
+		panic(fmt.Sprintf("reservedProxyBytecode: template admin substring count = %d, expected 1; RESERVED_0 PROXY_RUNTIME may have changed",
+			strings.Count(template, templateProxyAdminLowerHex)))
+	}
+	target := fmt.Sprintf("f2000000000000000000000000000000000000%02x", slotByte)
+	return common.FromHex(strings.Replace(template, templateProxyAdminLowerHex, target, 1))
+}
+
+// init reserves every unused slot in the A (0xA0-0xAF), B (0xB0-0xBF), and
+// C (0xC0-0xCF) address ranges by adding a full proxy + admin + impl triple
+// to SYSTEM_CONTRACTS / BYTECODE. The genesis deploy loop in
+// x/uregistry/keeper/genesis.go picks these up automatically.
+//
+// Range policy:
+//   - 0xA0-0xAF: Proxy Admins / low-level modules (0xAA pre-occupied by uexecutor)
+//   - 0xB0-0xBF: Utility contracts (0xB0/B1/B2 = RESERVED_0/1/2; 0xBC = UNIVERSAL_BATCH_CALL)
+//   - 0xC0-0xCF: Chain abstraction (0xC0 = UNIVERSAL_CORE; 0xC1 = UNIVERSAL_GATEWAY_PC; 0xCA = USigVerifier legacy precompile)
+//   - 0xD0-0xFF: NOT reserved — left to other chains / future debug use
+//
+// Choice of full triples (vs bytecode-only): future activation of a reserved
+// slot for a real system contract is then just a `proxyAdmin.upgradeAndCall`
+// EVM tx, not a chain redeploy via gov proposal + validator coordination.
+func init() {
+	occupied := map[byte]bool{
+		0xAA: true,                         // uexecutor PROXY_ADMIN_ADDRESS_HEX
+		0xB0: true, 0xB1: true, 0xB2: true, // RESERVED_0 / RESERVED_1 / RESERVED_2
+		0xBC: true,
+		0xC0: true, 0xC1: true, // UNIVERSAL_CORE, UNIVERSAL_GATEWAY_PC
+	}
+
+	for _, hi := range []byte{0xA, 0xB, 0xC} {
+		for lo := byte(0); lo < 0x10; lo++ {
+			slot := (hi << 4) | lo
+			if occupied[slot] {
+				continue
+			}
+			name := fmt.Sprintf("RESERVED_%02X", slot)
+			SYSTEM_CONTRACTS[name] = ContractAddresses{
+				Address:        fmt.Sprintf("0x00000000000000000000000000000000000000%02x", slot),
+				ProxyAdmin:     fmt.Sprintf("0xf2000000000000000000000000000000000000%02x", slot),
+				Implementation: fmt.Sprintf("0xf1000000000000000000000000000000000000%02x", slot),
+			}
+			BYTECODE[name] = ByteCodes{
+				IMPL_RUNTIME:  ReservedImplRuntimeBytecode,
+				PROXY_RUNTIME: reservedProxyBytecode(slot),
+				ADMIN_RUNTIME: ProxyAdminRuntimeBytecode,
+			}
+		}
+	}
 }

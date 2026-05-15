@@ -30,34 +30,32 @@ address constant USigVerifier_PRECOMPILE_ADDRESS    = 0x000000000000000000000000
 address constant USigVerifier_PRECOMPILE_ADDRESS_V2 = 0xEC00000000000000000000000000000000000001;
 
 interface IUSigVerifier {
-    /// @notice Verifies an Ed25519 signature.
-    /// @param pubKey    The 32-byte Ed25519 public key (Solana address bytes).
-    /// @param msg       The message digest that was signed (bytes32).
-    /// @param signature The 64-byte Ed25519 signature.
-    /// @return isValid  True iff the signature is valid for (pubKey, msg).
-    function verifyEd25519(
-        bytes calldata pubKey,
-        bytes32 msg,
-        bytes calldata signature
-    ) external view returns (bool);
+    /// Verifies signature over `"0x" + hex(msgDigest)` (66 ASCII bytes).
+    /// Used by UEA_SVM. Solana wallets render the hex string in their sign-message UI.
+    function verifyEd25519(bytes calldata pubKey, bytes32 msgDigest, bytes calldata signature)
+        external view returns (bool);
+
+    /// Verifies signature over the raw message bytes (standard Ed25519 semantics).
+    /// Use this if your signer uses the conventional `ed25519.Sign(privKey, rawBytes)` API.
+    function verifyEd25519RawMessage(bytes calldata pubKey, bytes calldata message, bytes calldata signature)
+        external view returns (bool);
 }
 ```
 
-| Property | Value |
-|---|---|
-| Method | `verifyEd25519(bytes,bytes32,bytes)` |
-| State mutability | `view` (no on-chain state is touched) |
-| Gas cost | `4000` per call (`VerifyEd25519Gas` in `usigverifier.go`) |
+| Method | Signed bytes | Gas | Use when |
+|---|---|---|---|
+| `verifyEd25519(bytes,bytes32,bytes)` | `"0x" + hex(msgDigest)` (66 ASCII bytes) | 4000 | UEA_SVM / Solana-wallet flows where the user signs a hex string in Phantom/Solflare |
+| `verifyEd25519RawMessage(bytes,bytes,bytes)` | Raw `message` bytes | 4000 | New integrations / relayers using standard `ed25519.Sign(privKey, rawBytes)` |
+
+Both methods are `view` and touch no chain state.
 
 ## Verification Semantics
 
-The precompile is intentionally narrow. It accepts:
+Two methods, two distinct signing conventions. **A signature produced for one method will not verify under the other** — the test vectors in `query_test.go` lock this in.
 
-- `pubKey` — 32 raw Ed25519 public key bytes (a Solana address is exactly this)
-- `msg` — a single `bytes32` digest
-- `signature` — 64 raw Ed25519 signature bytes
+### `verifyEd25519` — hex-ASCII convention (legacy / wallet-friendly)
 
-Internally (`query.go:VerifyEd25519`), the `bytes32` digest is **rendered as a 0x-prefixed hex string** before being passed to `ed25519.Verify`:
+Internally (`query.go:VerifyEd25519`), the `bytes32` `msgDigest` is rendered as a 0x-prefixed hex string before being passed to `ed25519.Verify`:
 
 ```go
 msgStr := "0x" + hex.EncodeToString(msg)  // 66 ASCII bytes
@@ -65,9 +63,23 @@ msgBytes := []byte(msgStr)
 ok = ed25519.Verify(pubKeyBytes, msgBytes, signature)
 ```
 
-In other words, the signed message that the off-chain signer must sign is the **66-byte ASCII string** `0x...` of the digest, not the raw 32 bytes. This matches the convention used by Solana wallets when signing arbitrary messages — they prefix-encode the payload — so a normal Solana wallet signature over a Push Chain message hash will verify here without any extra work on the wallet side.
+The off-chain signer must sign the **66-byte ASCII string** `"0x"+hex(digest)`, not the raw 32 bytes. This is what UEA_SVM uses so that a Solana wallet (Phantom, Solflare) shows the user a copy-pasteable hex string in its sign-message prompt rather than opaque bytes.
 
-If `pubKey` is not 32 bytes or `signature` is not 64 bytes, the precompile reverts with `invalid params`. Unknown method IDs revert with the standard `unknown method` error.
+### `verifyEd25519RawMessage` — raw-bytes convention (standard)
+
+Standard Ed25519 verification — signature is checked against the raw `message` bytes:
+
+```go
+ok = ed25519.Verify(pubKeyBytes, message, signature)
+```
+
+Use this when your signer uses `ed25519.Sign(privKey, rawBytes)` (default in every Solana SDK / nacl library). `message` may be any length, not just 32 bytes.
+
+### Common rules
+
+- `pubKey` must be exactly 32 bytes; `signature` must be exactly 64 bytes — otherwise the precompile reverts with `invalid params`.
+- Unknown method IDs revert with the standard `unknown method` error.
+- Both methods cost `4000` gas.
 
 ## Generating the ABI
 

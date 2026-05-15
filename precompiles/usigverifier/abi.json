@@ -16,7 +16,7 @@
         },
         {
           "internalType": "bytes32",
-          "name": "msg",
+          "name": "msgDigest",
           "type": "bytes32"
         },
         {
@@ -26,6 +26,35 @@
         }
       ],
       "name": "verifyEd25519",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes",
+          "name": "pubKey",
+          "type": "bytes"
+        },
+        {
+          "internalType": "bytes",
+          "name": "message",
+          "type": "bytes"
+        },
+        {
+          "internalType": "bytes",
+          "name": "signature",
+          "type": "bytes"
+        }
+      ],
+      "name": "verifyEd25519RawMessage",
       "outputs": [
         {
           "internalType": "bool",

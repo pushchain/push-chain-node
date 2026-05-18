@@ -221,6 +221,7 @@ func TestInboundCEASmartContractRecipient(t *testing.T) {
 			ueModuleAccAddress,
 			prc20Address,
 			false,
+			nil,
 			"balanceOf",
 			contractAddr,
 		)

@@ -82,13 +82,13 @@ func seedFundMigrationChainValues(
 	var roleArg [32]byte
 	copy(roleArg[:], managerRole.Bytes())
 
-	_, err = chainApp.EVMKeeper.CallEVM(ctx, setupABI, admin, handlerAddr, true, "grantRole", roleArg, admin)
+	_, err = chainApp.EVMKeeper.CallEVM(ctx, setupABI, admin, handlerAddr, true, nil, "grantRole", roleArg, admin)
 	require.NoError(t, err, "grant MANAGER_ROLE")
 
-	_, err = chainApp.EVMKeeper.CallEVM(ctx, setupABI, admin, handlerAddr, true, "setTssFundMigrationGasLimitByChain", chain, gasLimit)
+	_, err = chainApp.EVMKeeper.CallEVM(ctx, setupABI, admin, handlerAddr, true, nil, "setTssFundMigrationGasLimitByChain", chain, gasLimit)
 	require.NoError(t, err, "seed tss fund migration gas limit")
 
-	_, err = chainApp.EVMKeeper.CallEVM(ctx, setupABI, admin, handlerAddr, true, "setL1GasFeeByChain", chain, l1GasFee)
+	_, err = chainApp.EVMKeeper.CallEVM(ctx, setupABI, admin, handlerAddr, true, nil, "setL1GasFeeByChain", chain, l1GasFee)
 	require.NoError(t, err, "seed l1 gas fee")
 }
 

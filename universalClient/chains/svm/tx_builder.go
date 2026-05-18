@@ -719,7 +719,7 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 		return nil, 0, fmt.Errorf("failed to derive vault PDA: %w", err)
 	}
 
-	tssPDA, _, err := solana.FindProgramAddress([][]byte{[]byte("final_tss_pda")}, tb.gatewayAddress)
+	tssPDA, _, err := solana.FindProgramAddress([][]byte{[]byte("tsspda_v2")}, tb.gatewayAddress)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to derive TSS PDA: %w", err)
 	}
@@ -902,9 +902,9 @@ func removeHexPrefix(s string) string {
 //   - tss_eth_address: the 20-byte Ethereum address of the TSS signing group
 //   - chain_id: identifies this Solana cluster (for cross-chain replay protection)
 //
-// Seed: ["final_tss_pda"] — must match the Rust constant TSS_SEED in state.rs
+// Seed: ["tsspda_v2"] — matches the Rust constant TSS_SEED in the deployed Surfnet gateway.
 func (tb *TxBuilder) deriveTSSPDA() (solana.PublicKey, error) {
-	seeds := [][]byte{[]byte("final_tss_pda")}
+	seeds := [][]byte{[]byte("tsspda_v2")}
 	address, _, err := solana.FindProgramAddress(seeds, tb.gatewayAddress)
 	return address, err
 }

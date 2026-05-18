@@ -80,8 +80,12 @@ sed -i.bak 's/cors_allowed_origins = \[\]/cors_allowed_origins = \["\*"\]/g' "$H
 sed -i.bak "s/address = \"tcp:\/\/localhost:1317\"/address = \"tcp:\/\/0.0.0.0:${REST_PORT}\"/g" "$HOME_DIR/config/app.toml"
 sed -i.bak 's/enable = false/enable = true/g' "$HOME_DIR/config/app.toml"
 sed -i.bak "s/address = \"localhost:9090\"/address = \"0.0.0.0:${GRPC_PORT}\"/g" "$HOME_DIR/config/app.toml"
+sed -i.bak "s/evm-chain-id = [0-9]*/evm-chain-id = ${EVM_CHAIN_ID}/g" "$HOME_DIR/config/app.toml"
 sed -i.bak "s/laddr = \"tcp:\/\/0.0.0.0:26656\"/laddr = \"tcp:\/\/0.0.0.0:${P2P_PORT}\"/g" "$HOME_DIR/config/config.toml"
 sed -i.bak 's/timeout_commit = "5s"/timeout_commit = "1s"/g' "$HOME_DIR/config/config.toml"
+
+# Pre-create WAL directory to prevent CometBFT panic when transitioning to active validator
+mkdir -p "$HOME_DIR/data/cs.wal"
 
 # Start node
 echo "🚀 Starting validator $VALIDATOR_ID..."

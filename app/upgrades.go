@@ -20,6 +20,7 @@ import (
 	contractauditchanges "github.com/pushchain/push-chain-node/app/upgrades/contract-audit-changes"
 	ethhashfix "github.com/pushchain/push-chain-node/app/upgrades/eth-hash-fix"
 	evmrpcfix "github.com/pushchain/push-chain-node/app/upgrades/evm-rpc-fix"
+	evmv040 "github.com/pushchain/push-chain-node/app/upgrades/evm-v0-4-0"
 	feeabs "github.com/pushchain/push-chain-node/app/upgrades/fee-abs"
 	gasoracle "github.com/pushchain/push-chain-node/app/upgrades/gas-oracle"
 	"github.com/pushchain/push-chain-node/app/upgrades/noop"
@@ -67,6 +68,7 @@ var Upgrades = []upgrades.Upgrade{
 	removeutxverifier.NewUpgrade(),
 	tssfundmigrationfixes.NewUpgrade(),
 	contractauditchanges.NewUpgrade(),
+	evmv040.NewUpgrade(),
 }
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers

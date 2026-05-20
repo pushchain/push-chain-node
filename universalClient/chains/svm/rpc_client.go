@@ -109,6 +109,9 @@ func (rc *RPCClient) executeWithFailover(ctx context.Context, operation string, 
 	}
 
 	maxAttempts := len(clients)
+	// Snapshot start index once per call so concurrent callers can't share
+	// counter advances and retry the same failing endpoint.
+	startIndex := atomic.AddUint64(&rc.index, 1) - 1
 	for attempt := 0; attempt < maxAttempts; attempt++ {
 		if ctx != nil {
 			select {
@@ -118,8 +121,7 @@ func (rc *RPCClient) executeWithFailover(ctx context.Context, operation string, 
 			}
 		}
 
-		index := atomic.AddUint64(&rc.index, 1) - 1
-		client := clients[index%uint64(len(clients))]
+		client := clients[(startIndex+uint64(attempt))%uint64(len(clients))]
 
 		if client == nil {
 			continue

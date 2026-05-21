@@ -531,9 +531,7 @@ func (tb *TxBuilder) GetFundMigrationSigningRequest(ctx context.Context, data *c
 }
 
 // BroadcastFundMigrationTx assembles and broadcasts a signed fund migration transaction.
-// The sweep amount must be recomputed here using the same formula as signing
-// (balance - gasPrice*gasLimit - l1GasFee); otherwise the broadcast tx hash
-// diverges from the signed hash.
+// Uses req.TSSFundMigrationAmount fixed at signing time — do not re-query balance.
 func (tb *TxBuilder) BroadcastFundMigrationTx(ctx context.Context, req *common.UnsignedSigningReq, data *common.FundMigrationData, signature []byte) (string, error) {
 	if len(signature) != 65 {
 		return "", fmt.Errorf("signature must be 65 bytes [r(32)|s(32)|v(1)], got %d", len(signature))

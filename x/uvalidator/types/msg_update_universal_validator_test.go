@@ -72,20 +72,33 @@ func TestMsgUpdateUniversalValidator_ValidateBasic(t *testing.T) {
 			wantErr: true,
 			errMsg:  "multi_addrs must contain at least one value",
 		},
+		{
+			// F-2026-16994: nil Network used to panic — value-receiver
+			// ValidateBasic call through a nil *NetworkInfo.
+			name: "nil network returns typed error, no panic",
+			msg: types.MsgUpdateUniversalValidator{
+				Signer:  validSigner,
+				Network: nil,
+			},
+			wantErr: true,
+			errMsg:  "network info is required",
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			err := tc.msg.ValidateBasic()
+			require.NotPanics(t, func() {
+				err := tc.msg.ValidateBasic()
 
-			if tc.wantErr {
-				require.Error(t, err)
-				if tc.errMsg != "" {
-					require.Contains(t, err.Error(), tc.errMsg)
+				if tc.wantErr {
+					require.Error(t, err)
+					if tc.errMsg != "" {
+						require.Contains(t, err.Error(), tc.errMsg)
+					}
+				} else {
+					require.NoError(t, err)
 				}
-			} else {
-				require.NoError(t, err)
-			}
+			})
 		})
 	}
 }

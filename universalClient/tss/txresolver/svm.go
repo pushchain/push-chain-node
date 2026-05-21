@@ -2,8 +2,10 @@ package txresolver
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/pushchain/push-chain-node/universalClient/store"
+	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
 // resolveSVM checks the on-chain ExecutedTx PDA and moves the event to COMPLETED or REVERTED.
@@ -55,4 +57,17 @@ func (r *Resolver) resolveSVM(ctx context.Context, event *store.Event, chainID s
 
 	// PDA not found — tx was not executed on destination chain, no gas consumed
 	_ = r.voteOutboundFailureAndMarkReverted(ctx, event, txID, utxID, "", 0, "0", "tx not executed on destination chain")
+
+	// Best-effort: close any orphaned StoredIxData PDA from the ref-finalize
+	// route so the relayer recovers the ~0.002 SOL of rent. No-op for direct-
+	// route outbounds and for ref-route outbounds whose PDA was already auto-
+	// closed by a successful finalize.
+	var data uexecutortypes.OutboundCreatedEvent
+	if err := json.Unmarshal(event.EventData, &data); err != nil {
+		return
+	}
+	if err := builder.CleanupOutboundArtifacts(ctx, &data); err != nil {
+		r.logger.Warn().Err(err).Str("event_id", event.EventID).Str("tx_id", txID).
+			Msg("SVM cleanup of stored_ix_data PDA failed; rent recovery deferred")
+	}
 }

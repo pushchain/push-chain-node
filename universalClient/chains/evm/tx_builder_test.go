@@ -1143,3 +1143,73 @@ func TestGetFundMigrationSigningRequest_RejectsZeroGasLimit(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "gas limit must be provided")
 }
+
+// TestBroadcastFundMigrationTx_RejectsMissingAmount verifies broadcast refuses
+// to assemble a tx without the signing-time amount.
+func TestBroadcastFundMigrationTx_RejectsMissingAmount(t *testing.T) {
+	tb := newTestTxBuilder(t)
+	data := &common.FundMigrationData{
+		From:     "0x1111111111111111111111111111111111111111",
+		To:       "0x2222222222222222222222222222222222222222",
+		GasPrice: big.NewInt(20_000_000_000),
+		GasLimit: 21000,
+	}
+	sig := make([]byte, 65) // valid length; bytes don't have to be a real ECDSA sig
+
+	t.Run("nil amount rejected", func(t *testing.T) {
+		req := &common.UnsignedSigningReq{
+			SigningHash: []byte{0x01},
+			Nonce:       0,
+			// TSSFundMigrationAmount intentionally nil
+		}
+		_, err := tb.BroadcastFundMigrationTx(context.Background(), req, data, sig)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "TSSFundMigrationAmount must be set")
+	})
+
+	t.Run("zero amount rejected", func(t *testing.T) {
+		req := &common.UnsignedSigningReq{
+			SigningHash:            []byte{0x01},
+			Nonce:                  0,
+			TSSFundMigrationAmount: big.NewInt(0),
+		}
+		_, err := tb.BroadcastFundMigrationTx(context.Background(), req, data, sig)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "TSSFundMigrationAmount must be set")
+	})
+
+	t.Run("negative amount rejected", func(t *testing.T) {
+		req := &common.UnsignedSigningReq{
+			SigningHash:            []byte{0x01},
+			Nonce:                  0,
+			TSSFundMigrationAmount: big.NewInt(-1),
+		}
+		_, err := tb.BroadcastFundMigrationTx(context.Background(), req, data, sig)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "TSSFundMigrationAmount must be set")
+	})
+}
+
+// TestBroadcastFundMigrationTx_DoesNotQueryBalance asserts broadcast never
+// calls GetBalance. Fails loudly if a balance lookup is reintroduced.
+func TestBroadcastFundMigrationTx_DoesNotQueryBalance(t *testing.T) {
+	tb := newTestTxBuilder(t)
+	data := &common.FundMigrationData{
+		From:     "0x1111111111111111111111111111111111111111",
+		To:       "0x2222222222222222222222222222222222222222",
+		GasPrice: big.NewInt(20_000_000_000),
+		GasLimit: 21000,
+		L1GasFee: big.NewInt(0),
+	}
+	req := &common.UnsignedSigningReq{
+		SigningHash:            []byte{0x01},
+		Nonce:                  0,
+		TSSFundMigrationAmount: big.NewInt(1_000_000_000_000_000), // 0.001 ETH
+	}
+	sig := make([]byte, 65)
+
+	_, err := tb.BroadcastFundMigrationTx(context.Background(), req, data, sig)
+	require.Error(t, err)
+	assert.NotContains(t, err.Error(), "get_balance", "broadcast must not call GetBalance")
+	assert.NotContains(t, err.Error(), "failed to get balance", "broadcast must not call GetBalance")
+}

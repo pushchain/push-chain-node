@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/config"
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
@@ -292,26 +293,22 @@ func TestDetermineInstructionID(t *testing.T) {
 	tests := []struct {
 		name     string
 		txType   uetypes.TxType
-		isNative bool
 		expected uint8
 		wantErr  bool
 	}{
-		{"FUNDS native → 1 (withdraw)", uetypes.TxType_FUNDS, true, 1, false},
-		{"FUNDS SPL → 1 (withdraw)", uetypes.TxType_FUNDS, false, 1, false},
-		{"FUNDS_AND_PAYLOAD → 2 (execute)", uetypes.TxType_FUNDS_AND_PAYLOAD, true, 2, false},
-		{"GAS_AND_PAYLOAD → 2 (execute)", uetypes.TxType_GAS_AND_PAYLOAD, false, 2, false},
-		{"INBOUND_REVERT native → 3", uetypes.TxType_INBOUND_REVERT, true, 3, false},
-		{"INBOUND_REVERT SPL → 3", uetypes.TxType_INBOUND_REVERT, false, 3, false},
-		{"RESCUE_FUNDS native → 4", uetypes.TxType_RESCUE_FUNDS, true, 4, false},
-		{"RESCUE_FUNDS SPL → 4", uetypes.TxType_RESCUE_FUNDS, false, 4, false},
-		{"UNSPECIFIED → error", uetypes.TxType_UNSPECIFIED_TX, true, 0, true},
-		{"GAS → error", uetypes.TxType_GAS, true, 0, true},
-		{"PAYLOAD → error", uetypes.TxType_PAYLOAD, true, 0, true},
+		{"FUNDS → 1 (withdraw)", uetypes.TxType_FUNDS, 1, false},
+		{"FUNDS_AND_PAYLOAD → 2 (execute)", uetypes.TxType_FUNDS_AND_PAYLOAD, 2, false},
+		{"GAS_AND_PAYLOAD → 2 (execute)", uetypes.TxType_GAS_AND_PAYLOAD, 2, false},
+		{"INBOUND_REVERT → 3", uetypes.TxType_INBOUND_REVERT, 3, false},
+		{"RESCUE_FUNDS → 4", uetypes.TxType_RESCUE_FUNDS, 4, false},
+		{"UNSPECIFIED → error", uetypes.TxType_UNSPECIFIED_TX, 0, true},
+		{"GAS → error", uetypes.TxType_GAS, 0, true},
+		{"PAYLOAD → error", uetypes.TxType_PAYLOAD, 0, true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			id, err := builder.determineInstructionID(tt.txType, tt.isNative)
+			id, err := builder.determineInstructionID(tt.txType)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
@@ -1091,7 +1088,8 @@ func TestBuildWithdrawAndExecuteAccounts(t *testing.T) {
 			solana.SystemProgramID, // destination_program = system for withdraw
 			true, 1,                // isNative, instructionID
 			recipient, solana.PublicKey{}, // recipient, mint (unused for native)
-			nil, // no execute accounts
+			nil,                                    // no execute accounts
+			solana.PublicKey{}, solana.PublicKey{}, // direct route: ref-finalize slots are None
 		)
 
 		// First 8 required accounts
@@ -1134,7 +1132,11 @@ func TestBuildWithdrawAndExecuteAccounts(t *testing.T) {
 		assert.Equal(t, builder.gatewayAddress, accounts[16].PublicKey, "rateLimitConfig should be gateway sentinel")
 		assert.Equal(t, builder.gatewayAddress, accounts[17].PublicKey, "tokenRateLimit should be gateway sentinel")
 
-		assert.Len(t, accounts, 18, "total accounts for SOL withdraw")
+		// Ref-finalize slots (19-20) should be gateway sentinels for direct route
+		assert.Equal(t, builder.gatewayAddress, accounts[18].PublicKey, "stored_ix_data should be gateway sentinel for direct route")
+		assert.Equal(t, builder.gatewayAddress, accounts[19].PublicKey, "store_refund_recipient should be gateway sentinel for direct route")
+
+		assert.Len(t, accounts, 20, "total accounts for SOL withdraw (direct route)")
 	})
 
 	t.Run("execute (id=2) appends remaining_accounts", func(t *testing.T) {
@@ -1149,13 +1151,14 @@ func TestBuildWithdrawAndExecuteAccounts(t *testing.T) {
 			true, 2,   // isNative, instructionID=execute
 			solana.PublicKey{}, solana.PublicKey{},
 			execAccounts,
+			solana.PublicKey{}, solana.PublicKey{}, // direct route: ref-finalize slots are None
 		)
 
 		// For execute: recipient should be gateway sentinel (None)
 		assert.Equal(t, builder.gatewayAddress, accounts[8].PublicKey, "recipient should be None for execute")
 
 		// remaining_accounts appended at the end
-		totalRequired := 18 // 8 required + 8 optional + 2 rate limit
+		totalRequired := 20 // 8 required + 8 SPL optional + 2 rate limit + 2 ref-finalize optional
 		assert.Len(t, accounts, totalRequired+2)
 
 		// Check remaining_accounts
@@ -1548,6 +1551,601 @@ func TestEndToEndWithRealSignature(t *testing.T) {
 	})
 }
 
+func TestGetNextNonce(t *testing.T) {
+	builder := newTestBuilder(t)
+
+	t.Run("returns 0 with arbitrary address and finalized=true", func(t *testing.T) {
+		nonce, err := builder.GetNextNonce(context.Background(), "SomeAddress123", true)
+		require.NoError(t, err)
+		assert.Equal(t, uint64(0), nonce)
+	})
+
+	t.Run("returns 0 with empty address and finalized=false", func(t *testing.T) {
+		nonce, err := builder.GetNextNonce(context.Background(), "", false)
+		require.NoError(t, err)
+		assert.Equal(t, uint64(0), nonce)
+	})
+}
+
+func TestGetGasFeeUsed(t *testing.T) {
+	builder := newTestBuilder(t)
+
+	t.Run("returns string zero for any tx hash", func(t *testing.T) {
+		fee, err := builder.GetGasFeeUsed(context.Background(), "5xYz...someTxHash")
+		require.NoError(t, err)
+		assert.Equal(t, "0", fee)
+	})
+
+	t.Run("returns string zero for empty tx hash", func(t *testing.T) {
+		fee, err := builder.GetGasFeeUsed(context.Background(), "")
+		require.NoError(t, err)
+		assert.Equal(t, "0", fee)
+	})
+}
+
+func TestNewTxBuilder_ChainConfig(t *testing.T) {
+	logger := zerolog.Nop()
+
+	t.Run("valid protocolALT is stored", func(t *testing.T) {
+		altKey := solana.NewWallet().PublicKey()
+		cfg := &config.ChainSpecificConfig{
+			ProtocolALT: altKey.String(),
+		}
+		builder, err := NewTxBuilder(&RPCClient{}, "solana:devnet", testGatewayAddress, "/tmp", logger, cfg)
+		require.NoError(t, err)
+		assert.Equal(t, altKey, builder.protocolALT)
+	})
+
+	t.Run("invalid protocolALT is silently skipped", func(t *testing.T) {
+		cfg := &config.ChainSpecificConfig{
+			ProtocolALT: "not-valid-base58!!!",
+		}
+		builder, err := NewTxBuilder(&RPCClient{}, "solana:devnet", testGatewayAddress, "/tmp", logger, cfg)
+		require.NoError(t, err)
+		assert.True(t, builder.protocolALT.IsZero(), "invalid ALT should result in zero pubkey")
+	})
+
+	t.Run("valid tokenALTs are stored", func(t *testing.T) {
+		mint := solana.NewWallet().PublicKey()
+		alt := solana.NewWallet().PublicKey()
+		cfg := &config.ChainSpecificConfig{
+			TokenALTs: map[string]string{
+				mint.String(): alt.String(),
+			},
+		}
+		builder, err := NewTxBuilder(&RPCClient{}, "solana:devnet", testGatewayAddress, "/tmp", logger, cfg)
+		require.NoError(t, err)
+		got, ok := builder.tokenALTs[mint]
+		require.True(t, ok, "expected token ALT entry for mint")
+		assert.Equal(t, alt, got)
+	})
+
+	t.Run("invalid tokenALT mint is skipped", func(t *testing.T) {
+		cfg := &config.ChainSpecificConfig{
+			TokenALTs: map[string]string{
+				"bad-mint": solana.NewWallet().PublicKey().String(),
+			},
+		}
+		builder, err := NewTxBuilder(&RPCClient{}, "solana:devnet", testGatewayAddress, "/tmp", logger, cfg)
+		require.NoError(t, err)
+		assert.Len(t, builder.tokenALTs, 0)
+	})
+
+	t.Run("invalid tokenALT address is skipped", func(t *testing.T) {
+		cfg := &config.ChainSpecificConfig{
+			TokenALTs: map[string]string{
+				solana.NewWallet().PublicKey().String(): "bad-alt",
+			},
+		}
+		builder, err := NewTxBuilder(&RPCClient{}, "solana:devnet", testGatewayAddress, "/tmp", logger, cfg)
+		require.NoError(t, err)
+		assert.Len(t, builder.tokenALTs, 0)
+	})
+
+	t.Run("nil chainConfig is fine", func(t *testing.T) {
+		builder, err := NewTxBuilder(&RPCClient{}, "solana:devnet", testGatewayAddress, "/tmp", logger, nil)
+		require.NoError(t, err)
+		assert.True(t, builder.protocolALT.IsZero())
+		assert.Len(t, builder.tokenALTs, 0)
+	})
+}
+
+func TestBuildCreateATAIdempotentInstruction(t *testing.T) {
+	builder := newTestBuilder(t)
+	payer := solana.NewWallet().PublicKey()
+	owner := solana.NewWallet().PublicKey()
+	mint := solana.NewWallet().PublicKey()
+
+	ix := builder.buildCreateATAIdempotentInstruction(payer, owner, mint)
+
+	t.Run("program ID is ATA program", func(t *testing.T) {
+		expected := solana.MustPublicKeyFromBase58("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
+		assert.Equal(t, expected, ix.ProgramID())
+	})
+
+	t.Run("has 6 accounts in correct order", func(t *testing.T) {
+		accounts := ix.Accounts()
+		require.Len(t, accounts, 6)
+
+		// payer (signer, writable)
+		assert.Equal(t, payer, accounts[0].PublicKey)
+		assert.True(t, accounts[0].IsSigner)
+		assert.True(t, accounts[0].IsWritable)
+
+		// ATA (writable, derived deterministically)
+		ataProgramID := solana.MustPublicKeyFromBase58("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
+		expectedATA, _, _ := solana.FindProgramAddress(
+			[][]byte{owner.Bytes(), solana.TokenProgramID.Bytes(), mint.Bytes()},
+			ataProgramID,
+		)
+		assert.Equal(t, expectedATA, accounts[1].PublicKey)
+		assert.True(t, accounts[1].IsWritable)
+		assert.False(t, accounts[1].IsSigner)
+
+		// owner
+		assert.Equal(t, owner, accounts[2].PublicKey)
+		assert.False(t, accounts[2].IsWritable)
+
+		// mint
+		assert.Equal(t, mint, accounts[3].PublicKey)
+		assert.False(t, accounts[3].IsWritable)
+
+		// system program
+		assert.Equal(t, solana.SystemProgramID, accounts[4].PublicKey)
+
+		// token program
+		assert.Equal(t, solana.TokenProgramID, accounts[5].PublicKey)
+	})
+
+	t.Run("instruction data is [1] for CreateIdempotent", func(t *testing.T) {
+		data, err := ix.Data()
+		require.NoError(t, err)
+		assert.Equal(t, []byte{1}, data)
+	})
+}
+
+// =============================================================================
+//  Ref-Finalize Route Tests
+// =============================================================================
+
+func TestDeriveStoredIxDataPDA(t *testing.T) {
+	builder := newTestBuilder(t)
+	subTxID := makeTxID(0xAB)
+	ixDataHash := makeTxID(0xCD)
+
+	pda1, err := builder.deriveStoredIxDataPDA(subTxID, ixDataHash)
+	require.NoError(t, err)
+	require.False(t, pda1.IsZero(), "PDA must be non-zero")
+
+	// Determinism: same inputs → same PDA
+	pda2, err := builder.deriveStoredIxDataPDA(subTxID, ixDataHash)
+	require.NoError(t, err)
+	assert.Equal(t, pda1, pda2, "same seeds must derive same PDA")
+
+	// Sensitivity: different sub_tx_id → different PDA
+	pdaDifferentSubTx, err := builder.deriveStoredIxDataPDA(makeTxID(0xAC), ixDataHash)
+	require.NoError(t, err)
+	assert.NotEqual(t, pda1, pdaDifferentSubTx, "different sub_tx_id must change PDA")
+
+	// Sensitivity: different ix_data_hash → different PDA
+	pdaDifferentHash, err := builder.deriveStoredIxDataPDA(subTxID, makeTxID(0xCE))
+	require.NoError(t, err)
+	assert.NotEqual(t, pda1, pdaDifferentHash, "different ix_data_hash must change PDA")
+}
+
+func TestBuildStoreIxDataData(t *testing.T) {
+	builder := newTestBuilder(t)
+	subTxID := makeTxID(0x11)
+	ixDataHash := makeTxID(0x22)
+	ixData := []byte{0xDE, 0xAD, 0xBE, 0xEF}
+
+	data := builder.buildStoreIxDataData(subTxID, ixDataHash, ixData)
+
+	// Discriminator
+	assert.Equal(t, discStoreExecuteIxData[:], data[0:8], "discriminator")
+	// sub_tx_id
+	assert.Equal(t, subTxID[:], data[8:40], "sub_tx_id")
+	// ix_data_hash
+	assert.Equal(t, ixDataHash[:], data[40:72], "ix_data_hash")
+	// ix_data Vec: 4-byte LE length + bytes
+	assert.Equal(t, uint32(len(ixData)), binary.LittleEndian.Uint32(data[72:76]), "vec length prefix")
+	assert.Equal(t, ixData, data[76:80], "ix_data bytes")
+	assert.Equal(t, 8+32+32+4+len(ixData), len(data), "total length")
+}
+
+func TestBuildStoreIxDataData_EmptyIxData(t *testing.T) {
+	// Building with empty ix_data is technically allowed at the universalClient
+	// layer; the on-chain program rejects with EmptyIxData. Test that we still
+	// produce a well-formed payload (zero-length Vec).
+	builder := newTestBuilder(t)
+	data := builder.buildStoreIxDataData(makeTxID(0x11), makeTxID(0x22), []byte{})
+	assert.Equal(t, uint32(0), binary.LittleEndian.Uint32(data[72:76]))
+	assert.Equal(t, 8+32+32+4, len(data))
+}
+
+func TestBuildWithdrawAndExecuteRefData_ArgOrder(t *testing.T) {
+	// Critical: ix_data_hash (fixed 32) comes BEFORE writable_flags (Vec).
+	// Direct route has writable_flags before ix_data — swap is intentional.
+	builder := newTestBuilder(t)
+
+	subTxID := makeTxID(0x01)
+	utxID := makeTxID(0x02)
+	pushAccount := makeSender(0x03)
+	ixDataHash := makeTxID(0x04)
+	writableFlags := []byte{1, 0, 1}
+	signature := make([]byte, 64)
+	for i := range signature {
+		signature[i] = byte(i)
+	}
+	msgHash := make([]byte, 32)
+	for i := range msgHash {
+		msgHash[i] = 0xFF
+	}
+
+	data := builder.buildWithdrawAndExecuteRefData(
+		2,             // instruction_id
+		subTxID,       // sub_tx_id
+		utxID,         // universal_tx_id
+		1_000_000_000, // amount
+		pushAccount,
+		ixDataHash,
+		writableFlags,
+		500_000, // gas_fee
+		signature,
+		1, // recovery_id
+		msgHash,
+	)
+
+	// Layout:
+	// 0..8    discriminator
+	// 8       instruction_id
+	// 9..41   sub_tx_id
+	// 41..73  universal_tx_id
+	// 73..81  amount (LE)
+	// 81..101 push_account
+	// 101..133 ix_data_hash       ← BEFORE writable_flags
+	// 133..137 writable_flags len
+	// 137..140 writable_flags
+	// 140..148 gas_fee (LE)
+	// 148..212 signature
+	// 212      recovery_id
+	// 213..245 message_hash
+
+	assert.Equal(t, discFinalizeUniversalTxRef[:], data[0:8])
+	assert.Equal(t, uint8(2), data[8])
+	assert.Equal(t, subTxID[:], data[9:41])
+	assert.Equal(t, utxID[:], data[41:73])
+	assert.Equal(t, uint64(1_000_000_000), binary.LittleEndian.Uint64(data[73:81]))
+	assert.Equal(t, pushAccount[:], data[81:101])
+	assert.Equal(t, ixDataHash[:], data[101:133], "ix_data_hash must precede writable_flags")
+	assert.Equal(t, uint32(3), binary.LittleEndian.Uint32(data[133:137]), "writable_flags length")
+	assert.Equal(t, writableFlags, data[137:140], "writable_flags bytes")
+	assert.Equal(t, uint64(500_000), binary.LittleEndian.Uint64(data[140:148]))
+	assert.Equal(t, signature, data[148:212])
+	assert.Equal(t, uint8(1), data[212])
+	assert.Equal(t, msgHash, data[213:245])
+	assert.Equal(t, 245, len(data))
+}
+
+func TestBuildStoreIxDataAccounts(t *testing.T) {
+	builder := newTestBuilder(t)
+	caller := solana.NewWallet().PublicKey()
+	storedPDA := solana.NewWallet().PublicKey()
+
+	accounts := builder.buildStoreIxDataAccounts(caller, storedPDA)
+	require.Len(t, accounts, 3)
+
+	assert.Equal(t, caller, accounts[0].PublicKey)
+	assert.True(t, accounts[0].IsSigner)
+	assert.True(t, accounts[0].IsWritable)
+
+	assert.Equal(t, storedPDA, accounts[1].PublicKey)
+	assert.True(t, accounts[1].IsWritable)
+	assert.False(t, accounts[1].IsSigner)
+
+	assert.Equal(t, solana.SystemProgramID, accounts[2].PublicKey)
+	assert.False(t, accounts[2].IsWritable)
+	assert.False(t, accounts[2].IsSigner)
+}
+
+func TestBuildCloseStoredIxDataData(t *testing.T) {
+	builder := newTestBuilder(t)
+	subTxID := makeTxID(0x33)
+	ixDataHash := makeTxID(0x44)
+
+	data := builder.buildCloseStoredIxDataData(subTxID, ixDataHash)
+
+	require.Len(t, data, 8+32+32)
+	assert.Equal(t, discCloseStoredIxData[:], data[0:8], "discriminator")
+	assert.Equal(t, subTxID[:], data[8:40], "sub_tx_id")
+	assert.Equal(t, ixDataHash[:], data[40:72], "ix_data_hash")
+}
+
+func TestBuildCloseStoredIxDataAccounts(t *testing.T) {
+	builder := newTestBuilder(t)
+	caller := solana.NewWallet().PublicKey()
+	storedPDA := solana.NewWallet().PublicKey()
+
+	accounts := builder.buildCloseStoredIxDataAccounts(caller, storedPDA)
+	require.Len(t, accounts, 3)
+
+	// caller: signer, mut
+	assert.Equal(t, caller, accounts[0].PublicKey)
+	assert.True(t, accounts[0].IsSigner)
+	assert.True(t, accounts[0].IsWritable)
+
+	// stored_ix_data: mut, not signer
+	assert.Equal(t, storedPDA, accounts[1].PublicKey)
+	assert.True(t, accounts[1].IsWritable)
+	assert.False(t, accounts[1].IsSigner)
+
+	// store_refund_recipient: mut, not signer; must equal caller on the failure path
+	assert.Equal(t, caller, accounts[2].PublicKey, "refund recipient must equal caller on failure path")
+	assert.True(t, accounts[2].IsWritable)
+	assert.False(t, accounts[2].IsSigner)
+}
+
+func TestBuildWithdrawAndExecuteAccounts_RefRouteSlots(t *testing.T) {
+	// Verify the ref-finalize slots (#19-20) carry real values when populated,
+	// and that remaining_accounts still land at position 21+ in execute mode.
+	builder := newTestBuilder(t)
+	caller := solana.NewWallet().PublicKey()
+	configPDA := solana.NewWallet().PublicKey()
+	vaultPDA := solana.NewWallet().PublicKey()
+	ceaPDA := solana.NewWallet().PublicKey()
+	tssPDA := solana.NewWallet().PublicKey()
+	executedPDA := solana.NewWallet().PublicKey()
+	recipientPDA := solana.NewWallet().PublicKey()
+	storedPDA := solana.NewWallet().PublicKey()
+	storeRefund := solana.NewWallet().PublicKey()
+
+	execAccounts := []GatewayAccountMeta{
+		{Pubkey: makeTxID(0xAA), IsWritable: true},
+	}
+
+	accounts := builder.buildWithdrawAndExecuteAccounts(
+		caller, configPDA, vaultPDA, ceaPDA, tssPDA, executedPDA,
+		recipientPDA, // destination_program
+		true, 2,      // isNative, execute
+		solana.PublicKey{}, solana.PublicKey{}, // recipient/mint unused
+		execAccounts,
+		storedPDA, storeRefund, // ref route: real values
+	)
+
+	// Position 18 (0-indexed): stored_ix_data
+	assert.Equal(t, storedPDA, accounts[18].PublicKey, "stored_ix_data slot")
+	assert.False(t, accounts[18].IsWritable, "stored_ix_data is read-only on-chain")
+
+	// Position 19: store_refund_recipient
+	assert.Equal(t, storeRefund, accounts[19].PublicKey, "store_refund_recipient slot")
+	assert.True(t, accounts[19].IsWritable, "store_refund_recipient must be writable for reimbursement")
+
+	// Position 20+: remaining_accounts (the execute CPI accounts)
+	require.Len(t, accounts, 21, "8 required + 8 SPL + 2 rate-limit + 2 ref + 1 remaining")
+	expectedRemaining := makeTxID(0xAA)
+	assert.Equal(t, solana.PublicKeyFromBytes(expectedRemaining[:]), accounts[20].PublicKey, "remaining account 0")
+	assert.True(t, accounts[20].IsWritable)
+}
+
+// newTestBuilderWithKeypair returns a TxBuilder whose nodeHome contains a
+// valid relayer keypair on disk, so loadRelayerKeypair() succeeds in unit
+// tests that never touch the network. The embedded RPCClient is still a
+// zero-value stub — any code path that actually calls RPC will panic, which
+// is intentional: it forces validation tests to fail *before* they reach RPC.
+func newTestBuilderWithKeypair(t *testing.T) *TxBuilder {
+	t.Helper()
+	tmpDir := t.TempDir()
+	relayerDir := filepath.Join(tmpDir, "relayer")
+	require.NoError(t, os.MkdirAll(relayerDir, 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(relayerDir, "solana.json"),
+		[]byte(testSolanaKeypairJSON),
+		0o600,
+	))
+
+	logger := zerolog.Nop()
+	builder, err := NewTxBuilder(&RPCClient{}, "solana:devnet", testGatewayAddress, tmpDir, logger, nil)
+	require.NoError(t, err)
+	return builder
+}
+
+// buildExecutePayloadForTest assembles a payload in the format decodePayload
+// expects: [accountsCount(4 BE) | accounts(N×33) | ixDataLen(4 BE) | ixData | instructionID(1) | targetProgram(32)].
+func buildExecutePayloadForTest(t *testing.T, accounts []GatewayAccountMeta, ixData []byte, instructionID uint8, targetProgram [32]byte) string {
+	t.Helper()
+	buf := make([]byte, 0, 4+len(accounts)*33+4+len(ixData)+1+32)
+
+	countBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(countBytes, uint32(len(accounts)))
+	buf = append(buf, countBytes...)
+	for _, a := range accounts {
+		buf = append(buf, a.Pubkey[:]...)
+		if a.IsWritable {
+			buf = append(buf, 1)
+		} else {
+			buf = append(buf, 0)
+		}
+	}
+
+	lenBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(lenBytes, uint32(len(ixData)))
+	buf = append(buf, lenBytes...)
+	buf = append(buf, ixData...)
+	buf = append(buf, instructionID)
+	buf = append(buf, targetProgram[:]...)
+	return "0x" + hex.EncodeToString(buf)
+}
+
+// newBaseRefRouteEvent constructs a minimal OutboundCreatedEvent suitable as
+// the "happy template" for ref-route validation tests. Each test mutates a
+// single field to exercise a specific error path.
+//
+// Validation tests don't exercise the signing path, so the sender is a
+// hardcoded 20-byte hex string rather than a real EVM key.
+func newBaseRefRouteEvent(t *testing.T, payload string) *uetypes.OutboundCreatedEvent {
+	t.Helper()
+	recipient := solana.NewWallet().PublicKey()
+	txIDBytes := make([]byte, 32)
+	utxIDBytes := make([]byte, 32)
+	_, err := crand.Read(txIDBytes)
+	require.NoError(t, err)
+	_, err = crand.Read(utxIDBytes)
+	require.NoError(t, err)
+	return &uetypes.OutboundCreatedEvent{
+		TxID:             "0x" + hex.EncodeToString(txIDBytes),
+		UniversalTxId:    "0x" + hex.EncodeToString(utxIDBytes),
+		DestinationChain: "solana:devnet",
+		Sender:           "0xc681e7bdacfe4dc7209a15ff052f897c3d87008f",
+		Recipient:        recipient.String(),
+		Amount:           "0",
+		Payload:          payload,
+		GasFee:           "1000000",
+		TxType:           "GAS_AND_PAYLOAD",
+	}
+}
+
+func TestBuildRefRouteTransactions_Validation(t *testing.T) {
+	builder := newTestBuilderWithKeypair(t)
+	ctx := context.Background()
+
+	validSig := make([]byte, 65)
+	req := &common.UnsignedSigningReq{SigningHash: make([]byte, 32)}
+
+	// Default "good" payload: execute mode with a small valid ix_data so we
+	// hit validation paths cleanly without tripping decodePayload.
+	target := makeTxID(0x99)
+	smallIxData := []byte{0xDE, 0xAD, 0xBE, 0xEF}
+	validPayload := buildExecutePayloadForTest(t, []GatewayAccountMeta{}, smallIxData, 2, target)
+
+	t.Run("nil signing request", func(t *testing.T) {
+		_, _, _, err := builder.BuildRefRouteTransactions(ctx, nil, newBaseRefRouteEvent(t, validPayload), validSig)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "signing request is nil")
+	})
+
+	t.Run("nil event data", func(t *testing.T) {
+		_, _, _, err := builder.BuildRefRouteTransactions(ctx, req, nil, validSig)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "outbound event data is nil")
+	})
+
+	t.Run("wrong signature length", func(t *testing.T) {
+		_, _, _, err := builder.BuildRefRouteTransactions(ctx, req, newBaseRefRouteEvent(t, validPayload), make([]byte, 64))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "signature must be 65 bytes")
+	})
+
+	t.Run("withdraw payload (id=1) rejected — ref route is execute-only", func(t *testing.T) {
+		withdrawPayload := buildExecutePayloadForTest(t, []GatewayAccountMeta{}, nil, 1, target)
+		_, _, _, err := builder.BuildRefRouteTransactions(ctx, req, newBaseRefRouteEvent(t, withdrawPayload), validSig)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "ref route only valid for execute mode")
+	})
+
+	t.Run("empty payload (instructionID=0) rejected", func(t *testing.T) {
+		ev := newBaseRefRouteEvent(t, "")
+		_, _, _, err := builder.BuildRefRouteTransactions(ctx, req, ev, validSig)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "ref route only valid for execute mode")
+	})
+
+	t.Run("oversized ix_data rejected", func(t *testing.T) {
+		bigIxData := make([]byte, maxRefRouteIxData+1)
+		bigPayload := buildExecutePayloadForTest(t, []GatewayAccountMeta{}, bigIxData, 2, target)
+		_, _, _, err := builder.BuildRefRouteTransactions(ctx, req, newBaseRefRouteEvent(t, bigPayload), validSig)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "exceeds ref-route max")
+	})
+
+	t.Run("invalid txID hex", func(t *testing.T) {
+		ev := newBaseRefRouteEvent(t, validPayload)
+		ev.TxID = "0xnothex"
+		_, _, _, err := builder.BuildRefRouteTransactions(ctx, req, ev, validSig)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid txID")
+	})
+
+	t.Run("invalid sender length", func(t *testing.T) {
+		ev := newBaseRefRouteEvent(t, validPayload)
+		ev.Sender = "0xdeadbeef" // 4 bytes, not 20
+		_, _, _, err := builder.BuildRefRouteTransactions(ctx, req, ev, validSig)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid sender length")
+	})
+
+	t.Run("amount overflows u64", func(t *testing.T) {
+		ev := newBaseRefRouteEvent(t, validPayload)
+		ev.Amount = "99999999999999999999999999" // > u64 max
+		_, _, _, err := builder.BuildRefRouteTransactions(ctx, req, ev, validSig)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "amount exceeds u64 max")
+	})
+}
+
+// TestCleanupOutboundArtifacts_NoOps covers the early-return paths in
+// CleanupOutboundArtifacts that don't touch RPC. The test builder's RPCClient
+// is a zero-value stub — any path that would reach GetAccountData would panic,
+// which is exactly what we want here: it proves these cases short-circuit
+// before any network call.
+func TestCleanupOutboundArtifacts_NoOps(t *testing.T) {
+	builder := newTestBuilderWithKeypair(t)
+	ctx := context.Background()
+
+	target := makeTxID(0x77)
+
+	t.Run("nil data", func(t *testing.T) {
+		require.NoError(t, builder.CleanupOutboundArtifacts(ctx, nil))
+	})
+
+	t.Run("empty payload", func(t *testing.T) {
+		ev := newBaseRefRouteEvent(t, "")
+		require.NoError(t, builder.CleanupOutboundArtifacts(ctx, ev))
+	})
+
+	t.Run("invalid payload hex", func(t *testing.T) {
+		ev := newBaseRefRouteEvent(t, "0xnothex")
+		require.NoError(t, builder.CleanupOutboundArtifacts(ctx, ev))
+	})
+
+	t.Run("direct route (instruction_id=1)", func(t *testing.T) {
+		// Withdraw payload — no StoredIxData PDA was ever created for it, so
+		// cleanup must short-circuit before any RPC.
+		withdrawPayload := buildExecutePayloadForTest(t, []GatewayAccountMeta{}, nil, 1, target)
+		ev := newBaseRefRouteEvent(t, withdrawPayload)
+		require.NoError(t, builder.CleanupOutboundArtifacts(ctx, ev))
+	})
+
+	t.Run("empty ix_data on execute mode", func(t *testing.T) {
+		// Execute mode but no ix_data → ref route never engages, no PDA to clean.
+		emptyPayload := buildExecutePayloadForTest(t, []GatewayAccountMeta{}, []byte{}, 2, target)
+		ev := newBaseRefRouteEvent(t, emptyPayload)
+		require.NoError(t, builder.CleanupOutboundArtifacts(ctx, ev))
+	})
+
+	t.Run("invalid txID hex", func(t *testing.T) {
+		ixData := []byte{0xAA, 0xBB}
+		payload := buildExecutePayloadForTest(t, []GatewayAccountMeta{}, ixData, 2, target)
+		ev := newBaseRefRouteEvent(t, payload)
+		ev.TxID = "0xnothex"
+		require.NoError(t, builder.CleanupOutboundArtifacts(ctx, ev))
+	})
+}
+
+// =============================================================================
+//  Devnet Simulation Tests
+//
+//  Below this line: integration tests that build and simulate transactions
+//  against a real Solana devnet RPC + the deployed dummy gateway program.
+//  All are gated by t.Skip("skipping simulation tests") in setupDevnetSimulation
+//  — a developer un-skips locally to manually verify wire-level correctness
+//  against an actual cluster. CI never runs them.
+//
+//  Constants (devnetRPCURL, testEVMPrivKeyHex, testSolanaKeypairJSON, etc.)
+//  and helpers (loadTestEVMKey, buildAndSimulate, …) live here because they're
+//  only meaningful in the devnet path. Unit tests above this line use the
+//  in-package mocks defined at the top of the file.
+// =============================================================================
+
 const (
 	devnetGatewayAddress = "DJoFYDpgbTfxbXBv1QYhYGc9FK4J5FUKpYXAfSkHryXp"
 	devnetRPCURL         = "https://api.devnet.solana.com"
@@ -1631,8 +2229,12 @@ func newDevnetOutbound(t *testing.T, amount, assetAddr, payload, revertMsg, txTy
 		AssetAddr:        assetAddr,
 		Payload:          payload,
 		GasLimit:         "400000",
-		TxType:           txType,
-		RevertMsg:        revertMsg,
+		// Gateway enforces gas_fee ≥ on-chain gas_used. Native SOL paths need
+		// ~952k (signature fee + executed_sub_tx rent). SPL paths additionally
+		// create the CEA ATA (~2.04M rent). 3M covers both with headroom.
+		GasFee:    "3000000",
+		TxType:    txType,
+		RevertMsg: revertMsg,
 	}, evmKey
 }
 
@@ -1911,155 +2513,85 @@ func TestSimulate_Rescue_SPLToken(t *testing.T) {
 	requireSimulationSuccess(t, result)
 }
 
-func TestGetNextNonce(t *testing.T) {
-	builder := newTestBuilder(t)
+// buildAndSimulateRefRoute drives the ref-finalize pipeline through
+// simulation only — no broadcasts, no state changes, no SOL spent.
+//
+// Pipeline: GetOutboundSigningRequest → sign → BuildRefRouteTransactions →
+//
+//	verify both txs fit the 1232-byte limit → simulate(storeTx).
+//
+// Limitation: the ref-finalize tx is built and size-checked, but NOT simulated.
+// Its simulation would always fail because the StoredIxData PDA only exists
+// after the store tx actually lands on-chain, and SimulateTransaction is not
+// stateful. Asserting "ref-finalize is well-formed" is therefore left to the
+// unit tests (TestBuildWithdrawAndExecuteRefData_ArgOrder,
+// TestBuildWithdrawAndExecuteAccounts_RefRouteSlots).
+func buildAndSimulateRefRoute(
+	t *testing.T,
+	rpcClient *RPCClient,
+	builder *TxBuilder,
+	data *uetypes.OutboundCreatedEvent,
+	evmKey *ecdsa.PrivateKey,
+) (storeSim *rpc.SimulateTransactionResult, storedPDA solana.PublicKey, err error) {
+	t.Helper()
 
-	t.Run("returns 0 with arbitrary address and finalized=true", func(t *testing.T) {
-		nonce, err := builder.GetNextNonce(context.Background(), "SomeAddress123", true)
-		require.NoError(t, err)
-		assert.Equal(t, uint64(0), nonce)
-	})
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
-	t.Run("returns 0 with empty address and finalized=false", func(t *testing.T) {
-		nonce, err := builder.GetNextNonce(context.Background(), "", false)
-		require.NoError(t, err)
-		assert.Equal(t, uint64(0), nonce)
-	})
+	req, err := builder.GetOutboundSigningRequest(ctx, data, 0)
+	if err != nil {
+		return nil, solana.PublicKey{}, fmt.Errorf("GetOutboundSigningRequest: %w", err)
+	}
+	t.Logf("  signing_hash=0x%s", hex.EncodeToString(req.SigningHash))
+
+	sig, recoveryID := signMessageHash(t, evmKey, req.SigningHash)
+	fullSig := append(sig, recoveryID)
+
+	storeTx, refTx, storedPDA, err := builder.BuildRefRouteTransactions(ctx, req, data, fullSig)
+	if err != nil {
+		return nil, solana.PublicKey{}, fmt.Errorf("BuildRefRouteTransactions: %w", err)
+	}
+	t.Logf("  stored_ix_data PDA=%s", storedPDA.String())
+
+	// Size sanity for both txs (the ref-finalize won't be simulated, so this
+	// is our only check that it's wire-correct on the size axis).
+	if storeBytes, mErr := storeTx.MarshalBinary(); mErr == nil {
+		t.Logf("  store_tx_bytes=%d", len(storeBytes))
+		require.LessOrEqual(t, len(storeBytes), solanaTxMaxBytes, "store tx exceeds 1232-byte limit")
+	}
+	if refBytes, mErr := refTx.MarshalBinary(); mErr == nil {
+		t.Logf("  ref_finalize_tx_bytes=%d", len(refBytes))
+		require.LessOrEqual(t, len(refBytes), solanaTxMaxBytes, "ref-finalize tx exceeds 1232-byte limit")
+	}
+
+	storeSim, err = rpcClient.SimulateTransaction(ctx, storeTx)
+	if err != nil {
+		return nil, storedPDA, fmt.Errorf("simulate store: %w", err)
+	}
+	return storeSim, storedPDA, nil
 }
 
-func TestGetGasFeeUsed(t *testing.T) {
-	builder := newTestBuilder(t)
+// TestSimulate_RefRoute_Execute simulates the store half of the ref-finalize
+// pipeline against devnet. The ref-finalize half can't be simulated standalone
+// because it depends on the store tx having actually landed on-chain first;
+// see buildAndSimulateRefRoute for the full rationale.
+func TestSimulate_RefRoute_Execute(t *testing.T) {
+	rpcClient, builder := setupDevnetSimulation(t)
+	defer rpcClient.Close()
 
-	t.Run("returns string zero for any tx hash", func(t *testing.T) {
-		fee, err := builder.GetGasFeeUsed(context.Background(), "5xYz...someTxHash")
-		require.NoError(t, err)
-		assert.Equal(t, "0", fee)
-	})
+	// 600 bytes of ix_data — large enough to force the ref route, well under
+	// the 921-byte cap on the store tx itself.
+	ixData := make([]byte, 600)
+	for i := range ixData {
+		ixData[i] = byte('A' + (i % 26))
+	}
+	payload := buildMockExecutePayload(nil, ixData)
+	payloadHex := "0x" + hex.EncodeToString(payload)
 
-	t.Run("returns string zero for empty tx hash", func(t *testing.T) {
-		fee, err := builder.GetGasFeeUsed(context.Background(), "")
-		require.NoError(t, err)
-		assert.Equal(t, "0", fee)
-	})
-}
+	data, evmKey := newDevnetOutbound(t, "10000000", "", payloadHex, "", "FUNDS_AND_PAYLOAD")
+	data.Recipient = devnetMemoProgram
 
-func TestNewTxBuilder_ChainConfig(t *testing.T) {
-	logger := zerolog.Nop()
-
-	t.Run("valid protocolALT is stored", func(t *testing.T) {
-		altKey := solana.NewWallet().PublicKey()
-		cfg := &config.ChainSpecificConfig{
-			ProtocolALT: altKey.String(),
-		}
-		builder, err := NewTxBuilder(&RPCClient{}, "solana:devnet", testGatewayAddress, "/tmp", logger, cfg)
-		require.NoError(t, err)
-		assert.Equal(t, altKey, builder.protocolALT)
-	})
-
-	t.Run("invalid protocolALT is silently skipped", func(t *testing.T) {
-		cfg := &config.ChainSpecificConfig{
-			ProtocolALT: "not-valid-base58!!!",
-		}
-		builder, err := NewTxBuilder(&RPCClient{}, "solana:devnet", testGatewayAddress, "/tmp", logger, cfg)
-		require.NoError(t, err)
-		assert.True(t, builder.protocolALT.IsZero(), "invalid ALT should result in zero pubkey")
-	})
-
-	t.Run("valid tokenALTs are stored", func(t *testing.T) {
-		mint := solana.NewWallet().PublicKey()
-		alt := solana.NewWallet().PublicKey()
-		cfg := &config.ChainSpecificConfig{
-			TokenALTs: map[string]string{
-				mint.String(): alt.String(),
-			},
-		}
-		builder, err := NewTxBuilder(&RPCClient{}, "solana:devnet", testGatewayAddress, "/tmp", logger, cfg)
-		require.NoError(t, err)
-		got, ok := builder.tokenALTs[mint]
-		require.True(t, ok, "expected token ALT entry for mint")
-		assert.Equal(t, alt, got)
-	})
-
-	t.Run("invalid tokenALT mint is skipped", func(t *testing.T) {
-		cfg := &config.ChainSpecificConfig{
-			TokenALTs: map[string]string{
-				"bad-mint": solana.NewWallet().PublicKey().String(),
-			},
-		}
-		builder, err := NewTxBuilder(&RPCClient{}, "solana:devnet", testGatewayAddress, "/tmp", logger, cfg)
-		require.NoError(t, err)
-		assert.Len(t, builder.tokenALTs, 0)
-	})
-
-	t.Run("invalid tokenALT address is skipped", func(t *testing.T) {
-		cfg := &config.ChainSpecificConfig{
-			TokenALTs: map[string]string{
-				solana.NewWallet().PublicKey().String(): "bad-alt",
-			},
-		}
-		builder, err := NewTxBuilder(&RPCClient{}, "solana:devnet", testGatewayAddress, "/tmp", logger, cfg)
-		require.NoError(t, err)
-		assert.Len(t, builder.tokenALTs, 0)
-	})
-
-	t.Run("nil chainConfig is fine", func(t *testing.T) {
-		builder, err := NewTxBuilder(&RPCClient{}, "solana:devnet", testGatewayAddress, "/tmp", logger, nil)
-		require.NoError(t, err)
-		assert.True(t, builder.protocolALT.IsZero())
-		assert.Len(t, builder.tokenALTs, 0)
-	})
-}
-
-func TestBuildCreateATAIdempotentInstruction(t *testing.T) {
-	builder := newTestBuilder(t)
-	payer := solana.NewWallet().PublicKey()
-	owner := solana.NewWallet().PublicKey()
-	mint := solana.NewWallet().PublicKey()
-
-	ix := builder.buildCreateATAIdempotentInstruction(payer, owner, mint)
-
-	t.Run("program ID is ATA program", func(t *testing.T) {
-		expected := solana.MustPublicKeyFromBase58("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
-		assert.Equal(t, expected, ix.ProgramID())
-	})
-
-	t.Run("has 6 accounts in correct order", func(t *testing.T) {
-		accounts := ix.Accounts()
-		require.Len(t, accounts, 6)
-
-		// payer (signer, writable)
-		assert.Equal(t, payer, accounts[0].PublicKey)
-		assert.True(t, accounts[0].IsSigner)
-		assert.True(t, accounts[0].IsWritable)
-
-		// ATA (writable, derived deterministically)
-		ataProgramID := solana.MustPublicKeyFromBase58("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
-		expectedATA, _, _ := solana.FindProgramAddress(
-			[][]byte{owner.Bytes(), solana.TokenProgramID.Bytes(), mint.Bytes()},
-			ataProgramID,
-		)
-		assert.Equal(t, expectedATA, accounts[1].PublicKey)
-		assert.True(t, accounts[1].IsWritable)
-		assert.False(t, accounts[1].IsSigner)
-
-		// owner
-		assert.Equal(t, owner, accounts[2].PublicKey)
-		assert.False(t, accounts[2].IsWritable)
-
-		// mint
-		assert.Equal(t, mint, accounts[3].PublicKey)
-		assert.False(t, accounts[3].IsWritable)
-
-		// system program
-		assert.Equal(t, solana.SystemProgramID, accounts[4].PublicKey)
-
-		// token program
-		assert.Equal(t, solana.TokenProgramID, accounts[5].PublicKey)
-	})
-
-	t.Run("instruction data is [1] for CreateIdempotent", func(t *testing.T) {
-		data, err := ix.Data()
-		require.NoError(t, err)
-		assert.Equal(t, []byte{1}, data)
-	})
+	storeSim, _, err := buildAndSimulateRefRoute(t, rpcClient, builder, data, evmKey)
+	require.NoError(t, err)
+	requireSimulationSuccess(t, storeSim)
 }

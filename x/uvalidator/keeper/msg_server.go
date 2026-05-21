@@ -99,6 +99,10 @@ func (ms msgServer) RemoveUniversalValidator(ctx context.Context, msg *types.Msg
 func (ms msgServer) UpdateUniversalValidator(ctx context.Context, msg *types.MsgUpdateUniversalValidator) (*types.MsgUpdateUniversalValidatorResponse, error) {
 	ms.k.Logger().Info("msg: UpdateUniversalValidator", "signer", msg.Signer)
 
+	if msg.Network == nil {
+		return nil, errors.Wrap(sdkErrors.ErrInvalidRequest, "network info is required")
+	}
+
 	// Parse signer account
 	signerAcc, err := sdk.AccAddressFromBech32(msg.Signer)
 	if err != nil {

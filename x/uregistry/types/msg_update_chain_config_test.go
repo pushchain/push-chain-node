@@ -75,16 +75,27 @@ func TestMsgUpdateChainConfig_ValidateBasic(t *testing.T) {
 			},
 			expectErr: true,
 		},
+		{
+			// F-2026-17024: nil nested config used to panic in ValidateBasic.
+			name: "nil chain config returns typed error, no panic",
+			msg: &types.MsgUpdateChainConfig{
+				Signer:      validSigner,
+				ChainConfig: nil,
+			},
+			expectErr: true,
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			err := tc.msg.ValidateBasic()
-			if tc.expectErr {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-			}
+			require.NotPanics(t, func() {
+				err := tc.msg.ValidateBasic()
+				if tc.expectErr {
+					require.Error(t, err)
+				} else {
+					require.NoError(t, err)
+				}
+			})
 		})
 	}
 }

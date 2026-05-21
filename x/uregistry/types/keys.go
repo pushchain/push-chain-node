@@ -25,6 +25,10 @@ var (
 
 	// TokenConfigsName is the name of the tokenConfigs collection.
 	TokenConfigsName = "token_configs"
+
+	// PRC20Index secondary index on TokenConfigs: lowercased PRC20 → storage key.
+	PRC20IndexKey  = collections.NewPrefix(3)
+	PRC20IndexName = "prc20_index"
 )
 
 const (

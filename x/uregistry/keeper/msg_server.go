@@ -40,6 +40,9 @@ func (ms msgServer) UpdateParams(ctx context.Context, msg *types.MsgUpdateParams
 
 // AddChainConfig enables the addition of a new chain configuration - Admin restricted.
 func (ms msgServer) AddChainConfig(ctx context.Context, msg *types.MsgAddChainConfig) (*types.MsgAddChainConfigResponse, error) {
+	if msg.ChainConfig == nil {
+		return nil, errors.Wrap(sdkErrors.ErrInvalidRequest, "chain_config is required")
+	}
 	ms.k.Logger().Info("msg add chain config received", "signer", msg.Signer, "chain", msg.ChainConfig.Chain)
 
 	// Retrieve the current Params
@@ -62,6 +65,9 @@ func (ms msgServer) AddChainConfig(ctx context.Context, msg *types.MsgAddChainCo
 
 // UpdateChainConfig enables the update of an existing chain configuration - Admin restricted.
 func (ms msgServer) UpdateChainConfig(ctx context.Context, msg *types.MsgUpdateChainConfig) (*types.MsgUpdateChainConfigResponse, error) {
+	if msg.ChainConfig == nil {
+		return nil, errors.Wrap(sdkErrors.ErrInvalidRequest, "chain_config is required")
+	}
 	ms.k.Logger().Info("msg update chain config received", "signer", msg.Signer, "chain", msg.ChainConfig.Chain)
 
 	// Retrieve the current Params
@@ -84,6 +90,9 @@ func (ms msgServer) UpdateChainConfig(ctx context.Context, msg *types.MsgUpdateC
 
 // AddTokenConfig implements types.MsgServer.
 func (ms msgServer) AddTokenConfig(ctx context.Context, msg *types.MsgAddTokenConfig) (*types.MsgAddTokenConfigResponse, error) {
+	if msg.TokenConfig == nil {
+		return nil, errors.Wrap(sdkErrors.ErrInvalidRequest, "token_config is required")
+	}
 	ms.k.Logger().Info("msg add token config received",
 		"signer", msg.Signer,
 		"chain", msg.TokenConfig.Chain,
@@ -110,6 +119,9 @@ func (ms msgServer) AddTokenConfig(ctx context.Context, msg *types.MsgAddTokenCo
 
 // UpdateTokenConfig implements types.MsgServer.
 func (ms msgServer) UpdateTokenConfig(ctx context.Context, msg *types.MsgUpdateTokenConfig) (*types.MsgUpdateTokenConfigResponse, error) {
+	if msg.TokenConfig == nil {
+		return nil, errors.Wrap(sdkErrors.ErrInvalidRequest, "token_config is required")
+	}
 	ms.k.Logger().Info("msg update token config received",
 		"signer", msg.Signer,
 		"chain", msg.TokenConfig.Chain,

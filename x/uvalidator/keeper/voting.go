@@ -145,6 +145,27 @@ func (k Keeper) VoteOnBallot(
 		return ballot, false, false, errors.Wrap(err, "Error while voting on the ballot")
 	}
 
+	// reject votes on ballots whose nominal expiry has passed
+	currentHeight := sdk.UnwrapSDKContext(ctx).BlockHeight()
+	if ballot.IsExpired(currentHeight) {
+		// Transition PENDING ballots to EXPIRED so subsequent reads see the
+		// canonical status and the secondary indexes stay consistent. Already
+		// non-PENDING ballots fall through to the Status check below for the
+		// existing "already X" error message.
+		if ballot.Status == types.BallotStatus_BALLOT_STATUS_PENDING {
+			if mErr := k.MarkBallotExpired(ctx, id); mErr != nil {
+				return ballot, false, isNew, errors.Wrap(mErr, "failed to mark ballot expired during late-vote rejection")
+			}
+			k.Logger().Warn("late vote rejected, ballot marked expired",
+				"ballot_id", id,
+				"expiry_height", ballot.BlockHeightExpiry,
+				"current_height", currentHeight,
+				"voter", voter,
+			)
+			return ballot, false, isNew, fmt.Errorf("ballot %s expired at height %d (current %d)", id, ballot.BlockHeightExpiry, currentHeight)
+		}
+	}
+
 	if ballot.Status != types.BallotStatus_BALLOT_STATUS_PENDING {
 		k.Logger().Warn("ballot is not in pending state, cannot vote",
 			"ballot_id", id,

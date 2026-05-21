@@ -3,6 +3,7 @@ package types
 import (
 	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
 var (
@@ -42,6 +43,8 @@ func (msg *MsgAddTokenConfig) ValidateBasic() error {
 	if _, err := sdk.AccAddressFromBech32(msg.Signer); err != nil {
 		return errors.Wrap(err, "invalid signer address")
 	}
-
+	if msg.TokenConfig == nil {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "token_config is required")
+	}
 	return msg.TokenConfig.ValidateBasic()
 }

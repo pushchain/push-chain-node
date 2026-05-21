@@ -15,10 +15,26 @@ IUSigVerifier constant USigVerifier_CONTRACT_V2 = IUSigVerifier(USigVerifier_PRE
 
 /// @dev The IUSigVerifier contract's interface.
 interface IUSigVerifier {
-    /// @notice Verifies a signature using Ed25519
-    /// @param pubKey The base58-encoded public key (Solana address)
-    /// @param msg The message that was signed
-    /// @param signature The signature to verify
-    /// @return isValid True if the signature is valid
-    function verifyEd25519(bytes calldata pubKey, bytes32 msg, bytes calldata signature) external view returns (bool);
+    /// @notice Verifies an Ed25519 signature over the ASCII hex form of msgDigest.
+    /// @dev The signature MUST be produced over the 66-byte UTF-8 sequence
+    ///      `"0x" + hex(msgDigest)`, NOT over the raw 32 bytes of msgDigest.
+    ///      This convention exists so Solana wallets (Phantom, Solflare, etc.)
+    ///      display a human-readable hex string in their sign-message prompt.
+    ///      For raw-bytes semantics, use {verifyEd25519RawMessage}.
+    /// @param pubKey 32-byte Ed25519 public key (a Solana address is exactly this).
+    /// @param msgDigest The 32-byte digest. Off-chain signer must sign `"0x" + hex(msgDigest)` (66 bytes).
+    /// @param signature 64-byte Ed25519 signature.
+    /// @return isValid True iff signature is valid for (pubKey, "0x"+hex(msgDigest)).
+    function verifyEd25519(bytes calldata pubKey, bytes32 msgDigest, bytes calldata signature) external view returns (bool);
+
+    /// @notice Verifies an Ed25519 signature over raw message bytes.
+    /// @dev Standard Ed25519 verification: signature is checked against the raw
+    ///      bytes of `message`. Use this when your off-chain signer uses the
+    ///      conventional `ed25519.Sign(privKey, rawBytes)` API (the default in
+    ///      every Solana SDK / nacl library).
+    /// @param pubKey 32-byte Ed25519 public key.
+    /// @param message Raw message bytes that were signed (any length).
+    /// @param signature 64-byte Ed25519 signature.
+    /// @return isValid True iff signature is valid for (pubKey, message).
+    function verifyEd25519RawMessage(bytes calldata pubKey, bytes calldata message, bytes calldata signature) external view returns (bool);
 }

@@ -300,6 +300,9 @@ func TestConvertFundMigrationEvent(t *testing.T) {
 			CurrentTssPubkey: "0x03def456",
 			Chain:            "eip155:421614",
 			InitiatedBlock:   5000,
+			GasPrice:         "1000000000",
+			GasLimit:         21100,
+			L1GasFee:         "42",
 		}
 
 		result, err := convertFundMigrationEvent(migration)
@@ -322,6 +325,9 @@ func TestConvertFundMigrationEvent(t *testing.T) {
 		assert.Equal(t, "0x03def456", data.CurrentTssPubkey)
 		assert.Equal(t, "eip155:421614", data.Chain)
 		assert.Equal(t, int64(5000), data.BlockHeight)
+		assert.Equal(t, "1000000000", data.GasPrice)
+		assert.Equal(t, uint64(21100), data.GasLimit)
+		assert.Equal(t, "42", data.L1GasFee, "L1 gas fee must be forwarded to downstream consumers")
 	})
 
 	t.Run("event ID is hash of type and migration ID", func(t *testing.T) {

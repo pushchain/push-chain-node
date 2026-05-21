@@ -42,6 +42,9 @@ const (
 	// ConsecutiveWaitThreshold: after this many consecutive polls where a chain has in-flight events,
 	// use finalized nonce to recover from stuck nonces (~200s at 10s poll).
 	ConsecutiveWaitThreshold = 20
+	// staleValidatorsHaltMultiplier: if the cached validator set is older than
+	// this many pollInterval ticks, it is cleared
+	staleValidatorsHaltMultiplier = 10
 )
 
 // ackState tracks ACK status for an event.
@@ -67,10 +70,11 @@ type Coordinator struct {
 	send             SendFunc
 
 	// Lifecycle and cache
-	mu            sync.RWMutex
-	running       bool
-	stopCh        chan struct{}
-	allValidators []*types.UniversalValidator
+	mu                      sync.RWMutex
+	running                 bool
+	stopCh                  chan struct{}
+	allValidators           []*types.UniversalValidator
+	lastValidatorsRefreshAt time.Time // zero until first successful refresh
 
 	// ACK tracking for events we're coordinating (even if not participant)
 	ackTracking map[string]*ackState
@@ -112,82 +116,56 @@ func NewCoordinator(
 	}
 }
 
-// GetPartyIDFromPeerID gets the partyID (validator address) for a given peerID.
-// Uses cached allValidators for performance.
-func (c *Coordinator) GetPartyIDFromPeerID(ctx context.Context, peerID string) (string, error) {
-	// Use cached validators
-	c.mu.RLock()
-	allValidators := c.allValidators
-	c.mu.RUnlock()
-
-	if len(allValidators) == 0 {
-		// If cache is empty, try to update it
-		c.updateValidators(ctx)
-		c.mu.RLock()
-		allValidators = c.allValidators
-		c.mu.RUnlock()
+// validatorsSnapshot returns a read-only snapshot of the cached validator set.
+// Returns nil if the cache is stale
+func (c *Coordinator) validatorsSnapshot() []*types.UniversalValidator {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.lastValidatorsRefreshAt.IsZero() {
+		return nil
 	}
+	age := time.Since(c.lastValidatorsRefreshAt)
+	if age > c.pollInterval*time.Duration(staleValidatorsHaltMultiplier) {
+		if c.allValidators != nil {
+			c.logger.Warn().Dur("age", age).Msg("validator cache exceeded staleness threshold; clearing")
+			c.allValidators = nil
+		}
+		return nil
+	}
+	return c.allValidators
+}
 
-	for _, v := range allValidators {
+// GetPartyIDFromPeerID gets the partyID (validator address) for a given peerID.
+func (c *Coordinator) GetPartyIDFromPeerID(_ context.Context, peerID string) (string, error) {
+	for _, v := range c.validatorsSnapshot() {
 		if v.NetworkInfo != nil && v.NetworkInfo.PeerId == peerID {
 			if v.IdentifyInfo != nil {
 				return v.IdentifyInfo.CoreValidatorAddress, nil
 			}
 		}
 	}
-
 	return "", fmt.Errorf("peerID %s not found in validators", peerID)
 }
 
 // GetPeerIDFromPartyID gets the peerID for a given partyID (validator address).
-// Uses cached allValidators for performance.
-func (c *Coordinator) GetPeerIDFromPartyID(ctx context.Context, partyID string) (string, error) {
-	// Use cached validators
-	c.mu.RLock()
-	allValidators := c.allValidators
-	c.mu.RUnlock()
-
-	if len(allValidators) == 0 {
-		// If cache is empty, try to update it
-		c.updateValidators(ctx)
-		c.mu.RLock()
-		allValidators = c.allValidators
-		c.mu.RUnlock()
-	}
-
-	for _, v := range allValidators {
+func (c *Coordinator) GetPeerIDFromPartyID(_ context.Context, partyID string) (string, error) {
+	for _, v := range c.validatorsSnapshot() {
 		if v.IdentifyInfo != nil && v.IdentifyInfo.CoreValidatorAddress == partyID {
 			if v.NetworkInfo != nil {
 				return v.NetworkInfo.PeerId, nil
 			}
 		}
 	}
-
 	return "", fmt.Errorf("partyID %s not found in validators", partyID)
 }
 
 // GetMultiAddrsFromPeerID gets the multiaddrs for a given peerID.
-// Uses cached allValidators for performance.
-func (c *Coordinator) GetMultiAddrsFromPeerID(ctx context.Context, peerID string) ([]string, error) {
-	// Use cached validators
-	c.mu.RLock()
-	allValidators := c.allValidators
-	c.mu.RUnlock()
-
-	if len(allValidators) == 0 {
-		// If cache is empty, try to update it
-		c.updateValidators(ctx)
-		c.mu.RLock()
-		allValidators = c.allValidators
-		c.mu.RUnlock()
-	}
-
-	for _, v := range allValidators {
+func (c *Coordinator) GetMultiAddrsFromPeerID(_ context.Context, peerID string) ([]string, error) {
+	for _, v := range c.validatorsSnapshot() {
 		if v.NetworkInfo != nil && v.NetworkInfo.PeerId == peerID {
 			return v.NetworkInfo.MultiAddrs, nil
 		}
 	}
-
 	return nil, fmt.Errorf("peerID %s not found in validators", peerID)
 }
 
@@ -204,9 +182,7 @@ func (c *Coordinator) IsPeerCoordinator(ctx context.Context, peerID string) (boo
 		return false, fmt.Errorf("failed to get latest block: %w", err)
 	}
 
-	c.mu.RLock()
-	allValidators := c.allValidators
-	c.mu.RUnlock()
+	allValidators := c.validatorsSnapshot()
 
 	if len(allValidators) == 0 {
 		return false, nil
@@ -277,10 +253,7 @@ func (c *Coordinator) GetTSSAddress(ctx context.Context) (string, error) {
 // Used by the session manager to check whether a setup-message sender is eligible to participate.
 // For SIGN coordinator setup the coordinator calls getSignParticipants (random threshold subset).
 func (c *Coordinator) GetEligibleUV(protocolType string) []*types.UniversalValidator {
-	c.mu.RLock()
-	allValidators := c.allValidators
-	c.mu.RUnlock()
-
+	allValidators := c.validatorsSnapshot()
 	if len(allValidators) == 0 {
 		return nil
 	}
@@ -358,6 +331,7 @@ func (c *Coordinator) updateValidators(ctx context.Context) {
 
 	c.mu.Lock()
 	c.allValidators = allValidators
+	c.lastValidatorsRefreshAt = time.Now()
 	c.mu.Unlock()
 
 	c.logger.Debug().Int("count", len(allValidators)).Msg("updated validators cache")
@@ -372,11 +346,7 @@ func (c *Coordinator) processConfirmedEvents(ctx context.Context) error {
 		return fmt.Errorf("failed to get latest block: %w", err)
 	}
 
-	// Use cached validators (updated at polling interval)
-	c.mu.RLock()
-	allValidators := c.allValidators
-	c.mu.RUnlock()
-
+	allValidators := c.validatorsSnapshot()
 	if len(allValidators) == 0 {
 		return nil // No validators, skip
 	}
@@ -735,14 +705,19 @@ func (c *Coordinator) createFundMigrationSignSetup(ctx context.Context, eventDat
 	if assignedNonce == nil {
 		return nil, nil, fmt.Errorf("assigned nonce is required for fund migration transaction")
 	}
+
 	gasPrice := new(big.Int)
 	gasPrice.SetString(migrationData.GasPrice, 10)
+
+	l1GasFee := new(big.Int)
+	l1GasFee.SetString(migrationData.L1GasFee, 10)
 
 	migrationFundData := &common.FundMigrationData{
 		From:     oldTSSAddr,
 		To:       currentTSSAddr,
 		GasPrice: gasPrice,
 		GasLimit: migrationData.GasLimit,
+		L1GasFee: l1GasFee,
 	}
 	signingReq, err := builder.GetFundMigrationSigningRequest(ctx, migrationFundData, *assignedNonce)
 	if err != nil {

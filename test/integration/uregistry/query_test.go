@@ -3,7 +3,10 @@ package integrationtest
 import (
 	"testing"
 
+	"cosmossdk.io/collections"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/codec"
+	sdkquery "github.com/cosmos/cosmos-sdk/types/query"
 	"github.com/stretchr/testify/require"
 
 	utils "github.com/pushchain/push-chain-node/test/utils"
@@ -278,4 +281,183 @@ func TestQueryTokenConfigsByChain(t *testing.T) {
 		require.NotNil(t, resp)
 		require.Empty(t, resp.Configs)
 	})
+}
+
+// TestQueryAllTokenConfigs_Pagination (F-2026-17035) verifies the pagination
+// wiring on AllTokenConfigs: with Limit=2 the response carries exactly 2
+// rows and a NextKey, and a follow-up request keyed off NextKey returns the
+// next page. Without pagination the response would carry all rows in one
+// shot regardless of Limit.
+func TestQueryAllTokenConfigs_Pagination(t *testing.T) {
+	chainApp, ctx, _, _ := utils.SetAppWithMultipleValidators(t, 1)
+	querier := uregistrykeeper.NewQuerier(chainApp.UregistryKeeper)
+
+	prc20 := utils.GetDefaultAddresses().PRC20USDCAddr.String()
+
+	const chain = "eip155:1"
+	const totalTokens = 5
+	for i := 0; i < totalTokens; i++ {
+		addr := []string{
+			"0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+			"0xdAC17F958D2ee523a2206206994597C13D831ec7",
+			"0x6B175474E89094C44Da98b954EedeAC495271d0F",
+			"0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+			"0x514910771AF9Ca656af840dff83E8264EcF986CA",
+		}[i]
+		tc := sampleTokenConfig(chain, addr, prc20)
+		require.NoError(t, chainApp.UregistryKeeper.TokenConfigs.Set(
+			ctx, uregistrytypes.GetTokenConfigsStorageKey(chain, addr), tc))
+	}
+
+	// First page: Limit=2, expect 2 items + NextKey set.
+	resp, err := querier.AllTokenConfigs(sdk.WrapSDKContext(ctx),
+		&uregistrytypes.QueryAllTokenConfigsRequest{
+			Pagination: &sdkquery.PageRequest{Limit: 2, CountTotal: true},
+		})
+	require.NoError(t, err)
+	require.Len(t, resp.Configs, 2,
+		"Limit=2 must return exactly 2 rows (without pagination this would return all 5)")
+	require.NotNil(t, resp.Pagination)
+	require.NotEmpty(t, resp.Pagination.NextKey, "NextKey must be set when more rows exist")
+	require.Equal(t, uint64(totalTokens), resp.Pagination.Total)
+
+	// Second page: keyed off NextKey, Limit=2, expect 2 more items.
+	resp2, err := querier.AllTokenConfigs(sdk.WrapSDKContext(ctx),
+		&uregistrytypes.QueryAllTokenConfigsRequest{
+			Pagination: &sdkquery.PageRequest{Key: resp.Pagination.NextKey, Limit: 2},
+		})
+	require.NoError(t, err)
+	require.Len(t, resp2.Configs, 2)
+
+	// Third page: remaining 1 item, NextKey must be empty.
+	resp3, err := querier.AllTokenConfigs(sdk.WrapSDKContext(ctx),
+		&uregistrytypes.QueryAllTokenConfigsRequest{
+			Pagination: &sdkquery.PageRequest{Key: resp2.Pagination.NextKey, Limit: 2},
+		})
+	require.NoError(t, err)
+	require.Len(t, resp3.Configs, 1)
+	require.Empty(t, resp3.Pagination.NextKey, "NextKey must be empty after last page")
+}
+
+// TestGetTokenConfigByPRC20_ResolvesViaIndex (F-2026-17035) end-to-end: with
+// the chain app running, register a token via the keeper, then look it up by
+// its PRC20 address. The IndexedMap auto-populates PRC20Index on Set so the
+// lookup is O(1) (verified by behaviour — wrong-chain returns NotFound,
+// right-chain returns the config).
+func TestGetTokenConfigByPRC20_ResolvesViaIndex(t *testing.T) {
+	chainApp, ctx, _, _ := utils.SetAppWithMultipleValidators(t, 1)
+
+	const chainA = "eip155:1"
+	const chainB = "eip155:137"
+	const prc20A = "0xPrc20OnPushForChainA"
+	const prc20B = "0xPrc20OnPushForChainB"
+
+	require.NoError(t, chainApp.UregistryKeeper.TokenConfigs.Set(
+		ctx, uregistrytypes.GetTokenConfigsStorageKey(chainA, "0xUSDC_eth"),
+		sampleTokenConfig(chainA, "0xUSDC_eth", prc20A)))
+	require.NoError(t, chainApp.UregistryKeeper.TokenConfigs.Set(
+		ctx, uregistrytypes.GetTokenConfigsStorageKey(chainB, "0xUSDC_polygon"),
+		sampleTokenConfig(chainB, "0xUSDC_polygon", prc20B)))
+
+	// Happy path: each PRC20 resolves to the right config when queried with
+	// its registered chain.
+	cfgA, err := chainApp.UregistryKeeper.GetTokenConfigByPRC20(ctx, chainA, prc20A)
+	require.NoError(t, err)
+	require.Equal(t, "0xUSDC_eth", cfgA.Address)
+	require.Equal(t, chainA, cfgA.Chain)
+
+	cfgB, err := chainApp.UregistryKeeper.GetTokenConfigByPRC20(ctx, chainB, prc20B)
+	require.NoError(t, err)
+	require.Equal(t, "0xUSDC_polygon", cfgB.Address)
+	require.Equal(t, chainB, cfgB.Chain)
+
+	// Cross-chain lookup (right PRC20, wrong chain) returns NotFound — same
+	// as the prior Walk-based behaviour.
+	_, err = chainApp.UregistryKeeper.GetTokenConfigByPRC20(ctx, chainB, prc20A)
+	require.ErrorIs(t, err, collections.ErrNotFound)
+}
+
+// TestRebuildPRC20Index_BeforeAndAfterMigration (F-2026-17035 migration,
+// integration level): the user's specific ask — exercise the migration
+// against the full chain app with pre-upgrade storage state and verify the
+// observable behaviour change.
+//
+// Pre-upgrade state is simulated by writing TokenConfigs through a parallel
+// plain collections.Map at the same TokenConfigsKey prefix, bypassing the
+// IndexedMap framework. This produces exactly the on-disk bytes a pre-upgrade
+// validator would have written (TokenConfigs primary store populated,
+// PRC20Index entirely empty).
+func TestRebuildPRC20Index_BeforeAndAfterMigration(t *testing.T) {
+	chainApp, ctx, _, _ := utils.SetAppWithMultipleValidators(t, 1)
+
+	const chainEth = "eip155:1"
+	const chainPol = "eip155:137"
+	const chainSvm = "solana:mainnet"
+
+	legacy := []struct {
+		chain, address, prc20 string
+	}{
+		{chainEth, "0xUSDC_eth", "0xPrc20_eth_usdc"},
+		{chainEth, "0xUSDT_eth", "0xPrc20_eth_usdt"},
+		{chainPol, "0xUSDC_pol", "0xPrc20_pol_usdc"},
+		{chainSvm, "USDCsvm", "0xPrc20_svm_usdc"},
+	}
+
+	// Pre-upgrade state: write directly through a plain Map at the same
+	// prefix, bypassing IndexedMap so PRC20Index stays empty.
+	legacyMap := collections.NewMap(
+		chainApp.UregistryKeeper.SchemaBuilder(),
+		uregistrytypes.TokenConfigsKey,
+		uregistrytypes.TokenConfigsName,
+		collections.StringKey,
+		codec.CollValue[uregistrytypes.TokenConfig](chainApp.AppCodec()),
+	)
+	for _, l := range legacy {
+		cfg := sampleTokenConfig(l.chain, l.address, l.prc20)
+		require.NoError(t, legacyMap.Set(
+			ctx, uregistrytypes.GetTokenConfigsStorageKey(l.chain, l.address), cfg))
+	}
+
+	// --- BEFORE migration ---
+	// Primary store reads still work (the IndexedMap reads the same prefix).
+	gotPre, err := chainApp.UregistryKeeper.GetTokenConfig(ctx, chainEth, "0xUSDC_eth")
+	require.NoError(t, err, "pre-upgrade: primary store has the row")
+	require.Equal(t, "0xPrc20_eth_usdc", gotPre.NativeRepresentation.ContractAddress)
+
+	// But GetTokenConfigByPRC20 fails — PRC20Index is empty for every legacy
+	// entry. This is exactly the symptom a pre-upgrade testnet would exhibit
+	// against the new code: outbound flows that call GetTokenConfigByPRC20
+	// would fail to resolve known-good tokens.
+	for _, l := range legacy {
+		_, err := chainApp.UregistryKeeper.GetTokenConfigByPRC20(ctx, l.chain, l.prc20)
+		require.ErrorIs(t, err, collections.ErrNotFound,
+			"pre-upgrade: %s on %s must return NotFound (index empty)", l.prc20, l.chain)
+	}
+
+	// --- RUN MIGRATION ---
+	require.NoError(t, chainApp.UregistryKeeper.RebuildPRC20Index(ctx))
+
+	// --- AFTER migration ---
+	// Every legacy entry is now resolvable via the index.
+	for _, l := range legacy {
+		got, err := chainApp.UregistryKeeper.GetTokenConfigByPRC20(ctx, l.chain, l.prc20)
+		require.NoError(t, err,
+			"post-upgrade: %s on %s must resolve after RebuildPRC20Index", l.prc20, l.chain)
+		require.Equal(t, l.address, got.Address,
+			"post-upgrade: %s should map to %s", l.prc20, l.address)
+		require.Equal(t, l.chain, got.Chain)
+	}
+
+	// Wrong-chain lookups still return NotFound (the index doesn't paper
+	// over the chain mismatch).
+	_, err = chainApp.UregistryKeeper.GetTokenConfigByPRC20(ctx, chainPol, "0xPrc20_eth_usdc")
+	require.ErrorIs(t, err, collections.ErrNotFound,
+		"post-upgrade: cross-chain lookups still return NotFound")
+
+	// Re-running the migration is idempotent.
+	require.NoError(t, chainApp.UregistryKeeper.RebuildPRC20Index(ctx))
+	for _, l := range legacy {
+		_, err := chainApp.UregistryKeeper.GetTokenConfigByPRC20(ctx, l.chain, l.prc20)
+		require.NoError(t, err, "second RebuildPRC20Index must remain safe")
+	}
 }

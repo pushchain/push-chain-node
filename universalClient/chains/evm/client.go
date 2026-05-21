@@ -385,23 +385,41 @@ func parseEVMChainID(caip2 string) (int64, error) {
 	return chainID, nil
 }
 
-// FetchVaultAddress calls the gateway's vault() public getter to retrieve the vault address.
+// FetchVaultAddress calls the gateway's VAULT() / vault() public getter to retrieve
+// the vault address. Tries VAULT() first then falls back to vault() so we work with
+// gateways that use either casing.
 func FetchVaultAddress(ctx context.Context, rpcClient *RPCClient, gatewayAddress ethcommon.Address) (ethcommon.Address, error) {
-	// vaultCallSelector is the 4-byte selector for vault() public getter
-	vaultCallSelector := crypto.Keccak256([]byte("vault()"))[:4]
+	addr, errUpper := tryVaultGetter(ctx, rpcClient, gatewayAddress, "VAULT()")
+	if errUpper == nil {
+		return addr, nil
+	}
 
-	result, err := rpcClient.CallContract(ctx, gatewayAddress, vaultCallSelector, nil)
+	addr, errLower := tryVaultGetter(ctx, rpcClient, gatewayAddress, "vault()")
+	if errLower == nil {
+		return addr, nil
+	}
+
+	return ethcommon.Address{}, fmt.Errorf("vault getter failed for both casings: VAULT(): %v; vault(): %w", errUpper, errLower)
+}
+
+// tryVaultGetter calls the given getter signature on the gateway and parses the
+// returned address. Returns an error if the call reverts, returns short data, or
+// returns the zero address.
+func tryVaultGetter(ctx context.Context, rpcClient *RPCClient, gatewayAddress ethcommon.Address, signature string) (ethcommon.Address, error) {
+	selector := crypto.Keccak256([]byte(signature))[:4]
+
+	result, err := rpcClient.CallContract(ctx, gatewayAddress, selector, nil)
 	if err != nil {
-		return ethcommon.Address{}, fmt.Errorf("vault() call failed: %w", err)
+		return ethcommon.Address{}, fmt.Errorf("%s call failed: %w", signature, err)
 	}
 
 	if len(result) < 32 {
-		return ethcommon.Address{}, fmt.Errorf("vault() returned invalid data (len=%d)", len(result))
+		return ethcommon.Address{}, fmt.Errorf("%s returned invalid data (len=%d)", signature, len(result))
 	}
 
 	addr := ethcommon.BytesToAddress(result[12:32])
 	if addr == (ethcommon.Address{}) {
-		return ethcommon.Address{}, fmt.Errorf("vault() returned zero address")
+		return ethcommon.Address{}, fmt.Errorf("%s returned zero address", signature)
 	}
 
 	return addr, nil

@@ -3,6 +3,7 @@ package types
 import (
 	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
 var (
@@ -44,5 +45,8 @@ func (msg *MsgUpdateUniversalValidator) ValidateBasic() error {
 		return errors.Wrap(err, "invalid signer address")
 	}
 
+	if msg.Network == nil {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "network info is required")
+	}
 	return msg.Network.ValidateBasic()
 }

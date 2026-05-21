@@ -21,7 +21,7 @@ func TestReservedSlots_FullTripleDeployedForEveryUnoccupiedABCSlot(t *testing.T)
 	occupied := map[byte]bool{
 		0xAA: true,
 		0xB0: true, 0xB1: true, 0xB2: true, 0xBC: true,
-		0xC0: true, 0xC1: true, 0xCA: true,
+		0xC0: true, 0xC1: true,
 	}
 
 	for _, hi := range []byte{0xA, 0xB, 0xC} {
@@ -104,10 +104,10 @@ func TestReservedSlots_NoCollisionWithProxyAdminOrImpl(t *testing.T) {
 
 // TestReservedSlots_ExpectedTotalCount fixes the count so an off-by-one in
 // the loop bounds (e.g. accidentally dropping AF or CF) shows up immediately.
-// Pre-existing 6 + 40 newly reserved = 46.
+// Pre-existing 6 + 41 newly reserved = 47.
 func TestReservedSlots_ExpectedTotalCount(t *testing.T) {
 	require.Len(t, SYSTEM_CONTRACTS, 47,
-		"expected 6 pre-existing + 41 auto-reserved (15 A + 12 B + 14 C, 0xCA now reserved) = 47 total")
+		"expected 6 pre-existing + 41 auto-reserved (15 A + 12 B + 14 C) = 47 total")
 	require.Len(t, BYTECODE, 47,
 		"BYTECODE must mirror SYSTEM_CONTRACTS")
 }

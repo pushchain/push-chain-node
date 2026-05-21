@@ -151,7 +151,7 @@ func (t *trackerEVMKeeper) SetCode(_ sdk.Context, codeHash, code []byte) {
 //  3. The implementation address has non-empty CodeHash.
 //  4. The ProxyAdmin's storage slot 0 (Ownable.owner) is set to
 //     PROXY_ADMIN_OWNER_ADDRESS_HEX (the F-2026-16998 EOA owner — same for all
-//     46 ProxyAdmins). This is the load-bearing assertion for the
+//     47 ProxyAdmins). This is the load-bearing assertion for the
 //     "single owner controls every system-contract upgrade" trust assumption.
 //  5. The proxy's EIP-1967 admin slot points to the right ProxyAdmin
 //     (PROXY_ADMIN_SLOT) and impl slot points to the right implementation
@@ -164,8 +164,8 @@ func TestDeploySystemContracts_DeploysFullTripleForEveryReservedAddress(t *testi
 
 	expectedOwner := common.HexToAddress(types.PROXY_ADMIN_OWNER_ADDRESS_HEX)
 
-	// Sanity: must have processed all 46 entries (6 explicit + 40 auto-reserved).
-	require.Len(t, types.SYSTEM_CONTRACTS, 46, "SYSTEM_CONTRACTS size drift")
+	// Sanity: must have processed all 47 entries (6 explicit + 41 auto-reserved).
+	require.Len(t, types.SYSTEM_CONTRACTS, 47, "SYSTEM_CONTRACTS size drift")
 
 	for name, addrs := range types.SYSTEM_CONTRACTS {
 		proxy := common.HexToAddress(addrs.Address)
@@ -265,8 +265,12 @@ func TestDeploySystemContracts_AllReservedSlotsInABCRangeAreCovered(t *testing.T
 
 	// Slots in A/B/C that uregistry does NOT own:
 	//   0xAA — uexecutor PROXY_ADMIN (deployed by uexecutor's own genesis)
-	//   0xCA — USigVerifier legacy precompile (precompile dispatch beats EVM state)
-	uregistryDoesNotOwn := map[byte]bool{0xAA: true, 0xCA: true}
+	// 0xCA hosts the USigVerifier legacy precompile (testnet-live, removed on
+	// mainnet; the new address is 0xE1). It IS auto-reserved here: while the
+	// precompile is active the bytecode is shadowed by dispatch, but reserving
+	// the slot keeps the EOA-squatting protection (F-2026-17025) in effect
+	// once the precompile is removed on mainnet.
+	uregistryDoesNotOwn := map[byte]bool{0xAA: true}
 
 	for _, hi := range []byte{0xA, 0xB, 0xC} {
 		for lo := byte(0); lo < 0x10; lo++ {

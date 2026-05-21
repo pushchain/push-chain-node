@@ -1,6 +1,7 @@
 syntax = "proto3";
 package uregistry.v1;
 
+import "cosmos/base/query/v1beta1/pagination.proto";
 import "google/api/annotations.proto";
 import "uregistry/v1/genesis.proto";
 import "uregistry/v1/types.proto";
@@ -61,11 +62,14 @@ message QueryChainConfigResponse {
 }
 
 // QueryAllChainConfigsRequest is the request type for the Query/AllChainConfigs RPC method.
-message QueryAllChainConfigsRequest {}
+message QueryAllChainConfigsRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
 
 // QueryAllChainConfigsResponse is the response type for the Query/AllChainConfigs RPC method.
 message QueryAllChainConfigsResponse {
   repeated ChainConfig configs = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
 }
 
 // TokenConfig
@@ -81,19 +85,24 @@ message QueryTokenConfigResponse {
 }
 
 // QueryAllTokenConfigsRequest is the request type for the Query/AllTokenConfigs RPC method.
-message QueryAllTokenConfigsRequest {}
+message QueryAllTokenConfigsRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
 
 // QueryAllTokenConfigsResponse is the response type for the Query/AllTokenConfigs RPC method.
 message QueryAllTokenConfigsResponse {
   repeated TokenConfig configs = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
 }
 
 // QueryTokenConfigsByChainRequest is the request type for the Query/TokenConfigsByChain RPC method.
 message QueryTokenConfigsByChainRequest {
   string chain = 1;
+  cosmos.base.query.v1beta1.PageRequest pagination = 2;
 }
 
 // QueryTokenConfigsByChainResponse is the response type for the Query/TokenConfigsByChain RPC method.
 message QueryTokenConfigsByChainResponse {
   repeated TokenConfig configs = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
 }

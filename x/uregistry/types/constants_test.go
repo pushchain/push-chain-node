@@ -106,9 +106,9 @@ func TestReservedSlots_NoCollisionWithProxyAdminOrImpl(t *testing.T) {
 // the loop bounds (e.g. accidentally dropping AF or CF) shows up immediately.
 // Pre-existing 6 + 40 newly reserved = 46.
 func TestReservedSlots_ExpectedTotalCount(t *testing.T) {
-	require.Len(t, SYSTEM_CONTRACTS, 46,
-		"expected 6 pre-existing + 40 auto-reserved (15 A + 12 B + 13 C) = 46 total")
-	require.Len(t, BYTECODE, 46,
+	require.Len(t, SYSTEM_CONTRACTS, 47,
+		"expected 6 pre-existing + 41 auto-reserved (15 A + 12 B + 14 C, 0xCA now reserved) = 47 total")
+	require.Len(t, BYTECODE, 47,
 		"BYTECODE must mirror SYSTEM_CONTRACTS")
 }
 

@@ -165,7 +165,7 @@ func TestDeploySystemContracts_DeploysFullTripleForEveryReservedAddress(t *testi
 	expectedOwner := common.HexToAddress(types.PROXY_ADMIN_OWNER_ADDRESS_HEX)
 
 	// Sanity: must have processed all 46 entries (6 explicit + 40 auto-reserved).
-	require.Len(t, types.SYSTEM_CONTRACTS, 46, "SYSTEM_CONTRACTS size drift")
+	require.Len(t, types.SYSTEM_CONTRACTS, 47, "SYSTEM_CONTRACTS size drift")
 
 	for name, addrs := range types.SYSTEM_CONTRACTS {
 		proxy := common.HexToAddress(addrs.Address)
@@ -265,8 +265,7 @@ func TestDeploySystemContracts_AllReservedSlotsInABCRangeAreCovered(t *testing.T
 
 	// Slots in A/B/C that uregistry does NOT own:
 	//   0xAA — uexecutor PROXY_ADMIN (deployed by uexecutor's own genesis)
-	//   0xCA — USigVerifier legacy precompile (precompile dispatch beats EVM state)
-	uregistryDoesNotOwn := map[byte]bool{0xAA: true, 0xCA: true}
+	uregistryDoesNotOwn := map[byte]bool{0xAA: true}
 
 	for _, hi := range []byte{0xA, 0xB, 0xC} {
 		for lo := byte(0); lo < 0x10; lo++ {

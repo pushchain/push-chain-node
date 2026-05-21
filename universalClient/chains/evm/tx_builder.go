@@ -445,6 +445,12 @@ func (tb *TxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, 
 	return false, nil
 }
 
+// CleanupOutboundArtifacts is a no-op on EVM — there are no off-chain artifacts
+// (no PDAs, no rent) tied to an outbound's lifetime.
+func (tb *TxBuilder) CleanupOutboundArtifacts(ctx context.Context, data *uetypes.OutboundCreatedEvent) error {
+	return nil
+}
+
 // GetGasFeeUsed returns the gas fee used by a transaction on the EVM chain.
 // Fetches the receipt for gasUsed and the transaction for gasPrice, then returns
 // gasUsed * gasPrice as a decimal string. Returns "0" if not found.

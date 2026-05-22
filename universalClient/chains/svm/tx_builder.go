@@ -2251,17 +2251,16 @@ func (tb *TxBuilder) buildStoreIxDataAccounts(caller, storedIxDataPDA solana.Pub
 }
 
 // buildCloseStoredIxDataAccounts builds the accounts list for close_stored_ix_data.
+// All four metas required — Anchor's Option<Account> still demands a slot.
 //
-//	#   Account                 Flags          Notes
-//	1   caller                  signer, mut    The relayer
-//	2   stored_ix_data          mut            PDA being closed
-//	3   store_refund_recipient  mut            Rent destination (= caller for the cron path)
-//	4   executed_sub_tx         optional       Omitted; widens permission to "anyone" when present
-func (tb *TxBuilder) buildCloseStoredIxDataAccounts(caller, storedIxDataPDA solana.PublicKey) []*solana.AccountMeta {
+//	1 caller (signer, mut)            2 stored_ix_data (mut)
+//	3 store_refund_recipient (mut)    4 executed_sub_tx (canonical PDA)
+func (tb *TxBuilder) buildCloseStoredIxDataAccounts(caller, storedIxDataPDA, executedSubTxPDA solana.PublicKey) []*solana.AccountMeta {
 	return []*solana.AccountMeta{
 		{PublicKey: caller, IsWritable: true, IsSigner: true},
 		{PublicKey: storedIxDataPDA, IsWritable: true, IsSigner: false},
 		{PublicKey: caller, IsWritable: true, IsSigner: false},
+		{PublicKey: executedSubTxPDA, IsWritable: false, IsSigner: false},
 	}
 }
 

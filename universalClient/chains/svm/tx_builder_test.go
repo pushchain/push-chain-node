@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -1875,9 +1876,10 @@ func TestBuildCloseStoredIxDataAccounts(t *testing.T) {
 	builder := newTestBuilder(t)
 	caller := solana.NewWallet().PublicKey()
 	storedPDA := solana.NewWallet().PublicKey()
+	executedSubTxPDA := solana.NewWallet().PublicKey()
 
-	accounts := builder.buildCloseStoredIxDataAccounts(caller, storedPDA)
-	require.Len(t, accounts, 3)
+	accounts := builder.buildCloseStoredIxDataAccounts(caller, storedPDA, executedSubTxPDA)
+	require.Len(t, accounts, 4, "Anchor's Option<Account> still requires a meta slot")
 
 	// caller: signer, mut
 	assert.Equal(t, caller, accounts[0].PublicKey)
@@ -1894,6 +1896,13 @@ func TestBuildCloseStoredIxDataAccounts(t *testing.T) {
 	assert.Equal(t, caller, accounts[2].PublicKey, "refund recipient must equal caller")
 	assert.True(t, accounts[2].IsWritable)
 	assert.False(t, accounts[2].IsSigner)
+
+	// executed_sub_tx: canonical PDA address, read-only. Contract loads the
+	// account and inspects its data — even if the on-chain account doesn't
+	// exist (finalize hasn't succeeded), the meta slot must still be populated.
+	assert.Equal(t, executedSubTxPDA, accounts[3].PublicKey)
+	assert.False(t, accounts[3].IsWritable, "executed_sub_tx is read-only")
+	assert.False(t, accounts[3].IsSigner)
 }
 
 func TestBuildWithdrawAndExecuteAccounts_RefRouteSlots(t *testing.T) {
@@ -2531,6 +2540,84 @@ func buildAndSimulateRefRoute(
 		return nil, storedPDA, fmt.Errorf("simulate store: %w", err)
 	}
 	return storeSim, storedPDA, nil
+}
+
+// TestSimulate_CloseStoredIxData_MetaShape verifies the close_stored_ix_data
+// account-meta list shape against devnet. We target a deliberately
+// non-existent PDA so the contract advances past meta-count validation and
+// fails at stored_ix_data deserialization.
+//
+//   - PASS: simulation errors with Anchor 3012 (AccountNotInitialized) on
+//     stored_ix_data — meta count was correct, contract reached step 2.
+//   - FAIL: simulation errors with Anchor 3005 (AccountNotEnoughKeys) on
+//     executed_sub_tx — meta count is wrong (the production bug).
+//
+// No on-chain state needed; no fees spent.
+func TestSimulate_CloseStoredIxData_MetaShape(t *testing.T) {
+	rpcClient, builder := setupDevnetSimulation(t)
+	defer rpcClient.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	relayerKey, err := builder.loadRelayerKeypair()
+	require.NoError(t, err)
+
+	// Deterministic fake sub_tx_id + ix_data so the derived PDAs don't exist.
+	var subTxID [32]byte
+	for i := range subTxID {
+		subTxID[i] = 0xAB
+	}
+	fakeIxData := []byte("never-actually-stored")
+	var ixDataHash [32]byte
+	copy(ixDataHash[:], crypto.Keccak256(fakeIxData))
+
+	storedPDA, err := builder.deriveStoredIxDataPDA(subTxID, ixDataHash)
+	require.NoError(t, err)
+	executedSubTxPDA, _, err := solana.FindProgramAddress(
+		[][]byte{executedSubTxSeed, subTxID[:]},
+		builder.gatewayAddress,
+	)
+	require.NoError(t, err)
+
+	accounts := builder.buildCloseStoredIxDataAccounts(relayerKey.PublicKey(), storedPDA, executedSubTxPDA)
+	require.Len(t, accounts, 4, "must include the executed_sub_tx meta to satisfy Anchor Option<Account>")
+	closeIx := solana.NewInstruction(builder.gatewayAddress, accounts, discCloseStoredIxData[:])
+
+	blockhash, err := rpcClient.GetRecentBlockhash(ctx)
+	require.NoError(t, err)
+
+	tx, err := solana.NewTransaction(
+		[]solana.Instruction{closeIx},
+		blockhash,
+		solana.TransactionPayer(relayerKey.PublicKey()),
+	)
+	require.NoError(t, err)
+	_, err = tx.Sign(func(key solana.PublicKey) *solana.PrivateKey {
+		if key.Equals(relayerKey.PublicKey()) {
+			priv := relayerKey
+			return &priv
+		}
+		return nil
+	})
+	require.NoError(t, err)
+
+	sim, err := rpcClient.SimulateTransaction(ctx, tx)
+	require.NoError(t, err)
+
+	// The simulation MUST fail (PDA doesn't exist) but the failure must be on
+	// stored_ix_data (Anchor 3012) — NOT on executed_sub_tx (Anchor 3005,
+	// AccountNotEnoughKeys, which is the production-incident bug).
+	require.NotNil(t, sim.Err, "expected simulation to fail against a non-existent PDA")
+
+	for _, log := range sim.Logs {
+		t.Log(log)
+	}
+
+	joined := strings.Join(sim.Logs, "\n")
+	require.NotContains(t, joined, "AccountNotEnoughKeys",
+		"meta-count is wrong — Anchor rejected before reaching stored_ix_data deserialization")
+	require.Contains(t, joined, "AccountNotInitialized",
+		"expected stored_ix_data AccountNotInitialized (proves meta-count is correct)")
 }
 
 // TestSimulate_RefRoute_Execute simulates the store half of the ref-finalize

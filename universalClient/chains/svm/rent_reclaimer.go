@@ -208,9 +208,16 @@ func (r *RentReclaimer) isOldEnough(ctx context.Context, addr solana.PublicKey) 
 }
 
 // closeOrphan builds and broadcasts an arg-free close_stored_ix_data tx.
-// The contract reads sub_tx_id and ix_data from the PDA itself.
 func (r *RentReclaimer) closeOrphan(ctx context.Context, o orphanPDA, relayer solana.PrivateKey) error {
-	accounts := r.builder.buildCloseStoredIxDataAccounts(relayer.PublicKey(), o.address)
+	executedSubTxPDA, _, err := solana.FindProgramAddress(
+		[][]byte{executedSubTxSeed, o.subTxID[:]},
+		r.builder.gatewayAddress,
+	)
+	if err != nil {
+		return fmt.Errorf("derive executed_sub_tx PDA: %w", err)
+	}
+
+	accounts := r.builder.buildCloseStoredIxDataAccounts(relayer.PublicKey(), o.address, executedSubTxPDA)
 	closeIx := solana.NewInstruction(r.builder.gatewayAddress, accounts, discCloseStoredIxData[:])
 
 	blockhash, err := r.builder.rpcClient.GetRecentBlockhash(ctx)

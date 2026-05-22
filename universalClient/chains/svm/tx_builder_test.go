@@ -7,7 +7,6 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,7 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
-	"github.com/gagliardetto/solana-go/rpc/jsonrpc"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1268,59 +1266,6 @@ func TestBuildRescueAccounts(t *testing.T) {
 			assert.Equal(t, revertAccounts[i].PublicKey, rescueAccounts[i].PublicKey, "account %d pubkey", i)
 		}
 	})
-}
-
-func TestIsAccountNotInitializedError(t *testing.T) {
-	// Builds an RPCError that matches the wire shape Solana returns for a
-	// preflight failure with the given Anchor custom error code.
-	preflightErr := func(custom uint64) error {
-		return &jsonrpc.RPCError{
-			Code:    -32002,
-			Message: "Transaction simulation failed",
-			Data: map[string]any{
-				"err": map[string]any{
-					"InstructionError": []any{
-						float64(1),
-						map[string]any{"Custom": float64(custom)},
-					},
-				},
-			},
-		}
-	}
-
-	tests := []struct {
-		name string
-		err  error
-		want bool
-	}{
-		{"3012 unwrapped", preflightErr(3012), true},
-		{"3012 wrapped via fmt.Errorf %w", fmt.Errorf("broadcast failed: %w", preflightErr(3012)), true},
-		{"3012 with json.Number", &jsonrpc.RPCError{
-			Code: -32002,
-			Data: map[string]any{
-				"err": map[string]any{
-					"InstructionError": []any{
-						float64(1),
-						map[string]any{"Custom": json.Number("3012")},
-					},
-				},
-			},
-		}, true},
-		{"6005 not 3012", preflightErr(6005), false},
-		{"different RPC code", &jsonrpc.RPCError{Code: -32000, Data: map[string]any{}}, false},
-		{"missing InstructionError", &jsonrpc.RPCError{Code: -32002, Data: map[string]any{"err": map[string]any{}}}, false},
-		{"plain error", fmt.Errorf("transport failure"), false},
-		{"nil error", nil, false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := isAccountNotInitializedError(tt.err)
-			if got != tt.want {
-				t.Errorf("isAccountNotInitializedError = %v, want %v", got, tt.want)
-			}
-		})
-	}
 }
 
 func TestRemoveHexPrefix(t *testing.T) {

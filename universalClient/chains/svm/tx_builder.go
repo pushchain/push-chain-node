@@ -30,20 +30,17 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"math/big"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gagliardetto/solana-go"
 	addresslookuptable "github.com/gagliardetto/solana-go/programs/address-lookup-table"
 	"github.com/gagliardetto/solana-go/rpc"
-	"github.com/gagliardetto/solana-go/rpc/jsonrpc"
 	"github.com/rs/zerolog"
 
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
@@ -574,12 +571,18 @@ func (tb *TxBuilder) storedPDAExists(ctx context.Context, storedPDA solana.Publi
 	return len(data) > 0
 }
 
-// broadcastRefRoute drives the 2-tx ref-finalize flow:
-//  1. store_execute_ix_data (skipped if PDA already exists)
-//  2. finalize_universal_tx_with_ix_data_ref (same TSS payload as direct route)
+// broadcastRefRoute drives the 2-tx ref-finalize flow as a tick-based state
+// machine — at most ONE action per broadcaster tick:
 //
-// Returns the finalize tx hash — only finalize lands the ExecutedSubTx PDA
-// the resolver keys on.
+//   - PDA exists on-chain → broadcast finalize, return tx hash.
+//   - PDA absent          → broadcast store, return non-nil error so the
+//     broadcaster counts it as a failed attempt and retries next tick. The
+//     happy path: tick N broadcasts store, tick N+1 (15s later, after ~13s
+//     Finalized) sees the PDA and broadcasts finalize.
+//
+// PDA is content-addressed by (sub_tx_id, keccak256(ix_data)); every validator
+// derives the same address. Only one store wins on-chain (Anchor `init` dedups);
+// losers see AccountAlreadyInUse — the broadcaster's retry handles it.
 func (tb *TxBuilder) broadcastRefRoute(
 	ctx context.Context,
 	req *common.UnsignedSigningReq,
@@ -591,162 +594,27 @@ func (tb *TxBuilder) broadcastRefRoute(
 		return "", fmt.Errorf("failed to build ref-route transactions: %w", err)
 	}
 
-	// Ensure StoredIxData PDA is on-chain before finalize.
-	//
-	// PDA is content-addressed by (sub_tx_id, keccak256(ix_data)) — every
-	// validator derives the same address with the same payload. Only one
-	// store_execute_ix_data wins on-chain (Anchor `init` dedups); losers see
-	// AccountAlreadyInUse. Either way finalize proceeds against the winner's PDA.
 	if tb.storedPDAExists(ctx, storedPDA) {
-		tb.logger.Info().
-			Str("stored_pda", storedPDA.String()).
-			Msg("stored_ix_data PDA already present, skipping store tx")
-	} else {
-		storeHash, broadcastErr := tb.rpcClient.BroadcastTransaction(ctx, storeTx)
-		if broadcastErr != nil {
-			if !tb.storedPDAExists(ctx, storedPDA) {
-				return "", fmt.Errorf("failed to broadcast store_execute_ix_data: %w", broadcastErr)
-			}
-			tb.logger.Info().
-				Str("stored_pda", storedPDA.String()).
-				Msg("store_execute_ix_data broadcast lost race; PDA already exists, proceeding to finalize")
-		} else {
-			tb.logger.Info().
-				Str("store_tx_hash", storeHash).
-				Str("stored_pda", storedPDA.String()).
-				Msg("store_execute_ix_data broadcast, awaiting confirmation")
-
-			sig, sigErr := solana.SignatureFromBase58(storeHash)
-			if sigErr != nil {
-				return "", fmt.Errorf("invalid store tx signature %s: %w", storeHash, sigErr)
-			}
-			if confirmErr := tb.rpcClient.WaitForSignatureConfirmation(ctx, sig, rpc.ConfirmationStatusConfirmed, 30*time.Second); confirmErr != nil {
-				if !tb.storedPDAExists(ctx, storedPDA) {
-					return "", fmt.Errorf("store_execute_ix_data did not confirm: %w", confirmErr)
-				}
-				tb.logger.Info().
-					Str("stored_pda", storedPDA.String()).
-					Msg("our store_execute_ix_data failed confirmation but PDA exists (race-lost); proceeding to finalize")
-			}
+		refHash, err := tb.rpcClient.BroadcastTransaction(ctx, refTx)
+		if err != nil {
+			return "", fmt.Errorf("failed to broadcast finalize_universal_tx_with_ix_data_ref: %w", err)
 		}
+		tb.logger.Info().
+			Str("tx_hash", refHash).
+			Str("stored_pda", storedPDA.String()).
+			Msg("ref-finalize broadcast successfully")
+		return refHash, nil
 	}
 
-	// Bounded retry on preflight lag: a laggy RPC may not yet see the just-
-	// confirmed store and reject finalize with Anchor 3012. Retry through other
-	// RPCs in the pool until one is synced.
-	refHash, err := tb.broadcastFinalizeWithRetry(ctx, refTx)
-	if err != nil {
-		return "", fmt.Errorf("failed to broadcast finalize_universal_tx_with_ix_data_ref: %w", err)
+	storeHash, broadcastErr := tb.rpcClient.BroadcastTransaction(ctx, storeTx)
+	if broadcastErr != nil {
+		return "", fmt.Errorf("failed to broadcast store_execute_ix_data: %w", broadcastErr)
 	}
 	tb.logger.Info().
-		Str("tx_hash", refHash).
+		Str("store_tx_hash", storeHash).
 		Str("stored_pda", storedPDA.String()).
-		Uint8("instruction_id", 2).
-		Msg("ref-finalize broadcast successfully")
-	return refHash, nil
-}
-
-// Retry budget: 5 attempts × exponential backoff (500ms → 1s → 2s → 4s) ≈ 8s
-// total, well inside the ~60-90s blockhash validity window — no need to rebuild.
-const (
-	finalizeRetryAttempts     = 5
-	finalizeRetryInitialDelay = 500 * time.Millisecond
-	finalizeRetryMaxDelay     = 4 * time.Second
-
-	// Anchor: AccountNotInitialized. In ref-finalize this can only fire on
-	// stored_ix_data — other deserialized accounts are program-init time.
-	anchorErrAccountNotInitialized = 3012
-
-	// Solana JSON-RPC: preflight simulation failed. Scoped to this code so
-	// non-preflight errors don't retry.
-	rpcSimulationFailedCode = -32002
-)
-
-// broadcastFinalizeWithRetry retries finalize_universal_tx_with_ix_data_ref on
-// Anchor's AccountNotInitialized (3012); other errors return immediately.
-func (tb *TxBuilder) broadcastFinalizeWithRetry(ctx context.Context, refTx *solana.Transaction) (string, error) {
-	delay := finalizeRetryInitialDelay
-	var lastErr error
-	for attempt := range finalizeRetryAttempts {
-		hash, err := tb.rpcClient.BroadcastTransaction(ctx, refTx)
-		if err == nil {
-			if attempt > 0 {
-				tb.logger.Info().Int("attempts", attempt+1).
-					Msg("ref-finalize broadcast succeeded after preflight-lag retries")
-			}
-			return hash, nil
-		}
-		if !isAccountNotInitializedError(err) {
-			return "", err
-		}
-		lastErr = err
-		tb.logger.Warn().Int("attempt", attempt+1).Dur("backoff", delay).
-			Msg("ref-finalize preflight reported AccountNotInitialized, retrying after RPC sync delay")
-
-		select {
-		case <-ctx.Done():
-			return "", ctx.Err()
-		case <-time.After(delay):
-		}
-		if delay < finalizeRetryMaxDelay {
-			delay *= 2
-			if delay > finalizeRetryMaxDelay {
-				delay = finalizeRetryMaxDelay
-			}
-		}
-	}
-	return "", fmt.Errorf("ref-finalize preflight still lagging after %d retries: %w", finalizeRetryAttempts, lastErr)
-}
-
-// isAccountNotInitializedError matches a preflight rejection with Anchor 3012.
-// Matches on code only — preflight errors don't carry the account name in
-// structured form (only in program logs).
-func isAccountNotInitializedError(err error) bool {
-	var rpcErr *jsonrpc.RPCError
-	if !errors.As(err, &rpcErr) {
-		return false
-	}
-	if rpcErr.Code != rpcSimulationFailedCode {
-		return false
-	}
-	data, ok := rpcErr.Data.(map[string]any)
-	if !ok {
-		return false
-	}
-	inner, ok := data["err"].(map[string]any)
-	if !ok {
-		return false
-	}
-	instErr, ok := inner["InstructionError"].([]any)
-	if !ok || len(instErr) != 2 {
-		return false
-	}
-	detail, ok := instErr[1].(map[string]any)
-	if !ok {
-		return false
-	}
-	custom, ok := detail["Custom"]
-	if !ok {
-		return false
-	}
-	return toUint64(custom) == anchorErrAccountNotInitialized
-}
-
-func toUint64(v any) uint64 {
-	switch n := v.(type) {
-	case float64:
-		return uint64(n)
-	case json.Number:
-		i, _ := n.Int64()
-		return uint64(i)
-	case int:
-		return uint64(n)
-	case int64:
-		return uint64(n)
-	case uint64:
-		return n
-	}
-	return 0
+		Msg("store_execute_ix_data broadcast; finalize deferred to next tick")
+	return "", fmt.Errorf("store_execute_ix_data broadcast; finalize will be attempted on next broadcaster tick")
 }
 
 // fetchAddressTables fetches Address Lookup Table state for V0 transactions.

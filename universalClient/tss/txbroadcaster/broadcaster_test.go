@@ -340,8 +340,10 @@ func TestSVM_BroadcastFails_PDAExists_MarksBroadcasted(t *testing.T) {
 	require.Equal(t, "solana:mainnet:", ev.BroadcastedTxHash) // empty tx hash
 }
 
-func TestSVM_BroadcastFails_PDANotFound_MarksBroadcasted(t *testing.T) {
-	// Broadcast fails, PDA not found → permanent failure (bad payload) → BROADCASTED for resolver to REVERT.
+func TestSVM_BroadcastFails_FirstAttempt_StaysSignedAndCountsAttempt(t *testing.T) {
+	// Broadcast fails, tx not on chain → stay SIGNED, increment in-memory
+	// attempt counter. Retry happens next tick; only after maxSVMBroadcastAttempts
+	// do we escalate.
 	evtStore, db := setupTestDB(t)
 	builder := &mockTxBuilder{}
 	client := &mockChainClient{builder: builder}
@@ -357,8 +359,35 @@ func TestSVM_BroadcastFails_PDANotFound_MarksBroadcasted(t *testing.T) {
 	b.processSigned(context.Background())
 
 	ev := getEvent(t, db, "ev-1")
+	require.Equal(t, store.StatusSigned, ev.Status)
+	require.Equal(t, uint32(1), b.svmBroadcastAttempts["ev-1"])
+}
+
+func TestSVM_BroadcastFails_ExhaustsAttempts_MarksBroadcasted(t *testing.T) {
+	// After maxSVMBroadcastAttempts failures, escalate to BROADCASTED-empty so
+	// the resolver can REVERT, and clear the in-memory counter.
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "solana:mainnet", uregistrytypes.VmType_SVM, client)
+
+	insertSignedEvent(t, db, "ev-1", "solana:mainnet", 0)
+
+	builder.On("BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return("", fmt.Errorf("persistent failure"))
+	builder.On("IsAlreadyExecuted", mock.Anything, "tx-123").Return(false, nil)
+
+	b := newBroadcaster(evtStore, ch, "")
+	// Seed the counter one attempt away from the cap, then the next call hits
+	// the cap and escalates.
+	b.svmBroadcastAttempts["ev-1"] = maxSVMBroadcastAttempts - 1
+	b.processSigned(context.Background())
+
+	ev := getEvent(t, db, "ev-1")
 	require.Equal(t, store.StatusBroadcasted, ev.Status)
-	require.Equal(t, "solana:mainnet:", ev.BroadcastedTxHash) // empty tx hash
+	require.Equal(t, "solana:mainnet:", ev.BroadcastedTxHash, "empty tx hash signals REVERT to resolver")
+	_, present := b.svmBroadcastAttempts["ev-1"]
+	require.False(t, present, "counter should be cleared after escalation")
 }
 
 func TestSVM_BroadcastFails_PDACheckFails_StaysSigned(t *testing.T) {

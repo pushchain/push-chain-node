@@ -1168,6 +1168,16 @@ func (tb *TxBuilder) BuildRefRouteTransactions(
 		return nil, nil, solana.PublicKey{}, fmt.Errorf("failed to derive stored_ix_data PDA: %w", err)
 	}
 
+	// Resolve store_refund_recipient:
+	//   - If the PDA already exists on-chain (another validator won the store
+	//     race), the contract enforces store_refund_recipient.key() == stored
+	//     value, so we must echo whatever's already stored — not our own key.
+	//   - Otherwise we'll be the one creating the PDA, so our relayer is right.
+	storeRefundRecipient := relayerKeypair.PublicKey()
+	if existing, _ := tb.rpcClient.GetAccountData(ctx, storedIxDataPDA); len(existing) >= storedIxDataRefundRecipientOffset+32 {
+		copy(storeRefundRecipient[:], existing[storedIxDataRefundRecipientOffset:storedIxDataRefundRecipientOffset+32])
+	}
+
 	// --- Build store_execute_ix_data tx (relayer-signed only, no TSS) ---
 
 	recentBlockhash, err := tb.rpcClient.GetRecentBlockhash(ctx)
@@ -1216,7 +1226,7 @@ func (tb *TxBuilder) BuildRefRouteTransactions(
 		isNative, 2,     // execute
 		recipientPubkey, mintPubkey,
 		execAccounts,
-		storedIxDataPDA, relayerKeypair.PublicKey(), // ref route: real values
+		storedIxDataPDA, storeRefundRecipient, // ref route: real values
 	)
 
 	refInstruction := solana.NewInstruction(tb.gatewayAddress, refAccounts, refInstructionData)

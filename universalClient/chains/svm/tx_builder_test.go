@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
+	"github.com/gagliardetto/solana-go/rpc/jsonrpc"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1268,6 +1270,59 @@ func TestBuildRescueAccounts(t *testing.T) {
 	})
 }
 
+func TestIsAccountNotInitializedError(t *testing.T) {
+	// Builds an RPCError that matches the wire shape Solana returns for a
+	// preflight failure with the given Anchor custom error code.
+	preflightErr := func(custom uint64) error {
+		return &jsonrpc.RPCError{
+			Code:    -32002,
+			Message: "Transaction simulation failed",
+			Data: map[string]any{
+				"err": map[string]any{
+					"InstructionError": []any{
+						float64(1),
+						map[string]any{"Custom": float64(custom)},
+					},
+				},
+			},
+		}
+	}
+
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"3012 unwrapped", preflightErr(3012), true},
+		{"3012 wrapped via fmt.Errorf %w", fmt.Errorf("broadcast failed: %w", preflightErr(3012)), true},
+		{"3012 with json.Number", &jsonrpc.RPCError{
+			Code: -32002,
+			Data: map[string]any{
+				"err": map[string]any{
+					"InstructionError": []any{
+						float64(1),
+						map[string]any{"Custom": json.Number("3012")},
+					},
+				},
+			},
+		}, true},
+		{"6005 not 3012", preflightErr(6005), false},
+		{"different RPC code", &jsonrpc.RPCError{Code: -32000, Data: map[string]any{}}, false},
+		{"missing InstructionError", &jsonrpc.RPCError{Code: -32002, Data: map[string]any{"err": map[string]any{}}}, false},
+		{"plain error", fmt.Errorf("transport failure"), false},
+		{"nil error", nil, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isAccountNotInitializedError(tt.err)
+			if got != tt.want {
+				t.Errorf("isAccountNotInitializedError = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestRemoveHexPrefix(t *testing.T) {
 	tests := []struct {
 		input    string
@@ -1422,6 +1477,29 @@ func TestAnchorDiscriminatorKnownValues(t *testing.T) {
 		disc := anchorDiscriminator(method)
 		h := sha256.Sum256([]byte("global:" + method))
 		assert.Equal(t, h[:8], disc, "discriminator for %s", method)
+	}
+}
+
+// TestRefRouteDiscriminatorConstants pins the hardcoded discriminator byte
+// arrays for the ref-route instructions to their canonical Anchor derivation.
+// These are protocol-critical: a single-byte typo would silently make every
+// store / finalize-ref / close call fail against the on-chain gateway with a
+// "fallback function not found" error, with no signal at compile time.
+func TestRefRouteDiscriminatorConstants(t *testing.T) {
+	cases := []struct {
+		method string
+		got    [8]byte
+	}{
+		{"store_execute_ix_data", discStoreExecuteIxData},
+		{"finalize_universal_tx_with_ix_data_ref", discFinalizeUniversalTxRef},
+		{"close_stored_ix_data", discCloseStoredIxData},
+	}
+	for _, c := range cases {
+		t.Run(c.method, func(t *testing.T) {
+			h := sha256.Sum256([]byte("global:" + c.method))
+			assert.Equal(t, h[:8], c.got[:],
+				"discriminator constant for %s does not match sha256(\"global:%s\")[:8]", c.method, c.method)
+		})
 	}
 }
 
@@ -1848,19 +1926,6 @@ func TestBuildStoreIxDataAccounts(t *testing.T) {
 	assert.False(t, accounts[2].IsSigner)
 }
 
-func TestBuildCloseStoredIxDataData(t *testing.T) {
-	builder := newTestBuilder(t)
-	subTxID := makeTxID(0x33)
-	ixDataHash := makeTxID(0x44)
-
-	data := builder.buildCloseStoredIxDataData(subTxID, ixDataHash)
-
-	require.Len(t, data, 8+32+32)
-	assert.Equal(t, discCloseStoredIxData[:], data[0:8], "discriminator")
-	assert.Equal(t, subTxID[:], data[8:40], "sub_tx_id")
-	assert.Equal(t, ixDataHash[:], data[40:72], "ix_data_hash")
-}
-
 func TestBuildCloseStoredIxDataAccounts(t *testing.T) {
 	builder := newTestBuilder(t)
 	caller := solana.NewWallet().PublicKey()
@@ -1879,8 +1944,9 @@ func TestBuildCloseStoredIxDataAccounts(t *testing.T) {
 	assert.True(t, accounts[1].IsWritable)
 	assert.False(t, accounts[1].IsSigner)
 
-	// store_refund_recipient: mut, not signer; must equal caller on the failure path
-	assert.Equal(t, caller, accounts[2].PublicKey, "refund recipient must equal caller on failure path")
+	// store_refund_recipient: mut, not signer; must equal caller (the relayer
+	// reclaiming its own rent via the RentReclaimer cron).
+	assert.Equal(t, caller, accounts[2].PublicKey, "refund recipient must equal caller")
 	assert.True(t, accounts[2].IsWritable)
 	assert.False(t, accounts[2].IsSigner)
 }
@@ -2079,55 +2145,6 @@ func TestBuildRefRouteTransactions_Validation(t *testing.T) {
 		_, _, _, err := builder.BuildRefRouteTransactions(ctx, req, ev, validSig)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "amount exceeds u64 max")
-	})
-}
-
-// TestCleanupOutboundArtifacts_NoOps covers the early-return paths in
-// CleanupOutboundArtifacts that don't touch RPC. The test builder's RPCClient
-// is a zero-value stub — any path that would reach GetAccountData would panic,
-// which is exactly what we want here: it proves these cases short-circuit
-// before any network call.
-func TestCleanupOutboundArtifacts_NoOps(t *testing.T) {
-	builder := newTestBuilderWithKeypair(t)
-	ctx := context.Background()
-
-	target := makeTxID(0x77)
-
-	t.Run("nil data", func(t *testing.T) {
-		require.NoError(t, builder.CleanupOutboundArtifacts(ctx, nil))
-	})
-
-	t.Run("empty payload", func(t *testing.T) {
-		ev := newBaseRefRouteEvent(t, "")
-		require.NoError(t, builder.CleanupOutboundArtifacts(ctx, ev))
-	})
-
-	t.Run("invalid payload hex", func(t *testing.T) {
-		ev := newBaseRefRouteEvent(t, "0xnothex")
-		require.NoError(t, builder.CleanupOutboundArtifacts(ctx, ev))
-	})
-
-	t.Run("direct route (instruction_id=1)", func(t *testing.T) {
-		// Withdraw payload — no StoredIxData PDA was ever created for it, so
-		// cleanup must short-circuit before any RPC.
-		withdrawPayload := buildExecutePayloadForTest(t, []GatewayAccountMeta{}, nil, 1, target)
-		ev := newBaseRefRouteEvent(t, withdrawPayload)
-		require.NoError(t, builder.CleanupOutboundArtifacts(ctx, ev))
-	})
-
-	t.Run("empty ix_data on execute mode", func(t *testing.T) {
-		// Execute mode but no ix_data → ref route never engages, no PDA to clean.
-		emptyPayload := buildExecutePayloadForTest(t, []GatewayAccountMeta{}, []byte{}, 2, target)
-		ev := newBaseRefRouteEvent(t, emptyPayload)
-		require.NoError(t, builder.CleanupOutboundArtifacts(ctx, ev))
-	})
-
-	t.Run("invalid txID hex", func(t *testing.T) {
-		ixData := []byte{0xAA, 0xBB}
-		payload := buildExecutePayloadForTest(t, []GatewayAccountMeta{}, ixData, 2, target)
-		ev := newBaseRefRouteEvent(t, payload)
-		ev.TxID = "0xnothex"
-		require.NoError(t, builder.CleanupOutboundArtifacts(ctx, ev))
 	})
 }
 

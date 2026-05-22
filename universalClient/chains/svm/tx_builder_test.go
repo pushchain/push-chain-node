@@ -2620,6 +2620,58 @@ func TestSimulate_CloseStoredIxData_MetaShape(t *testing.T) {
 		"expected stored_ix_data AccountNotInitialized (proves meta-count is correct)")
 }
 
+// TestSimulate_FinalizeRef_MetaShape simulates a finalize_universal_tx_with_ix_data_ref
+// against a non-existent StoredIxData PDA and asserts the failure is at
+// data-deserialization (Anchor 3012 / AccountNotInitialized), not at an
+// earlier shape-level check (3005 AccountNotEnoughKeys / 2003 ConstraintSeeds /
+// etc).
+//
+// Caveat: this does NOT catch ConstraintMut (2000). For `Option<Account>`,
+// Anchor short-circuits at "account empty → 3012" before checking mut — so a
+// missing writable flag only surfaces against a *real* on-chain PDA. Covering
+// that needs a broadcast-then-simulate flow with real lamports.
+func TestSimulate_FinalizeRef_MetaShape(t *testing.T) {
+	rpcClient, builder := setupDevnetSimulation(t)
+	defer rpcClient.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Build a real ref-route outbound; we sim only the finalize tx against
+	// a PDA that hasn't been stored. The store-then-finalize ordering doesn't
+	// matter — Anchor's meta-level checks (mut, signer, seeds, etc.) fire
+	// before any account is deserialized.
+	ixData := make([]byte, 600)
+	for i := range ixData {
+		ixData[i] = byte('A' + (i % 26))
+	}
+	payload := buildMockExecutePayload(nil, ixData)
+	payloadHex := "0x" + hex.EncodeToString(payload)
+	data, evmKey := newDevnetOutbound(t, "10000000", "", payloadHex, "", "FUNDS_AND_PAYLOAD")
+	data.Recipient = devnetMemoProgram
+
+	req, err := builder.GetOutboundSigningRequest(ctx, data, 0)
+	require.NoError(t, err)
+	sig, recoveryID := signMessageHash(t, evmKey, req.SigningHash)
+	fullSig := append(sig, recoveryID)
+
+	_, refTx, _, err := builder.BuildRefRouteTransactions(ctx, req, data, fullSig)
+	require.NoError(t, err)
+
+	sim, err := rpcClient.SimulateTransaction(ctx, refTx)
+	require.NoError(t, err)
+	require.NotNil(t, sim.Err, "expected sim to fail against a non-existent stored_ix_data PDA")
+
+	for _, log := range sim.Logs {
+		t.Log(log)
+	}
+
+	joined := strings.Join(sim.Logs, "\n")
+	require.NotContains(t, joined, "AccountNotEnoughKeys",
+		"finalize_ref meta-count too low (Anchor 3005)")
+	require.Contains(t, joined, "AccountNotInitialized",
+		"expected to reach stored_ix_data deserialization (proves meta-count + shape constraints passed)")
+}
+
 // TestSimulate_RefRoute_Execute simulates the store half of the ref-finalize
 // pipeline against devnet. The ref-finalize half can't be simulated standalone
 // because it depends on the store tx having actually landed on-chain first;

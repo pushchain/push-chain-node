@@ -83,14 +83,6 @@ type TxBuilder interface {
 
 	// BroadcastFundMigrationTx assembles and broadcasts a signed fund migration transaction.
 	BroadcastFundMigrationTx(ctx context.Context, req *UnsignedSigningReq, data *FundMigrationData, signature []byte) (string, error)
-
-	// CleanupOutboundArtifacts performs best-effort, idempotent cleanup of any
-	// chain-specific artifacts left behind by a terminally-failed outbound.
-	//   - SVM: closes the StoredIxData PDA from the ref-finalize route if present,
-	//     recovering ~0.002 SOL of rent to the relayer.
-	//   - EVM: no-op (no off-chain artifacts).
-	// Safe to invoke for any terminal-failure outbound regardless of route.
-	CleanupOutboundArtifacts(ctx context.Context, data *uetypes.OutboundCreatedEvent) error
 }
 
 // UniversalTx Payload

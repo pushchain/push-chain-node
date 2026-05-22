@@ -76,11 +76,6 @@ func (m *coordMockTxBuilder) BroadcastFundMigrationTx(ctx context.Context, req *
 	return args.String(0), args.Error(1)
 }
 
-func (m *coordMockTxBuilder) CleanupOutboundArtifacts(ctx context.Context, data *uexecutortypes.OutboundCreatedEvent) error {
-	args := m.Called(ctx, data)
-	return args.Error(0)
-}
-
 type coordMockChainClient struct {
 	builder    *coordMockTxBuilder
 	builderErr error

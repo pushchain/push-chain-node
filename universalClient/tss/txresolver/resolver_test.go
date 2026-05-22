@@ -74,11 +74,6 @@ func (m *mockTxBuilder) BroadcastFundMigrationTx(ctx context.Context, req *commo
 	return args.String(0), args.Error(1)
 }
 
-func (m *mockTxBuilder) CleanupOutboundArtifacts(ctx context.Context, data *uexecutortypes.OutboundCreatedEvent) error {
-	args := m.Called(ctx, data)
-	return args.Error(0)
-}
-
 type mockChainClient struct{ builder *mockTxBuilder }
 
 func (m *mockChainClient) Start(context.Context) error                     { return nil }
@@ -275,8 +270,9 @@ func TestSVM_PDAExists_MarksCompleted(t *testing.T) {
 }
 
 func TestSVM_PDANotFound_VotesFailureAndReverts(t *testing.T) {
-	// PDA not found → vote failure → REVERTED, plus cleanup of any orphaned
-	// StoredIxData PDA from the ref-finalize route.
+	// PDA not found → vote failure → REVERTED.
+	// Note: orphaned StoredIxData PDAs are reclaimed by the periodic
+	// RentReclaimer in svm/rent_reclaimer.go, not from this hot path.
 	evtStore, db := setupTestDB(t)
 	builder := &mockTxBuilder{}
 	client := &mockChainClient{builder: builder}
@@ -286,47 +282,12 @@ func TestSVM_PDANotFound_VotesFailureAndReverts(t *testing.T) {
 	insertBroadcastedEvent(t, db, "ev-1", "solana:mainnet", "solana:mainnet:", eventData)
 
 	builder.On("IsAlreadyExecuted", mock.Anything, "tx-123").Return(false, nil)
-	builder.On("CleanupOutboundArtifacts", mock.Anything, mock.Anything).Return(nil).Once()
 
-	// No PushSigner — voteFailure will log warning and return nil, but won't mark REVERTED
-	// (because pushSigner is nil, it returns early). This validates the code path.
+	// No PushSigner — voteFailure logs a warning and returns nil without marking REVERTED.
 	resolver := newResolver(evtStore, ch)
 	ev := getEvent(t, db, "ev-1")
 	resolver.resolveSVM(context.Background(), &ev, "solana:mainnet")
 
-	// With no push signer, voteOutboundFailureAndMarkReverted returns nil early (logs warning).
-	// The event stays BROADCASTED because the vote+revert is skipped.
-	updated := getEvent(t, db, "ev-1")
-	require.Equal(t, store.StatusBroadcasted, updated.Status)
-	// Explicit assertion: cleanup must have been invoked once for the failure path.
-	builder.AssertExpectations(t)
-}
-
-func TestSVM_PDANotFound_CleanupErrorIsBestEffort(t *testing.T) {
-	// A failure from CleanupOutboundArtifacts must NOT crash the resolver or
-	// roll back the failure-vote transition. Cleanup is opex-only.
-	evtStore, db := setupTestDB(t)
-	builder := &mockTxBuilder{}
-	client := &mockChainClient{builder: builder}
-	ch := newTestChains(t, "solana:mainnet", uregistrytypes.VmType_SVM, client)
-
-	eventData := makeOutboundEventData("tx-123", "utx-456", "solana:mainnet")
-	insertBroadcastedEvent(t, db, "ev-1", "solana:mainnet", "solana:mainnet:", eventData)
-
-	builder.On("IsAlreadyExecuted", mock.Anything, "tx-123").Return(false, nil)
-	builder.On("CleanupOutboundArtifacts", mock.Anything, mock.Anything).
-		Return(assert.AnError).Once()
-
-	resolver := newResolver(evtStore, ch)
-	ev := getEvent(t, db, "ev-1")
-
-	// Should not panic even though cleanup returned an error.
-	require.NotPanics(t, func() {
-		resolver.resolveSVM(context.Background(), &ev, "solana:mainnet")
-	})
-
-	// State transition behaves identically to the success-cleanup case
-	// (BROADCASTED here because no push signer is configured).
 	updated := getEvent(t, db, "ev-1")
 	require.Equal(t, store.StatusBroadcasted, updated.Status)
 	builder.AssertExpectations(t)

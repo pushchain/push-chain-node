@@ -76,11 +76,6 @@ func (m *mockTxBuilder) BroadcastFundMigrationTx(ctx context.Context, req *commo
 	return args.String(0), args.Error(1)
 }
 
-func (m *mockTxBuilder) CleanupOutboundArtifacts(ctx context.Context, data *uexecutortypes.OutboundCreatedEvent) error {
-	args := m.Called(ctx, data)
-	return args.Error(0)
-}
-
 type mockChainClient struct{ builder *mockTxBuilder }
 
 func (m *mockChainClient) Start(context.Context) error                     { return nil }

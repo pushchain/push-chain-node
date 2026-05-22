@@ -1986,7 +1986,9 @@ func (tb *TxBuilder) buildWithdrawAndExecuteAccounts(
 	if storedIxDataPDA.IsZero() {
 		accounts = append(accounts, &solana.AccountMeta{PublicKey: tb.gatewayAddress, IsWritable: false, IsSigner: false})
 	} else {
-		accounts = append(accounts, &solana.AccountMeta{PublicKey: storedIxDataPDA, IsWritable: false, IsSigner: false})
+		// Must be writable — finalize_universal_tx_with_ix_data_ref auto-closes
+		// the PDA on success (the contract declares it `#[account(mut)]`).
+		accounts = append(accounts, &solana.AccountMeta{PublicKey: storedIxDataPDA, IsWritable: true, IsSigner: false})
 	}
 	if storeRefundRecipient.IsZero() {
 		accounts = append(accounts, &solana.AccountMeta{PublicKey: tb.gatewayAddress, IsWritable: false, IsSigner: false})

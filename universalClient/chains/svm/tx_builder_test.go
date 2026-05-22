@@ -1934,7 +1934,7 @@ func TestBuildWithdrawAndExecuteAccounts_RefRouteSlots(t *testing.T) {
 
 	// Position 18 (0-indexed): stored_ix_data
 	assert.Equal(t, storedPDA, accounts[18].PublicKey, "stored_ix_data slot")
-	assert.False(t, accounts[18].IsWritable, "stored_ix_data is read-only on-chain")
+	assert.True(t, accounts[18].IsWritable, "stored_ix_data must be writable; finalize auto-closes it on success")
 
 	// Position 19: store_refund_recipient
 	assert.Equal(t, storeRefund, accounts[19].PublicKey, "store_refund_recipient slot")

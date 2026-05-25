@@ -55,6 +55,10 @@ type ChainSpecificConfig struct {
 	GasPriceMarkupPercent       *int              `json:"gas_price_markup_percent,omitempty"`    // % markup on fetched gas price to handle spikes
 	ProtocolALT                 string            `json:"protocol_alt,omitempty"`            // Protocol ALT address (base58) for V0 transactions
 	TokenALTs                   map[string]string `json:"token_alts,omitempty"`              // mint address → token ALT address (base58)
+
+	// SVM rent reclaimer (orphaned StoredIxData PDA cleanup). Both default if unset.
+	RentReclaimSweepIntervalSeconds *int `json:"rent_reclaim_sweep_interval_seconds,omitempty"` // how often to sweep
+	RentReclaimMinPDAAgeSeconds     *int `json:"rent_reclaim_min_pda_age_seconds,omitempty"`    // skip PDAs younger than this
 }
 
 // GetChainCleanupSettings returns cleanup settings for a specific chain.

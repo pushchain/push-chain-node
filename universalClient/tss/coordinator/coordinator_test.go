@@ -672,6 +672,7 @@ func TestAssignSignNonce_SubsequentEventUsesCache(t *testing.T) {
 
 func TestAssignSignNonce_SubsequentEventCapReached(t *testing.T) {
 	coord, _, _ := setupTestCoordinator(t)
+	coord.chains = newTestChainsForCoordinator(t, "eip155:1", uregistrytypes.VmType_EVM, &coordMockChainClient{builder: &coordMockTxBuilder{}})
 
 	nonceByChain := map[string]uint64{"eip155:1": 10}
 	inFlightPerChain := map[string]int{"eip155:1": PerChainCap}
@@ -690,6 +691,7 @@ func TestAssignSignNonce_SubsequentEventCapReached(t *testing.T) {
 
 func TestAssignSignNonce_FirstEventWithInFlight_SkipsUntilThreshold(t *testing.T) {
 	coord, _, _ := setupTestCoordinator(t)
+	coord.chains = newTestChainsForCoordinator(t, "eip155:1", uregistrytypes.VmType_EVM, &coordMockChainClient{builder: &coordMockTxBuilder{}})
 
 	inFlightPerChain := map[string]int{"eip155:1": 1}
 	nonceByChain := map[string]uint64{}
@@ -709,6 +711,63 @@ func TestAssignSignNonce_FirstEventWithInFlight_SkipsUntilThreshold(t *testing.T
 
 	coord.chainWaitMu.Lock()
 	assert.Equal(t, 1, coord.consecutiveWaitPerChain["eip155:1"])
+	coord.chainWaitMu.Unlock()
+}
+
+// TestAssignSignNonce_SVM_BypassesPerChainCap verifies that SVM chains aren't
+// subject to the EVM-only PerChainCap. Solana has no nonce-based ordering, so
+// in-flight count creates no operational pressure.
+func TestAssignSignNonce_SVM_BypassesPerChainCap(t *testing.T) {
+	coord, _, _ := setupTestCoordinator(t)
+	coord.chains = newTestChainsForCoordinator(t, "solana:mainnet", uregistrytypes.VmType_SVM, &coordMockChainClient{builder: &coordMockTxBuilder{}})
+
+	// Subsequent-event branch with in-flight at the cap. On EVM this would
+	// return (0, false); on SVM we should pass through and assign.
+	nonceByChain := map[string]uint64{"solana:mainnet": 0}
+	inFlightPerChain := map[string]int{"solana:mainnet": PerChainCap}
+
+	nonce, ok := coord.assignSignNonce(
+		context.Background(),
+		store.Event{EventID: "e1"},
+		"solana:mainnet",
+		inFlightPerChain,
+		nonceByChain,
+		map[string]bool{},
+	)
+	assert.True(t, ok, "SVM should bypass PerChainCap")
+	assert.Equal(t, uint64(1), nonce)
+	assert.Equal(t, PerChainCap+1, inFlightPerChain["solana:mainnet"])
+}
+
+// TestAssignSignNonce_SVM_BypassesInFlightSkip verifies that SVM chains
+// bypass the EVM-only wait-counter/skippedChains machinery. Even with
+// in-flight events, the chain must NOT be marked as skipped and the
+// consecutive-wait counter must NOT increment.
+//
+// The downstream getNextNonceForChain call still tries to fetch a TSS
+// address (which fails in the test fixture, so ok=false here). That's
+// orthogonal to what we're testing — the gate is observed via the absence
+// of side-effects on skippedChains / consecutiveWaitPerChain.
+func TestAssignSignNonce_SVM_BypassesInFlightSkip(t *testing.T) {
+	coord, _, _ := setupTestCoordinator(t)
+	coord.chains = newTestChainsForCoordinator(t, "solana:mainnet", uregistrytypes.VmType_SVM, &coordMockChainClient{builder: &coordMockTxBuilder{}})
+
+	inFlightPerChain := map[string]int{"solana:mainnet": 5}
+	nonceByChain := map[string]uint64{}
+	skippedChains := map[string]bool{}
+
+	_, _ = coord.assignSignNonce(
+		context.Background(),
+		store.Event{EventID: "e1"},
+		"solana:mainnet",
+		inFlightPerChain,
+		nonceByChain,
+		skippedChains,
+	)
+
+	assert.False(t, skippedChains["solana:mainnet"], "SVM chain must not be marked as skipped on in-flight events")
+	coord.chainWaitMu.Lock()
+	assert.Equal(t, 0, coord.consecutiveWaitPerChain["solana:mainnet"], "SVM chain must not advance the consecutive-wait counter")
 	coord.chainWaitMu.Unlock()
 }
 

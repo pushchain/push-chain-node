@@ -79,6 +79,7 @@ func (b *Broadcaster) broadcastOutboundSVM(ctx context.Context, event *store.Eve
 	// Broadcast attempt.
 	txHash, broadcastErr := builder.BroadcastOutboundSigningRequest(ctx, signingReq, &outboundData, signature)
 	if broadcastErr == nil {
+		delete(b.svmBroadcastAttempts, event.EventID)
 		b.markBroadcasted(event, chainID, txHash)
 		return
 	}

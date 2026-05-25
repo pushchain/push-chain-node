@@ -1,6 +1,7 @@
 package txbroadcaster
 
 import (
+	"github.com/pushchain/push-chain-node/universalClient/tss/txflow"
 	"context"
 	"encoding/hex"
 	"encoding/json"
@@ -26,7 +27,6 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/config"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
-	"github.com/pushchain/push-chain-node/universalClient/tss/txflow"
 )
 
 type mockTxBuilder struct{ mock.Mock }
@@ -79,9 +79,9 @@ func (m *mockTxBuilder) BroadcastFundMigrationTx(ctx context.Context, req *commo
 
 type mockChainClient struct{ builder *mockTxBuilder }
 
-func (m *mockChainClient) Start(context.Context) error             { return nil }
-func (m *mockChainClient) Stop() error                             { return nil }
-func (m *mockChainClient) IsHealthy() bool                         { return true }
+func (m *mockChainClient) Start(context.Context) error                     { return nil }
+func (m *mockChainClient) Stop() error                                     { return nil }
+func (m *mockChainClient) IsHealthy() bool                                 { return true }
 func (m *mockChainClient) GetTxBuilder() (common.TxBuilder, error) { return m.builder, nil }
 
 func setupTestDB(t *testing.T) (*eventstore.Store, *gorm.DB) {
@@ -249,9 +249,28 @@ func TestEVM_BroadcastSuccess_MarksBroadcasted(t *testing.T) {
 	builder.AssertNotCalled(t, "GetNextNonce", mock.Anything, mock.Anything, mock.Anything)
 }
 
-func TestEVM_BroadcastAssemblyFails_StaysSigned(t *testing.T) {
-	// Broadcast returns empty txHash (assembly/encode failure before sending) →
-	// nonce check is never reached; stay SIGNED for retry.
+func TestEVM_BroadcastFails_NonceConsumedOnRecheck_MarksBroadcasted(t *testing.T) {
+	// Broadcast fails, but nonce check shows it was consumed (race with another node).
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "eip155:1", uregistrytypes.VmType_EVM, client)
+
+	insertSignedEvent(t, db, "ev-1", "eip155:1", 5)
+
+	builder.On("BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return("0xfailed", fmt.Errorf("some RPC error"))
+	builder.On("GetNextNonce", mock.Anything, "0xTSS", true).Return(uint64(6), nil)
+
+	b := newBroadcaster(evtStore, ch, "0xTSS")
+	b.processSigned(context.Background())
+
+	ev := getEvent(t, db, "ev-1")
+	require.Equal(t, store.StatusBroadcasted, ev.Status)
+}
+
+func TestEVM_BroadcastFails_NonceNotConsumed_StaysSigned(t *testing.T) {
+	// Broadcast fails with no txHash (assembly failure) → stay SIGNED for retry.
 	evtStore, db := setupTestDB(t)
 	builder := &mockTxBuilder{}
 	client := &mockChainClient{builder: builder}
@@ -317,31 +336,8 @@ func TestEVM_GetTSSAddressNil_UsesEmptyAddress(t *testing.T) {
 	builder.AssertCalled(t, "GetNextNonce", mock.Anything, "", true)
 }
 
-func TestSVM_DeadlineZero_ClusterConfirmsExpiry_MarksBroadcasted(t *testing.T) {
-	// Legacy event without a signing deadline. `now > 0` enters the deadline
-	// branch and any fresh cluster time (>> 0) trips the expiry case →
-	// BROADCASTED("") for the resolver to REVERT.
-	evtStore, db := setupTestDB(t)
-	builder := &mockTxBuilder{}
-	client := &mockChainClient{builder: builder}
-	ch := newTestChains(t, "solana:mainnet", uregistrytypes.VmType_SVM, client)
-
-	insertSignedEvent(t, db, "ev-1", "solana:mainnet", 0)
-	builder.On("IsAlreadyExecuted", mock.Anything, "tx-123").Return(false, time.Now().Unix(), nil)
-
-	b := newBroadcaster(evtStore, ch, "")
-	b.processSigned(context.Background())
-
-	ev := getEvent(t, db, "ev-1")
-	require.Equal(t, store.StatusBroadcasted, ev.Status)
-	require.Equal(t, "solana:mainnet:", ev.BroadcastedTxHash)
-	builder.AssertNotCalled(t, "BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
-}
-
 func TestSVM_BroadcastSuccess_MarksBroadcasted(t *testing.T) {
-	// Broadcast succeeds → BROADCASTED with tx hash. Future deadline keeps the
-	// broadcaster out of the cluster-time branch (deadline=0 events take the
-	// legacy hand-off-to-resolver path; tested separately).
+	// Broadcast succeeds → BROADCASTED with tx hash.
 	evtStore, db := setupTestDB(t)
 	builder := &mockTxBuilder{}
 	client := &mockChainClient{builder: builder}
@@ -362,13 +358,12 @@ func TestSVM_BroadcastSuccess_MarksBroadcasted(t *testing.T) {
 
 func TestSVM_BroadcastFails_PDAExists_MarksBroadcasted(t *testing.T) {
 	// Broadcast fails, but ExecutedTx PDA exists → another relayer processed it → BROADCASTED.
-	// Future deadline so the broadcaster goes to broadcast attempt (not cluster check).
 	evtStore, db := setupTestDB(t)
 	builder := &mockTxBuilder{}
 	client := &mockChainClient{builder: builder}
 	ch := newTestChains(t, "solana:mainnet", uregistrytypes.VmType_SVM, client)
 
-	insertSignedSVMEventWithDeadline(t, db, "ev-1", "solana:mainnet", 0, time.Now().Unix()+600)
+	insertSignedEvent(t, db, "ev-1", "solana:mainnet", 0)
 
 	builder.On("BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return("", fmt.Errorf("tx simulation failed: account already exists"))
@@ -490,13 +485,12 @@ func TestSVM_PastLocalDeadline_RPCError_StaysSigned(t *testing.T) {
 
 func TestSVM_BroadcastFails_PDACheckFails_StaysSigned(t *testing.T) {
 	// Broadcast fails, PDA check also fails (RPC truly down) → stays SIGNED for retry.
-	// Future deadline so the broadcaster goes to broadcast attempt (not cluster check).
 	evtStore, db := setupTestDB(t)
 	builder := &mockTxBuilder{}
 	client := &mockChainClient{builder: builder}
 	ch := newTestChains(t, "solana:mainnet", uregistrytypes.VmType_SVM, client)
 
-	insertSignedSVMEventWithDeadline(t, db, "ev-1", "solana:mainnet", 0, time.Now().Unix()+600)
+	insertSignedEvent(t, db, "ev-1", "solana:mainnet", 0)
 
 	builder.On("BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return("", fmt.Errorf("RPC timeout"))

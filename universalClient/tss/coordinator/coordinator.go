@@ -37,10 +37,15 @@ type PushCoreClient interface {
 }
 
 const (
-	// PerChainCap is the max in-flight SIGN events per destination chain (default 16; below EVM mempool accountqueue 64).
+	// PerChainCap is the max in-flight SIGN events per destination chain
+	// (default 16; below EVM mempool accountqueue 64).
+	// EVM-only: bypassed for non-EVM chains (e.g. SVM has no nonce queueing,
+	// so in-flight events don't block each other).
 	PerChainCap = 16
-	// ConsecutiveWaitThreshold: after this many consecutive polls where a chain has in-flight events,
-	// use finalized nonce to recover from stuck nonces (~200s at 10s poll).
+	// ConsecutiveWaitThreshold: after this many consecutive polls where a chain
+	// has in-flight events, use finalized nonce to recover from stuck nonces
+	// (~200s at 10s poll).
+	// EVM-only: SVM doesn't use a nonce, so stuck-nonce recovery is meaningless.
 	ConsecutiveWaitThreshold = 20
 	// staleValidatorsHaltMultiplier: if the cached validator set is older than
 	// this many pollInterval ticks, it is cleared
@@ -1061,9 +1066,16 @@ func (c *Coordinator) assignSignNonce(
 		return 0, false
 	}
 
+	// Non-EVM chains (SVM today) have no nonce semantics — every tx carries
+	// its own blockhash and replay protection (ExecutedSubTx PDA on SVM).
+	// In-flight events don't block each other, so PerChainCap and the
+	// wait-then-recover dance are EVM-only optimizations. For non-EVM chains
+	// skip straight to nonce fetch (which returns 0 for SVM).
+	isEVM := c.chains != nil && c.chains.IsEVMChain(chain)
+
 	// ── Subsequent event for this chain (nonce already fetched this poll) ──
 	if _, exists := nonceByChain[chain]; exists {
-		if inFlightPerChain[chain] >= PerChainCap {
+		if isEVM && inFlightPerChain[chain] >= PerChainCap {
 			return 0, false
 		}
 		nonceByChain[chain]++
@@ -1075,7 +1087,7 @@ func (c *Coordinator) assignSignNonce(
 	// Decide: process normally, wait (skip), or recover with finalized nonce.
 	useFinalized := false
 
-	if inFlightPerChain[chain] > 0 {
+	if isEVM && inFlightPerChain[chain] > 0 {
 		c.chainWaitMu.Lock()
 		consecutiveWait := c.consecutiveWaitPerChain[chain]
 		if consecutiveWait < ConsecutiveWaitThreshold {

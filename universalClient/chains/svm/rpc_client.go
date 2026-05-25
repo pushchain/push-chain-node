@@ -110,6 +110,7 @@ func (rc *RPCClient) executeWithFailover(ctx context.Context, operation string, 
 
 	maxAttempts := len(clients)
 	startIndex := atomic.AddUint64(&rc.index, 1) - 1
+	var lastErr error
 	for attempt := 0; attempt < maxAttempts; attempt++ {
 		if ctx != nil {
 			select {
@@ -129,6 +130,7 @@ func (rc *RPCClient) executeWithFailover(ctx context.Context, operation string, 
 		if err == nil {
 			return nil
 		}
+		lastErr = err
 
 		rc.logger.Warn().
 			Str("operation", operation).
@@ -137,6 +139,9 @@ func (rc *RPCClient) executeWithFailover(ctx context.Context, operation string, 
 			Msg("operation failed, trying next endpoint")
 	}
 
+	if lastErr != nil {
+		return fmt.Errorf("operation %s failed after trying %d endpoints: %w", operation, maxAttempts, lastErr)
+	}
 	return fmt.Errorf("operation %s failed after trying %d endpoints", operation, maxAttempts)
 }
 

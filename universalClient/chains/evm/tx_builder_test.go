@@ -822,9 +822,9 @@ func simulateOnVault(t *testing.T, rpcClient *RPCClient, builder *TxBuilder, fun
 }
 
 func TestSimulateBSC_FetchVaultFromGateway(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping simulation test in short mode")
-	}
+	// if testing.Short() {
+	t.Skip("skipping simulation test in short mode")
+	// }
 
 	logger := zerolog.Nop()
 	rpcClient, err := NewRPCClient([]string{bscRPCURL}, bscChainID, logger)

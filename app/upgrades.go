@@ -87,6 +87,7 @@ func (app *ChainApp) RegisterUpgradeHandlers() {
 		Codec:                 app.appCodec,
 		GetStoreKey:           app.GetKey,
 		EVMKeeper:             app.EVMKeeper,
+		Erc20Keeper:           &app.Erc20Keeper,
 		BankKeeper:            app.BankKeeper,
 
 		// Module keepers

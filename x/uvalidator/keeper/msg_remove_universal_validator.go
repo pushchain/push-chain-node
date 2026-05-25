@@ -45,6 +45,14 @@ func (k Keeper) RemoveUniversalValidator(
 
 	switch val.LifecycleInfo.CurrentStatus {
 	case types.UVStatus_UV_STATUS_ACTIVE:
+		isOngoingTSS, err := k.UtssKeeper.HasOngoingTss(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to check TSS state: %w", err)
+		}
+		if isOngoingTSS {
+			return fmt.Errorf("cannot remove active validator: TSS process is ongoing")
+		}
+
 		k.Logger().Info("transitioning validator to PENDING_LEAVE",
 			"validator", universalValidatorAddr,
 			"old_status", oldStatus.String(),

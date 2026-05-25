@@ -42,6 +42,33 @@ func TestRemoveUniversalValidator(t *testing.T) {
 		require.Equal(t, uvalidatortypes.UVStatus_UV_STATUS_PENDING_LEAVE, updated.LifecycleInfo.CurrentStatus)
 	})
 
+	t.Run("ACTIVE -> rejects removal if TSS is ongoing", func(t *testing.T) {
+		app, ctx, validators := setupRemoveUniversalValidatorTest(t, 1)
+		k := app.UvalidatorKeeper
+		valAddr, _ := sdk.ValAddressFromBech32(validators[0].OperatorAddress)
+
+		process := utsstypes.TssKeyProcess{
+			Participants: []string{valAddr.String()},
+			ExpiryHeight: 500,
+		}
+		require.NoError(t, app.UtssKeeper.CurrentTssProcess.Set(ctx, process))
+
+		uv := uvalidatortypes.UniversalValidator{
+			IdentifyInfo: &uvalidatortypes.IdentityInfo{CoreValidatorAddress: valAddr.String()},
+			LifecycleInfo: &uvalidatortypes.LifecycleInfo{
+				CurrentStatus: uvalidatortypes.UVStatus_UV_STATUS_ACTIVE,
+			},
+		}
+		require.NoError(t, k.UniversalValidatorSet.Set(ctx, valAddr, uv))
+
+		err := k.RemoveUniversalValidator(ctx, valAddr.String())
+		require.ErrorContains(t, err, "TSS process is ongoing")
+
+		// Status unchanged.
+		updated, _ := k.UniversalValidatorSet.Get(ctx, valAddr)
+		require.Equal(t, uvalidatortypes.UVStatus_UV_STATUS_ACTIVE, updated.LifecycleInfo.CurrentStatus)
+	})
+
 	t.Run("PENDING_JOIN -> INACTIVE (not in TSS)", func(t *testing.T) {
 		app, ctx, validators := setupRemoveUniversalValidatorTest(t, 1)
 		k := app.UvalidatorKeeper

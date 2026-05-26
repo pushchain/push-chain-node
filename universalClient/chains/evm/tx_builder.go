@@ -77,7 +77,9 @@ func NewTxBuilder(
 	return tb, nil
 }
 
-// GetOutboundSigningRequest creates a signing request from outbound event data
+// GetOutboundSigningRequest creates a signing request from outbound event data.
+// EVM doesn't consume data.SigningDeadline — deadlines are SVM-only; EVM relies
+// on nonce-based finality.
 func (tb *TxBuilder) GetOutboundSigningRequest(
 	ctx context.Context,
 	data *uetypes.OutboundCreatedEvent,

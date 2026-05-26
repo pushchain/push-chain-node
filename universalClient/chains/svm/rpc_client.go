@@ -333,7 +333,9 @@ func (rc *RPCClient) SimulateTransaction(ctx context.Context, tx *solana.Transac
 	return result.Value, nil
 }
 
-// GetAccountData fetches account data for a given public key
+// GetAccountData fetches account data for a given public key. Uses Solana
+// RPC's default commitment (`finalized`, per the JSON-RPC spec) — reorg-safe
+// for both terminal decisions and race-recovery probes.
 func (rc *RPCClient) GetAccountData(ctx context.Context, pubkey solana.PublicKey) ([]byte, error) {
 	var accountData []byte
 	err := rc.executeWithFailover(ctx, "get_account_data", func(client *rpc.Client) error {

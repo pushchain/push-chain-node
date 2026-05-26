@@ -396,7 +396,7 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 	// This message is what TSS validators sign. The gateway contract reconstructs
 	// the same message on-chain and verifies the signature matches.
 	messageHash, err := tb.constructTSSMessage(
-		instructionID, chainID, amount.Uint64(),
+		instructionID, chainID, data.SigningDeadline, amount.Uint64(),
 		txID, universalTxID, sender, token, gasFee,
 		targetProgram, accounts, ixData,
 		revertRecipient, revertMint, revertMsg,
@@ -870,7 +870,7 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 
 		instructionData = tb.buildWithdrawAndExecuteData(
 			instructionID, txID, universalTxID, amount.Uint64(), sender,
-			writableFlags, ixData, gasFee,
+			writableFlags, ixData, gasFee, data.SigningDeadline,
 			signature, recoveryID, req.SigningHash,
 		)
 
@@ -888,7 +888,7 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 		// ---- revert_universal_tx (unified for SOL and SPL) ----
 		instructionData = tb.buildRevertData(
 			txID, universalTxID, amount.Uint64(),
-			recipientPubkey, revertMsgBytes, gasFee,
+			recipientPubkey, revertMsgBytes, gasFee, data.SigningDeadline,
 			signature, recoveryID, req.SigningHash,
 		)
 		accounts = tb.buildRevertAccounts(
@@ -900,7 +900,7 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 	case instructionID == 4:
 		// ---- rescue_funds ----
 		instructionData = tb.buildRescueData(
-			txID, universalTxID, amount.Uint64(), gasFee,
+			txID, universalTxID, amount.Uint64(), gasFee, data.SigningDeadline,
 			signature, recoveryID, req.SigningHash,
 		)
 		accounts = tb.buildRescueAccounts(
@@ -1216,6 +1216,7 @@ func (tb *TxBuilder) BuildRefRouteTransactions(
 		ixDataHash,
 		writableFlags,
 		gasFee,
+		data.SigningDeadline,
 		signature, recoveryID, req.SigningHash,
 	)
 
@@ -1391,6 +1392,7 @@ func (tb *TxBuilder) determineInstructionID(txType uetypes.TxType) (uint8, error
 func (tb *TxBuilder) constructTSSMessage(
 	instructionID uint8,
 	chainID string,
+	deadlineUnix int64,
 	amount uint64,
 	txID [32]byte,
 	universalTxID [32]byte,
@@ -1404,9 +1406,15 @@ func (tb *TxBuilder) constructTSSMessage(
 	revertMint [32]byte,
 	revertMsg []byte,
 ) ([]byte, error) {
+	// Wire format expected by the SVM gateway program's validate_message:
+	//   PREFIX || instruction_id || chain_id || deadline(i64 BE) || amount(u64 BE) || additional_data
 	message := append([]byte(nil), tssMessagePrefix...)
 	message = append(message, instructionID)
 	message = append(message, []byte(chainID)...)
+
+	deadlineBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(deadlineBytes, uint64(deadlineUnix))
+	message = append(message, deadlineBytes...)
 
 	amountBytes := make([]byte, 8)
 	binary.BigEndian.PutUint64(amountBytes, amount)
@@ -1706,6 +1714,7 @@ func (tb *TxBuilder) buildWithdrawAndExecuteData(
 	writableFlags []byte,
 	ixData []byte,
 	gasFee uint64,
+	deadlineUnix int64,
 	signature []byte,
 	recoveryID byte,
 	messageHash []byte,
@@ -1739,6 +1748,10 @@ func (tb *TxBuilder) buildWithdrawAndExecuteData(
 	binary.LittleEndian.PutUint64(gasFeeBytes, gasFee)
 	data = append(data, gasFeeBytes...)
 
+	deadlineBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(deadlineBytes, uint64(deadlineUnix))
+	data = append(data, deadlineBytes...)
+
 	data = append(data, signature...)
 	data = append(data, recoveryID)
 	data = append(data, messageHash...)
@@ -1767,6 +1780,7 @@ func (tb *TxBuilder) buildRevertData(
 	revertRecipient solana.PublicKey,
 	revertMsg []byte,
 	gasFee uint64,
+	deadlineUnix int64,
 	signature []byte,
 	recoveryID byte,
 	messageHash []byte,
@@ -1793,6 +1807,10 @@ func (tb *TxBuilder) buildRevertData(
 	binary.LittleEndian.PutUint64(gasFeeBytes, gasFee)
 	data = append(data, gasFeeBytes...)
 
+	deadlineBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(deadlineBytes, uint64(deadlineUnix))
+	data = append(data, deadlineBytes...)
+
 	data = append(data, signature...)
 	data = append(data, recoveryID)
 	data = append(data, messageHash...)
@@ -1817,6 +1835,7 @@ func (tb *TxBuilder) buildRescueData(
 	universalTxID [32]byte,
 	amount uint64,
 	gasFee uint64,
+	deadlineUnix int64,
 	signature []byte,
 	recoveryID byte,
 	messageHash []byte,
@@ -1835,6 +1854,10 @@ func (tb *TxBuilder) buildRescueData(
 	gasFeeBytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(gasFeeBytes, gasFee)
 	data = append(data, gasFeeBytes...)
+
+	deadlineBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(deadlineBytes, uint64(deadlineUnix))
+	data = append(data, deadlineBytes...)
 
 	data = append(data, signature...)
 	data = append(data, recoveryID)
@@ -2216,6 +2239,7 @@ func (tb *TxBuilder) buildWithdrawAndExecuteRefData(
 	ixDataHash [32]byte,
 	writableFlags []byte,
 	gasFee uint64,
+	deadlineUnix int64,
 	signature []byte,
 	recoveryID byte,
 	messageHash []byte,
@@ -2241,6 +2265,10 @@ func (tb *TxBuilder) buildWithdrawAndExecuteRefData(
 	gasFeeBytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(gasFeeBytes, gasFee)
 	data = append(data, gasFeeBytes...)
+
+	deadlineBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(deadlineBytes, uint64(deadlineUnix))
+	data = append(data, deadlineBytes...)
 
 	data = append(data, signature...)
 	data = append(data, recoveryID)

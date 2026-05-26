@@ -345,6 +345,38 @@ func TestAnchorDiscriminator(t *testing.T) {
 	}
 }
 
+func TestAnchorDiscriminatorKnownValues(t *testing.T) {
+	// Verify discriminator values are deterministic and can be independently computed
+	for _, method := range []string{"finalize_universal_tx", "revert_universal_tx", "rescue_funds"} {
+		disc := anchorDiscriminator(method)
+		h := sha256.Sum256([]byte("global:" + method))
+		assert.Equal(t, h[:8], disc, "discriminator for %s", method)
+	}
+}
+
+// TestRefRouteDiscriminatorConstants pins the hardcoded discriminator byte
+// arrays for the ref-route instructions to their canonical Anchor derivation.
+// These are protocol-critical: a single-byte typo would silently make every
+// store / finalize-ref / close call fail against the on-chain gateway with a
+// "fallback function not found" error, with no signal at compile time.
+func TestRefRouteDiscriminatorConstants(t *testing.T) {
+	cases := []struct {
+		method string
+		got    [8]byte
+	}{
+		{"store_execute_ix_data", discStoreExecuteIxData},
+		{"finalize_universal_tx_with_ix_data_ref", discFinalizeUniversalTxRef},
+		{"close_stored_ix_data", discCloseStoredIxData},
+	}
+	for _, c := range cases {
+		t.Run(c.method, func(t *testing.T) {
+			h := sha256.Sum256([]byte("global:" + c.method))
+			assert.Equal(t, h[:8], c.got[:],
+				"discriminator constant for %s does not match sha256(\"global:%s\")[:8]", c.method, c.method)
+		})
+	}
+}
+
 func TestConstructTSSMessage(t *testing.T) {
 	builder := newTestBuilder(t)
 
@@ -356,7 +388,7 @@ func TestConstructTSSMessage(t *testing.T) {
 
 	t.Run("withdraw (id=1) message format", func(t *testing.T) {
 		hash, err := builder.constructTSSMessage(
-			1, "devnet", 1000000,
+			1, "devnet", int64(0), 1000000,
 			txID, utxID, sender, token,
 			0, // gasFee
 			target, nil, nil,
@@ -393,7 +425,7 @@ func TestConstructTSSMessage(t *testing.T) {
 		ixData := []byte{0xDE, 0xAD, 0xBE, 0xEF}
 
 		hash, err := builder.constructTSSMessage(
-			2, "devnet", 2000000,
+			2, "devnet", int64(0), 2000000,
 			txID, utxID, sender, token,
 			100, // gasFee
 			target, accs, ixData,
@@ -440,7 +472,7 @@ func TestConstructTSSMessage(t *testing.T) {
 	t.Run("revert SOL (id=3) message format", func(t *testing.T) {
 		revertRecipient := makeTxID(0xEE)
 		hash, err := builder.constructTSSMessage(
-			3, "devnet", 500000,
+			3, "devnet", int64(0), 500000,
 			txID, utxID, sender, token,
 			0, [32]byte{}, nil, nil,
 			revertRecipient, [32]byte{}, nil,
@@ -470,7 +502,7 @@ func TestConstructTSSMessage(t *testing.T) {
 		revertRecipient := makeTxID(0xEE)
 		revertMint := makeTxID(0xFF)
 		hash, err := builder.constructTSSMessage(
-			3, "devnet", 750000,
+			3, "devnet", int64(0), 750000,
 			txID, utxID, sender, token,
 			0, [32]byte{}, nil, nil,
 			revertRecipient, revertMint, nil,
@@ -504,14 +536,14 @@ func TestConstructTSSMessage(t *testing.T) {
 		// the same TSS signature.
 		revertRecipient := makeTxID(0xEE)
 		hashA, err := builder.constructTSSMessage(
-			3, "devnet", 500000,
+			3, "devnet", int64(0), 500000,
 			txID, utxID, sender, token,
 			0, [32]byte{}, nil, nil,
 			revertRecipient, [32]byte{}, []byte("reason A"),
 		)
 		require.NoError(t, err)
 		hashB, err := builder.constructTSSMessage(
-			3, "devnet", 500000,
+			3, "devnet", int64(0), 500000,
 			txID, utxID, sender, token,
 			0, [32]byte{}, nil, nil,
 			revertRecipient, [32]byte{}, []byte("reason B"),
@@ -526,14 +558,14 @@ func TestConstructTSSMessage(t *testing.T) {
 		// still produce the same hash.
 		rescueRecipient := makeTxID(0xEE)
 		hashA, err := builder.constructTSSMessage(
-			4, "devnet", 300000,
+			4, "devnet", int64(0), 300000,
 			txID, utxID, sender, token,
 			50, [32]byte{}, nil, nil,
 			rescueRecipient, [32]byte{}, []byte("reason A"),
 		)
 		require.NoError(t, err)
 		hashB, err := builder.constructTSSMessage(
-			4, "devnet", 300000,
+			4, "devnet", int64(0), 300000,
 			txID, utxID, sender, token,
 			50, [32]byte{}, nil, nil,
 			rescueRecipient, [32]byte{}, []byte("reason B"),
@@ -545,7 +577,7 @@ func TestConstructTSSMessage(t *testing.T) {
 	t.Run("rescue SOL (id=4) message format", func(t *testing.T) {
 		rescueRecipient := makeTxID(0xEE)
 		hash, err := builder.constructTSSMessage(
-			4, "devnet", 300000,
+			4, "devnet", int64(0), 300000,
 			txID, utxID, sender, token,
 			50, [32]byte{}, nil, nil,
 			rescueRecipient, [32]byte{}, nil,
@@ -573,7 +605,7 @@ func TestConstructTSSMessage(t *testing.T) {
 		rescueRecipient := makeTxID(0xEE)
 		rescueMint := makeTxID(0xFF)
 		hash, err := builder.constructTSSMessage(
-			4, "devnet", 400000,
+			4, "devnet", int64(0), 400000,
 			txID, utxID, sender, token,
 			75, [32]byte{}, nil, nil,
 			rescueRecipient, rescueMint, nil,
@@ -602,7 +634,7 @@ func TestConstructTSSMessage(t *testing.T) {
 		// Verify that the chain_id in the message is raw UTF-8, not Borsh-encoded
 		chainID := "test_chain"
 		hash1, err := builder.constructTSSMessage(
-			1, chainID, 0,
+			1, chainID, int64(0), 0,
 			[32]byte{}, [32]byte{}, [20]byte{}, [32]byte{},
 			0, [32]byte{}, nil, nil,
 			[32]byte{}, [32]byte{}, nil,
@@ -627,7 +659,7 @@ func TestConstructTSSMessage(t *testing.T) {
 
 	t.Run("unknown instruction ID returns error", func(t *testing.T) {
 		_, err := builder.constructTSSMessage(
-			99, "devnet", 0,
+			99, "devnet", int64(0), 0,
 			[32]byte{}, [32]byte{}, [20]byte{}, [32]byte{},
 			0, [32]byte{}, nil, nil,
 			[32]byte{}, [32]byte{}, nil,
@@ -642,7 +674,7 @@ func TestConstructTSSMessage_HashIsKeccak256(t *testing.T) {
 
 	// Construct a simple withdraw message and verify the hash algo
 	hash, err := builder.constructTSSMessage(
-		1, "x", 0,
+		1, "x", int64(0), 0,
 		[32]byte{}, [32]byte{}, [20]byte{}, [32]byte{},
 		0, [32]byte{}, nil, nil,
 		[32]byte{}, [32]byte{}, nil,
@@ -917,7 +949,7 @@ func TestBuildWithdrawAndExecuteData(t *testing.T) {
 		data := builder.buildWithdrawAndExecuteData(
 			1, txID, utxID, 1000000, sender,
 			[]byte{}, []byte{}, // empty writable_flags and ix_data for withdraw
-			0, // gasFee
+			0, int64(0), // gasFee
 			sig, 2, msgHash,
 		)
 
@@ -970,7 +1002,7 @@ func TestBuildWithdrawAndExecuteData(t *testing.T) {
 		data := builder.buildWithdrawAndExecuteData(
 			2, txID, utxID, 500, sender,
 			wf, ixData,
-			100, // gasFee
+			100, int64(0), // gasFee
 			sig, 0, msgHash,
 		)
 
@@ -1015,7 +1047,7 @@ func TestBuildRevertData(t *testing.T) {
 	msgHash := make([]byte, 32)
 
 	t.Run("revert uses correct discriminator (revert_universal_tx)", func(t *testing.T) {
-		data := builder.buildRevertData(txID, utxID, 1000, recipient, revertMsg, 0, sig, 1, msgHash)
+		data := builder.buildRevertData(txID, utxID, 1000, recipient, revertMsg, 0, int64(0), sig, 1, msgHash)
 
 		expectedDisc := anchorDiscriminator("revert_universal_tx")
 		assert.Equal(t, expectedDisc, data[:8])
@@ -1029,7 +1061,7 @@ func TestBuildRevertData(t *testing.T) {
 	})
 
 	t.Run("revert with empty revert_msg", func(t *testing.T) {
-		data := builder.buildRevertData(txID, utxID, 2000, recipient, nil, 0, sig, 0, msgHash)
+		data := builder.buildRevertData(txID, utxID, 2000, recipient, nil, 0, int64(0), sig, 0, msgHash)
 
 		expectedDisc := anchorDiscriminator("revert_universal_tx")
 		assert.Equal(t, expectedDisc, data[:8])
@@ -1047,7 +1079,7 @@ func TestBuildRescueData(t *testing.T) {
 	msgHash := make([]byte, 32)
 
 	t.Run("rescue uses correct discriminator", func(t *testing.T) {
-		data := builder.buildRescueData(txID, utxID, 5000, 100, sig, 1, msgHash)
+		data := builder.buildRescueData(txID, utxID, 5000, 100, int64(0), sig, 1, msgHash)
 
 		expectedDisc := anchorDiscriminator("rescue_funds")
 		assert.Equal(t, expectedDisc, data[:8], "discriminator")
@@ -1063,9 +1095,9 @@ func TestBuildRescueData(t *testing.T) {
 	})
 
 	t.Run("rescue has no revert instructions (unlike revert)", func(t *testing.T) {
-		rescueData := builder.buildRescueData(txID, utxID, 1000, 50, sig, 0, msgHash)
+		rescueData := builder.buildRescueData(txID, utxID, 1000, 50, int64(0), sig, 0, msgHash)
 		revertRecipient := solana.MustPublicKeyFromBase58(testGatewayAddress)
-		revertData := builder.buildRevertData(txID, utxID, 1000, revertRecipient, nil, 50, sig, 0, msgHash)
+		revertData := builder.buildRevertData(txID, utxID, 1000, revertRecipient, nil, 50, int64(0), sig, 0, msgHash)
 
 		// Rescue should be shorter than revert (no recipient + revert_msg fields)
 		assert.Less(t, len(rescueData), len(revertData), "rescue data should be shorter than revert data")
@@ -1395,7 +1427,7 @@ func TestEndToEndWithdrawMessageAndData(t *testing.T) {
 	target := makeTxID(0xDD)
 
 	msgHash, err := builder.constructTSSMessage(
-		1, "devnet", 1000000,
+		1, "devnet", int64(0), 1000000,
 		txID, utxID, sender, token,
 		0, target, nil, nil,
 		[32]byte{}, [32]byte{}, nil,
@@ -1405,7 +1437,7 @@ func TestEndToEndWithdrawMessageAndData(t *testing.T) {
 	sig := make([]byte, 64)
 	instrData := builder.buildWithdrawAndExecuteData(
 		1, txID, utxID, 1000000, sender,
-		[]byte{}, []byte{}, 0,
+		[]byte{}, []byte{}, 0, int64(0),
 		sig, 0, msgHash,
 	)
 
@@ -1415,38 +1447,6 @@ func TestEndToEndWithdrawMessageAndData(t *testing.T) {
 	//       = 182
 	msgHashFromData := instrData[182:214]
 	assert.Equal(t, msgHash, msgHashFromData, "message_hash in instruction data must match TSS message hash")
-}
-
-func TestAnchorDiscriminatorKnownValues(t *testing.T) {
-	// Verify discriminator values are deterministic and can be independently computed
-	for _, method := range []string{"finalize_universal_tx", "revert_universal_tx", "rescue_funds"} {
-		disc := anchorDiscriminator(method)
-		h := sha256.Sum256([]byte("global:" + method))
-		assert.Equal(t, h[:8], disc, "discriminator for %s", method)
-	}
-}
-
-// TestRefRouteDiscriminatorConstants pins the hardcoded discriminator byte
-// arrays for the ref-route instructions to their canonical Anchor derivation.
-// These are protocol-critical: a single-byte typo would silently make every
-// store / finalize-ref / close call fail against the on-chain gateway with a
-// "fallback function not found" error, with no signal at compile time.
-func TestRefRouteDiscriminatorConstants(t *testing.T) {
-	cases := []struct {
-		method string
-		got    [8]byte
-	}{
-		{"store_execute_ix_data", discStoreExecuteIxData},
-		{"finalize_universal_tx_with_ix_data_ref", discFinalizeUniversalTxRef},
-		{"close_stored_ix_data", discCloseStoredIxData},
-	}
-	for _, c := range cases {
-		t.Run(c.method, func(t *testing.T) {
-			h := sha256.Sum256([]byte("global:" + c.method))
-			assert.Equal(t, h[:8], c.got[:],
-				"discriminator constant for %s does not match sha256(\"global:%s\")[:8]", c.method, c.method)
-		})
-	}
 }
 
 func TestEndToEndWithRealSignature(t *testing.T) {
@@ -1464,7 +1464,7 @@ func TestEndToEndWithRealSignature(t *testing.T) {
 
 		// 1. Construct TSS message hash (what TSS nodes would sign)
 		msgHash, err := builder.constructTSSMessage(
-			1, "devnet", amount,
+			1, "devnet", int64(0), amount,
 			txID, utxID, sender, token,
 			0, target, nil, nil,
 			[32]byte{}, [32]byte{}, nil,
@@ -1477,7 +1477,7 @@ func TestEndToEndWithRealSignature(t *testing.T) {
 		// 3. Build instruction data with real signature
 		instrData := builder.buildWithdrawAndExecuteData(
 			1, txID, utxID, amount, sender,
-			[]byte{}, []byte{}, 0,
+			[]byte{}, []byte{}, 0, int64(0),
 			sig, recoveryID, msgHash,
 		)
 
@@ -1497,7 +1497,7 @@ func TestEndToEndWithRealSignature(t *testing.T) {
 		ixData := []byte{0xDE, 0xAD}
 
 		msgHash, err := builder.constructTSSMessage(
-			2, "devnet", amount,
+			2, "devnet", int64(0), amount,
 			txID, utxID, sender, token,
 			0, target, accs, ixData,
 			[32]byte{}, [32]byte{}, nil,
@@ -1510,7 +1510,7 @@ func TestEndToEndWithRealSignature(t *testing.T) {
 		instrData := builder.buildWithdrawAndExecuteData(
 			2, txID, utxID, amount, sender,
 			wf, ixData,
-			0,
+			0, int64(0),
 			sig, recoveryID, msgHash,
 		)
 
@@ -1526,7 +1526,7 @@ func TestEndToEndWithRealSignature(t *testing.T) {
 		revertRecipient := makeTxID(0xEE)
 
 		msgHash, err := builder.constructTSSMessage(
-			3, "devnet", amount,
+			3, "devnet", int64(0), amount,
 			txID, utxID, sender, token,
 			0, [32]byte{}, nil, nil,
 			revertRecipient, [32]byte{}, nil,
@@ -1538,7 +1538,7 @@ func TestEndToEndWithRealSignature(t *testing.T) {
 		recipient := solana.PublicKeyFromBytes(revertRecipient[:])
 		instrData := builder.buildRevertData(
 			txID, utxID, amount, recipient,
-			[]byte("revert msg"), 0,
+			[]byte("revert msg"), 0, int64(0),
 			sig, recoveryID, msgHash,
 		)
 
@@ -1552,7 +1552,7 @@ func TestEndToEndWithRealSignature(t *testing.T) {
 		rescueRecipient := makeTxID(0xEE)
 
 		msgHash, err := builder.constructTSSMessage(
-			4, "devnet", amount,
+			4, "devnet", int64(0), amount,
 			txID, utxID, sender, token,
 			50, [32]byte{}, nil, nil,
 			rescueRecipient, [32]byte{}, nil,
@@ -1562,7 +1562,7 @@ func TestEndToEndWithRealSignature(t *testing.T) {
 		sig, recoveryID := signMessageHash(t, evmKey, msgHash)
 
 		instrData := builder.buildRescueData(
-			txID, utxID, amount, 50,
+			txID, utxID, amount, 50, int64(0),
 			sig, recoveryID, msgHash,
 		)
 
@@ -1814,7 +1814,7 @@ func TestBuildWithdrawAndExecuteRefData_ArgOrder(t *testing.T) {
 		pushAccount,
 		ixDataHash,
 		writableFlags,
-		500_000, // gas_fee
+		500_000, int64(0), // gas_fee
 		signature,
 		1, // recovery_id
 		msgHash,
@@ -2398,7 +2398,7 @@ func buildAndSimulateRescue(t *testing.T, rpcClient *RPCClient, builder *TxBuild
 
 	gasFee := uint64(0)
 	messageHash, err := builder.constructTSSMessage(
-		4, chainID, amount,
+		4, chainID, int64(0), amount,
 		txID, universalTxID, sender, token, gasFee,
 		[32]byte{}, nil, nil,
 		revertRecipient, revertMint, nil,
@@ -2407,7 +2407,7 @@ func buildAndSimulateRescue(t *testing.T, rpcClient *RPCClient, builder *TxBuild
 
 	sig, recoveryID := signMessageHash(t, evmKey, messageHash)
 
-	instructionData := builder.buildRescueData(txID, universalTxID, amount, gasFee, sig, recoveryID, messageHash)
+	instructionData := builder.buildRescueData(txID, universalTxID, amount, gasFee, int64(0), sig, recoveryID, messageHash)
 
 	// Derive PDAs
 	configPDA, _, err := solana.FindProgramAddress([][]byte{[]byte("config")}, builder.gatewayAddress)

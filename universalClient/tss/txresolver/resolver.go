@@ -208,14 +208,6 @@ func (r *Resolver) getBuilder(chainID string) (common.TxBuilder, error) {
 	return client.GetTxBuilder()
 }
 
-func (r *Resolver) verifyTxOnChain(ctx context.Context, chainID, txHash string) (bool, uint64, uint64, uint8, error) {
-	builder, err := r.getBuilder(chainID)
-	if err != nil {
-		return false, 0, 0, 0, err
-	}
-	return builder.VerifyBroadcastedTx(ctx, txHash)
-}
-
 // voteOutboundFailureAndMarkReverted votes failure for an outbound event and marks it REVERTED.
 func (r *Resolver) voteOutboundFailureAndMarkReverted(ctx context.Context, event *store.Event, txID, utxID, txHash string, blockHeight uint64, gasFeeUsed string, errorMsg string) error {
 	if r.pushSigner == nil {

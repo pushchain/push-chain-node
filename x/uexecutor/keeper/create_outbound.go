@@ -395,6 +395,7 @@ func (k Keeper) attachOutboundsToUtx(
 				PcTxHash:         pcTxHash,
 				LogIndex:         logIndex,
 				RevertMsg:        revertMsg,
+				SigningDeadline:  signingDeadline,
 			})
 			if err == nil {
 				ctx.EventManager().EmitEvent(evt)

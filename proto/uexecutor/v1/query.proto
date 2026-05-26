@@ -146,6 +146,7 @@ message PendingOutboundEntry {
   string outbound_id     = 1;
   string universal_tx_id = 2;
   int64  created_at      = 3;
+  int64  signing_deadline = 4; // unix timestamp after which the TSS signature expires on the destination chain (0 = no expiry)
 }
 
 message QueryGetPendingOutboundRequest {

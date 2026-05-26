@@ -352,11 +352,20 @@ func (k Keeper) attachOutboundsToUtx(
 
 			utx.OutboundTx = append(utx.OutboundTx, outbound)
 
+			// Compute signature expiry deadline for the destination chain.
+			var signingDeadline int64
+			if chainCfg, err := k.uregistryKeeper.GetChainConfig(ctx, outbound.DestinationChain); err == nil {
+				if chainCfg.TssSigningDeadline != nil && *chainCfg.TssSigningDeadline > 0 {
+					signingDeadline = ctx.BlockTime().Unix() + int64(chainCfg.TssSigningDeadline.Seconds())
+				}
+			}
+
 			// Write to pending outbounds index (inside UpdateUniversalTx closure for atomicity)
 			if err := k.PendingOutbounds.Set(ctx, outbound.Id, types.PendingOutboundEntry{
-				OutboundId:    outbound.Id,
-				UniversalTxId: utxId,
-				CreatedAt:     ctx.BlockHeight(),
+				OutboundId:      outbound.Id,
+				UniversalTxId:   utxId,
+				CreatedAt:       ctx.BlockHeight(),
+				SigningDeadline: signingDeadline,
 			}); err != nil {
 				return fmt.Errorf("failed to set pending outbound index for %s: %w", outbound.Id, err)
 			}

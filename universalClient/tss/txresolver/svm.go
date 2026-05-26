@@ -2,19 +2,58 @@ package txresolver
 
 import (
 	"context"
+	"encoding/json"
+	"time"
 
 	"github.com/pushchain/push-chain-node/universalClient/store"
 )
 
+// svmRevertSlackSeconds is the buffer past the signed deadline before the
+// resolver finalizes REVERT. Matches the broadcaster's slack so the two
+// modules agree on when the payload is dead.
+const svmRevertSlackSeconds int64 = 60
+
+// svmClusterStaleSeconds is how far the latest finalized block's timestamp
+// can lag wall-clock before the cluster is treated as halted or stalled —
+// either case means our `finalized` queries may be missing recently-included
+// txs, so we defer REVERT. MUST match the broadcaster-side constant.
+const svmClusterStaleSeconds int64 = 120
+
+// svmEventEnvelope is the slice of the persisted outbound event the resolver
+// needs to make a REVERT decision: just the chain-emitted signing deadline.
+type svmEventEnvelope struct {
+	SigningDeadline int64 `json:"signing_deadline,omitempty"`
+}
+
+// extractSVMDeadline returns the unix-second deadline emitted by Push chain on
+// the OutboundCreatedEvent. Zero means the destination chain didn't configure
+// a deadline window — caller falls back to the pre-deadline eager-revert
+// behavior.
+func extractSVMDeadline(event *store.Event) int64 {
+	var env svmEventEnvelope
+	if err := json.Unmarshal(event.EventData, &env); err != nil {
+		return 0
+	}
+	return env.SigningDeadline
+}
+
 // resolveSVM checks the on-chain ExecutedTx PDA and moves the event to COMPLETED or REVERTED.
 //
-// With the V2 gateway contract, Solana transactions either land atomically or fully revert.
-// A failed CPI means nothing is created on-chain (no PDA, no event). The resolver checks
-// whether the ExecutedTx PDA exists to determine the outcome:
+// The REVERT decision is gated on the cluster's own clock (latest finalized
+// block timestamp returned by IsAlreadyExecuted) rather than the host's local
+// clock. This catches three failure modes that would otherwise cause a false
+// REVERT: host clock skew, full cluster halt (block time stops advancing),
+// and finalization stalls (production continues but finalized lags).
 //
-//   - PDA exists  → mark COMPLETED (success vote comes from destination chain event listening)
-//   - PDA absent  → vote failure on Push chain and mark REVERTED (triggers user refund)
-//   - RPC error   → stay BROADCASTED, retry next tick
+//   - PDA exists                                  → COMPLETED.
+//   - PDA check RPC error                         → stay BROADCASTED, retry.
+//   - PDA absent + cluster time unknown (0)       → stay BROADCASTED, retry.
+//   - PDA absent + cluster stale (>120s old)      → stay BROADCASTED, retry.
+//   - PDA absent + cluster says still in window   → stay BROADCASTED, retry.
+//   - PDA absent + cluster confirms past deadline → REVERT.
+//
+// Legacy events (deadline = 0) preserve the pre-deadline eager-revert path —
+// REVERT as soon as PDA is absent, no cluster check needed.
 func (r *Resolver) resolveSVM(ctx context.Context, event *store.Event, chainID string) {
 	txID, utxID, err := extractOutboundIDs(event)
 	if err != nil {
@@ -35,9 +74,8 @@ func (r *Resolver) resolveSVM(ctx context.Context, event *store.Event, chainID s
 		return
 	}
 
-	executed, err := builder.IsAlreadyExecuted(ctx, txID)
+	executed, clusterTime, err := builder.IsAlreadyExecuted(ctx, txID)
 	if err != nil {
-		// RPC error — stay BROADCASTED, retry next tick
 		r.logger.Debug().Err(err).Str("event_id", event.EventID).Str("tx_id", txID).
 			Msg("SVM PDA check failed, will retry next tick")
 		return
@@ -53,6 +91,35 @@ func (r *Resolver) resolveSVM(ctx context.Context, event *store.Event, chainID s
 		return
 	}
 
-	// PDA not found — tx was not executed on destination chain, no gas consumed
+	// PDA absent. Decide REVERT using the cluster's own clock so we don't
+	// false-revert during halt/stall or host clock skew.
+	deadline := extractSVMDeadline(event)
+	if deadline == 0 {
+		// Legacy event: no deadline, fall back to eager revert.
+		_ = r.voteOutboundFailureAndMarkReverted(ctx, event, txID, utxID, "", 0, "0", "tx not executed on destination chain")
+		return
+	}
+
+	switch {
+	case clusterTime == 0:
+		r.logger.Debug().
+			Str("event_id", event.EventID).Str("tx_id", txID).Str("chain_id", chainID).
+			Msg("SVM cluster time unavailable, deferring REVERT decision")
+		return
+	case time.Now().Unix()-clusterTime > svmClusterStaleSeconds:
+		r.logger.Warn().
+			Str("event_id", event.EventID).Str("tx_id", txID).Str("chain_id", chainID).
+			Int64("cluster_block_time", clusterTime).
+			Msg("SVM cluster appears stale, deferring REVERT")
+		return
+	case clusterTime <= deadline+svmRevertSlackSeconds:
+		r.logger.Debug().
+			Str("event_id", event.EventID).Str("tx_id", txID).Str("chain_id", chainID).
+			Int64("signing_deadline", deadline).
+			Int64("cluster_block_time", clusterTime).
+			Msg("SVM PDA absent but cluster clock still inside deadline window, will retry next tick")
+		return
+	}
+
 	_ = r.voteOutboundFailureAndMarkReverted(ctx, event, txID, utxID, "", 0, "0", "tx not executed on destination chain")
 }

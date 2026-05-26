@@ -2206,6 +2206,9 @@ func newDevnetOutbound(t *testing.T, amount, assetAddr, payload, revertMsg, txTy
 		GasFee:    "3000000",
 		TxType:    txType,
 		RevertMsg: revertMsg,
+		// 10-minute window past wall-clock — the on-chain program enforces
+		// Clock::unix_timestamp <= signing_deadline
+		SigningDeadline: time.Now().Unix() + 600,
 	}, evmKey
 }
 
@@ -2397,8 +2400,10 @@ func buildAndSimulateRescue(t *testing.T, rpcClient *RPCClient, builder *TxBuild
 	}
 
 	gasFee := uint64(0)
+	// 10-minute window past wall-clock; gateway enforces Clock::unix_timestamp <= deadline.
+	deadline := time.Now().Unix() + 600
 	messageHash, err := builder.constructTSSMessage(
-		4, chainID, int64(0), amount,
+		4, chainID, deadline, amount,
 		txID, universalTxID, sender, token, gasFee,
 		[32]byte{}, nil, nil,
 		revertRecipient, revertMint, nil,
@@ -2407,7 +2412,7 @@ func buildAndSimulateRescue(t *testing.T, rpcClient *RPCClient, builder *TxBuild
 
 	sig, recoveryID := signMessageHash(t, evmKey, messageHash)
 
-	instructionData := builder.buildRescueData(txID, universalTxID, amount, gasFee, int64(0), sig, recoveryID, messageHash)
+	instructionData := builder.buildRescueData(txID, universalTxID, amount, gasFee, deadline, sig, recoveryID, messageHash)
 
 	// Derive PDAs
 	configPDA, _, err := solana.FindProgramAddress([][]byte{[]byte("config")}, builder.gatewayAddress)

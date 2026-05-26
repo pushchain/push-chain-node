@@ -63,13 +63,6 @@ type Broadcaster struct {
 	checkInterval time.Duration
 	logger        zerolog.Logger
 	getTSSAddress func(ctx context.Context) (string, error)
-
-	// svmBroadcastAttempts is an in-memory failure counter per event_id used to
-	// cap SVM retries before escalating to REVERT. Lost on process restart by
-	// design — restart resets all counters, giving the operator a fresh budget.
-	// Temporary mechanism; the signature-deadline system will supersede it.
-	// Safe without a mutex: processSigned drains events serially.
-	svmBroadcastAttempts map[string]uint32
 }
 
 // NewBroadcaster creates a new tx broadcaster.
@@ -79,12 +72,11 @@ func NewBroadcaster(cfg Config) *Broadcaster {
 		interval = 15 * time.Second
 	}
 	return &Broadcaster{
-		eventStore:           cfg.EventStore,
-		chains:               cfg.Chains,
-		checkInterval:        interval,
-		logger:               cfg.Logger.With().Str("component", "txbroadcaster").Logger(),
-		getTSSAddress:        cfg.GetTSSAddress,
-		svmBroadcastAttempts: make(map[string]uint32),
+		eventStore:    cfg.EventStore,
+		chains:        cfg.Chains,
+		checkInterval: interval,
+		logger:        cfg.Logger.With().Str("component", "txbroadcaster").Logger(),
+		getTSSAddress: cfg.GetTSSAddress,
 	}
 }
 

@@ -377,8 +377,8 @@ func TestSVM_BroadcastFails_PDAExists_MarksBroadcasted(t *testing.T) {
 }
 
 func TestSVM_BroadcastFails_BeforeDeadline_StaysSigned(t *testing.T) {
-	// F-2026-16964: broadcast fails before deadline → stay SIGNED, retry next tick.
-	// The deadline (not an attempt counter) is the sole cap on retries now.
+	// Broadcast fails before deadline → stay SIGNED, retry next tick. The
+	// deadline is the only retry cap; failures inside the window keep cycling.
 	evtStore, db := setupTestDB(t)
 	builder := &mockTxBuilder{}
 	client := &mockChainClient{builder: builder}
@@ -418,41 +418,38 @@ func TestSVM_BroadcastFails_PastDeadline_MarksBroadcastedForRevert(t *testing.T)
 	builder.AssertNotCalled(t, "BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
 
-func TestSVM_PastLocalDeadline_ClusterStale_StaysSigned(t *testing.T) {
-	// Past local deadline but cluster appears stale (halt or finalization stall)
-	// → defer give-up. Stays SIGNED, no broadcast attempt.
+func TestSVM_PastLocalDeadline_ExecutedByPeer_MarksBroadcasted(t *testing.T) {
+	// Past local deadline + peer landed the tx (PDA exists) → BROADCASTED("")
+	// so the resolver sees it and marks COMPLETED. No broadcast attempt.
 	evtStore, db := setupTestDB(t)
 	builder := &mockTxBuilder{}
 	client := &mockChainClient{builder: builder}
 	ch := newTestChains(t, "solana:mainnet", uregistrytypes.VmType_SVM, client)
 
 	insertSignedSVMEventWithDeadline(t, db, "ev-1", "solana:mainnet", 0, time.Now().Unix()-3600)
-	// Cluster time is well over 120s old → treated as stale.
-	builder.On("IsAlreadyExecuted", mock.Anything, "tx-123").Return(false, time.Now().Unix()-600, nil)
+	builder.On("IsAlreadyExecuted", mock.Anything, "tx-123").Return(true, time.Now().Unix(), nil)
 
 	b := newBroadcaster(evtStore, ch, "")
 	b.processSigned(context.Background())
 
 	ev := getEvent(t, db, "ev-1")
-	require.Equal(t, store.StatusSigned, ev.Status)
+	require.Equal(t, store.StatusBroadcasted, ev.Status)
+	require.Equal(t, "solana:mainnet:", ev.BroadcastedTxHash)
 	builder.AssertNotCalled(t, "BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestSVM_PastLocalDeadline_ClusterSaysStillInWindow_FallsThroughToBroadcast(t *testing.T) {
-	// Local clock ahead of cluster: local says past deadline+slack, but
-	// cluster's own (fresh) clock says still inside deadline+slack →
-	// broadcaster falls through and attempts to broadcast. Constructed so
-	// the cluster time is both fresh (<120s old) and not yet past deadline+slack.
+	// Local clock ahead of cluster: local says past deadline, but the
+	// cluster's own (fresh) clock is still before the deadline → broadcaster
+	// falls through and attempts to broadcast.
 	evtStore, db := setupTestDB(t)
 	builder := &mockTxBuilder{}
 	client := &mockChainClient{builder: builder}
 	ch := newTestChains(t, "solana:mainnet", uregistrytypes.VmType_SVM, client)
 
 	now := time.Now().Unix()
-	// Local sees deadline as 65s ago → past slack (60s).
-	deadline := now - 65
-	// Cluster time is 10s old (fresh) and <= deadline+slack (now-5).
-	clusterTime := now - 10
+	deadline := now - 1     // local says 1s past deadline
+	clusterTime := now - 30 // cluster says 30s before deadline; well within freshness
 	insertSignedSVMEventWithDeadline(t, db, "ev-1", "solana:mainnet", 0, deadline)
 	builder.On("IsAlreadyExecuted", mock.Anything, "tx-123").Return(false, clusterTime, nil)
 	builder.On("BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).

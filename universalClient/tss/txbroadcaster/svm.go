@@ -12,12 +12,12 @@ import (
 //
 // Three phases, top to bottom:
 //
-//   1. If local clock is past the signed deadline, check the cluster's own
-//      clock (latest finalized block time) before giving up. The cluster
-//      clock — not the host clock — is what the gateway program enforces
-//      against, so it's the authoritative cutoff.
-//   2. Broadcast.
-//   3. On broadcast error, check whether a peer landed the same signed tx.
+//  1. If local clock is past the signed deadline, check the cluster's own
+//     clock (latest finalized block time) before giving up. The cluster
+//     clock — not the host clock — is what the gateway program enforces
+//     against, so it's the authoritative cutoff.
+//  2. Broadcast.
+//  3. On broadcast error, check whether a peer landed the same signed tx.
 //
 // The give-up cutoff is exactly `clusterTime > deadline`. The finalized block
 // time lags the on-chain `Clock::unix_timestamp` by ~13s, so by the time our
@@ -53,7 +53,7 @@ func (b *Broadcaster) broadcastSVM(ctx context.Context, event *store.Event, data
 	now := time.Now().Unix()
 
 	// Past local deadline — confirm with the cluster before giving up.
-	if deadline > 0 && now > deadline {
+	if now > deadline {
 		executed, clusterTime, checkErr := builder.IsAlreadyExecuted(ctx, txID)
 		log := b.logger.With().
 			Str("event_id", event.EventID).Str("chain", chainID).

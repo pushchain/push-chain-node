@@ -31,19 +31,21 @@ import (
 //   - BROADCASTED("")         → peer landed it, or cluster confirmed expiry
 //   - stay SIGNED             → retry next tick
 func (b *Broadcaster) broadcastSVM(ctx context.Context, event *store.Event, data *SignedOutboundData, chainID string) {
+	log := b.logger.With().Str("event_id", event.EventID).Str("chain", chainID).Logger()
+
 	client, err := b.chains.GetClient(chainID)
 	if err != nil {
-		b.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to get chain client")
+		log.Warn().Err(err).Msg("failed to get chain client")
 		return
 	}
 	builder, err := client.GetTxBuilder()
 	if err != nil {
-		b.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to get tx builder")
+		log.Warn().Err(err).Msg("failed to get tx builder")
 		return
 	}
 	signingReq, signature, err := decodeSigningData(data.SigningData)
 	if err != nil {
-		b.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to decode signing data")
+		log.Warn().Err(err).Msg("failed to decode signing data")
 		return
 	}
 
@@ -55,20 +57,18 @@ func (b *Broadcaster) broadcastSVM(ctx context.Context, event *store.Event, data
 	// Past local deadline — confirm with the cluster before giving up.
 	if now > deadline {
 		executed, clusterTime, checkErr := builder.IsAlreadyExecuted(ctx, txID)
-		log := b.logger.With().
-			Str("event_id", event.EventID).Str("chain", chainID).
-			Int64("signing_deadline", deadline).Int64("cluster_block_time", clusterTime).Logger()
+		dlog := log.With().Int64("signing_deadline", deadline).Int64("cluster_block_time", clusterTime).Logger()
 
 		switch {
 		case checkErr != nil:
-			log.Debug().Err(checkErr).Msg("SVM cluster check failed at deadline, retry next tick")
+			dlog.Debug().Err(checkErr).Msg("SVM cluster check failed at deadline, retry next tick")
 			return
 		case executed:
-			log.Info().Msg("SVM tx executed by peer past local deadline, marking BROADCASTED")
+			dlog.Info().Msg("SVM tx executed by peer past local deadline, marking BROADCASTED")
 			b.markBroadcasted(event, chainID, "")
 			return
 		case clusterTime > deadline:
-			log.Warn().Msg("SVM deadline cluster-confirmed expired, marking BROADCASTED for resolver REVERT")
+			dlog.Warn().Msg("SVM deadline cluster-confirmed expired, marking BROADCASTED for resolver REVERT")
 			b.markBroadcasted(event, chainID, "")
 			return
 		}
@@ -84,14 +84,11 @@ func (b *Broadcaster) broadcastSVM(ctx context.Context, event *store.Event, data
 
 	// Race: a peer may have landed the same signed tx in the meantime.
 	if executed, _, _ := builder.IsAlreadyExecuted(ctx, txID); executed {
-		b.logger.Info().Err(broadcastErr).Str("event_id", event.EventID).Str("chain", chainID).
-			Msg("SVM broadcast failed but tx executed on chain (race), marking BROADCASTED")
+		log.Info().Err(broadcastErr).Msg("SVM broadcast failed but tx executed on chain (race), marking BROADCASTED")
 		b.markBroadcasted(event, chainID, "")
 		return
 	}
 
-	b.logger.Info().Err(broadcastErr).
-		Str("event_id", event.EventID).Str("chain", chainID).
-		Int64("signing_deadline", deadline).
+	log.Info().Err(broadcastErr).Int64("signing_deadline", deadline).
 		Msg("SVM broadcast failed, staying SIGNED for next tick")
 }

@@ -55,39 +55,38 @@ func extractSVMDeadline(event *store.Event) int64 {
 // Legacy events (deadline = 0) preserve the pre-deadline eager-revert path —
 // REVERT as soon as PDA is absent, no cluster check needed.
 func (r *Resolver) resolveSVM(ctx context.Context, event *store.Event, chainID string) {
+	log := r.logger.With().Str("event_id", event.EventID).Str("chain_id", chainID).Logger()
+
 	txID, utxID, err := extractOutboundIDs(event)
 	if err != nil {
-		r.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to extract outbound IDs for SVM resolve")
+		log.Warn().Err(err).Msg("failed to extract outbound IDs for SVM resolve")
 		return
 	}
+	log = log.With().Str("tx_id", txID).Logger()
 
 	client, err := r.chains.GetClient(chainID)
 	if err != nil {
-		r.logger.Warn().Err(err).Str("event_id", event.EventID).Str("chain_id", chainID).
-			Msg("failed to get chain client for SVM resolve")
+		log.Warn().Err(err).Msg("failed to get chain client for SVM resolve")
 		return
 	}
 	builder, err := client.GetTxBuilder()
 	if err != nil {
-		r.logger.Warn().Err(err).Str("event_id", event.EventID).Str("chain_id", chainID).
-			Msg("failed to get tx builder for SVM resolve")
+		log.Warn().Err(err).Msg("failed to get tx builder for SVM resolve")
 		return
 	}
 
 	executed, clusterTime, err := builder.IsAlreadyExecuted(ctx, txID)
 	if err != nil {
-		r.logger.Debug().Err(err).Str("event_id", event.EventID).Str("tx_id", txID).
-			Msg("SVM PDA check failed, will retry next tick")
+		log.Debug().Err(err).Msg("SVM PDA check failed, will retry next tick")
 		return
 	}
 
 	if executed {
 		if err := r.eventStore.Update(event.EventID, map[string]any{"status": store.StatusCompleted}); err != nil {
-			r.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to mark SVM event COMPLETED")
+			log.Warn().Err(err).Msg("failed to mark SVM event COMPLETED")
 			return
 		}
-		r.logger.Info().Str("event_id", event.EventID).Str("tx_id", txID).Str("chain_id", chainID).
-			Msg("SVM ExecutedTx PDA found, marked COMPLETED")
+		log.Info().Msg("SVM ExecutedTx PDA found, marked COMPLETED")
 		return
 	}
 
@@ -100,24 +99,16 @@ func (r *Resolver) resolveSVM(ctx context.Context, event *store.Event, chainID s
 		return
 	}
 
+	dlog := log.With().Int64("signing_deadline", deadline).Int64("cluster_block_time", clusterTime).Logger()
 	switch {
 	case clusterTime == 0:
-		r.logger.Debug().
-			Str("event_id", event.EventID).Str("tx_id", txID).Str("chain_id", chainID).
-			Msg("SVM cluster time unavailable, deferring REVERT decision")
+		dlog.Debug().Msg("SVM cluster time unavailable, deferring REVERT decision")
 		return
 	case time.Now().Unix()-clusterTime > svmClusterStaleSeconds:
-		r.logger.Warn().
-			Str("event_id", event.EventID).Str("tx_id", txID).Str("chain_id", chainID).
-			Int64("cluster_block_time", clusterTime).
-			Msg("SVM cluster appears stale, deferring REVERT")
+		dlog.Warn().Msg("SVM cluster appears stale, deferring REVERT")
 		return
 	case clusterTime <= deadline+svmRevertSlackSeconds:
-		r.logger.Debug().
-			Str("event_id", event.EventID).Str("tx_id", txID).Str("chain_id", chainID).
-			Int64("signing_deadline", deadline).
-			Int64("cluster_block_time", clusterTime).
-			Msg("SVM PDA absent but cluster clock still inside deadline window, will retry next tick")
+		dlog.Debug().Msg("SVM PDA absent but cluster clock still inside deadline window, will retry next tick")
 		return
 	}
 

@@ -9,14 +9,14 @@ import (
 )
 
 // svmRevertSlackSeconds is the buffer past the signed deadline before the
-// resolver finalizes REVERT. Matches the broadcaster's slack so the two
-// modules agree on when the payload is dead.
+// resolver finalizes REVERT. Gives an in-flight tx that's already confirmed
+// time to reach `finalized` before we vote against it.
 const svmRevertSlackSeconds int64 = 60
 
 // svmClusterStaleSeconds is how far the latest finalized block's timestamp
 // can lag wall-clock before the cluster is treated as halted or stalled —
 // either case means our `finalized` queries may be missing recently-included
-// txs, so we defer REVERT. MUST match the broadcaster-side constant.
+// txs, so we defer REVERT.
 const svmClusterStaleSeconds int64 = 120
 
 // svmEventEnvelope is the slice of the persisted outbound event the resolver

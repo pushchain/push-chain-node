@@ -342,7 +342,7 @@ func TestSVM_BroadcastSuccess_MarksBroadcasted(t *testing.T) {
 	client := &mockChainClient{builder: builder}
 	ch := newTestChains(t, "solana:mainnet", uregistrytypes.VmType_SVM, client)
 
-	insertSignedEvent(t, db, "ev-1", "solana:mainnet", 0)
+	insertSignedSVMEventWithDeadline(t, db, "ev-1", "solana:mainnet", 0, time.Now().Unix()+600)
 
 	builder.On("BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return("solTxSig123", nil)

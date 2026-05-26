@@ -51,9 +51,9 @@ func (m *mockTxBuilder) VerifyBroadcastedTx(ctx context.Context, txHash string) 
 	return args.Bool(0), args.Get(1).(uint64), args.Get(2).(uint64), args.Get(3).(uint8), args.Error(4)
 }
 
-func (m *mockTxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, error) {
+func (m *mockTxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, int64, error) {
 	args := m.Called(ctx, txID)
-	return args.Bool(0), args.Error(1)
+	return args.Bool(0), args.Get(1).(int64), args.Error(2)
 }
 
 func (m *mockTxBuilder) GetGasFeeUsed(ctx context.Context, txHash string) (string, error) {
@@ -259,7 +259,7 @@ func TestSVM_PDAExists_MarksCompleted(t *testing.T) {
 	eventData := makeOutboundEventData("tx-123", "utx-456", "solana:mainnet")
 	insertBroadcastedEvent(t, db, "ev-1", "solana:mainnet", "solana:mainnet:solTxSig", eventData)
 
-	builder.On("IsAlreadyExecuted", mock.Anything, "tx-123").Return(true, nil)
+	builder.On("IsAlreadyExecuted", mock.Anything, "tx-123").Return(true, int64(0), nil)
 
 	resolver := newResolver(evtStore, ch)
 	ev := getEvent(t, db, "ev-1")
@@ -281,7 +281,7 @@ func TestSVM_PDANotFound_VotesFailureAndReverts(t *testing.T) {
 	eventData := makeOutboundEventData("tx-123", "utx-456", "solana:mainnet")
 	insertBroadcastedEvent(t, db, "ev-1", "solana:mainnet", "solana:mainnet:", eventData)
 
-	builder.On("IsAlreadyExecuted", mock.Anything, "tx-123").Return(false, nil)
+	builder.On("IsAlreadyExecuted", mock.Anything, "tx-123").Return(false, int64(0), nil)
 
 	// No PushSigner — voteFailure logs a warning and returns nil without marking REVERTED.
 	resolver := newResolver(evtStore, ch)
@@ -303,7 +303,7 @@ func TestSVM_PDACheckFails_StaysBroadcasted(t *testing.T) {
 	eventData := makeOutboundEventData("tx-123", "utx-456", "solana:mainnet")
 	insertBroadcastedEvent(t, db, "ev-1", "solana:mainnet", "solana:mainnet:solTxSig", eventData)
 
-	builder.On("IsAlreadyExecuted", mock.Anything, "tx-123").Return(false, assert.AnError)
+	builder.On("IsAlreadyExecuted", mock.Anything, "tx-123").Return(false, int64(0), assert.AnError)
 
 	resolver := newResolver(evtStore, ch)
 	ev := getEvent(t, db, "ev-1")
@@ -776,7 +776,7 @@ func TestResolveOutbound_SVM_RoutingPath(t *testing.T) {
 	insertBroadcastedEvent(t, db, "ev-svm-route", "solana:mainnet", "solana:mainnet:someSig", eventData)
 
 	// PDA found → COMPLETED
-	builder.On("IsAlreadyExecuted", mock.Anything, "tx-svm-1").Return(true, nil)
+	builder.On("IsAlreadyExecuted", mock.Anything, "tx-svm-1").Return(true, int64(0), nil)
 
 	resolver := newResolver(evtStore, ch)
 	resolver.processBroadcasted(context.Background())

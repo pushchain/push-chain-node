@@ -172,6 +172,40 @@ func (rc *RPCClient) GetLatestSlot(ctx context.Context) (uint64, error) {
 	return slot, err
 }
 
+// LatestFinalizedBlockTime returns the unix timestamp of the latest finalized
+// block — the cluster's view of "now" against which on-chain deadline checks
+// fire. Used by broadcaster and resolver to gate deadline-based decisions:
+// comparing local wall-clock to this value catches host-clock skew, full
+// cluster halts (block time stops advancing), and finalization stalls (the
+// latest *finalized* block ages even while production continues).
+//
+// Returns 0 + nil error if block time is unavailable for the latest slot
+// (e.g., the slot is too new for the RPC to have indexed). Returns 0 + err
+// only when the slot lookup itself fails.
+func (rc *RPCClient) LatestFinalizedBlockTime(ctx context.Context) (int64, error) {
+	slot, err := rc.GetLatestSlot(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	var blockTime int64
+	if err := rc.executeWithFailover(ctx, "get_block_time", func(client *rpc.Client) error {
+		t, innerErr := client.GetBlockTime(ctx, slot)
+		if innerErr != nil {
+			return innerErr
+		}
+		if t != nil {
+			blockTime = int64(*t)
+		}
+		return nil
+	}); err != nil {
+		// Block-time lookup failed (e.g., slot too recent). Surface 0 so caller
+		// treats it as "unknown freshness" and defers irreversible decisions.
+		return 0, nil
+	}
+	return blockTime, nil
+}
+
 // GetRecentBlockhash gets a recent blockhash for transaction building
 func (rc *RPCClient) GetRecentBlockhash(ctx context.Context) (solana.Hash, error) {
 	var blockhash solana.Hash

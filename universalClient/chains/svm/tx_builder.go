@@ -426,14 +426,19 @@ func (tb *TxBuilder) GetNextNonce(ctx context.Context, signerAddress string, use
 }
 
 // IsAlreadyExecuted checks if the ExecutedTx PDA for the given txID exists on-chain,
-// indicating another relayer has already processed this transaction.
-func (tb *TxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, error) {
+// indicating another relayer has already processed this transaction. Also
+// returns the latest finalized block's unix timestamp — the cluster's view of
+// "now" — so callers can gate deadline-based decisions against cluster time
+// rather than the host's local clock. queryBlockTime is best-effort: 0 means
+// the RPC couldn't supply it and the caller should treat cluster freshness as
+// unknown (defer irreversible decisions).
+func (tb *TxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, int64, error) {
 	txIDBytes, err := hex.DecodeString(removeHexPrefix(txID))
 	if err != nil {
-		return false, fmt.Errorf("invalid txID: %s", txID)
+		return false, 0, fmt.Errorf("invalid txID: %s", txID)
 	}
 	if len(txIDBytes) != 32 {
-		return false, fmt.Errorf("txID must be 32 bytes, got %d", len(txIDBytes))
+		return false, 0, fmt.Errorf("txID must be 32 bytes, got %d", len(txIDBytes))
 	}
 
 	var txIDArr [32]byte
@@ -441,17 +446,16 @@ func (tb *TxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, 
 
 	executedTxPDA, _, err := solana.FindProgramAddress([][]byte{executedSubTxSeed, txIDArr[:]}, tb.gatewayAddress)
 	if err != nil {
-		return false, fmt.Errorf("failed to derive executed_tx PDA: %w", err)
+		return false, 0, fmt.Errorf("failed to derive executed_tx PDA: %w", err)
 	}
 
-	data, err := tb.rpcClient.GetAccountData(ctx, executedTxPDA)
-	if err != nil {
-		// Account doesn't exist or RPC error — treat as not executed
-		return false, nil
-	}
+	data, _ := tb.rpcClient.GetAccountData(ctx, executedTxPDA)
+	executed := len(data) > 0
 
-	// If we got non-empty data, the PDA exists → tx was already executed
-	return len(data) > 0, nil
+	// Cluster freshness signal — best-effort; 0 on RPC failure.
+	blockTime, _ := tb.rpcClient.LatestFinalizedBlockTime(ctx)
+
+	return executed, blockTime, nil
 }
 
 // GetGasFeeUsed returns "0" for SVM. SVM gas accounting is handled via vault

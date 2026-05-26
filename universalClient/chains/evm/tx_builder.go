@@ -441,10 +441,11 @@ func parseGasLimit(gasLimitStr string) (*big.Int, error) {
 	return gasLimit, nil
 }
 
-// IsAlreadyExecuted returns false for EVM. EVM uses nonce-based replay protection,
-// checked via GetNextNonce in the broadcaster.
-func (tb *TxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, error) {
-	return false, nil
+// IsAlreadyExecuted returns (false, 0, nil) for EVM. EVM uses nonce-based
+// replay protection (checked via GetNextNonce in the broadcaster); the
+// cluster-time signal is SVM-only.
+func (tb *TxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, int64, error) {
+	return false, 0, nil
 }
 
 

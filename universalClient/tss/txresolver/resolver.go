@@ -30,20 +30,19 @@ type Config struct {
 	PushSigner    *pushsigner.Signer
 	CheckInterval time.Duration
 	Logger        zerolog.Logger
+	// GetTSSAddress returns the current TSS ECDSA address — used by the EVM
+	// resolver path to compare on-chain finalized nonce against the signed nonce
+	GetTSSAddress func(ctx context.Context) (string, error)
 }
-
-// maxNotFoundRetries is the number of consecutive "not found" checks before reverting.
-// At a 30s check interval this gives ~5 minutes for a tx to appear on chain.
-const maxNotFoundRetries = 10
 
 // Resolver takes BROADCASTED txs and moves them to terminal status (COMPLETED or REVERTED).
 type Resolver struct {
-	eventStore     *eventstore.Store
-	chains         *chains.Chains
-	pushSigner     *pushsigner.Signer
-	checkInterval  time.Duration
-	logger         zerolog.Logger
-	notFoundCounts map[string]int // eventID -> consecutive not-found count
+	eventStore    *eventstore.Store
+	chains        *chains.Chains
+	pushSigner    *pushsigner.Signer
+	checkInterval time.Duration
+	logger        zerolog.Logger
+	getTSSAddress func(ctx context.Context) (string, error)
 }
 
 // NewResolver creates a new tx resolver.
@@ -53,12 +52,12 @@ func NewResolver(cfg Config) *Resolver {
 		interval = 15 * time.Second
 	}
 	return &Resolver{
-		eventStore:     cfg.EventStore,
-		chains:         cfg.Chains,
-		pushSigner:     cfg.PushSigner,
-		checkInterval:  interval,
-		logger:         cfg.Logger.With().Str("component", "txresolver").Logger(),
-		notFoundCounts: make(map[string]int),
+		eventStore:    cfg.EventStore,
+		chains:        cfg.Chains,
+		pushSigner:    cfg.PushSigner,
+		checkInterval: interval,
+		logger:        cfg.Logger.With().Str("component", "txresolver").Logger(),
+		getTSSAddress: cfg.GetTSSAddress,
 	}
 }
 

@@ -336,13 +336,15 @@ func TestEVM_GetTSSAddressNil_UsesEmptyAddress(t *testing.T) {
 }
 
 func TestSVM_BroadcastSuccess_MarksBroadcasted(t *testing.T) {
-	// Broadcast succeeds → BROADCASTED with tx hash.
+	// Broadcast succeeds → BROADCASTED with tx hash. Future deadline keeps the
+	// broadcaster out of the cluster-time branch (deadline=0 events take the
+	// legacy hand-off-to-resolver path; tested separately).
 	evtStore, db := setupTestDB(t)
 	builder := &mockTxBuilder{}
 	client := &mockChainClient{builder: builder}
 	ch := newTestChains(t, "solana:mainnet", uregistrytypes.VmType_SVM, client)
 
-	insertSignedEvent(t, db, "ev-1", "solana:mainnet", 0)
+	insertSignedSVMEventWithDeadline(t, db, "ev-1", "solana:mainnet", 0, time.Now().Unix()+600)
 
 	builder.On("BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return("solTxSig123", nil)
@@ -357,12 +359,13 @@ func TestSVM_BroadcastSuccess_MarksBroadcasted(t *testing.T) {
 
 func TestSVM_BroadcastFails_PDAExists_MarksBroadcasted(t *testing.T) {
 	// Broadcast fails, but ExecutedTx PDA exists → another relayer processed it → BROADCASTED.
+	// Future deadline so the broadcaster goes to broadcast attempt (not cluster check).
 	evtStore, db := setupTestDB(t)
 	builder := &mockTxBuilder{}
 	client := &mockChainClient{builder: builder}
 	ch := newTestChains(t, "solana:mainnet", uregistrytypes.VmType_SVM, client)
 
-	insertSignedEvent(t, db, "ev-1", "solana:mainnet", 0)
+	insertSignedSVMEventWithDeadline(t, db, "ev-1", "solana:mainnet", 0, time.Now().Unix()+600)
 
 	builder.On("BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return("", fmt.Errorf("tx simulation failed: account already exists"))
@@ -484,12 +487,13 @@ func TestSVM_PastLocalDeadline_RPCError_StaysSigned(t *testing.T) {
 
 func TestSVM_BroadcastFails_PDACheckFails_StaysSigned(t *testing.T) {
 	// Broadcast fails, PDA check also fails (RPC truly down) → stays SIGNED for retry.
+	// Future deadline so the broadcaster goes to broadcast attempt (not cluster check).
 	evtStore, db := setupTestDB(t)
 	builder := &mockTxBuilder{}
 	client := &mockChainClient{builder: builder}
 	ch := newTestChains(t, "solana:mainnet", uregistrytypes.VmType_SVM, client)
 
-	insertSignedEvent(t, db, "ev-1", "solana:mainnet", 0)
+	insertSignedSVMEventWithDeadline(t, db, "ev-1", "solana:mainnet", 0, time.Now().Unix()+600)
 
 	builder.On("BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return("", fmt.Errorf("RPC timeout"))

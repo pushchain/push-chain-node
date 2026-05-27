@@ -114,6 +114,8 @@ message ChainConfig {
   google.protobuf.Duration gas_oracle_fetch_interval = 8 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true]; // how often relayers should fetch gas prices
 
   repeated VaultMethods vault_methods = 9; // List of methods exposed by the vault contract (optional)
+
+  google.protobuf.Duration tss_signing_deadline = 10 [(gogoproto.stdduration) = true]; // duration added to block time to compute the signature expiry deadline on the destination chain (zero = no expiry)
 }
 
 message NativeRepresentation {

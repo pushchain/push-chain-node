@@ -245,42 +245,54 @@ func TestConvertOutboundToEvent(t *testing.T) {
 		assert.Equal(t, "3", data.LogIndex)
 		assert.Empty(t, data.RevertMsg)
 	})
-}
 
-func TestDefaultExpiryOffset(t *testing.T) {
-	assert.Equal(t, uint64(600), uint64(DefaultExpiryOffset))
-}
-
-func TestHashEventID(t *testing.T) {
-	t.Run("deterministic output", func(t *testing.T) {
-		id1 := hashEventID("keygen", "123")
-		id2 := hashEventID("keygen", "123")
-		assert.Equal(t, id1, id2)
+	t.Run("both nil returns error", func(t *testing.T) {
+		result, err := convertOutboundToEvent(nil, nil)
+		require.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "entry or outbound is nil")
 	})
 
-	t.Run("different types produce different IDs", func(t *testing.T) {
-		id1 := hashEventID("keygen", "123")
-		id2 := hashEventID("refresh", "123")
-		assert.NotEqual(t, id1, id2)
+	t.Run("chain-supplied signing deadline flows through", func(t *testing.T) {
+		entry := &uexecutortypes.PendingOutboundEntry{
+			OutboundId:      "0xabc",
+			UniversalTxId:   "utx-deadline",
+			CreatedAt:       1000,
+			SigningDeadline: 1735689600,
+		}
+		outbound := &uexecutortypes.OutboundTx{
+			Id:               "0xabc",
+			DestinationChain: "solana:devnet",
+			Amount:           "1",
+		}
+
+		result, err := convertOutboundToEvent(entry, outbound)
+		require.NoError(t, err)
+
+		var data uexecutortypes.OutboundCreatedEvent
+		require.NoError(t, json.Unmarshal(result.EventData, &data))
+		assert.Equal(t, int64(1735689600), data.SigningDeadline)
 	})
 
-	t.Run("different raw IDs produce different IDs", func(t *testing.T) {
-		id1 := hashEventID("keygen", "1")
-		id2 := hashEventID("keygen", "2")
-		assert.NotEqual(t, id1, id2)
-	})
+	t.Run("zero signing deadline stays zero", func(t *testing.T) {
+		entry := &uexecutortypes.PendingOutboundEntry{
+			OutboundId:    "0xnone",
+			UniversalTxId: "utx-no-deadline",
+			CreatedAt:     1000,
+		}
+		outbound := &uexecutortypes.OutboundTx{
+			Id:               "0xnone",
+			DestinationChain: "eip155:1",
+			Amount:           "1",
+		}
 
-	t.Run("output is hex string of sha256 length", func(t *testing.T) {
-		id := hashEventID("type", "id")
-		assert.Len(t, id, 64) // sha256 = 32 bytes = 64 hex chars
-	})
-}
+		result, err := convertOutboundToEvent(entry, outbound)
+		require.NoError(t, err)
 
-func TestConvertOutboundToEvent_BothNil(t *testing.T) {
-	result, err := convertOutboundToEvent(nil, nil)
-	require.Error(t, err)
-	assert.Nil(t, result)
-	assert.Contains(t, err.Error(), "entry or outbound is nil")
+		var data uexecutortypes.OutboundCreatedEvent
+		require.NoError(t, json.Unmarshal(result.EventData, &data))
+		assert.Equal(t, int64(0), data.SigningDeadline)
+	})
 }
 
 func TestConvertFundMigrationEvent(t *testing.T) {
@@ -340,4 +352,33 @@ func TestConvertFundMigrationEvent(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, hashEventID(store.EventTypeSignFundMigrate, "42"), result.EventID)
 	})
+}
+
+func TestHashEventID(t *testing.T) {
+	t.Run("deterministic output", func(t *testing.T) {
+		id1 := hashEventID("keygen", "123")
+		id2 := hashEventID("keygen", "123")
+		assert.Equal(t, id1, id2)
+	})
+
+	t.Run("different types produce different IDs", func(t *testing.T) {
+		id1 := hashEventID("keygen", "123")
+		id2 := hashEventID("refresh", "123")
+		assert.NotEqual(t, id1, id2)
+	})
+
+	t.Run("different raw IDs produce different IDs", func(t *testing.T) {
+		id1 := hashEventID("keygen", "1")
+		id2 := hashEventID("keygen", "2")
+		assert.NotEqual(t, id1, id2)
+	})
+
+	t.Run("output is hex string of sha256 length", func(t *testing.T) {
+		id := hashEventID("type", "id")
+		assert.Len(t, id, 64) // sha256 = 32 bytes = 64 hex chars
+	})
+}
+
+func TestDefaultExpiryOffset(t *testing.T) {
+	assert.Equal(t, uint64(600), uint64(DefaultExpiryOffset))
 }

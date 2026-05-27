@@ -20,6 +20,7 @@ import (
 	contractauditchanges "github.com/pushchain/push-chain-node/app/upgrades/contract-audit-changes"
 	evmparamsmigration "github.com/pushchain/push-chain-node/app/upgrades/evm-params-migration"
 	evmchainidffix "github.com/pushchain/push-chain-node/app/upgrades/evm-chainid-fix"
+	evmpreinstalls "github.com/pushchain/push-chain-node/app/upgrades/evm-preinstalls"
 	ethhashfix "github.com/pushchain/push-chain-node/app/upgrades/eth-hash-fix"
 	evmrpcfix "github.com/pushchain/push-chain-node/app/upgrades/evm-rpc-fix"
 	feeabs "github.com/pushchain/push-chain-node/app/upgrades/fee-abs"
@@ -71,6 +72,7 @@ var Upgrades = []upgrades.Upgrade{
 	contractauditchanges.NewUpgrade(),
 	evmparamsmigration.NewUpgrade(),
 	evmchainidffix.NewUpgrade(),
+	evmpreinstalls.NewUpgrade(),
 }
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers

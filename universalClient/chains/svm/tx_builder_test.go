@@ -401,6 +401,7 @@ func TestConstructTSSMessage(t *testing.T) {
 		msg := []byte("PUSH_CHAIN_SVM")
 		msg = append(msg, 1) // instruction_id
 		msg = append(msg, []byte("devnet")...)
+		msg = append(msg, make([]byte, 8)...) // deadline(i64 BE) = 0
 		amountBE := make([]byte, 8)
 		binary.BigEndian.PutUint64(amountBE, 1000000)
 		msg = append(msg, amountBE...)
@@ -438,6 +439,7 @@ func TestConstructTSSMessage(t *testing.T) {
 		msg := []byte("PUSH_CHAIN_SVM")
 		msg = append(msg, 2)
 		msg = append(msg, []byte("devnet")...)
+		msg = append(msg, make([]byte, 8)...) // deadline(i64 BE) = 0
 		amountBE := make([]byte, 8)
 		binary.BigEndian.PutUint64(amountBE, 2000000)
 		msg = append(msg, amountBE...)
@@ -482,6 +484,7 @@ func TestConstructTSSMessage(t *testing.T) {
 		msg := []byte("PUSH_CHAIN_SVM")
 		msg = append(msg, 3)
 		msg = append(msg, []byte("devnet")...)
+		msg = append(msg, make([]byte, 8)...) // deadline(i64 BE) = 0
 		amountBE := make([]byte, 8)
 		binary.BigEndian.PutUint64(amountBE, 500000)
 		msg = append(msg, amountBE...)
@@ -512,6 +515,7 @@ func TestConstructTSSMessage(t *testing.T) {
 		msg := []byte("PUSH_CHAIN_SVM")
 		msg = append(msg, 3)
 		msg = append(msg, []byte("devnet")...)
+		msg = append(msg, make([]byte, 8)...) // deadline(i64 BE) = 0
 		amountBE := make([]byte, 8)
 		binary.BigEndian.PutUint64(amountBE, 750000)
 		msg = append(msg, amountBE...)
@@ -587,6 +591,7 @@ func TestConstructTSSMessage(t *testing.T) {
 		msg := []byte("PUSH_CHAIN_SVM")
 		msg = append(msg, 4)
 		msg = append(msg, []byte("devnet")...)
+		msg = append(msg, make([]byte, 8)...) // deadline(i64 BE) = 0
 		amountBE := make([]byte, 8)
 		binary.BigEndian.PutUint64(amountBE, 300000)
 		msg = append(msg, amountBE...)
@@ -615,6 +620,7 @@ func TestConstructTSSMessage(t *testing.T) {
 		msg := []byte("PUSH_CHAIN_SVM")
 		msg = append(msg, 4)
 		msg = append(msg, []byte("devnet")...)
+		msg = append(msg, make([]byte, 8)...) // deadline(i64 BE) = 0
 		amountBE := make([]byte, 8)
 		binary.BigEndian.PutUint64(amountBE, 400000)
 		msg = append(msg, amountBE...)
@@ -645,6 +651,7 @@ func TestConstructTSSMessage(t *testing.T) {
 		msg := []byte("PUSH_CHAIN_SVM")
 		msg = append(msg, 1)
 		msg = append(msg, []byte(chainID)...)  // raw UTF-8, no 4-byte length prefix
+		msg = append(msg, make([]byte, 8)...)  // deadline(i64 BE) = 0
 		msg = append(msg, make([]byte, 8)...)  // amount BE
 		msg = append(msg, make([]byte, 32)...) // tx_id
 		msg = append(msg, make([]byte, 32)...) // utx_id
@@ -681,11 +688,11 @@ func TestConstructTSSMessage_HashIsKeccak256(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	// Build the raw message
+	// Build the raw message: prefix || id || chain_id || deadline(8) || amount(8) || tx_id(32) || utx_id(32) || sender(20) || token(32) || gas_fee(8) || target(32)
 	msg := []byte("PUSH_CHAIN_SVM")
 	msg = append(msg, 1)
 	msg = append(msg, 'x')
-	msg = append(msg, make([]byte, 8+32+32+20+32+8+32)...)
+	msg = append(msg, make([]byte, 8+8+32+32+20+32+8+32)...)
 
 	// Must be keccak256 (not sha256)
 	keccakHash := crypto.Keccak256(msg)
@@ -981,18 +988,21 @@ func TestBuildWithdrawAndExecuteData(t *testing.T) {
 		// Check gas_fee (u64 LE)
 		assert.Equal(t, uint64(0), binary.LittleEndian.Uint64(data[109:117]), "gas_fee")
 
-		// Check signature (no more rent_fee — directly after gas_fee)
-		assert.Equal(t, sig, data[117:181], "signature")
+		// Check deadline (i64 LE) — inserted between gas_fee and signature
+		assert.Equal(t, uint64(0), binary.LittleEndian.Uint64(data[117:125]), "deadline")
+
+		// Check signature
+		assert.Equal(t, sig, data[125:189], "signature")
 
 		// Check recovery_id
-		assert.Equal(t, byte(2), data[181], "recovery_id")
+		assert.Equal(t, byte(2), data[189], "recovery_id")
 
 		// Check message_hash
-		assert.Equal(t, msgHash, data[182:214], "message_hash")
+		assert.Equal(t, msgHash, data[190:222], "message_hash")
 
 		// Total length: 8(disc) + 1(id) + 32(txid) + 32(utxid) + 8(amt) + 20(sender)
-		//             + 4(wf_len) + 0(wf) + 4(ix_len) + 0(ix) + 8(gas) + 64(sig) + 1(recov) + 32(hash) = 214
-		assert.Len(t, data, 214)
+		//             + 4(wf_len) + 0(wf) + 4(ix_len) + 0(ix) + 8(gas) + 8(deadline) + 64(sig) + 1(recov) + 32(hash) = 222
+		assert.Len(t, data, 222)
 	})
 
 	t.Run("execute (id=2) with accounts and ix_data", func(t *testing.T) {
@@ -1028,7 +1038,11 @@ func TestBuildWithdrawAndExecuteData(t *testing.T) {
 		assert.Equal(t, uint64(100), binary.LittleEndian.Uint64(data[offset:offset+8]))
 		offset += 8
 
-		// signature + recovery_id + message_hash (no more rent_fee)
+		// deadline (i64 LE) — inserted between gas_fee and signature
+		assert.Equal(t, uint64(0), binary.LittleEndian.Uint64(data[offset:offset+8]))
+		offset += 8
+
+		// signature + recovery_id + message_hash
 		assert.Equal(t, sig, data[offset:offset+64])
 		offset += 64
 		assert.Equal(t, byte(0), data[offset])
@@ -1087,11 +1101,12 @@ func TestBuildRescueData(t *testing.T) {
 		assert.Equal(t, utxID[:], data[40:72], "universal_tx_id")
 		assert.Equal(t, uint64(5000), binary.LittleEndian.Uint64(data[72:80]), "amount")
 		assert.Equal(t, uint64(100), binary.LittleEndian.Uint64(data[80:88]), "gas_fee")
-		assert.Equal(t, sig, data[88:152], "signature")
-		assert.Equal(t, byte(1), data[152], "recovery_id")
-		assert.Equal(t, msgHash, data[153:185], "message_hash")
-		// Total: 8(disc) + 32(txid) + 32(utxid) + 8(amount) + 8(gasFee) + 64(sig) + 1(recov) + 32(hash) = 185
-		assert.Len(t, data, 185)
+		assert.Equal(t, uint64(0), binary.LittleEndian.Uint64(data[88:96]), "deadline")
+		assert.Equal(t, sig, data[96:160], "signature")
+		assert.Equal(t, byte(1), data[160], "recovery_id")
+		assert.Equal(t, msgHash, data[161:193], "message_hash")
+		// Total: 8(disc) + 32(txid) + 32(utxid) + 8(amount) + 8(gasFee) + 8(deadline) + 64(sig) + 1(recov) + 32(hash) = 193
+		assert.Len(t, data, 193)
 	})
 
 	t.Run("rescue has no revert instructions (unlike revert)", func(t *testing.T) {
@@ -1443,9 +1458,9 @@ func TestEndToEndWithdrawMessageAndData(t *testing.T) {
 
 	// Extract message_hash from instruction data
 	// Offset: 8(disc) + 1(id) + 32(txid) + 32(utxid) + 8(amount) + 20(sender)
-	//       + 4(wf_len) + 0(wf) + 4(ix_len) + 0(ix) + 8(gas) + 64(sig) + 1(recov)
-	//       = 182
-	msgHashFromData := instrData[182:214]
+	//       + 4(wf_len) + 0(wf) + 4(ix_len) + 0(ix) + 8(gas) + 8(deadline) + 64(sig) + 1(recov)
+	//       = 190
+	msgHashFromData := instrData[190:222]
 	assert.Equal(t, msgHash, msgHashFromData, "message_hash in instruction data must match TSS message hash")
 }
 
@@ -1483,10 +1498,10 @@ func TestEndToEndWithRealSignature(t *testing.T) {
 
 		// 4. Verify the instruction data contains the real signature
 		// Offset: 8(disc) + 1(id) + 32(txid) + 32(utxid) + 8(amt) + 20(sender)
-		//       + 4(wf_len) + 0(wf) + 4(ix_len) + 0(ix) + 8(gas) = 117
-		assert.Equal(t, sig, instrData[117:181], "real signature in instruction data")
-		assert.Equal(t, recoveryID, instrData[181], "recovery ID in instruction data")
-		assert.Equal(t, msgHash, instrData[182:214], "message hash in instruction data")
+		//       + 4(wf_len) + 0(wf) + 4(ix_len) + 0(ix) + 8(gas) + 8(deadline) = 125
+		assert.Equal(t, sig, instrData[125:189], "real signature in instruction data")
+		assert.Equal(t, recoveryID, instrData[189], "recovery ID in instruction data")
+		assert.Equal(t, msgHash, instrData[190:222], "message hash in instruction data")
 	})
 
 	t.Run("execute flow with real signature", func(t *testing.T) {
@@ -1516,8 +1531,8 @@ func TestEndToEndWithRealSignature(t *testing.T) {
 
 		// Verify instruction data length includes variable-length fields
 		// 8(disc) + 1(id) + 32(txid) + 32(utxid) + 8(amt) + 20(sender)
-		// + 4+1(wf) + 4+2(ix) + 8(gas) + 64(sig) + 1(recov) + 32(hash)
-		expectedLen := 8 + 1 + 32 + 32 + 8 + 20 + 5 + 6 + 8 + 64 + 1 + 32
+		// + 4+1(wf) + 4+2(ix) + 8(gas) + 8(deadline) + 64(sig) + 1(recov) + 32(hash)
+		expectedLen := 8 + 1 + 32 + 32 + 8 + 20 + 5 + 6 + 8 + 8 + 64 + 1 + 32
 		assert.Len(t, instrData, expectedLen)
 	})
 
@@ -1570,8 +1585,8 @@ func TestEndToEndWithRealSignature(t *testing.T) {
 		expectedDisc := anchorDiscriminator("rescue_funds")
 		assert.Equal(t, expectedDisc, instrData[:8])
 
-		// Verify total length: 8(disc) + 32(txid) + 32(utxid) + 8(amt) + 8(gas) + 64(sig) + 1(recov) + 32(hash) = 185
-		assert.Len(t, instrData, 185)
+		// Verify total length: 8(disc) + 32(txid) + 32(utxid) + 8(amt) + 8(gas) + 8(deadline) + 64(sig) + 1(recov) + 32(hash) = 193
+		assert.Len(t, instrData, 193)
 	})
 }
 
@@ -1831,9 +1846,10 @@ func TestBuildWithdrawAndExecuteRefData_ArgOrder(t *testing.T) {
 	// 133..137 writable_flags len
 	// 137..140 writable_flags
 	// 140..148 gas_fee (LE)
-	// 148..212 signature
-	// 212      recovery_id
-	// 213..245 message_hash
+	// 148..156 deadline (i64 LE)
+	// 156..220 signature
+	// 220      recovery_id
+	// 221..253 message_hash
 
 	assert.Equal(t, discFinalizeUniversalTxRef[:], data[0:8])
 	assert.Equal(t, uint8(2), data[8])
@@ -1845,10 +1861,11 @@ func TestBuildWithdrawAndExecuteRefData_ArgOrder(t *testing.T) {
 	assert.Equal(t, uint32(3), binary.LittleEndian.Uint32(data[133:137]), "writable_flags length")
 	assert.Equal(t, writableFlags, data[137:140], "writable_flags bytes")
 	assert.Equal(t, uint64(500_000), binary.LittleEndian.Uint64(data[140:148]))
-	assert.Equal(t, signature, data[148:212])
-	assert.Equal(t, uint8(1), data[212])
-	assert.Equal(t, msgHash, data[213:245])
-	assert.Equal(t, 245, len(data))
+	assert.Equal(t, uint64(0), binary.LittleEndian.Uint64(data[148:156]), "deadline")
+	assert.Equal(t, signature, data[156:220])
+	assert.Equal(t, uint8(1), data[220])
+	assert.Equal(t, msgHash, data[221:253])
+	assert.Equal(t, 253, len(data))
 }
 
 func TestBuildStoreIxDataAccounts(t *testing.T) {

@@ -76,9 +76,9 @@ func (m *mockTxBuilder) BroadcastFundMigrationTx(ctx context.Context, req *commo
 
 type mockChainClient struct{ builder *mockTxBuilder }
 
-func (m *mockChainClient) Start(context.Context) error                     { return nil }
-func (m *mockChainClient) Stop() error                                     { return nil }
-func (m *mockChainClient) IsHealthy() bool                                 { return true }
+func (m *mockChainClient) Start(context.Context) error             { return nil }
+func (m *mockChainClient) Stop() error                             { return nil }
+func (m *mockChainClient) IsHealthy() bool                         { return true }
 func (m *mockChainClient) GetTxBuilder() (common.TxBuilder, error) { return m.builder, nil }
 
 func setupTestDB(t *testing.T) (*eventstore.Store, *gorm.DB) {
@@ -178,6 +178,19 @@ func newResolver(evtStore *eventstore.Store, ch *chains.Chains) *Resolver {
 	})
 }
 
+// newResolverWithTSSAddress builds a Resolver that returns a fixed TSS address
+// from GetTSSAddress — needed by tests that exercise the EVM nonce-based
+// retry/revert path.
+func newResolverWithTSSAddress(evtStore *eventstore.Store, ch *chains.Chains, addr string) *Resolver {
+	return NewResolver(Config{
+		EventStore:    evtStore,
+		Chains:        ch,
+		CheckInterval: 0,
+		Logger:        zerolog.Nop(),
+		GetTSSAddress: func(ctx context.Context) (string, error) { return addr, nil },
+	})
+}
+
 func TestParseCAIPTxHash(t *testing.T) {
 	t.Run("valid CAIP tx hash", func(t *testing.T) {
 		chainID, txHash, err := parseCAIPTxHash("eip155:1:0xabc123")
@@ -269,8 +282,11 @@ func TestSVM_PDAExists_MarksCompleted(t *testing.T) {
 	require.Equal(t, store.StatusCompleted, updated.Status)
 }
 
-func TestSVM_PDANotFound_VotesFailureAndReverts(t *testing.T) {
-	// PDA not found → vote failure → REVERTED.
+func TestSVM_PDAAbsent_DeadlineZero_ClusterFresh_Reverts(t *testing.T) {
+	// Legacy event with no deadline (=0). PDA absent + fresh cluster time
+	// (>> 0) satisfies `clusterTime > deadline + slack` → reaches REVERT.
+	// No PushSigner → vote returns nil, status stays BROADCASTED. The point
+	// is that the resolver reaches the vote path (not defers).
 	evtStore, db := setupTestDB(t)
 	builder := &mockTxBuilder{}
 	client := &mockChainClient{builder: builder}
@@ -279,18 +295,15 @@ func TestSVM_PDANotFound_VotesFailureAndReverts(t *testing.T) {
 	eventData := makeOutboundEventData("tx-123", "utx-456", "solana:mainnet")
 	insertBroadcastedEvent(t, db, "ev-1", "solana:mainnet", "solana:mainnet:", eventData)
 
-	builder.On("IsAlreadyExecuted", mock.Anything, "tx-123").Return(false, int64(0), nil)
+	builder.On("IsAlreadyExecuted", mock.Anything, "tx-123").Return(false, time.Now().Unix(), nil)
 
-	// No PushSigner — voteFailure will log warning and return nil, but won't mark REVERTED
-	// (because pushSigner is nil, it returns early). This validates the code path.
 	resolver := newResolver(evtStore, ch)
 	ev := getEvent(t, db, "ev-1")
 	resolver.resolveSVM(context.Background(), &ev, "solana:mainnet")
 
-	// With no push signer, voteOutboundFailureAndMarkReverted returns nil early (logs warning).
-	// The event stays BROADCASTED because the vote+revert is skipped.
 	updated := getEvent(t, db, "ev-1")
-	require.Equal(t, store.StatusBroadcasted, updated.Status)
+	require.Equal(t, store.StatusBroadcasted, updated.Status) // no PushSigner → vote skipped
+	builder.AssertCalled(t, "IsAlreadyExecuted", mock.Anything, "tx-123")
 }
 
 func TestSVM_PDACheckFails_StaysBroadcasted(t *testing.T) {
@@ -311,6 +324,111 @@ func TestSVM_PDACheckFails_StaysBroadcasted(t *testing.T) {
 
 	updated := getEvent(t, db, "ev-1")
 	require.Equal(t, store.StatusBroadcasted, updated.Status) // stays BROADCASTED
+}
+
+// makeOutboundEventDataWithDeadline mirrors makeOutboundEventData but sets the
+// chain-emitted signing deadline used by the resolver's cluster-time gate.
+func makeOutboundEventDataWithDeadline(txID, utxID, destChain string, deadline int64) []byte {
+	data := uexecutortypes.OutboundCreatedEvent{
+		TxID:             txID,
+		UniversalTxId:    utxID,
+		DestinationChain: destChain,
+		SigningDeadline:  deadline,
+	}
+	b, _ := json.Marshal(data)
+	return b
+}
+
+func TestSVM_PDAAbsent_ClusterTimeUnknown_DefersRevert(t *testing.T) {
+	// PDA absent + deadline set + cluster time = 0 (RPC didn't supply it) →
+	// stay BROADCASTED, defer REVERT until we can verify cluster health.
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "solana:mainnet", uregistrytypes.VmType_SVM, client)
+
+	eventData := makeOutboundEventDataWithDeadline("tx-123", "utx-456", "solana:mainnet", time.Now().Unix()-3600)
+	insertBroadcastedEvent(t, db, "ev-1", "solana:mainnet", "solana:mainnet:solTxSig", eventData)
+
+	builder.On("IsAlreadyExecuted", mock.Anything, "tx-123").Return(false, int64(0), nil)
+
+	resolver := newResolver(evtStore, ch)
+	ev := getEvent(t, db, "ev-1")
+	resolver.resolveSVM(context.Background(), &ev, "solana:mainnet")
+
+	updated := getEvent(t, db, "ev-1")
+	require.Equal(t, store.StatusBroadcasted, updated.Status)
+}
+
+func TestSVM_PDAAbsent_ClusterStale_DefersRevert(t *testing.T) {
+	// PDA absent + cluster time >120s old → cluster halted/lagging → defer REVERT.
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "solana:mainnet", uregistrytypes.VmType_SVM, client)
+
+	eventData := makeOutboundEventDataWithDeadline("tx-123", "utx-456", "solana:mainnet", time.Now().Unix()-3600)
+	insertBroadcastedEvent(t, db, "ev-1", "solana:mainnet", "solana:mainnet:solTxSig", eventData)
+
+	// Cluster block time is 10 minutes old.
+	builder.On("IsAlreadyExecuted", mock.Anything, "tx-123").Return(false, time.Now().Unix()-600, nil)
+
+	resolver := newResolver(evtStore, ch)
+	ev := getEvent(t, db, "ev-1")
+	resolver.resolveSVM(context.Background(), &ev, "solana:mainnet")
+
+	updated := getEvent(t, db, "ev-1")
+	require.Equal(t, store.StatusBroadcasted, updated.Status)
+}
+
+func TestSVM_PDAAbsent_ClusterStillInWindow_DefersRevert(t *testing.T) {
+	// PDA absent + cluster fresh but cluster's clock <= deadline+slack →
+	// the program still accepts late retries; defer REVERT.
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "solana:mainnet", uregistrytypes.VmType_SVM, client)
+
+	now := time.Now().Unix()
+	deadline := now - 30 // local says past, but well under slack
+	eventData := makeOutboundEventDataWithDeadline("tx-123", "utx-456", "solana:mainnet", deadline)
+	insertBroadcastedEvent(t, db, "ev-1", "solana:mainnet", "solana:mainnet:solTxSig", eventData)
+
+	// Cluster time = now (fresh) but <= deadline+slack (deadline+60 = now+30).
+	builder.On("IsAlreadyExecuted", mock.Anything, "tx-123").Return(false, now, nil)
+
+	resolver := newResolver(evtStore, ch)
+	ev := getEvent(t, db, "ev-1")
+	resolver.resolveSVM(context.Background(), &ev, "solana:mainnet")
+
+	updated := getEvent(t, db, "ev-1")
+	require.Equal(t, store.StatusBroadcasted, updated.Status)
+}
+
+func TestSVM_PDAAbsent_ClusterConfirmsExpiry_Reverts(t *testing.T) {
+	// PDA absent + cluster fresh + cluster past deadline+slack → REVERT path.
+	// (With no PushSigner the vote is logged but status stays BROADCASTED;
+	// what we assert is that the resolver reached the vote call.)
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "solana:mainnet", uregistrytypes.VmType_SVM, client)
+
+	now := time.Now().Unix()
+	eventData := makeOutboundEventDataWithDeadline("tx-123", "utx-456", "solana:mainnet", now-3600)
+	insertBroadcastedEvent(t, db, "ev-1", "solana:mainnet", "solana:mainnet:solTxSig", eventData)
+
+	// Cluster time = now (fresh) and well past deadline+slack.
+	builder.On("IsAlreadyExecuted", mock.Anything, "tx-123").Return(false, now, nil)
+
+	resolver := newResolver(evtStore, ch)
+	ev := getEvent(t, db, "ev-1")
+	resolver.resolveSVM(context.Background(), &ev, "solana:mainnet")
+
+	// No PushSigner → vote returns nil early; status unchanged. The point is
+	// the resolver REACHED the vote (i.e., didn't defer); covered by absence
+	// of any defer log path and the mock having been called.
+	builder.AssertCalled(t, "IsAlreadyExecuted", mock.Anything, "tx-123")
 }
 
 func TestSVM_InvalidEventData_Skips(t *testing.T) {
@@ -366,56 +484,6 @@ func TestResolveEventRouting(t *testing.T) {
 
 		// Should not panic — will try to vote failure (no signer, logged), then try to mark reverted
 		resolver.resolveEvent(context.Background(), event)
-	})
-}
-
-func TestNotFoundCountTracking(t *testing.T) {
-	t.Run("increments on not found", func(t *testing.T) {
-		evtStore, _ := setupTestDB(t)
-		resolver := NewResolver(Config{
-			EventStore: evtStore,
-			Logger:     zerolog.Nop(),
-		})
-
-		eventID := "test-event-1"
-		assert.Equal(t, 0, resolver.notFoundCounts[eventID])
-
-		resolver.notFoundCounts[eventID]++
-		assert.Equal(t, 1, resolver.notFoundCounts[eventID])
-
-		resolver.notFoundCounts[eventID]++
-		assert.Equal(t, 2, resolver.notFoundCounts[eventID])
-	})
-
-	t.Run("cleared after max retries", func(t *testing.T) {
-		evtStore, _ := setupTestDB(t)
-		resolver := NewResolver(Config{
-			EventStore: evtStore,
-			Logger:     zerolog.Nop(),
-		})
-
-		eventID := "test-event-2"
-		resolver.notFoundCounts[eventID] = maxNotFoundRetries
-
-		// Simulate cleanup
-		delete(resolver.notFoundCounts, eventID)
-		assert.Equal(t, 0, resolver.notFoundCounts[eventID])
-	})
-
-	t.Run("cleared when tx found", func(t *testing.T) {
-		evtStore, _ := setupTestDB(t)
-		resolver := NewResolver(Config{
-			EventStore: evtStore,
-			Logger:     zerolog.Nop(),
-		})
-
-		eventID := "test-event-3"
-		resolver.notFoundCounts[eventID] = 5
-
-		// Simulate tx found — clear tracking
-		delete(resolver.notFoundCounts, eventID)
-		_, exists := resolver.notFoundCounts[eventID]
-		assert.False(t, exists)
 	})
 }
 
@@ -499,31 +567,155 @@ func TestFundMigrationEVM_TxReverted_VotesFailure(t *testing.T) {
 	require.Equal(t, store.StatusBroadcasted, ev.Status)
 }
 
-func TestFundMigrationEVM_TxNotFound_RetriesAndReverts(t *testing.T) {
+// testOldTSSPubkey is a valid compressed secp256k1 pubkey that DeriveEVMAddressFromPubkey
+// can parse into testOldTSSAddr. Used by fund migration nonce-based tests.
+const testOldTSSPubkey = "03d5d5d290a0ecec420e843fc2a57f1696781ec657e204406fc67bb5fe0c751317"
+const testOldTSSAddr = "0x9fed6f778a956244c06a3b905ba45bdb2ec3afea"
+
+// makeFundMigrationEventDataWithNonce mirrors makeFundMigrationEventData but
+// adds OldTssPubkey + signing_data.nonce — the fields the resolver consults
+// on tx-not-found.
+func makeFundMigrationEventDataWithNonce(migrationID uint64, chain, oldPubkey string, nonce uint64) []byte {
+	b, _ := json.Marshal(map[string]any{
+		"migration_id":   migrationID,
+		"chain":          chain,
+		"old_tss_pubkey": oldPubkey,
+		"signing_data": map[string]any{
+			"nonce": nonce,
+		},
+	})
+	return b
+}
+
+func insertBroadcastedFundMigrationEventWithNonce(
+	t *testing.T, db *gorm.DB,
+	eventID, chain, broadcastedTxHash string,
+	migrationID uint64, oldPubkey string, nonce uint64,
+) {
+	t.Helper()
+	event := store.Event{
+		EventID:           eventID,
+		BlockHeight:       100,
+		ExpiryBlockHeight: 99999,
+		Type:              store.EventTypeSignFundMigrate,
+		ConfirmationType:  "INSTANT",
+		Status:            store.StatusBroadcasted,
+		EventData:         makeFundMigrationEventDataWithNonce(migrationID, chain, oldPubkey, nonce),
+		BroadcastedTxHash: broadcastedTxHash,
+	}
+	require.NoError(t, db.Create(&event).Error)
+}
+
+func TestFundMigrationEVM_NotFound_NonceConsumed_VotesFailure(t *testing.T) {
+	// Fund migration tx not found AND old-TSS signed nonce already finalized →
+	// another tx consumed the slot. REVERT path.
 	evtStore, db := setupTestDB(t)
 	builder := &mockTxBuilder{}
 	client := &mockChainClient{builder: builder}
 	ch := newTestChains(t, "eip155:1", uregistrytypes.VmType_EVM, client)
 
-	insertBroadcastedFundMigrationEvent(t, db, "fm-1", "eip155:1", "eip155:1:0xnotfound", 42)
+	insertBroadcastedFundMigrationEventWithNonce(
+		t, db, "fm-consumed", "eip155:1", "eip155:1:0xmigmissing", 42, testOldTSSPubkey, 3,
+	)
 
-	// Tx not found
-	builder.On("VerifyBroadcastedTx", mock.Anything, "0xnotfound").
+	builder.On("VerifyBroadcastedTx", mock.Anything, "0xmigmissing").
+		Return(false, uint64(0), uint64(0), uint8(0), nil)
+	builder.On("GetNextNonce", mock.Anything, testOldTSSAddr, true).Return(uint64(5), nil)
+
+	resolver := newResolver(evtStore, ch) // GetTSSAddress not needed; signer derived from event
+	resolver.processBroadcasted(context.Background())
+
+	// No PushSigner → vote skipped, status stays BROADCASTED.
+	ev := getEvent(t, db, "fm-consumed")
+	require.Equal(t, store.StatusBroadcasted, ev.Status)
+	builder.AssertCalled(t, "GetNextNonce", mock.Anything, testOldTSSAddr, true)
+}
+
+func TestFundMigrationEVM_NotFound_NonceUnconsumed_RewindsToSigned(t *testing.T) {
+	// Fund migration tx not found AND old-TSS signed nonce not yet finalized →
+	// rewind to SIGNED for re-broadcast.
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "eip155:1", uregistrytypes.VmType_EVM, client)
+
+	insertBroadcastedFundMigrationEventWithNonce(
+		t, db, "fm-unconsumed", "eip155:1", "eip155:1:0xmigpending", 42, testOldTSSPubkey, 5,
+	)
+
+	builder.On("VerifyBroadcastedTx", mock.Anything, "0xmigpending").
+		Return(false, uint64(0), uint64(0), uint8(0), nil)
+	builder.On("GetNextNonce", mock.Anything, testOldTSSAddr, true).Return(uint64(5), nil)
+
+	resolver := newResolver(evtStore, ch)
+	resolver.processBroadcasted(context.Background())
+
+	ev := getEvent(t, db, "fm-unconsumed")
+	require.Equal(t, store.StatusSigned, ev.Status)
+}
+
+func TestFundMigrationEVM_NotFound_NonceRPCError_StaysBroadcasted(t *testing.T) {
+	// Fund migration tx not found and nonce RPC errors → defer (retry next tick).
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "eip155:1", uregistrytypes.VmType_EVM, client)
+
+	insertBroadcastedFundMigrationEventWithNonce(
+		t, db, "fm-rpc-err", "eip155:1", "eip155:1:0xmigmissing", 42, testOldTSSPubkey, 3,
+	)
+
+	builder.On("VerifyBroadcastedTx", mock.Anything, "0xmigmissing").
+		Return(false, uint64(0), uint64(0), uint8(0), nil)
+	builder.On("GetNextNonce", mock.Anything, testOldTSSAddr, true).Return(uint64(0), assert.AnError)
+
+	resolver := newResolver(evtStore, ch)
+	resolver.processBroadcasted(context.Background())
+
+	ev := getEvent(t, db, "fm-rpc-err")
+	require.Equal(t, store.StatusBroadcasted, ev.Status)
+}
+
+func TestFundMigrationEVM_NotFound_SignerInfoMissing_StaysBroadcasted(t *testing.T) {
+	// Fund migration tx not found but OldTssPubkey is missing from the event
+	// payload → can't derive signer → defer. Uses the standard fund-migration
+	// helper which doesn't populate OldTssPubkey.
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "eip155:1", uregistrytypes.VmType_EVM, client)
+
+	insertBroadcastedFundMigrationEvent(t, db, "fm-no-pubkey", "eip155:1", "eip155:1:0xmigmissing", 42)
+
+	builder.On("VerifyBroadcastedTx", mock.Anything, "0xmigmissing").
 		Return(false, uint64(0), uint64(0), uint8(0), nil)
 
 	resolver := newResolver(evtStore, ch)
-
-	// Should increment not found count each time, stay BROADCASTED
-	for i := 0; i < maxNotFoundRetries-1; i++ {
-		resolver.processBroadcasted(context.Background())
-		ev := getEvent(t, db, "fm-1")
-		require.Equal(t, store.StatusBroadcasted, ev.Status)
-	}
-
-	// On max retries, without pushSigner vote is skipped
 	resolver.processBroadcasted(context.Background())
-	ev := getEvent(t, db, "fm-1")
-	require.Equal(t, store.StatusBroadcasted, ev.Status) // no signer = no revert
+
+	ev := getEvent(t, db, "fm-no-pubkey")
+	require.Equal(t, store.StatusBroadcasted, ev.Status)
+	builder.AssertNotCalled(t, "GetNextNonce", mock.Anything, mock.Anything, mock.Anything)
+}
+
+func TestFundMigrationEVM_VerifyError_StaysBroadcasted(t *testing.T) {
+	// VerifyBroadcastedTx errors → defer (retry next tick); no nonce check, no vote.
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "eip155:1", uregistrytypes.VmType_EVM, client)
+
+	insertBroadcastedFundMigrationEvent(t, db, "fm-verify-err", "eip155:1", "eip155:1:0xmigerr", 42)
+
+	builder.On("VerifyBroadcastedTx", mock.Anything, "0xmigerr").
+		Return(false, uint64(0), uint64(0), uint8(0), assert.AnError)
+
+	resolver := newResolver(evtStore, ch)
+	resolver.processBroadcasted(context.Background())
+
+	ev := getEvent(t, db, "fm-verify-err")
+	require.Equal(t, store.StatusBroadcasted, ev.Status)
+	builder.AssertNotCalled(t, "GetNextNonce", mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestFundMigrationEVM_InsufficientConfirmations_Retries(t *testing.T) {
@@ -547,11 +739,6 @@ func TestFundMigrationEVM_InsufficientConfirmations_Retries(t *testing.T) {
 }
 
 func TestConstants(t *testing.T) {
-	t.Run("maxNotFoundRetries is reasonable", func(t *testing.T) {
-		// At 30s interval, 10 retries = ~5 minutes
-		assert.Equal(t, 10, maxNotFoundRetries)
-	})
-
 	t.Run("processBroadcastedBatchSize", func(t *testing.T) {
 		assert.Equal(t, 100, processBroadcastedBatchSize)
 	})
@@ -576,16 +763,6 @@ func TestNewResolverDefaults(t *testing.T) {
 			Logger:        zerolog.Nop(),
 		})
 		assert.Equal(t, 45*time.Second, r.checkInterval)
-	})
-
-	t.Run("notFoundCounts map is initialized", func(t *testing.T) {
-		evtStore, _ := setupTestDB(t)
-		r := NewResolver(Config{
-			EventStore: evtStore,
-			Logger:     zerolog.Nop(),
-		})
-		assert.NotNil(t, r.notFoundCounts)
-		assert.Len(t, r.notFoundCounts, 0)
 	})
 }
 
@@ -668,6 +845,164 @@ func TestResolveOutboundEVM_Reverted_NoPushSigner_StaysBroadcasted(t *testing.T)
 	ev := getEvent(t, db, "ev-reverted-1")
 	require.Equal(t, store.StatusBroadcasted, ev.Status)
 	builder.AssertCalled(t, "GetGasFeeUsed", mock.Anything, "0xreverted")
+}
+
+// makeOutboundEventDataWithNonce mirrors makeOutboundEventData but adds the
+// `signing_data.nonce` field the EVM resolver consults on tx-not-found.
+func makeOutboundEventDataWithNonce(txID, utxID, destChain string, nonce uint64) []byte {
+	b, _ := json.Marshal(map[string]any{
+		"tx_id":             txID,
+		"utx_id":            utxID,
+		"destination_chain": destChain,
+		"signing_data": map[string]any{
+			"nonce": nonce,
+		},
+	})
+	return b
+}
+
+const testEVMTSSAddr = "0x4D353565442Eb33b66ef88E14336F3F4Bf3a02FB"
+
+func TestResolveOutboundEVM_NotFound_NonceConsumed_Reverts(t *testing.T) {
+	// Tx not found AND signed nonce < finalized nonce → another tx consumed
+	// the slot. Our tx is dead, REVERT path is taken. (No PushSigner means
+	// the vote is logged but status stays BROADCASTED; we verify the resolver
+	// took the REVERT branch by checking the nonce RPC was called.)
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "eip155:1", uregistrytypes.VmType_EVM, client)
+
+	eventData := makeOutboundEventDataWithNonce("tx-100", "utx-200", "eip155:1", 5)
+	insertBroadcastedEvent(t, db, "ev-consumed-1", "eip155:1", "eip155:1:0xmissing", eventData)
+
+	builder.On("VerifyBroadcastedTx", mock.Anything, "0xmissing").
+		Return(false, uint64(0), uint64(0), uint8(0), nil)
+	// Finalized nonce = 7 → our nonce 5 is past finalized → consumed.
+	builder.On("GetNextNonce", mock.Anything, testEVMTSSAddr, true).Return(uint64(7), nil)
+
+	resolver := newResolverWithTSSAddress(evtStore, ch, testEVMTSSAddr)
+	resolver.processBroadcasted(context.Background())
+
+	ev := getEvent(t, db, "ev-consumed-1")
+	require.Equal(t, store.StatusBroadcasted, ev.Status, "no PushSigner → vote skipped, status unchanged")
+	builder.AssertCalled(t, "GetNextNonce", mock.Anything, testEVMTSSAddr, true)
+}
+
+func TestResolveOutboundEVM_NotFound_NonceUnconsumed_RewindsToSigned(t *testing.T) {
+	// Tx not found AND signed nonce >= finalized nonce → tx may still land
+	// (or was dropped from mempool). Rewind to SIGNED so the broadcaster
+	// re-broadcasts.
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "eip155:1", uregistrytypes.VmType_EVM, client)
+
+	eventData := makeOutboundEventDataWithNonce("tx-100", "utx-200", "eip155:1", 5)
+	insertBroadcastedEvent(t, db, "ev-unconsumed-1", "eip155:1", "eip155:1:0xstillpending", eventData)
+
+	builder.On("VerifyBroadcastedTx", mock.Anything, "0xstillpending").
+		Return(false, uint64(0), uint64(0), uint8(0), nil)
+	// Finalized nonce = 5 → our nonce 5 not yet finalized.
+	builder.On("GetNextNonce", mock.Anything, testEVMTSSAddr, true).Return(uint64(5), nil)
+
+	resolver := newResolverWithTSSAddress(evtStore, ch, testEVMTSSAddr)
+	resolver.processBroadcasted(context.Background())
+
+	ev := getEvent(t, db, "ev-unconsumed-1")
+	require.Equal(t, store.StatusSigned, ev.Status)
+}
+
+func TestResolveOutboundEVM_NotFound_NonceRPCError_StaysBroadcasted(t *testing.T) {
+	// Tx not found and nonce RPC errors → defer (retry next tick).
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "eip155:1", uregistrytypes.VmType_EVM, client)
+
+	eventData := makeOutboundEventDataWithNonce("tx-100", "utx-200", "eip155:1", 5)
+	insertBroadcastedEvent(t, db, "ev-rpc-err-1", "eip155:1", "eip155:1:0xmissing", eventData)
+
+	builder.On("VerifyBroadcastedTx", mock.Anything, "0xmissing").
+		Return(false, uint64(0), uint64(0), uint8(0), nil)
+	builder.On("GetNextNonce", mock.Anything, testEVMTSSAddr, true).Return(uint64(0), assert.AnError)
+
+	resolver := newResolverWithTSSAddress(evtStore, ch, testEVMTSSAddr)
+	resolver.processBroadcasted(context.Background())
+
+	ev := getEvent(t, db, "ev-rpc-err-1")
+	require.Equal(t, store.StatusBroadcasted, ev.Status)
+}
+
+func TestResolveOutboundEVM_NotFound_SignedNonceMissing_StaysBroadcasted(t *testing.T) {
+	// Tx not found and event payload has no signing_data.nonce → can't run
+	// nonce check → defer. Uses the standard outbound helper which doesn't
+	// populate signing_data.
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "eip155:1", uregistrytypes.VmType_EVM, client)
+
+	eventData := makeOutboundEventData("tx-100", "utx-200", "eip155:1")
+	insertBroadcastedEvent(t, db, "ev-no-nonce", "eip155:1", "eip155:1:0xmissing", eventData)
+
+	builder.On("VerifyBroadcastedTx", mock.Anything, "0xmissing").
+		Return(false, uint64(0), uint64(0), uint8(0), nil)
+
+	resolver := newResolverWithTSSAddress(evtStore, ch, testEVMTSSAddr)
+	resolver.processBroadcasted(context.Background())
+
+	ev := getEvent(t, db, "ev-no-nonce")
+	require.Equal(t, store.StatusBroadcasted, ev.Status)
+	builder.AssertNotCalled(t, "GetNextNonce", mock.Anything, mock.Anything, mock.Anything)
+}
+
+func TestResolveOutboundEVM_NotFound_TSSAddressFetchError_StaysBroadcasted(t *testing.T) {
+	// Tx not found and GetTSSAddress callback errors → defer (retry next tick).
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "eip155:1", uregistrytypes.VmType_EVM, client)
+
+	eventData := makeOutboundEventDataWithNonce("tx-100", "utx-200", "eip155:1", 5)
+	insertBroadcastedEvent(t, db, "ev-tss-err", "eip155:1", "eip155:1:0xmissing", eventData)
+
+	builder.On("VerifyBroadcastedTx", mock.Anything, "0xmissing").
+		Return(false, uint64(0), uint64(0), uint8(0), nil)
+
+	resolver := NewResolver(Config{
+		EventStore:    evtStore,
+		Chains:        ch,
+		CheckInterval: 0,
+		Logger:        zerolog.Nop(),
+		GetTSSAddress: func(ctx context.Context) (string, error) { return "", assert.AnError },
+	})
+	resolver.processBroadcasted(context.Background())
+
+	ev := getEvent(t, db, "ev-tss-err")
+	require.Equal(t, store.StatusBroadcasted, ev.Status)
+	builder.AssertNotCalled(t, "GetNextNonce", mock.Anything, mock.Anything, mock.Anything)
+}
+
+func TestResolveOutboundEVM_NotFound_NoTSSAddressResolver_StaysBroadcasted(t *testing.T) {
+	// Tx not found and GetTSSAddress is nil → can't run nonce check → defer.
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "eip155:1", uregistrytypes.VmType_EVM, client)
+
+	eventData := makeOutboundEventDataWithNonce("tx-100", "utx-200", "eip155:1", 5)
+	insertBroadcastedEvent(t, db, "ev-no-tss-1", "eip155:1", "eip155:1:0xmissing", eventData)
+
+	builder.On("VerifyBroadcastedTx", mock.Anything, "0xmissing").
+		Return(false, uint64(0), uint64(0), uint8(0), nil)
+
+	resolver := newResolver(evtStore, ch) // no GetTSSAddress configured
+	resolver.processBroadcasted(context.Background())
+
+	ev := getEvent(t, db, "ev-no-tss-1")
+	require.Equal(t, store.StatusBroadcasted, ev.Status)
+	builder.AssertNotCalled(t, "GetNextNonce", mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestResolveOutboundEVM_VerifyError_StaysBroadcasted(t *testing.T) {

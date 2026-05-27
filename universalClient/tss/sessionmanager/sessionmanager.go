@@ -279,35 +279,27 @@ func (sm *SessionManager) processSessionStep(ctx context.Context, eventID string
 		return fmt.Errorf("session for event %s does not exist", eventID)
 	}
 
-	session := state.session
-
-	// Step the session (serialize to prevent concurrent access - DKLS may not be thread-safe)
 	state.stepMu.Lock()
-	messages, finished, err := session.Step()
+	messages, finished, err := state.session.Step()
 	state.stepMu.Unlock()
 
 	if err != nil {
 		return fmt.Errorf("failed to step session %s: %w", eventID, err)
 	}
 
-	// Send output messages
 	for _, dklsMsg := range messages {
-		// Find peerID for receiver partyID
 		peerID, err := sm.coordinator.GetPeerIDFromPartyID(ctx, dklsMsg.Receiver)
 		if err != nil {
-			sm.logger.Warn().
-				Err(err).
+			sm.logger.Warn().Err(err).
 				Str("receiver_party_id", dklsMsg.Receiver).
 				Msg("failed to get peerID for receiver")
 			continue
 		}
 
-		// Create coordinator message
 		coordMsg := coordinator.Message{
-			Type:         "step",
-			EventID:      eventID,
-			Payload:      dklsMsg.Data,
-			Participants: nil, // Participants not needed for step messages
+			Type:    "step",
+			EventID: eventID,
+			Payload: dklsMsg.Data,
 		}
 		msgBytes, err := json.Marshal(coordMsg)
 		if err != nil {
@@ -315,10 +307,9 @@ func (sm *SessionManager) processSessionStep(ctx context.Context, eventID string
 			continue
 		}
 
-		// Send message
 		if err := sm.send(ctx, peerID, msgBytes); err != nil {
-			sm.logger.Warn().
-				Err(err).
+			sm.logger.Warn().Err(err).
+				Str("event_id", eventID).
 				Str("receiver", dklsMsg.Receiver).
 				Str("peer_id", peerID).
 				Msg("failed to send step message")
@@ -331,7 +322,6 @@ func (sm *SessionManager) processSessionStep(ctx context.Context, eventID string
 			Msg("sent step message")
 	}
 
-	// If finished, handle result
 	if finished {
 		return sm.handleSessionFinished(ctx, eventID, state)
 	}

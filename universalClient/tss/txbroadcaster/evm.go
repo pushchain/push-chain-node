@@ -7,9 +7,10 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss/coordinator"
+	"github.com/pushchain/push-chain-node/universalClient/tss/txflow"
 )
 
-// broadcastEVM broadcasts a signed EVM outbound transaction.
+// broadcastOutboundEVM broadcasts a signed EVM outbound transaction.
 //
 // All validators produce the same signed tx (deterministic TSS output), so the
 // tx hash is known before broadcasting (computed from the assembled signed tx).
@@ -20,7 +21,7 @@ import (
 //  3. Error → check finalized nonce on chain:
 //     - nonce consumed (tx landed) → BROADCASTED with tx hash
 //     - nonce NOT consumed → keep SIGNED, retry next tick
-func (b *Broadcaster) broadcastEVM(ctx context.Context, event *store.Event, data *SignedOutboundData, chainID string) {
+func (b *Broadcaster) broadcastOutboundEVM(ctx context.Context, event *store.Event, data *txflow.SignedOutboundData, chainID string) {
 	log := b.logger.With().Str("event_id", event.EventID).Str("chain", chainID).Logger()
 
 	client, err := b.chains.GetClient(chainID)
@@ -34,7 +35,7 @@ func (b *Broadcaster) broadcastEVM(ctx context.Context, event *store.Event, data
 		return
 	}
 
-	signingReq, signature, err := decodeSigningData(data.SigningData)
+	signingReq, signature, err := txflow.DecodeSigningData(data.SigningData)
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to decode signing data")
 		return
@@ -70,7 +71,7 @@ func (b *Broadcaster) broadcastEVM(ctx context.Context, event *store.Event, data
 
 // broadcastFundMigrationEVM broadcasts a signed EVM fund migration transaction.
 // Same nonce-consumed recovery pattern as outbound, but uses old TSS address for nonce check.
-func (b *Broadcaster) broadcastFundMigrationEVM(ctx context.Context, event *store.Event, data *SignedFundMigrationData, chainID string) {
+func (b *Broadcaster) broadcastFundMigrationEVM(ctx context.Context, event *store.Event, data *txflow.SignedFundMigrationData, chainID string) {
 	log := b.logger.With().Str("event_id", event.EventID).Str("chain", chainID).Logger()
 
 	oldTSSAddr, err := coordinator.DeriveEVMAddressFromPubkey(data.OldTssPubkey)
@@ -95,7 +96,7 @@ func (b *Broadcaster) broadcastFundMigrationEVM(ctx context.Context, event *stor
 		return
 	}
 
-	signingReq, signature, err := decodeSigningData(data.SigningData)
+	signingReq, signature, err := txflow.DecodeSigningData(data.SigningData)
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to decode signing data")
 		return
@@ -131,8 +132,9 @@ func (b *Broadcaster) broadcastFundMigrationEVM(ctx context.Context, event *stor
 	b.checkNonceAndMarkBroadcasted(ctx, event, builder, chainID, txHash, oldTSSAddr, data.SigningData.Nonce, broadcastErr)
 }
 
-// checkNonceAndMarkBroadcasted checks if a nonce has been consumed on-chain despite broadcast error.
-// If consumed, the tx landed and we mark BROADCASTED. Otherwise keep SIGNED for retry.
+// checkNonceAndMarkBroadcasted checks if a nonce has been consumed on-chain
+// despite a broadcast error. If consumed, the tx landed (possibly via another
+// node) and we mark BROADCASTED. Otherwise keep SIGNED for retry.
 func (b *Broadcaster) checkNonceAndMarkBroadcasted(
 	ctx context.Context,
 	event *store.Event,
@@ -143,17 +145,14 @@ func (b *Broadcaster) checkNonceAndMarkBroadcasted(
 ) {
 	log := b.logger.With().Str("event_id", event.EventID).Str("chain", chainID).Logger()
 
-	finalizedNonce, err := builder.GetNextNonce(ctx, signerAddr, true)
-	if err == nil && eventNonce < finalizedNonce {
-		// Nonce consumed — tx is on chain. Mark BROADCASTED so the resolver can verify it.
-		log.Info().Err(broadcastErr).Str("tx_hash", txHash).
+	verdict, finalizedNonce := txflow.CheckNonce(ctx, builder, signerAddr, eventNonce)
+	if verdict == txflow.NonceConsumed {
+		log.Debug().Err(broadcastErr).Str("tx_hash", txHash).
 			Uint64("event_nonce", eventNonce).Uint64("finalized_nonce", finalizedNonce).
 			Msg("broadcast failed but tx already on chain, marking BROADCASTED")
 		b.markBroadcasted(event, chainID, txHash)
 		return
 	}
 
-	// Nonce not consumed — transient error (RPC down, gas issues, etc.).
-	// Keep as SIGNED and retry next tick.
 	log.Debug().Err(broadcastErr).Msg("broadcast failed, will retry next tick")
 }

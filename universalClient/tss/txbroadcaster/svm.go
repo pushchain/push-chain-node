@@ -5,9 +5,10 @@ import (
 	"time"
 
 	"github.com/pushchain/push-chain-node/universalClient/store"
+	"github.com/pushchain/push-chain-node/universalClient/tss/txflow"
 )
 
-// broadcastSVM broadcasts a signed Solana transaction and moves the event to
+// broadcastOutboundSVM broadcasts a signed Solana transaction and moves the event to
 // its next state.
 //
 // Three phases, top to bottom:
@@ -30,7 +31,7 @@ import (
 //   - BROADCASTED(real-hash)  → broadcast succeeded
 //   - BROADCASTED("")         → peer landed it, or cluster confirmed expiry
 //   - stay SIGNED             → retry next tick
-func (b *Broadcaster) broadcastSVM(ctx context.Context, event *store.Event, data *SignedOutboundData, chainID string) {
+func (b *Broadcaster) broadcastOutboundSVM(ctx context.Context, event *store.Event, data *txflow.SignedOutboundData, chainID string) {
 	log := b.logger.With().Str("event_id", event.EventID).Str("chain", chainID).Logger()
 
 	client, err := b.chains.GetClient(chainID)
@@ -43,7 +44,7 @@ func (b *Broadcaster) broadcastSVM(ctx context.Context, event *store.Event, data
 		log.Warn().Err(err).Msg("failed to get tx builder")
 		return
 	}
-	signingReq, signature, err := decodeSigningData(data.SigningData)
+	signingReq, signature, err := txflow.DecodeSigningData(data.SigningData)
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to decode signing data")
 		return
@@ -64,11 +65,11 @@ func (b *Broadcaster) broadcastSVM(ctx context.Context, event *store.Event, data
 			dlog.Debug().Err(checkErr).Msg("SVM cluster check failed at deadline, retry next tick")
 			return
 		case executed:
-			dlog.Info().Msg("SVM tx executed by peer past local deadline, marking BROADCASTED")
+			dlog.Debug().Msg("SVM tx executed by peer past local deadline, marking BROADCASTED")
 			b.markBroadcasted(event, chainID, "")
 			return
 		case clusterTime > deadline:
-			dlog.Warn().Msg("SVM deadline cluster-confirmed expired, marking BROADCASTED for resolver REVERT")
+			dlog.Debug().Msg("SVM deadline cluster-confirmed expired, marking BROADCASTED for resolver REVERT")
 			b.markBroadcasted(event, chainID, "")
 			return
 		}
@@ -84,11 +85,11 @@ func (b *Broadcaster) broadcastSVM(ctx context.Context, event *store.Event, data
 
 	// Race: a peer may have landed the same signed tx in the meantime.
 	if executed, _, _ := builder.IsAlreadyExecuted(ctx, txID); executed {
-		log.Info().Err(broadcastErr).Msg("SVM broadcast failed but tx executed on chain (race), marking BROADCASTED")
+		log.Debug().Err(broadcastErr).Msg("SVM broadcast failed but tx executed on chain (race), marking BROADCASTED")
 		b.markBroadcasted(event, chainID, "")
 		return
 	}
 
-	log.Info().Err(broadcastErr).Int64("signing_deadline", deadline).
+	log.Debug().Err(broadcastErr).Int64("signing_deadline", deadline).
 		Msg("SVM broadcast failed, staying SIGNED for next tick")
 }

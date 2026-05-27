@@ -282,10 +282,11 @@ func TestSVM_PDAExists_MarksCompleted(t *testing.T) {
 	require.Equal(t, store.StatusCompleted, updated.Status)
 }
 
-func TestSVM_PDANotFound_VotesFailureAndReverts(t *testing.T) {
-	// PDA not found → vote failure → REVERTED.
-	// Note: orphaned StoredIxData PDAs are reclaimed by the periodic
-	// RentReclaimer in svm/rent_reclaimer.go, not from this hot path.
+func TestSVM_PDAAbsent_DeadlineZero_ClusterFresh_Reverts(t *testing.T) {
+	// Legacy event with no deadline (=0). PDA absent + fresh cluster time
+	// (>> 0) satisfies `clusterTime > deadline + slack` → reaches REVERT.
+	// No PushSigner → vote returns nil, status stays BROADCASTED. The point
+	// is that the resolver reaches the vote path (not defers).
 	evtStore, db := setupTestDB(t)
 	builder := &mockTxBuilder{}
 	client := &mockChainClient{builder: builder}
@@ -294,17 +295,15 @@ func TestSVM_PDANotFound_VotesFailureAndReverts(t *testing.T) {
 	eventData := makeOutboundEventData("tx-123", "utx-456", "solana:mainnet")
 	insertBroadcastedEvent(t, db, "ev-1", "solana:mainnet", "solana:mainnet:", eventData)
 
-	// Event data has no SigningDeadline → legacy eager-revert path; no cluster check.
-	builder.On("IsAlreadyExecuted", mock.Anything, "tx-123").Return(false, int64(0), nil)
+	builder.On("IsAlreadyExecuted", mock.Anything, "tx-123").Return(false, time.Now().Unix(), nil)
 
-	// No PushSigner — voteFailure logs a warning and returns nil without marking REVERTED.
 	resolver := newResolver(evtStore, ch)
 	ev := getEvent(t, db, "ev-1")
 	resolver.resolveSVM(context.Background(), &ev, "solana:mainnet")
 
 	updated := getEvent(t, db, "ev-1")
-	require.Equal(t, store.StatusBroadcasted, updated.Status)
-	builder.AssertExpectations(t)
+	require.Equal(t, store.StatusBroadcasted, updated.Status) // no PushSigner → vote skipped
+	builder.AssertCalled(t, "IsAlreadyExecuted", mock.Anything, "tx-123")
 }
 
 func TestSVM_PDACheckFails_StaysBroadcasted(t *testing.T) {

@@ -2,11 +2,9 @@ package txresolver
 
 import (
 	"context"
-	"encoding/json"
 
-	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/store"
-	"github.com/pushchain/push-chain-node/universalClient/tss/coordinator"
+	"github.com/pushchain/push-chain-node/universalClient/tss/txflow"
 )
 
 // Decision flow for EVM-broadcasted events (outbound and fund migration both
@@ -26,62 +24,18 @@ import (
 // flows differ only in (a) which vote function records success/failure and
 // (b) where the signer address comes from — current TSS for outbound, OLD TSS
 // (derived from the event's old pubkey) for fund migration.
-
-// signedNonceEnvelope is the slice of any EVM-signed event payload the
-// resolver consults on tx-not-found. OldTssPubkey is set only on fund
-// migration events; it identifies the sender (and thus the address whose
-// nonce gates the decision).
-type signedNonceEnvelope struct {
-	OldTssPubkey string `json:"old_tss_pubkey,omitempty"`
-	SigningData  *struct {
-		Nonce uint64 `json:"nonce"`
-	} `json:"signing_data,omitempty"`
-}
-
-func readSignedNonce(event *store.Event) (uint64, bool) {
-	var env signedNonceEnvelope
-	if err := json.Unmarshal(event.EventData, &env); err != nil || env.SigningData == nil {
-		return 0, false
-	}
-	return env.SigningData.Nonce, true
-}
-
-func readFundMigrationSigner(event *store.Event) (signer string, nonce uint64, ok bool) {
-	var env signedNonceEnvelope
-	if err := json.Unmarshal(event.EventData, &env); err != nil || env.SigningData == nil || env.OldTssPubkey == "" {
-		return "", 0, false
-	}
-	addr, err := coordinator.DeriveEVMAddressFromPubkey(env.OldTssPubkey)
-	if err != nil {
-		return "", 0, false
-	}
-	return addr, env.SigningData.Nonce, true
-}
-
-// nonceVerdict captures the outcome of comparing the signed nonce against the
-// chain's finalized nonce when a tx hash isn't on chain.
-type nonceVerdict int
-
-const (
-	nonceUnknown   nonceVerdict = iota // RPC failed; defer the decision
-	nonceConsumed                      // chain advanced past the signed nonce → tx is dead
-	nonceAvailable                     // chain hasn't consumed the signed nonce yet → re-broadcast may still land
-)
-
-func checkNonce(ctx context.Context, builder common.TxBuilder, signer string, signedNonce uint64) (nonceVerdict, uint64) {
-	finalizedNonce, err := builder.GetNextNonce(ctx, signer, true)
-	if err != nil {
-		return nonceUnknown, 0
-	}
-	if signedNonce < finalizedNonce {
-		return nonceConsumed, finalizedNonce
-	}
-	return nonceAvailable, finalizedNonce
-}
+//
+// Shared types (SignedOutboundData / SigningData) and helpers (DecodeSigningData,
+// ReadSignedNonce, ReadFundMigrationSigner, CheckNonce, NonceVerdict) live in
+// tss/txflow so the broadcaster applies the exact same rules.
 
 // resolveOutboundEVM resolves a BROADCASTED outbound on an EVM chain.
 func (r *Resolver) resolveOutboundEVM(ctx context.Context, event *store.Event, chainID, rawTxHash string) {
-	log := r.logger.With().Str("event_id", event.EventID).Str("chain", chainID).Logger()
+	log := r.logger.With().
+		Str("event_id", event.EventID).
+		Str("type", event.Type).
+		Str("chain", chainID).
+		Str("tx_hash", rawTxHash).Logger()
 
 	txID, utxID, err := extractOutboundIDs(event)
 	if err != nil {
@@ -106,9 +60,10 @@ func (r *Resolver) resolveOutboundEVM(ctx context.Context, event *store.Event, c
 			return
 		}
 		if status == 0 {
-			gasFeeUsed := "0"
-			if fee, fErr := builder.GetGasFeeUsed(ctx, rawTxHash); fErr == nil {
-				gasFeeUsed = fee
+			gasFeeUsed, fErr := builder.GetGasFeeUsed(ctx, rawTxHash)
+			if fErr != nil {
+				log.Debug().Err(fErr).Msg("failed to fetch gas fee for reverted tx, will retry next tick")
+				return
 			}
 			_ = r.voteOutboundFailureAndMarkReverted(ctx, event, txID, utxID, rawTxHash, blockHeight, gasFeeUsed,
 				"tx execution reverted on destination chain")
@@ -118,7 +73,7 @@ func (r *Resolver) resolveOutboundEVM(ctx context.Context, event *store.Event, c
 			log.Warn().Err(uerr).Msg("failed to mark event COMPLETED")
 			return
 		}
-		log.Info().Str("tx_hash", rawTxHash).Msg("outbound EVM tx marked COMPLETED")
+		log.Info().Msg("event marked as COMPLETED")
 		return
 	}
 
@@ -126,16 +81,16 @@ func (r *Resolver) resolveOutboundEVM(ctx context.Context, event *store.Event, c
 	if !ok {
 		return
 	}
-	verdict, finalizedNonce := checkNonce(ctx, builder, signer, signedNonce)
+	verdict, finalizedNonce := txflow.CheckNonce(ctx, builder, signer, signedNonce)
 	nlog := log.With().Uint64("signed_nonce", signedNonce).Uint64("finalized_nonce", finalizedNonce).Logger()
 	switch verdict {
-	case nonceUnknown:
+	case txflow.NonceUnknown:
 		nlog.Debug().Msg("could not fetch finalized nonce, will retry next tick")
-	case nonceConsumed:
-		nlog.Info().Msg("EVM outbound tx not found and nonce already finalized → REVERT")
+	case txflow.NonceConsumed:
+		nlog.Debug().Msg("EVM outbound tx not found and nonce already finalized → REVERT")
 		_ = r.voteOutboundFailureAndMarkReverted(ctx, event, txID, utxID, "", 0, "0",
-			"tx not found on destination chain and nonce consumed by another tx")
-	case nonceAvailable:
+			"tx not executed on destination chain")
+	case txflow.NonceAvailable:
 		r.rewindToSigned(event, chainID, signedNonce, finalizedNonce)
 	}
 }
@@ -145,7 +100,11 @@ func (r *Resolver) resolveOutboundEVM(ctx context.Context, event *store.Event, c
 // success/failure path uses the fund-migration voting helper which both votes
 // and marks the event in a single step.
 func (r *Resolver) resolveFundMigrationEVM(ctx context.Context, event *store.Event, chainID, rawTxHash string, migrationID uint64) {
-	log := r.logger.With().Str("event_id", event.EventID).Str("chain", chainID).Logger()
+	log := r.logger.With().
+		Str("event_id", event.EventID).
+		Str("type", event.Type).
+		Str("chain", chainID).
+		Str("tx_hash", rawTxHash).Logger()
 
 	builder, err := r.getBuilder(chainID)
 	if err != nil {
@@ -167,20 +126,20 @@ func (r *Resolver) resolveFundMigrationEVM(ctx context.Context, event *store.Eve
 		return
 	}
 
-	signer, signedNonce, ok := readFundMigrationSigner(event)
+	signer, signedNonce, ok := txflow.ReadFundMigrationSigner(event)
 	if !ok {
 		log.Warn().Msg("fund migration tx not found and signer info unavailable, staying BROADCASTED")
 		return
 	}
-	verdict, finalizedNonce := checkNonce(ctx, builder, signer, signedNonce)
+	verdict, finalizedNonce := txflow.CheckNonce(ctx, builder, signer, signedNonce)
 	nlog := log.With().Uint64("signed_nonce", signedNonce).Uint64("finalized_nonce", finalizedNonce).Logger()
 	switch verdict {
-	case nonceUnknown:
+	case txflow.NonceUnknown:
 		nlog.Debug().Msg("could not fetch finalized nonce, will retry next tick")
-	case nonceConsumed:
-		nlog.Info().Msg("EVM fund migration tx not found and nonce already finalized → REVERT")
+	case txflow.NonceConsumed:
+		nlog.Debug().Msg("EVM fund migration tx not found and nonce already finalized → REVERT")
 		r.voteFundMigrationAndMark(ctx, event, migrationID, "", false)
-	case nonceAvailable:
+	case txflow.NonceAvailable:
 		r.rewindToSigned(event, chainID, signedNonce, finalizedNonce)
 	}
 }
@@ -191,7 +150,7 @@ func (r *Resolver) resolveFundMigrationEVM(ctx context.Context, event *store.Eve
 func (r *Resolver) outboundSigner(ctx context.Context, event *store.Event) (string, uint64, bool) {
 	log := r.logger.With().Str("event_id", event.EventID).Logger()
 
-	signedNonce, ok := readSignedNonce(event)
+	signedNonce, ok := txflow.ReadSignedNonce(event)
 	if !ok {
 		log.Warn().Msg("EVM tx not found and signed nonce unavailable, staying BROADCASTED")
 		return "", 0, false
@@ -212,12 +171,16 @@ func (r *Resolver) outboundSigner(ctx context.Context, event *store.Event) (stri
 // will re-broadcast on the next tick. Used when the EVM tx hash isn't visible
 // on chain but the signed nonce is still available — covers mempool drops.
 func (r *Resolver) rewindToSigned(event *store.Event, chainID string, signedNonce, finalizedNonce uint64) {
-	log := r.logger.With().Str("event_id", event.EventID).Str("chain", chainID).
-		Uint64("signed_nonce", signedNonce).Uint64("finalized_nonce", finalizedNonce).Logger()
+	log := r.logger.With().
+		Str("event_id", event.EventID).
+		Str("type", event.Type).
+		Str("chain", chainID).
+		Uint64("signed_nonce", signedNonce).
+		Uint64("finalized_nonce", finalizedNonce).Logger()
 
 	if err := r.eventStore.Update(event.EventID, map[string]any{"status": store.StatusSigned}); err != nil {
 		log.Warn().Err(err).Msg("failed to rewind event to SIGNED for re-broadcast")
 		return
 	}
-	log.Info().Msg("EVM tx not found and nonce un-consumed, rewound to SIGNED for re-broadcast")
+	log.Debug().Msg("event marked as SIGNED")
 }

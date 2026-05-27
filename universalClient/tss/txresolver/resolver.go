@@ -19,19 +19,12 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 )
 
-// ---------------------------------------------------------------------------
-// Resolver
-// ---------------------------------------------------------------------------
-
-// Config holds configuration for the tx resolver.
 type Config struct {
 	EventStore    *eventstore.Store
 	Chains        *chains.Chains
 	PushSigner    *pushsigner.Signer
 	CheckInterval time.Duration
 	Logger        zerolog.Logger
-	// GetTSSAddress returns the current TSS ECDSA address — used by the EVM
-	// resolver path to compare on-chain finalized nonce against the signed nonce
 	GetTSSAddress func(ctx context.Context) (string, error)
 }
 
@@ -45,7 +38,6 @@ type Resolver struct {
 	getTSSAddress func(ctx context.Context) (string, error)
 }
 
-// NewResolver creates a new tx resolver.
 func NewResolver(cfg Config) *Resolver {
 	interval := cfg.CheckInterval
 	if interval == 0 {
@@ -233,8 +225,11 @@ func (r *Resolver) voteOutboundFailureAndMarkReverted(ctx context.Context, event
 		return fmt.Errorf("failed to mark event %s as reverted: %w", event.EventID, err)
 	}
 	r.logger.Info().
-		Str("event_id", event.EventID).Str("tx_id", txID).
-		Str("error_msg", errorMsg).Msg("voted outbound failure and marked REVERTED")
+		Str("event_id", event.EventID).
+		Str("type", event.Type).
+		Str("vote_tx_hash", voteTxHash).
+		Str("error_msg", errorMsg).
+		Msg("event marked as REVERTED")
 	return nil
 }
 
@@ -263,7 +258,9 @@ func (r *Resolver) voteFundMigrationAndMark(ctx context.Context, event *store.Ev
 	}
 
 	r.logger.Info().
-		Str("event_id", event.EventID).Uint64("migration_id", migrationID).
-		Str("tx_hash", txHash).Bool("success", success).Str("status", newStatus).
-		Msg("voted fund migration and updated status")
+		Str("event_id", event.EventID).
+		Str("type", event.Type).
+		Uint64("migration_id", migrationID).
+		Str("vote_tx_hash", voteTxHash).
+		Msg("event marked as " + newStatus)
 }

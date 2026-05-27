@@ -53,9 +53,9 @@ func (m *mockTxBuilder) VerifyBroadcastedTx(ctx context.Context, txHash string) 
 	return args.Bool(0), args.Get(1).(uint64), args.Get(2).(uint64), args.Get(3).(uint8), args.Error(4)
 }
 
-func (m *mockTxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, error) {
+func (m *mockTxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, int64, error) {
 	args := m.Called(ctx, txID)
-	return args.Bool(0), args.Error(1)
+	return args.Bool(0), args.Get(1).(int64), args.Error(2)
 }
 
 func (m *mockTxBuilder) GetGasFeeUsed(ctx context.Context, txHash string) (string, error) {
@@ -149,6 +149,42 @@ func insertSignedEvent(t *testing.T, db *gorm.DB, eventID, destChain string, non
 		ConfirmationType:  "STANDARD",
 		Status:            store.StatusSigned,
 		EventData:         makeSignedOutboundData(t, destChain, nonce),
+	}
+	require.NoError(t, db.Create(&event).Error)
+}
+
+// insertSignedSVMEventWithDeadline inserts a SIGNED outbound with an explicit
+// SigningDeadline on the persisted payload. Used by tests that exercise the
+// broadcaster's deadline-gated retry behavior.
+func insertSignedSVMEventWithDeadline(t *testing.T, db *gorm.DB, eventID, destChain string, nonce uint64, deadlineUnix int64) {
+	t.Helper()
+	sig := hex.EncodeToString(make([]byte, 64))
+	hash := hex.EncodeToString(make([]byte, 32))
+	data := SignedOutboundData{
+		OutboundCreatedEvent: uexecutortypes.OutboundCreatedEvent{
+			TxID:             "tx-123",
+			UniversalTxId:    "utx-456",
+			DestinationChain: destChain,
+			Recipient:        "0xRecipient",
+			Amount:           "1000000",
+			SigningDeadline:  deadlineUnix,
+		},
+		SigningData: &SigningData{
+			Signature:   sig,
+			SigningHash: hash,
+			Nonce:       nonce,
+		},
+	}
+	body, err := json.Marshal(data)
+	require.NoError(t, err)
+	event := store.Event{
+		EventID:           eventID,
+		BlockHeight:       100,
+		ExpiryBlockHeight: 99999,
+		Type:              "SIGN_OUTBOUND",
+		ConfirmationType:  "STANDARD",
+		Status:            store.StatusSigned,
+		EventData:         body,
 	}
 	require.NoError(t, db.Create(&event).Error)
 }
@@ -306,7 +342,7 @@ func TestSVM_BroadcastSuccess_MarksBroadcasted(t *testing.T) {
 	client := &mockChainClient{builder: builder}
 	ch := newTestChains(t, "solana:mainnet", uregistrytypes.VmType_SVM, client)
 
-	insertSignedEvent(t, db, "ev-1", "solana:mainnet", 0)
+	insertSignedSVMEventWithDeadline(t, db, "ev-1", "solana:mainnet", 0, time.Now().Unix()+600)
 
 	builder.On("BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return("solTxSig123", nil)
@@ -330,7 +366,7 @@ func TestSVM_BroadcastFails_PDAExists_MarksBroadcasted(t *testing.T) {
 
 	builder.On("BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return("", fmt.Errorf("tx simulation failed: account already exists"))
-	builder.On("IsAlreadyExecuted", mock.Anything, "tx-123").Return(true, nil)
+	builder.On("IsAlreadyExecuted", mock.Anything, "tx-123").Return(true, int64(0), nil)
 
 	b := newBroadcaster(evtStore, ch, "")
 	b.processSigned(context.Background())
@@ -340,54 +376,110 @@ func TestSVM_BroadcastFails_PDAExists_MarksBroadcasted(t *testing.T) {
 	require.Equal(t, "solana:mainnet:", ev.BroadcastedTxHash) // empty tx hash
 }
 
-func TestSVM_BroadcastFails_FirstAttempt_StaysSignedAndCountsAttempt(t *testing.T) {
-	// Broadcast fails, tx not on chain → stay SIGNED, increment in-memory
-	// attempt counter. Retry happens next tick; only after maxSVMBroadcastAttempts
-	// do we escalate.
+func TestSVM_BroadcastFails_BeforeDeadline_StaysSigned(t *testing.T) {
+	// Broadcast fails before deadline → stay SIGNED, retry next tick. The
+	// deadline is the only retry cap; failures inside the window keep cycling.
 	evtStore, db := setupTestDB(t)
 	builder := &mockTxBuilder{}
 	client := &mockChainClient{builder: builder}
 	ch := newTestChains(t, "solana:mainnet", uregistrytypes.VmType_SVM, client)
 
-	insertSignedEvent(t, db, "ev-1", "solana:mainnet", 0)
+	insertSignedSVMEventWithDeadline(t, db, "ev-1", "solana:mainnet", 0, time.Now().Unix()+600)
 
 	builder.On("BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return("", fmt.Errorf("simulation failed: invalid instruction"))
-	builder.On("IsAlreadyExecuted", mock.Anything, "tx-123").Return(false, nil)
+	builder.On("IsAlreadyExecuted", mock.Anything, "tx-123").Return(false, int64(0), nil)
+
+	b := newBroadcaster(evtStore, ch, "")
+	b.processSigned(context.Background())
+
+	ev := getEvent(t, db, "ev-1")
+	require.Equal(t, store.StatusSigned, ev.Status, "before deadline, failures stay SIGNED for retry")
+}
+
+func TestSVM_BroadcastFails_PastDeadline_MarksBroadcastedForRevert(t *testing.T) {
+	// Past local deadline + cluster confirms deadline expired + cluster fresh →
+	// BROADCASTED("") so the resolver REVERTs. No broadcast attempt.
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "solana:mainnet", uregistrytypes.VmType_SVM, client)
+
+	insertSignedSVMEventWithDeadline(t, db, "ev-1", "solana:mainnet", 0, time.Now().Unix()-3600)
+	// PDA absent, cluster time = now (fresh) and well past deadline → cluster-confirmed expiry.
+	builder.On("IsAlreadyExecuted", mock.Anything, "tx-123").Return(false, time.Now().Unix(), nil)
+
+	b := newBroadcaster(evtStore, ch, "")
+	b.processSigned(context.Background())
+
+	ev := getEvent(t, db, "ev-1")
+	require.Equal(t, store.StatusBroadcasted, ev.Status)
+	require.Equal(t, "solana:mainnet:", ev.BroadcastedTxHash, "empty tx hash signals REVERT to resolver")
+	builder.AssertNotCalled(t, "BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+}
+
+func TestSVM_PastLocalDeadline_ExecutedByPeer_MarksBroadcasted(t *testing.T) {
+	// Past local deadline + peer landed the tx (PDA exists) → BROADCASTED("")
+	// so the resolver sees it and marks COMPLETED. No broadcast attempt.
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "solana:mainnet", uregistrytypes.VmType_SVM, client)
+
+	insertSignedSVMEventWithDeadline(t, db, "ev-1", "solana:mainnet", 0, time.Now().Unix()-3600)
+	builder.On("IsAlreadyExecuted", mock.Anything, "tx-123").Return(true, time.Now().Unix(), nil)
+
+	b := newBroadcaster(evtStore, ch, "")
+	b.processSigned(context.Background())
+
+	ev := getEvent(t, db, "ev-1")
+	require.Equal(t, store.StatusBroadcasted, ev.Status)
+	require.Equal(t, "solana:mainnet:", ev.BroadcastedTxHash)
+	builder.AssertNotCalled(t, "BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+}
+
+func TestSVM_PastLocalDeadline_ClusterSaysStillInWindow_FallsThroughToBroadcast(t *testing.T) {
+	// Local clock ahead of cluster: local says past deadline, but the
+	// cluster's own (fresh) clock is still before the deadline → broadcaster
+	// falls through and attempts to broadcast.
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "solana:mainnet", uregistrytypes.VmType_SVM, client)
+
+	now := time.Now().Unix()
+	deadline := now - 1     // local says 1s past deadline
+	clusterTime := now - 30 // cluster says 30s before deadline; well within freshness
+	insertSignedSVMEventWithDeadline(t, db, "ev-1", "solana:mainnet", 0, deadline)
+	builder.On("IsAlreadyExecuted", mock.Anything, "tx-123").Return(false, clusterTime, nil)
+	builder.On("BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return("tx-hash-ok", nil)
+
+	b := newBroadcaster(evtStore, ch, "")
+	b.processSigned(context.Background())
+
+	ev := getEvent(t, db, "ev-1")
+	require.Equal(t, store.StatusBroadcasted, ev.Status)
+	require.Equal(t, "solana:mainnet:tx-hash-ok", ev.BroadcastedTxHash)
+}
+
+func TestSVM_PastLocalDeadline_RPCError_StaysSigned(t *testing.T) {
+	// Past local deadline but cluster check itself errors → defer give-up.
+	// Stays SIGNED, no broadcast attempt.
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "solana:mainnet", uregistrytypes.VmType_SVM, client)
+
+	insertSignedSVMEventWithDeadline(t, db, "ev-1", "solana:mainnet", 0, time.Now().Unix()-3600)
+	builder.On("IsAlreadyExecuted", mock.Anything, "tx-123").Return(false, int64(0), fmt.Errorf("RPC down"))
 
 	b := newBroadcaster(evtStore, ch, "")
 	b.processSigned(context.Background())
 
 	ev := getEvent(t, db, "ev-1")
 	require.Equal(t, store.StatusSigned, ev.Status)
-	require.Equal(t, uint32(1), b.svmBroadcastAttempts["ev-1"])
-}
-
-func TestSVM_BroadcastFails_ExhaustsAttempts_MarksBroadcasted(t *testing.T) {
-	// After maxSVMBroadcastAttempts failures, escalate to BROADCASTED-empty so
-	// the resolver can REVERT, and clear the in-memory counter.
-	evtStore, db := setupTestDB(t)
-	builder := &mockTxBuilder{}
-	client := &mockChainClient{builder: builder}
-	ch := newTestChains(t, "solana:mainnet", uregistrytypes.VmType_SVM, client)
-
-	insertSignedEvent(t, db, "ev-1", "solana:mainnet", 0)
-
-	builder.On("BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-		Return("", fmt.Errorf("persistent failure"))
-	builder.On("IsAlreadyExecuted", mock.Anything, "tx-123").Return(false, nil)
-
-	b := newBroadcaster(evtStore, ch, "")
-	// Seed the counter one attempt away from the cap, then the next call hits
-	// the cap and escalates.
-	b.svmBroadcastAttempts["ev-1"] = maxSVMBroadcastAttempts - 1
-	b.processSigned(context.Background())
-
-	ev := getEvent(t, db, "ev-1")
-	require.Equal(t, store.StatusBroadcasted, ev.Status)
-	require.Equal(t, "solana:mainnet:", ev.BroadcastedTxHash, "empty tx hash signals REVERT to resolver")
-	_, present := b.svmBroadcastAttempts["ev-1"]
-	require.False(t, present, "counter should be cleared after escalation")
+	builder.AssertNotCalled(t, "BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestSVM_BroadcastFails_PDACheckFails_StaysSigned(t *testing.T) {
@@ -401,7 +493,7 @@ func TestSVM_BroadcastFails_PDACheckFails_StaysSigned(t *testing.T) {
 
 	builder.On("BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return("", fmt.Errorf("RPC timeout"))
-	builder.On("IsAlreadyExecuted", mock.Anything, "tx-123").Return(false, fmt.Errorf("RPC down"))
+	builder.On("IsAlreadyExecuted", mock.Anything, "tx-123").Return(false, int64(0), fmt.Errorf("RPC down"))
 
 	b := newBroadcaster(evtStore, ch, "")
 	b.processSigned(context.Background())

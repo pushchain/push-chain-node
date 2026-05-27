@@ -396,7 +396,7 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 	// This message is what TSS validators sign. The gateway contract reconstructs
 	// the same message on-chain and verifies the signature matches.
 	messageHash, err := tb.constructTSSMessage(
-		instructionID, chainID, amount.Uint64(),
+		instructionID, chainID, data.SigningDeadline, amount.Uint64(),
 		txID, universalTxID, sender, token, gasFee,
 		targetProgram, accounts, ixData,
 		revertRecipient, revertMint, revertMsg,
@@ -426,14 +426,19 @@ func (tb *TxBuilder) GetNextNonce(ctx context.Context, signerAddress string, use
 }
 
 // IsAlreadyExecuted checks if the ExecutedTx PDA for the given txID exists on-chain,
-// indicating another relayer has already processed this transaction.
-func (tb *TxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, error) {
+// indicating another relayer has already processed this transaction. Also
+// returns the latest finalized block's unix timestamp — the cluster's view of
+// "now" — so callers can gate deadline-based decisions against cluster time
+// rather than the host's local clock. queryBlockTime is best-effort: 0 means
+// the RPC couldn't supply it and the caller should treat cluster freshness as
+// unknown (defer irreversible decisions).
+func (tb *TxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, int64, error) {
 	txIDBytes, err := hex.DecodeString(removeHexPrefix(txID))
 	if err != nil {
-		return false, fmt.Errorf("invalid txID: %s", txID)
+		return false, 0, fmt.Errorf("invalid txID: %s", txID)
 	}
 	if len(txIDBytes) != 32 {
-		return false, fmt.Errorf("txID must be 32 bytes, got %d", len(txIDBytes))
+		return false, 0, fmt.Errorf("txID must be 32 bytes, got %d", len(txIDBytes))
 	}
 
 	var txIDArr [32]byte
@@ -441,17 +446,16 @@ func (tb *TxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, 
 
 	executedTxPDA, _, err := solana.FindProgramAddress([][]byte{executedSubTxSeed, txIDArr[:]}, tb.gatewayAddress)
 	if err != nil {
-		return false, fmt.Errorf("failed to derive executed_tx PDA: %w", err)
+		return false, 0, fmt.Errorf("failed to derive executed_tx PDA: %w", err)
 	}
 
-	data, err := tb.rpcClient.GetAccountData(ctx, executedTxPDA)
-	if err != nil {
-		// Account doesn't exist or RPC error — treat as not executed
-		return false, nil
-	}
+	data, _ := tb.rpcClient.GetAccountData(ctx, executedTxPDA)
+	executed := len(data) > 0
 
-	// If we got non-empty data, the PDA exists → tx was already executed
-	return len(data) > 0, nil
+	// Cluster freshness signal — best-effort; 0 on RPC failure.
+	blockTime, _ := tb.rpcClient.LatestFinalizedBlockTime(ctx)
+
+	return executed, blockTime, nil
 }
 
 // GetGasFeeUsed returns "0" for SVM. SVM gas accounting is handled via vault
@@ -870,7 +874,7 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 
 		instructionData = tb.buildWithdrawAndExecuteData(
 			instructionID, txID, universalTxID, amount.Uint64(), sender,
-			writableFlags, ixData, gasFee,
+			writableFlags, ixData, gasFee, data.SigningDeadline,
 			signature, recoveryID, req.SigningHash,
 		)
 
@@ -888,7 +892,7 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 		// ---- revert_universal_tx (unified for SOL and SPL) ----
 		instructionData = tb.buildRevertData(
 			txID, universalTxID, amount.Uint64(),
-			recipientPubkey, revertMsgBytes, gasFee,
+			recipientPubkey, revertMsgBytes, gasFee, data.SigningDeadline,
 			signature, recoveryID, req.SigningHash,
 		)
 		accounts = tb.buildRevertAccounts(
@@ -900,7 +904,7 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 	case instructionID == 4:
 		// ---- rescue_funds ----
 		instructionData = tb.buildRescueData(
-			txID, universalTxID, amount.Uint64(), gasFee,
+			txID, universalTxID, amount.Uint64(), gasFee, data.SigningDeadline,
 			signature, recoveryID, req.SigningHash,
 		)
 		accounts = tb.buildRescueAccounts(
@@ -1216,6 +1220,7 @@ func (tb *TxBuilder) BuildRefRouteTransactions(
 		ixDataHash,
 		writableFlags,
 		gasFee,
+		data.SigningDeadline,
 		signature, recoveryID, req.SigningHash,
 	)
 
@@ -1391,6 +1396,7 @@ func (tb *TxBuilder) determineInstructionID(txType uetypes.TxType) (uint8, error
 func (tb *TxBuilder) constructTSSMessage(
 	instructionID uint8,
 	chainID string,
+	deadlineUnix int64,
 	amount uint64,
 	txID [32]byte,
 	universalTxID [32]byte,
@@ -1404,9 +1410,15 @@ func (tb *TxBuilder) constructTSSMessage(
 	revertMint [32]byte,
 	revertMsg []byte,
 ) ([]byte, error) {
+	// Wire format expected by the SVM gateway program's validate_message:
+	//   PREFIX || instruction_id || chain_id || deadline(i64 BE) || amount(u64 BE) || additional_data
 	message := append([]byte(nil), tssMessagePrefix...)
 	message = append(message, instructionID)
 	message = append(message, []byte(chainID)...)
+
+	deadlineBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(deadlineBytes, uint64(deadlineUnix))
+	message = append(message, deadlineBytes...)
 
 	amountBytes := make([]byte, 8)
 	binary.BigEndian.PutUint64(amountBytes, amount)
@@ -1706,6 +1718,7 @@ func (tb *TxBuilder) buildWithdrawAndExecuteData(
 	writableFlags []byte,
 	ixData []byte,
 	gasFee uint64,
+	deadlineUnix int64,
 	signature []byte,
 	recoveryID byte,
 	messageHash []byte,
@@ -1739,6 +1752,10 @@ func (tb *TxBuilder) buildWithdrawAndExecuteData(
 	binary.LittleEndian.PutUint64(gasFeeBytes, gasFee)
 	data = append(data, gasFeeBytes...)
 
+	deadlineBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(deadlineBytes, uint64(deadlineUnix))
+	data = append(data, deadlineBytes...)
+
 	data = append(data, signature...)
 	data = append(data, recoveryID)
 	data = append(data, messageHash...)
@@ -1767,6 +1784,7 @@ func (tb *TxBuilder) buildRevertData(
 	revertRecipient solana.PublicKey,
 	revertMsg []byte,
 	gasFee uint64,
+	deadlineUnix int64,
 	signature []byte,
 	recoveryID byte,
 	messageHash []byte,
@@ -1793,6 +1811,10 @@ func (tb *TxBuilder) buildRevertData(
 	binary.LittleEndian.PutUint64(gasFeeBytes, gasFee)
 	data = append(data, gasFeeBytes...)
 
+	deadlineBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(deadlineBytes, uint64(deadlineUnix))
+	data = append(data, deadlineBytes...)
+
 	data = append(data, signature...)
 	data = append(data, recoveryID)
 	data = append(data, messageHash...)
@@ -1817,6 +1839,7 @@ func (tb *TxBuilder) buildRescueData(
 	universalTxID [32]byte,
 	amount uint64,
 	gasFee uint64,
+	deadlineUnix int64,
 	signature []byte,
 	recoveryID byte,
 	messageHash []byte,
@@ -1835,6 +1858,10 @@ func (tb *TxBuilder) buildRescueData(
 	gasFeeBytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(gasFeeBytes, gasFee)
 	data = append(data, gasFeeBytes...)
+
+	deadlineBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(deadlineBytes, uint64(deadlineUnix))
+	data = append(data, deadlineBytes...)
 
 	data = append(data, signature...)
 	data = append(data, recoveryID)
@@ -2216,6 +2243,7 @@ func (tb *TxBuilder) buildWithdrawAndExecuteRefData(
 	ixDataHash [32]byte,
 	writableFlags []byte,
 	gasFee uint64,
+	deadlineUnix int64,
 	signature []byte,
 	recoveryID byte,
 	messageHash []byte,
@@ -2241,6 +2269,10 @@ func (tb *TxBuilder) buildWithdrawAndExecuteRefData(
 	gasFeeBytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(gasFeeBytes, gasFee)
 	data = append(data, gasFeeBytes...)
+
+	deadlineBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(deadlineBytes, uint64(deadlineUnix))
+	data = append(data, deadlineBytes...)
 
 	data = append(data, signature...)
 	data = append(data, recoveryID)

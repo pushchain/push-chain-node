@@ -549,27 +549,30 @@ func TestFinalizeUniversalTxUnifiedEncoding(t *testing.T) {
 	}
 }
 
-// TestIsAlreadyExecuted tests the stub that always returns false
+// TestIsAlreadyExecuted tests the stub that always returns (false, 0, nil)
 func TestIsAlreadyExecuted(t *testing.T) {
 	builder := newTestTxBuilder(t)
 	ctx := context.Background()
 
 	t.Run("always returns false", func(t *testing.T) {
-		executed, err := builder.IsAlreadyExecuted(ctx, "0x1234567890abcdef")
+		executed, queryBlockTime, err := builder.IsAlreadyExecuted(ctx, "0x1234567890abcdef")
 		assert.NoError(t, err)
 		assert.False(t, executed)
+		assert.Equal(t, int64(0), queryBlockTime)
 	})
 
 	t.Run("returns false for empty txID", func(t *testing.T) {
-		executed, err := builder.IsAlreadyExecuted(ctx, "")
+		executed, queryBlockTime, err := builder.IsAlreadyExecuted(ctx, "")
 		assert.NoError(t, err)
 		assert.False(t, executed)
+		assert.Equal(t, int64(0), queryBlockTime)
 	})
 
 	t.Run("returns false for arbitrary txID", func(t *testing.T) {
-		executed, err := builder.IsAlreadyExecuted(ctx, "any-string-at-all")
+		executed, queryBlockTime, err := builder.IsAlreadyExecuted(ctx, "any-string-at-all")
 		assert.NoError(t, err)
 		assert.False(t, executed)
+		assert.Equal(t, int64(0), queryBlockTime)
 	})
 }
 

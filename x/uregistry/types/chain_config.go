@@ -62,6 +62,10 @@ func (p ChainConfig) ValidateBasic() error {
 		}
 	}
 
+	if p.TssSigningDeadline != nil && *p.TssSigningDeadline < 0 {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "tss_signing_deadline must not be negative")
+	}
+
 	if p.BlockConfirmation == nil {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "block_confirmation is required")
 	}

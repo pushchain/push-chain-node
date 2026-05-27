@@ -2,31 +2,34 @@ package txbroadcaster
 
 import (
 	"context"
+	"time"
 
 	"github.com/pushchain/push-chain-node/universalClient/store"
 )
 
-// maxSVMBroadcastAttempts caps the number of failed broadcast attempts before
-// the broadcaster gives up and marks the event for REVERT.
+// broadcastSVM broadcasts a signed Solana transaction and moves the event to
+// its next state.
 //
-// TEMPORARY: a future signature-deadline mechanism will supersede this
-// attempt-based cap with time-based finality. Until then, this prevents events
-// from looping indefinitely on persistent failures (bad payload, downstream
-// program upgrade, etc.).
-const maxSVMBroadcastAttempts = 10
-
-// broadcastSVM broadcasts a signed Solana transaction.
+// Three phases, top to bottom:
 //
-// Three branches:
-//   - Success → BROADCASTED with tx hash.
-//   - Tx already executed by another relayer → BROADCASTED with empty hash.
-//   - Anything else → increment attempt counter; stay SIGNED until the cap is
-//     hit, then mark BROADCASTED with empty hash so the resolver can REVERT.
+//  1. If local clock is past the signed deadline, check the cluster's own
+//     clock (latest finalized block time) before giving up. The cluster
+//     clock — not the host clock — is what the gateway program enforces
+//     against, so it's the authoritative cutoff.
+//  2. Broadcast.
+//  3. On broadcast error, check whether a peer landed the same signed tx.
 //
-// Branch 3 deliberately absorbs every other failure mode (RPC lag, race-lost,
-// CPI failure, blockhash stale, transport error, etc.) — we don't classify
-// them, we just retry. The attempt cap is the safety valve for genuinely
-// stuck events.
+// The give-up cutoff is exactly `clusterTime > deadline`. The finalized block
+// time lags the on-chain `Clock::unix_timestamp` by ~13s, so by the time our
+// reading crosses the deadline the program has already been rejecting new
+// attempts. Cluster staleness is not handled here: the resolver gates the
+// irreversible REVERT vote on freshness, and falling through to "broadcast"
+// is the safe direction if our cluster view is unreliable.
+//
+// Outcomes:
+//   - BROADCASTED(real-hash)  → broadcast succeeded
+//   - BROADCASTED("")         → peer landed it, or cluster confirmed expiry
+//   - stay SIGNED             → retry next tick
 func (b *Broadcaster) broadcastSVM(ctx context.Context, event *store.Event, data *SignedOutboundData, chainID string) {
 	client, err := b.chains.GetClient(chainID)
 	if err != nil {
@@ -38,7 +41,6 @@ func (b *Broadcaster) broadcastSVM(ctx context.Context, event *store.Event, data
 		b.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to get tx builder")
 		return
 	}
-
 	signingReq, signature, err := decodeSigningData(data.SigningData)
 	if err != nil {
 		b.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to decode signing data")
@@ -46,36 +48,50 @@ func (b *Broadcaster) broadcastSVM(ctx context.Context, event *store.Event, data
 	}
 
 	outboundData := data.OutboundCreatedEvent
-	txHash, broadcastErr := builder.BroadcastOutboundSigningRequest(ctx, signingReq, &outboundData, signature)
+	txID := outboundData.TxID
+	deadline := data.SigningDeadline
+	now := time.Now().Unix()
 
+	// Past local deadline — confirm with the cluster before giving up.
+	if now > deadline {
+		executed, clusterTime, checkErr := builder.IsAlreadyExecuted(ctx, txID)
+		log := b.logger.With().
+			Str("event_id", event.EventID).Str("chain", chainID).
+			Int64("signing_deadline", deadline).Int64("cluster_block_time", clusterTime).Logger()
+
+		switch {
+		case checkErr != nil:
+			log.Debug().Err(checkErr).Msg("SVM cluster check failed at deadline, retry next tick")
+			return
+		case executed:
+			log.Info().Msg("SVM tx executed by peer past local deadline, marking BROADCASTED")
+			b.markBroadcasted(event, chainID, "")
+			return
+		case clusterTime > deadline:
+			log.Warn().Msg("SVM deadline cluster-confirmed expired, marking BROADCASTED for resolver REVERT")
+			b.markBroadcasted(event, chainID, "")
+			return
+		}
+		// Cluster says still inside the window (or freshness unknown) — broadcast.
+	}
+
+	// Broadcast attempt.
+	txHash, broadcastErr := builder.BroadcastOutboundSigningRequest(ctx, signingReq, &outboundData, signature)
 	if broadcastErr == nil {
-		delete(b.svmBroadcastAttempts, event.EventID)
 		b.markBroadcasted(event, chainID, txHash)
 		return
 	}
 
-	// Tx may have landed via another relayer — that ends the event cleanly.
-	if executed, execErr := builder.IsAlreadyExecuted(ctx, outboundData.TxID); execErr == nil && executed {
-		delete(b.svmBroadcastAttempts, event.EventID)
+	// Race: a peer may have landed the same signed tx in the meantime.
+	if executed, _, _ := builder.IsAlreadyExecuted(ctx, txID); executed {
 		b.logger.Info().Err(broadcastErr).Str("event_id", event.EventID).Str("chain", chainID).
-			Msg("broadcast failed but tx already executed on-chain, marking BROADCASTED")
+			Msg("SVM broadcast failed but tx executed on chain (race), marking BROADCASTED")
 		b.markBroadcasted(event, chainID, "")
 		return
 	}
 
-	// Broadcast failed and tx isn't on chain. Count the attempt; cap or retry.
-	attempts := b.svmBroadcastAttempts[event.EventID] + 1
-	if attempts >= maxSVMBroadcastAttempts {
-		delete(b.svmBroadcastAttempts, event.EventID)
-		b.logger.Warn().Err(broadcastErr).Uint32("attempts", attempts).
-			Str("event_id", event.EventID).Str("chain", chainID).
-			Msg("SVM broadcast exhausted retry budget, marking BROADCASTED for resolver to REVERT")
-		b.markBroadcasted(event, chainID, "")
-		return
-	}
-
-	b.svmBroadcastAttempts[event.EventID] = attempts
-	b.logger.Info().Err(broadcastErr).Uint32("attempts", attempts).
+	b.logger.Info().Err(broadcastErr).
 		Str("event_id", event.EventID).Str("chain", chainID).
-		Msg("SVM broadcast failed, staying SIGNED for next-tick retry")
+		Int64("signing_deadline", deadline).
+		Msg("SVM broadcast failed, staying SIGNED for next tick")
 }

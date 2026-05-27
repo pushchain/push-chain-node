@@ -3,9 +3,11 @@ package keeper_test
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -234,4 +236,134 @@ func TestPendingOutbound_MultipleOutboundsPerUTX(t *testing.T) {
 	require.NoError(err)
 	require.Len(resp.Entries, 2)
 	require.Len(resp.Outbounds, 2)
+}
+
+func TestPendingOutbound_SigningDeadline_Set(t *testing.T) {
+	f := setupPendingOutboundFixture(t)
+	require := require.New(t)
+
+	tenMin := 10 * time.Minute
+	f.mockUregistryKeeper.EXPECT().
+		GetChainConfig(gomock.Any(), "solana:devnet").
+		Return(uregistrytypes.ChainConfig{
+			Chain:              "solana:devnet",
+			TssSigningDeadline: &tenMin,
+		}, nil).AnyTimes()
+
+	// Seed UTX so attachOutboundsToUtx can find it.
+	utx := types.UniversalTx{Id: "utx-dl-1"}
+	require.NoError(f.k.UniversalTx.Set(f.ctx, "utx-dl-1", utx))
+
+	outbound := &types.OutboundTx{
+		Id:               "outbound-dl-1",
+		DestinationChain: "solana:devnet",
+		Recipient:        "SomeRecipient",
+		Amount:           "5000",
+		OutboundStatus:   types.Status_PENDING,
+	}
+
+	err := f.k.TestAttachOutboundsToUtx(f.ctx, "utx-dl-1", []*types.OutboundTx{outbound}, "")
+	require.NoError(err)
+
+	entry, err := f.k.PendingOutbounds.Get(f.ctx, "outbound-dl-1")
+	require.NoError(err)
+
+	expectedDeadline := f.ctx.BlockTime().Unix() + int64(tenMin.Seconds())
+	require.Equal(expectedDeadline, entry.SigningDeadline,
+		"signing_deadline should be block_time + 10 minutes")
+}
+
+func TestPendingOutbound_SigningDeadline_NilDuration(t *testing.T) {
+	f := setupPendingOutboundFixture(t)
+	require := require.New(t)
+
+	f.mockUregistryKeeper.EXPECT().
+		GetChainConfig(gomock.Any(), "eip155:1").
+		Return(uregistrytypes.ChainConfig{
+			Chain:              "eip155:1",
+			TssSigningDeadline: nil,
+		}, nil).AnyTimes()
+
+	utx := types.UniversalTx{Id: "utx-dl-2"}
+	require.NoError(f.k.UniversalTx.Set(f.ctx, "utx-dl-2", utx))
+
+	outbound := &types.OutboundTx{
+		Id:               "outbound-dl-2",
+		DestinationChain: "eip155:1",
+		Recipient:        "0xRecipient",
+		Amount:           "1000",
+		OutboundStatus:   types.Status_PENDING,
+	}
+
+	err := f.k.TestAttachOutboundsToUtx(f.ctx, "utx-dl-2", []*types.OutboundTx{outbound}, "")
+	require.NoError(err)
+
+	entry, err := f.k.PendingOutbounds.Get(f.ctx, "outbound-dl-2")
+	require.NoError(err)
+	require.Equal(int64(0), entry.SigningDeadline,
+		"signing_deadline should be 0 when chain has no tss_signing_deadline")
+}
+
+func TestPendingOutbound_SigningDeadline_ChainConfigNotFound(t *testing.T) {
+	f := setupPendingOutboundFixture(t)
+	require := require.New(t)
+
+	f.mockUregistryKeeper.EXPECT().
+		GetChainConfig(gomock.Any(), "eip155:999").
+		Return(uregistrytypes.ChainConfig{}, fmt.Errorf("not found")).AnyTimes()
+
+	utx := types.UniversalTx{Id: "utx-dl-3"}
+	require.NoError(f.k.UniversalTx.Set(f.ctx, "utx-dl-3", utx))
+
+	outbound := &types.OutboundTx{
+		Id:               "outbound-dl-3",
+		DestinationChain: "eip155:999",
+		Recipient:        "0xRecipient",
+		Amount:           "1000",
+		OutboundStatus:   types.Status_PENDING,
+	}
+
+	err := f.k.TestAttachOutboundsToUtx(f.ctx, "utx-dl-3", []*types.OutboundTx{outbound}, "")
+	require.NoError(err)
+
+	entry, err := f.k.PendingOutbounds.Get(f.ctx, "outbound-dl-3")
+	require.NoError(err)
+	require.Equal(int64(0), entry.SigningDeadline,
+		"signing_deadline should be 0 when chain config is not found")
+}
+
+func TestPendingOutbound_SigningDeadline_VisibleInQuery(t *testing.T) {
+	f := setupPendingOutboundFixture(t)
+	require := require.New(t)
+
+	// Directly set an entry with a deadline to verify the query surfaces it.
+	require.NoError(f.k.PendingOutbounds.Set(f.ctx, "outbound-q-1", types.PendingOutboundEntry{
+		OutboundId:      "outbound-q-1",
+		UniversalTxId:   "utx-q-1",
+		CreatedAt:       100,
+		SigningDeadline: 1716700000,
+	}))
+
+	utx := types.UniversalTx{
+		Id: "utx-q-1",
+		OutboundTx: []*types.OutboundTx{{
+			Id:               "outbound-q-1",
+			DestinationChain: "solana:devnet",
+			Recipient:        "SomeRecipient",
+			Amount:           "5000",
+			OutboundStatus:   types.Status_PENDING,
+		}},
+	}
+	require.NoError(f.k.UniversalTx.Set(f.ctx, "utx-q-1", utx))
+
+	resp, err := f.queryServer.GetPendingOutbound(f.ctx, &types.QueryGetPendingOutboundRequest{
+		OutboundId: "outbound-q-1",
+	})
+	require.NoError(err)
+	require.Equal(int64(1716700000), resp.Entry.SigningDeadline)
+
+	allResp, err := f.queryServer.AllPendingOutbounds(f.ctx, &types.QueryAllPendingOutboundsRequest{})
+	require.NoError(err)
+	require.Len(allResp.Entries, 1)
+	require.Equal(int64(1716700000), allResp.Entries[0].SigningDeadline)
 }

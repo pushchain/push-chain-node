@@ -236,27 +236,30 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 		pushSigner:                 cfg.PushSigner,
 		stopCh:                     make(chan struct{}),
 		registeredPeers:            make(map[string]bool),
-		txResolver: txresolver.NewResolver(txresolver.Config{
-			EventStore:    evtStore,
-			Chains:        cfg.Chains,
-			PushSigner:    cfg.PushSigner,
-			CheckInterval: sessionExpiryCheckInterval,
-			Logger:        logger,
-		}),
 	}
 
-	// Create broadcaster after node so the closure can capture `node`.
+	getTSSAddress := func(ctx context.Context) (string, error) {
+		if node.coordinator == nil {
+			return "", fmt.Errorf("coordinator not initialized")
+		}
+		return node.coordinator.GetTSSAddress(ctx)
+	}
+
+	node.txResolver = txresolver.NewResolver(txresolver.Config{
+		EventStore:    evtStore,
+		Chains:        cfg.Chains,
+		PushSigner:    cfg.PushSigner,
+		CheckInterval: sessionExpiryCheckInterval,
+		Logger:        logger,
+		GetTSSAddress: getTSSAddress,
+	})
+
 	node.txBroadcaster = txbroadcaster.NewBroadcaster(txbroadcaster.Config{
 		EventStore:    evtStore,
 		Chains:        cfg.Chains,
 		CheckInterval: sessionExpiryCheckInterval,
 		Logger:        logger,
-		GetTSSAddress: func(ctx context.Context) (string, error) {
-			if node.coordinator == nil {
-				return "", fmt.Errorf("coordinator not initialized")
-			}
-			return node.coordinator.GetTSSAddress(ctx)
-		},
+		GetTSSAddress: getTSSAddress,
 	})
 
 	node.expirySweeper = expirysweeper.NewSweeper(expirysweeper.Config{

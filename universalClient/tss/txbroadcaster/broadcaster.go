@@ -2,52 +2,17 @@ package txbroadcaster
 
 import (
 	"context"
-	"encoding/hex"
 	"encoding/json"
-	"fmt"
-	"math/big"
 	"time"
 
 	"github.com/rs/zerolog"
 
-	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
-	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
-
 	"github.com/pushchain/push-chain-node/universalClient/chains"
-	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
+	"github.com/pushchain/push-chain-node/universalClient/tss/txflow"
 )
 
-// ---------------------------------------------------------------------------
-// Signed event data types
-// ---------------------------------------------------------------------------
-
-// SigningData holds the signing parameters persisted by sessionManager when marking SIGNED.
-type SigningData struct {
-	Signature              string   `json:"signature"`    // hex-encoded 64/65 byte signature
-	SigningHash            string   `json:"signing_hash"` // hex-encoded signing hash
-	Nonce                  uint64   `json:"nonce"`
-	TSSFundMigrationAmount *big.Int `json:"tss_fund_migration_amount,omitempty"`
-}
-
-// SignedOutboundData wraps OutboundCreatedEvent with signing data.
-type SignedOutboundData struct {
-	uexecutortypes.OutboundCreatedEvent
-	SigningData *SigningData `json:"signing_data,omitempty"`
-}
-
-// SignedFundMigrationData wraps FundMigrationInitiatedEventData with signing data.
-type SignedFundMigrationData struct {
-	utsstypes.FundMigrationInitiatedEventData
-	SigningData *SigningData `json:"signing_data,omitempty"`
-}
-
-// ---------------------------------------------------------------------------
-// Broadcaster
-// ---------------------------------------------------------------------------
-
-// Config holds configuration for the broadcaster.
 type Config struct {
 	EventStore    *eventstore.Store
 	Chains        *chains.Chains
@@ -56,7 +21,6 @@ type Config struct {
 	GetTSSAddress func(ctx context.Context) (string, error)
 }
 
-// Broadcaster polls SIGNED events and broadcasts them to external chains.
 type Broadcaster struct {
 	eventStore    *eventstore.Store
 	chains        *chains.Chains
@@ -65,7 +29,6 @@ type Broadcaster struct {
 	getTSSAddress func(ctx context.Context) (string, error)
 }
 
-// NewBroadcaster creates a new tx broadcaster.
 func NewBroadcaster(cfg Config) *Broadcaster {
 	interval := cfg.CheckInterval
 	if interval == 0 {
@@ -143,7 +106,7 @@ func (b *Broadcaster) broadcastEvent(ctx context.Context, event *store.Event) {
 
 // broadcastOutbound parses outbound event data and delegates to chain-specific broadcast.
 func (b *Broadcaster) broadcastOutbound(ctx context.Context, event *store.Event) {
-	var data SignedOutboundData
+	var data txflow.SignedOutboundData
 	if err := json.Unmarshal(event.EventData, &data); err != nil {
 		b.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to parse signed outbound data")
 		return
@@ -161,9 +124,9 @@ func (b *Broadcaster) broadcastOutbound(ctx context.Context, event *store.Event)
 	}
 
 	if b.chains.IsEVMChain(chainID) {
-		b.broadcastEVM(ctx, event, &data, chainID)
+		b.broadcastOutboundEVM(ctx, event, &data, chainID)
 	} else {
-		b.broadcastSVM(ctx, event, &data, chainID)
+		b.broadcastOutboundSVM(ctx, event, &data, chainID)
 	}
 }
 
@@ -173,7 +136,7 @@ func (b *Broadcaster) broadcastOutbound(ctx context.Context, event *store.Event)
 
 // broadcastFundMigration parses fund migration event data and delegates to chain-specific broadcast.
 func (b *Broadcaster) broadcastFundMigration(ctx context.Context, event *store.Event) {
-	var data SignedFundMigrationData
+	var data txflow.SignedFundMigrationData
 	if err := json.Unmarshal(event.EventData, &data); err != nil {
 		b.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to parse fund migration signed data")
 		return
@@ -197,25 +160,6 @@ func (b *Broadcaster) broadcastFundMigration(ctx context.Context, event *store.E
 // Helpers
 // ---------------------------------------------------------------------------
 
-// decodeSigningData extracts the UnsignedSigningReq and raw signature bytes from SigningData.
-func decodeSigningData(sd *SigningData) (*common.UnsignedSigningReq, []byte, error) {
-	signingHash, err := hex.DecodeString(sd.SigningHash)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to decode signing hash: %w", err)
-	}
-
-	signature, err := hex.DecodeString(sd.Signature)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to decode signature: %w", err)
-	}
-
-	return &common.UnsignedSigningReq{
-		SigningHash:            signingHash,
-		Nonce:                  sd.Nonce,
-		TSSFundMigrationAmount: sd.TSSFundMigrationAmount,
-	}, signature, nil
-}
-
 // markBroadcasted updates the event status to BROADCASTED with the given tx hash.
 func (b *Broadcaster) markBroadcasted(event *store.Event, chainID, txHash string) {
 	caipTxHash := chainID + ":" + txHash
@@ -226,6 +170,9 @@ func (b *Broadcaster) markBroadcasted(event *store.Event, chainID, txHash string
 		b.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to update event to BROADCASTED")
 		return
 	}
-	b.logger.Info().Str("event_id", event.EventID).Str("tx_hash", txHash).Str("chain", chainID).
-		Msg("marked BROADCASTED")
+	b.logger.Info().
+		Str("event_id", event.EventID).
+		Str("type", event.Type).
+		Str("chain", chainID).
+		Msg("event marked as BROADCASTED")
 }

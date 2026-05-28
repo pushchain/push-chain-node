@@ -47,15 +47,50 @@ func (k Keeper) GetValidatorsByStatus(ctx context.Context, status types.UVStatus
 }
 
 // GetEligibleVoters returns all validators that are eligible to vote on external transactions.
-// Eligibility: validators with status ACTIVE or PENDING_JOIN.
+//
+// Eligibility requires BOTH:
+//   - UV lifecycle status is ACTIVE or PENDING_JOIN; AND
+//   - the underlying Cosmos staking validator is bonded and not tombstoned.
+//
+// The staking-state filter prevents stranded UVs (still ACTIVE on paper but
+// unbonded/jailed/tombstoned on the base chain) from inflating the ballot
+// quorum denominator. Vote admission already rejects such signers, so without
+// this filter the ballot threshold can become unreachable and finalization
+// deadlocks.
 func (k Keeper) GetEligibleVoters(ctx context.Context) ([]types.UniversalValidator, error) {
 	var voters []types.UniversalValidator
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
 	err := k.UniversalValidatorSet.Walk(ctx, nil, func(addr sdk.ValAddress, val types.UniversalValidator) (stop bool, err error) {
 		switch val.LifecycleInfo.CurrentStatus {
 		case types.UVStatus_UV_STATUS_ACTIVE, types.UVStatus_UV_STATUS_PENDING_JOIN:
-			voters = append(voters, val)
+			// fall through to staking-state filter below
+		default:
+			return false, nil
 		}
+
+		sv, getErr := k.StakingKeeper.GetValidator(ctx, addr)
+		if getErr != nil {
+			// Validator removed from staking module, or some other read error:
+			// treat as ineligible for this call rather than failing the whole
+			// walk. This keeps quorum computable when one stranded entry would
+			// otherwise crash the read path.
+			k.Logger().Debug("eligible voter filter: staking GetValidator failed", "validator", addr.String(), "err", getErr)
+			return false, nil
+		}
+		if !sv.IsBonded() {
+			return false, nil
+		}
+		consAddr, caErr := sv.GetConsAddr()
+		if caErr != nil {
+			k.Logger().Debug("eligible voter filter: GetConsAddr failed", "validator", addr.String(), "err", caErr)
+			return false, nil
+		}
+		if k.SlashingKeeper.IsTombstoned(sdkCtx, consAddr) {
+			return false, nil
+		}
+
+		voters = append(voters, val)
 		return false, nil
 	})
 

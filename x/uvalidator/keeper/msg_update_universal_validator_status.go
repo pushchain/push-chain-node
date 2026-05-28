@@ -66,7 +66,7 @@ func (k Keeper) UpdateUniversalValidatorStatus(
 		)
 
 		// Pending Leave -> Active
-		if err := k.UpdateValidatorStatus(ctx, valAddr, newStatus); err != nil {
+		if err := k.UpdateValidatorStatus(ctx, valAddr, newStatus, types.TransitionReason_TRANSITION_REASON_ADMIN); err != nil {
 			return fmt.Errorf("failed to mark validator %s as active: %w", coreValidatorAddr, err)
 		}
 

@@ -614,14 +614,7 @@ func NewChainApp(
 	wasmLightClientModule := wasmlc.NewLightClientModule(app.WasmClientKeeper, storeProvider)
 	clientKeeper.AddRoute(wasmlctypes.ModuleName, &wasmLightClientModule)
 
-	// register the staking hooks
-	// NOTE: stakingKeeper above is passed by reference, so that it will contain these hooks
-	app.StakingKeeper.SetHooks(
-		stakingtypes.NewMultiStakingHooks(
-			app.DistrKeeper.Hooks(),
-			app.SlashingKeeper.Hooks(),
-		),
-	)
+	// Staking hooks registered later — after UvalidatorKeeper exists.
 
 	// Register the proposal types
 	// Deprecated: Avoid adding new handlers, instead use the new proposal flow
@@ -758,6 +751,15 @@ func NewChainApp(
 		uvalidatorkeeper.NewMultiUValidatorHooks(
 			app.UtssKeeper.Hooks(),
 			uexecutorkeeper.NewUValidatorHooks(app.UexecutorKeeper),
+		),
+	)
+
+	// NOTE: stakingKeeper above is passed by reference, so it picks up these hooks.
+	app.StakingKeeper.SetHooks(
+		stakingtypes.NewMultiStakingHooks(
+			app.DistrKeeper.Hooks(),
+			app.SlashingKeeper.Hooks(),
+			app.UvalidatorKeeper.StakingHooks(),
 		),
 	)
 

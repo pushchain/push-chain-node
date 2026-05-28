@@ -40,6 +40,20 @@ func (k Keeper) InitiateTssKeyProcess(
 			if err := k.ProcessHistory.Set(ctx, existing.Id, existing); err != nil {
 				return fmt.Errorf("failed to store process history: %w", err)
 			}
+
+			if err := k.updateTssEventStatusByProcessId(ctx, existing.Id, types.TssEventType_TSS_EVENT_PROCESS_INITIATED, types.TssEventStatus_TSS_EVENT_EXPIRED); err != nil {
+				k.Logger().Error("failed to mark tss event expired on force-expiry",
+					"process_id", existing.Id,
+					"err", err,
+				)
+			}
+
+			if err := k.PendingTssEvents.Remove(ctx, existing.Id); err != nil {
+				k.Logger().Error("failed to remove pending tss event on force-expiry",
+					"process_id", existing.Id,
+					"err", err,
+				)
+			}
 		}
 	}
 

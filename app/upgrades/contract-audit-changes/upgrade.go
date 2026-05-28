@@ -30,7 +30,7 @@ import (
 //   - vm.NewAppModule signature updated to accept AddressCodec
 //
 // RunMigrations handles the erc20 state migration automatically (consensus version bump).
-const UpgradeName = "contract-audit-changes"
+const UpgradeName = "changes"
 
 func NewUpgrade() upgrades.Upgrade {
 	return upgrades.Upgrade{

@@ -52,9 +52,9 @@ func (m *coordMockTxBuilder) VerifyBroadcastedTx(ctx context.Context, txHash str
 	return args.Bool(0), args.Get(1).(uint64), args.Get(2).(uint64), args.Get(3).(uint8), args.Error(4)
 }
 
-func (m *coordMockTxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, error) {
+func (m *coordMockTxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, int64, error) {
 	args := m.Called(ctx, txID)
-	return args.Bool(0), args.Error(1)
+	return args.Bool(0), args.Get(1).(int64), args.Error(2)
 }
 
 func (m *coordMockTxBuilder) GetGasFeeUsed(ctx context.Context, txHash string) (string, error) {

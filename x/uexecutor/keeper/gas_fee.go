@@ -33,7 +33,7 @@ func (k Keeper) GetOutboundTxGasAndFees(ctx sdk.Context, prc20 common.Address, g
 
 	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
 
-	receipt, err := k.evmKeeper.CallEVM(ctx, ucABI, ueModuleAccAddress, handlerAddr, false,
+	receipt, err := k.evmKeeper.CallEVM(ctx, ucABI, ueModuleAccAddress, handlerAddr, false, nil,
 		"getOutboundTxGasAndFees", prc20, gasLimitWithBaseLimit)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to call getOutboundTxGasAndFees")

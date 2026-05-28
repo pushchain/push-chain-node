@@ -142,7 +142,7 @@ func TestSolanaInboundFunds(t *testing.T) {
 		recipient := common.HexToAddress(inbound.Recipient)
 
 		// Check initial balance is 0
-		res, err := app.EVMKeeper.CallEVM(ctx, prc20ABI, ueModuleAccAddress, prc20Address, false, "balanceOf", recipient)
+		res, err := app.EVMKeeper.CallEVM(ctx, prc20ABI, ueModuleAccAddress, prc20Address, false, nil, "balanceOf", recipient)
 		require.NoError(t, err)
 		balances, _ := prc20ABI.Unpack("balanceOf", res.Ret)
 		require.Equal(t, int64(0), balances[0].(*big.Int).Int64())
@@ -156,7 +156,7 @@ func TestSolanaInboundFunds(t *testing.T) {
 		require.False(t, isPending)
 
 		// PRC20 balance should equal inbound amount
-		res, err = app.EVMKeeper.CallEVM(ctx, prc20ABI, ueModuleAccAddress, prc20Address, false, "balanceOf", recipient)
+		res, err = app.EVMKeeper.CallEVM(ctx, prc20ABI, ueModuleAccAddress, prc20Address, false, nil, "balanceOf", recipient)
 		require.NoError(t, err)
 		balances, _ = prc20ABI.Unpack("balanceOf", res.Ret)
 		expected := new(big.Int)
@@ -179,7 +179,7 @@ func TestSolanaInboundFunds(t *testing.T) {
 		voteToQuorum(t, ctx, app, vals, coreVals, &inbound2)
 
 		// Balance should be 2x
-		res, err := app.EVMKeeper.CallEVM(ctx, prc20ABI, ueModuleAccAddress, prc20Address, false, "balanceOf", recipient)
+		res, err := app.EVMKeeper.CallEVM(ctx, prc20ABI, ueModuleAccAddress, prc20Address, false, nil, "balanceOf", recipient)
 		require.NoError(t, err)
 		balances, _ := prc20ABI.Unpack("balanceOf", res.Ret)
 		expected := new(big.Int)

@@ -113,14 +113,19 @@ func initRootCmd(
 	cfg := sdk.GetConfig()
 	cfg.Seal()
 
+	// pruning.Cmd and snapshot.Cmd still expect servertypes.Application, so wrap newApp.
+	sdkAppCreator := func(l log.Logger, d dbm.DB, w io.Writer, ao servertypes.AppOptions) servertypes.Application {
+		return newApp(l, d, w, ao)
+	}
+
 	rootCmd.AddCommand(
 		genutilcli.InitCmd(chainApp.BasicModuleManager, app.DefaultNodeHome),
 		genutilcli.Commands(chainApp.TxConfig(), chainApp.BasicModuleManager, app.DefaultNodeHome),
 		cmtcli.NewCompletionCmd(rootCmd, true),
 		debug.Cmd(),
 		confixcmd.ConfigCommand(),
-		pruning.Cmd(newApp, app.DefaultNodeHome),
-		snapshot.Cmd(newApp),
+		pruning.Cmd(sdkAppCreator, app.DefaultNodeHome),
+		snapshot.Cmd(sdkAppCreator),
 	)
 
 	wasmcli.ExtendUnsafeResetAllCmd(rootCmd)
@@ -226,7 +231,7 @@ func newApp(
 	db dbm.DB,
 	traceStore io.Writer,
 	appOpts servertypes.AppOptions,
-) servertypes.Application {
+) cosmosevmserver.Application {
 	baseappOptions := sdkserver.DefaultBaseappOptions(appOpts)
 
 	var wasmOpts []wasmkeeper.Option

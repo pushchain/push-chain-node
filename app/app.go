@@ -155,6 +155,7 @@ import (
 	ibctm "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
 
 	// "github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/common"
 	cosmoscorevm "github.com/ethereum/go-ethereum/core/vm"
 	chainante "github.com/pushchain/push-chain-node/app/ante"
 
@@ -289,6 +290,8 @@ type ChainApp struct {
 	appCodec          codec.Codec
 	txConfig          client.TxConfig
 	interfaceRegistry types.InterfaceRegistry
+	clientCtx         client.Context
+	pendingTxListeners []func(common.Hash)
 
 	// keys to access the substores
 	keys    map[string]*storetypes.KVStoreKey
@@ -793,7 +796,6 @@ func NewChainApp(
 		app.EVMKeeper,
 		app.GovKeeper,
 		app.SlashingKeeper,
-		app.EvidenceKeeper,
 		appCodec,
 	)
 
@@ -1548,6 +1550,16 @@ func (app *ChainApp) RegisterTendermintService(clientCtx client.Context) {
 
 func (app *ChainApp) RegisterNodeService(clientCtx client.Context, cfg config.Config) {
 	nodeservice.RegisterNodeService(clientCtx, app.GRPCQueryRouter(), cfg)
+}
+
+// SetClientCtx sets the client context on the app (required by evmserver.Application).
+func (app *ChainApp) SetClientCtx(clientCtx client.Context) {
+	app.clientCtx = clientCtx
+}
+
+// RegisterPendingTxListener registers a listener for pending EVM transactions (required by evmserver.Application).
+func (app *ChainApp) RegisterPendingTxListener(listener func(common.Hash)) {
+	app.pendingTxListeners = append(app.pendingTxListeners, listener)
 }
 
 // GetMaccPerms returns a copy of the module account permissions

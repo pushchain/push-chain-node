@@ -217,7 +217,7 @@ func TestVoteChainMetaIntegration(t *testing.T) {
 		ucABI, err := uexecutortypes.ParseUniversalCoreABI()
 		require.NoError(t, err)
 		caller, _ := testApp.UexecutorKeeper.GetUeModuleAddress(ctx)
-		res, err := testApp.EVMKeeper.CallEVM(ctx, ucABI, caller, universalCoreAddr, false, "gasPriceByChainNamespace", chainId)
+		res, err := testApp.EVMKeeper.CallEVM(ctx, ucABI, caller, universalCoreAddr, false, nil, "gasPriceByChainNamespace", chainId)
 		require.NoError(t, err)
 		appliedPrice := new(big.Int).SetBytes(res.Ret)
 		require.Equal(t, new(big.Int).SetUint64(900), appliedPrice, "stale votes must not influence the applied median price")
@@ -338,14 +338,14 @@ func TestVoteChainMetaContractState(t *testing.T) {
 	caller, _ := testApp.UexecutorKeeper.GetUeModuleAddress(ctx)
 
 	t.Run("gasPriceByChainNamespace matches voted price", func(t *testing.T) {
-		res, err := testApp.EVMKeeper.CallEVM(ctx, ucABI, caller, universalCoreAddr, false, "gasPriceByChainNamespace", chainId)
+		res, err := testApp.EVMKeeper.CallEVM(ctx, ucABI, caller, universalCoreAddr, false, nil, "gasPriceByChainNamespace", chainId)
 		require.NoError(t, err)
 		got := new(big.Int).SetBytes(res.Ret)
 		require.Equal(t, new(big.Int).SetUint64(price), got)
 	})
 
 	t.Run("chainHeightByChainNamespace matches voted height", func(t *testing.T) {
-		res, err := testApp.EVMKeeper.CallEVM(ctx, ucABI, caller, universalCoreAddr, false, "chainHeightByChainNamespace", chainId)
+		res, err := testApp.EVMKeeper.CallEVM(ctx, ucABI, caller, universalCoreAddr, false, nil, "chainHeightByChainNamespace", chainId)
 		require.NoError(t, err)
 		got := new(big.Int).SetBytes(res.Ret)
 		require.Equal(t, new(big.Int).SetUint64(height), got)

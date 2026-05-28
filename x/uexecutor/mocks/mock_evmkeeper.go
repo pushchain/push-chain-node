@@ -40,9 +40,9 @@ func (m *MockEVMKeeper) EXPECT() *MockEVMKeeperMockRecorder {
 }
 
 // CallEVM mocks base method.
-func (m *MockEVMKeeper) CallEVM(ctx types.Context, abi abi.ABI, from, contract common.Address, commit bool, method string, args ...interface{}) (*types0.MsgEthereumTxResponse, error) {
+func (m *MockEVMKeeper) CallEVM(ctx types.Context, abi abi.ABI, from, contract common.Address, commit bool, gasCap *big.Int, method string, args ...interface{}) (*types0.MsgEthereumTxResponse, error) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{ctx, abi, from, contract, commit, method}
+	varargs := []interface{}{ctx, abi, from, contract, commit, gasCap, method}
 	for _, a := range args {
 		varargs = append(varargs, a)
 	}
@@ -53,9 +53,9 @@ func (m *MockEVMKeeper) CallEVM(ctx types.Context, abi abi.ABI, from, contract c
 }
 
 // CallEVM indicates an expected call of CallEVM.
-func (mr *MockEVMKeeperMockRecorder) CallEVM(ctx, abi, from, contract, commit, method interface{}, args ...interface{}) *gomock.Call {
+func (mr *MockEVMKeeperMockRecorder) CallEVM(ctx, abi, from, contract, commit, gasCap, method interface{}, args ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{ctx, abi, from, contract, commit, method}, args...)
+	varargs := append([]interface{}{ctx, abi, from, contract, commit, gasCap, method}, args...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CallEVM", reflect.TypeOf((*MockEVMKeeper)(nil).CallEVM), varargs...)
 }
 

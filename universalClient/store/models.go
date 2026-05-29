@@ -21,13 +21,13 @@ const (
 
 // Event type values.
 const (
-	EventTypeKeygen       = "KEYGEN"
-	EventTypeKeyrefresh   = "KEYREFRESH"
-	EventTypeQuorumChange = "QUORUM_CHANGE"
-	EventTypeSignOutbound     = "SIGN_OUTBOUND"
-	EventTypeSignFundMigrate  = "SIGN_FUND_MIGRATE"
-	EventTypeInbound      = "INBOUND"
-	EventTypeOutbound     = "OUTBOUND"
+	EventTypeKeygen          = "KEYGEN"
+	EventTypeKeyrefresh      = "KEYREFRESH"
+	EventTypeQuorumChange    = "QUORUM_CHANGE"
+	EventTypeSignOutbound    = "SIGN_OUTBOUND"
+	EventTypeSignFundMigrate = "SIGN_FUND_MIGRATE"
+	EventTypeInbound         = "INBOUND"
+	EventTypeOutbound        = "OUTBOUND"
 )
 
 // Confirmation type values.

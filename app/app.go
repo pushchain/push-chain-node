@@ -55,6 +55,7 @@ import (
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
+	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 	"github.com/cosmos/cosmos-sdk/types/msgservice"
 	signingtype "github.com/cosmos/cosmos-sdk/types/tx/signing"
 	"github.com/cosmos/cosmos-sdk/version"
@@ -107,10 +108,9 @@ import (
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	cosmosevmante "github.com/cosmos/evm/ante"
-	cosmosevmevmante "github.com/cosmos/evm/ante/evm"
 	cosmosevmencoding "github.com/cosmos/evm/encoding"
 	srvflags "github.com/cosmos/evm/server/flags"
-	cosmosevmtypes "github.com/cosmos/evm/types"
+	antetypes "github.com/cosmos/evm/ante/types"
 	cosmosevmutils "github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/erc20"
 	erc20keeper "github.com/cosmos/evm/x/erc20/keeper"
@@ -711,8 +711,9 @@ func NewChainApp(
 		app.BankKeeper,
 		app.StakingKeeper,
 		app.FeeMarketKeeper,
-		app.ConsensusParamsKeeper,
+		&app.ConsensusParamsKeeper,
 		&app.Erc20Keeper,
+		EVMChainID,
 		tracer,
 	)
 
@@ -790,10 +791,9 @@ func NewChainApp(
 		*app.StakingKeeper,
 		app.DistrKeeper,
 		app.BankKeeper,
-		app.Erc20Keeper,
-		app.TransferKeeper,
+		&app.Erc20Keeper,
+		&app.TransferKeeper,
 		app.IBCKeeper.ChannelKeeper,
-		app.EVMKeeper,
 		app.GovKeeper,
 		app.SlashingKeeper,
 		appCodec,
@@ -855,7 +855,6 @@ func NewChainApp(
 	app.TransferKeeper = ibctransferkeeper.NewKeeper(
 		appCodec,
 		runtime.NewKVStoreService(keys[ibctransfertypes.StoreKey]),
-		app.GetSubspace(ibctransfertypes.ModuleName),
 		app.RatelimitKeeper, // ICS4Wrapper
 		//app.IBCFeeKeeper,
 		app.IBCKeeper.ChannelKeeper,
@@ -1048,7 +1047,7 @@ func NewChainApp(
 		packetforward.NewAppModule(app.PacketForwardKeeper, app.GetSubspace(packetforwardtypes.ModuleName)),
 		wasmlc.NewAppModule(app.WasmClientKeeper),
 		ratelimit.NewAppModule(appCodec, app.RatelimitKeeper),
-		vm.NewAppModule(app.EVMKeeper, authKeeperEVMWrapper{app.AccountKeeper}, app.AccountKeeper.AddressCodec()),
+		vm.NewAppModule(app.EVMKeeper, authKeeperEVMWrapper{app.AccountKeeper}, app.BankKeeper, app.AccountKeeper.AddressCodec()),
 		feemarket.NewAppModule(app.FeeMarketKeeper),
 		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper),
 		uexecutor.NewAppModule(appCodec, app.UexecutorKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper, app.AccountKeeper, app.UregistryKeeper, app.UvalidatorKeeper),
@@ -1072,7 +1071,8 @@ func NewChainApp(
 	// NOTE: upgrade module is required to be prioritized
 	app.ModuleManager.SetOrderPreBlockers(
 		upgradetypes.ModuleName,
-		authtypes.ModuleName, // NEW
+		authtypes.ModuleName,
+		evmtypes.ModuleName,
 	)
 	// During begin block slashing happens after distr.BeginBlocker so that
 	// there is nothing left over in the validator fee pool, so as to keep the
@@ -1241,10 +1241,9 @@ func NewChainApp(
 		CircuitKeeper:         &app.CircuitKeeper,
 
 		EvmKeeper:              app.EVMKeeper,
-		ExtensionOptionChecker: cosmosevmtypes.HasDynamicFeeExtensionOption,
+		ExtensionOptionChecker: antetypes.HasDynamicFeeExtensionOption,
 		SigGasConsumer:         cosmosevmante.SigVerificationGasConsumer,
 		MaxTxGasWanted:         cast.ToUint64(appOpts.Get(srvflags.EVMMaxTxGasWanted)),
-		TxFeeChecker:           cosmosevmevmante.NewDynamicFeeChecker(app.FeeMarketKeeper),
 	})
 
 	// must be before Loading version
@@ -1378,7 +1377,7 @@ func (a *ChainApp) Configurator() module.Configurator {
 // InitChainer application update at chain initialization
 func (app *ChainApp) InitChainer(ctx sdk.Context, req *abci.RequestInitChain) (*abci.ResponseInitChain, error) {
 
-	var genesisState cosmosevmtypes.GenesisState
+	var genesisState map[string]json.RawMessage
 	if err := json.Unmarshal(req.AppStateBytes, &genesisState); err != nil {
 		panic(err)
 	}
@@ -1452,6 +1451,7 @@ func (a *ChainApp) DefaultGenesis() map[string]json.RawMessage {
 
 	evmGenState := evmtypes.DefaultGenesisState()
 	evmGenState.Params.ActiveStaticPrecompiles = evmtypes.AvailableStaticPrecompiles
+	evmGenState.Params.EvmDenom = BaseDenom
 	genesis[evmtypes.ModuleName] = a.appCodec.MustMarshalJSON(evmGenState)
 
 	// NOTE: for the example chain implementation we are also adding a default token pair,
@@ -1560,6 +1560,12 @@ func (app *ChainApp) SetClientCtx(clientCtx client.Context) {
 // RegisterPendingTxListener registers a listener for pending EVM transactions (required by evmserver.Application).
 func (app *ChainApp) RegisterPendingTxListener(listener func(common.Hash)) {
 	app.pendingTxListeners = append(app.pendingTxListeners, listener)
+}
+
+// GetMempool returns nil — push-chain does not use the EVM experimental mempool.
+// This satisfies the evmserver.Application interface added in cosmos/evm v0.5.
+func (app *ChainApp) GetMempool() sdkmempool.ExtMempool {
+	return nil
 }
 
 // GetMaccPerms returns a copy of the module account permissions

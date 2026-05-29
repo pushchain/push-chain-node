@@ -30,7 +30,7 @@ var ChainsCoinInfo = map[string]evmtypes.EvmCoinInfo{
 		Denom:         BaseDenom,
 		ExtendedDenom: BaseDenom,
 		DisplayDenom:  DisplayDenom,
-		Decimals:      evmtypes.EighteenDecimals,
+		Decimals:      evmtypes.EighteenDecimals.Uint32(),
 	},
 }
 
@@ -56,17 +56,6 @@ func EVMAppOptions(chainID string) error {
 
 	// set the denom info for the chain
 	if err := setBaseDenom(coinInfo); err != nil {
-		return err
-	}
-
-	ethCfg := evmtypes.DefaultChainConfig(EVMChainID)
-
-	err := evmtypes.NewEVMConfigurator().
-		WithChainConfig(ethCfg).
-		// NOTE: we're using the 18 decimals
-		WithEVMCoinInfo(coinInfo).
-		Configure()
-	if err != nil {
 		return err
 	}
 

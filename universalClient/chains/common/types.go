@@ -31,6 +31,8 @@ type FundMigrationData struct {
 	GasPrice *big.Int // Gas price from the migration event
 	GasLimit uint64   // Gas limit from the migration event
 	L1GasFee *big.Int // Extra L1 data-availability fee (wei); 0 for non-L2 chains
+
+	Balance *big.Int // if nil, builder queries chain
 }
 
 // UnsignedSigningReq contains the request for signing an outbound or fund-migration transaction.

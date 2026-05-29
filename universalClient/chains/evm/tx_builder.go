@@ -490,9 +490,15 @@ func (tb *TxBuilder) GetFundMigrationSigningRequest(ctx context.Context, data *c
 		return nil, fmt.Errorf("gas limit must be provided for fund migration")
 	}
 
-	balance, err := tb.rpcClient.GetBalance(ctx, fromAddr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get balance of %s: %w", data.From, err)
+	var balance *big.Int
+	if data.Balance != nil {
+		balance = new(big.Int).Set(data.Balance)
+	} else {
+		queried, err := tb.rpcClient.GetBalance(ctx, fromAddr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get balance of %s: %w", data.From, err)
+		}
+		balance = queried
 	}
 
 	maxTransfer, err := computeFundMigrationTransfer(balance, data.GasPrice, data.GasLimit, data.L1GasFee)

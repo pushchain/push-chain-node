@@ -17,6 +17,17 @@ enum UVStatus {
   UV_STATUS_INACTIVE = 4;           // No longer part of the validator set
 }
 
+// What triggered a lifecycle transition. Drives auto-revival: STAKING_HOOK
+// transitions are reversed when the base validator returns to bonded; ADMIN
+// transitions stay put.
+enum TransitionReason {
+  option (gogoproto.goproto_enum_stringer) = true;
+
+  TRANSITION_REASON_UNSPECIFIED = 0;   // Legacy/genesis entries (pre-enum)
+  TRANSITION_REASON_ADMIN = 1;         // Admin tx (MsgRemove/Update)
+  TRANSITION_REASON_STAKING_HOOK = 2;  // Base-chain unbond/jail/tombstone or re-bond
+}
+
 // Identity info for validator (chain-level)
 message IdentityInfo {
   option (amino.name) = "uvalidator/identity_info";
@@ -41,6 +52,7 @@ message LifecycleEvent {
 
   UVStatus status = 1;              // Validator status at this point in time
   int64 block_height = 2;           // Block height when this status transition occurred
+  TransitionReason reason = 3;      // Why this transition happened
 }
 
 // Validator lifecycle info

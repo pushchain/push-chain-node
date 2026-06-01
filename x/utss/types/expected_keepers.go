@@ -28,7 +28,7 @@ type UValidatorKeeper interface {
 		err error)
 	GetEligibleVoters(ctx context.Context) ([]uvalidatortypes.UniversalValidator, error)
 	GetAllUniversalValidators(ctx context.Context) ([]uvalidatortypes.UniversalValidator, error)
-	UpdateValidatorStatus(ctx context.Context, addr sdk.ValAddress, newStatus uvalidatortypes.UVStatus) error
+	UpdateValidatorStatus(ctx context.Context, addr sdk.ValAddress, newStatus uvalidatortypes.UVStatus, reason uvalidatortypes.TransitionReason) error
 }
 
 // URegistryKeeper defines the expected interface for the uregistry keeper.

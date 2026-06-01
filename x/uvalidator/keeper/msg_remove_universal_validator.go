@@ -59,7 +59,7 @@ func (k Keeper) RemoveUniversalValidator(
 			"new_status", types.UVStatus_UV_STATUS_PENDING_LEAVE.String(),
 		)
 		// Active -> Pending Leave
-		if err := k.UpdateValidatorStatus(ctx, valAddr, types.UVStatus_UV_STATUS_PENDING_LEAVE); err != nil {
+		if err := k.UpdateValidatorStatus(ctx, valAddr, types.UVStatus_UV_STATUS_PENDING_LEAVE, types.TransitionReason_TRANSITION_REASON_ADMIN); err != nil {
 			return fmt.Errorf("failed to mark validator %s as pending leave: %w", universalValidatorAddr, err)
 		}
 
@@ -95,7 +95,7 @@ func (k Keeper) RemoveUniversalValidator(
 		)
 
 		// Otherwise, mark as inactive
-		if err := k.UpdateValidatorStatus(ctx, valAddr, types.UVStatus_UV_STATUS_INACTIVE); err != nil {
+		if err := k.UpdateValidatorStatus(ctx, valAddr, types.UVStatus_UV_STATUS_INACTIVE, types.TransitionReason_TRANSITION_REASON_ADMIN); err != nil {
 			return fmt.Errorf("failed to inactivate validator %s: %w", universalValidatorAddr, err)
 		}
 		newStatus = types.UVStatus_UV_STATUS_INACTIVE

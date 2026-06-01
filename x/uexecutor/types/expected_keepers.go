@@ -114,6 +114,8 @@ type UValidatorKeeper interface {
 		isNew bool,
 		err error)
 	GetEligibleVoters(ctx context.Context) ([]uvalidatortypes.UniversalValidator, error)
+	GetBallot(ctx context.Context, id string) (uvalidatortypes.Ballot, error)
+	GetAdmin(ctx context.Context) (string, error)
 }
 
 // ParamSubspace defines the expected Subspace interface for parameters.

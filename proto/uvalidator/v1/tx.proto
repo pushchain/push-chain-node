@@ -8,6 +8,7 @@ import "gogoproto/gogo.proto";
 import "cosmos_proto/cosmos.proto";
 import "uvalidator/v1/types.proto";
 import "uvalidator/v1/validator.proto";
+import "uvalidator/v1/ballot.proto";
 
 option go_package = "github.com/pushchain/push-chain-node/x/uvalidator/types";
 
@@ -31,6 +32,11 @@ service Msg {
 
   // RemoveUniversalValidator defines a message to remove a universal validator.
   rpc RemoveUniversalValidator(MsgRemoveUniversalValidator) returns (MsgRemoveUniversalValidatorResponse);
+
+  // RecomputeBallotQuorum recomputes a pending ballot's eligible voters and
+  // voting threshold against the current eligible-voter set. Used as an admin
+  // escape hatch for ballots that became stuck due to eligibility drift.
+  rpc RecomputeBallotQuorum(MsgRecomputeBallotQuorum) returns (MsgRecomputeBallotQuorumResponse);
 }
 
 // MsgUpdateParams is the Msg/UpdateParams request type.
@@ -111,3 +117,22 @@ message MsgUpdateUniversalValidatorStatus {
 }
 
 message MsgUpdateUniversalValidatorStatusResponse {}
+
+message MsgRecomputeBallotQuorum {
+  option (amino.name) = "uvalidator/MsgRecomputeBallotQuorum";
+  option (cosmos.msg.v1.signer) = "signer";
+
+  // signer must equal Params.Admin
+  string signer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // ballot_id of the stuck pending ballot to recompute
+  string ballot_id = 2;
+}
+
+message MsgRecomputeBallotQuorumResponse {
+  int64 old_eligible_count = 1;
+  int64 new_eligible_count = 2;
+  int64 old_voting_threshold = 3;
+  int64 new_voting_threshold = 4;
+  BallotStatus new_status = 5; // PENDING (recomputed) or EXPIRED (zero eligible)
+}

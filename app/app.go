@@ -768,12 +768,18 @@ func NewChainApp(
 		app.UexecutorKeeper,
 	)
 
-	app.UvalidatorKeeper.SetHooks(
-		uvalidatorkeeper.NewMultiUValidatorHooks(
+	// uvalidator exposes two distinct hook surfaces, both registered in one call:
+	//   - Validator: validator-lifecycle events (consumed by x/utss + x/uexecutor)
+	//   - Ballot:    ballot-terminal events (consumed by x/uexecutor only,
+	//                for the F-2026-16642 variant audit-trail cleanup of
+	//                PendingInbounds → ExpiredInbounds)
+	app.UvalidatorKeeper.SetHooks(uvalidatorkeeper.Hooks{
+		Validator: uvalidatorkeeper.NewMultiUValidatorHooks(
 			app.UtssKeeper.Hooks(),
 			uexecutorkeeper.NewUValidatorHooks(app.UexecutorKeeper),
 		),
-	)
+		Ballot: uexecutorkeeper.NewBallotHooks(app.UexecutorKeeper),
+	})
 
 	// NOTE: stakingKeeper above is passed by reference, so it picks up these hooks.
 	app.StakingKeeper.SetHooks(

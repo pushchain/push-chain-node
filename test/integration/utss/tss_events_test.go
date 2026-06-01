@@ -278,14 +278,25 @@ func TestAllPendingTssEventsOrderedByBlockHeight(t *testing.T) {
 }
 
 // TestAllPendingTssEventsPagination verifies pagination works for active events.
+// Each InitiateTssKeyProcess force-expires any prior in-flight process, so we
+// can't generate multiple pending entries that way — write directly to
+// PendingTssEvents + TssEvents to set up the multi-item state pagination needs.
 func TestAllPendingTssEventsPagination(t *testing.T) {
 	app, ctx, _ := setupTssKeyProcessTest(t, 3)
 
-	// Create 5 active events (process initiations)
-	for i := 0; i < 5; i++ {
-		err := app.UtssKeeper.InitiateTssKeyProcess(ctx, utsstypes.TssProcessType_TSS_PROCESS_KEYGEN)
-		require.NoError(t, err)
-		ctx = ctx.WithBlockHeight(ctx.BlockHeight() + 1)
+	// Seed 5 pending events directly.
+	for i := uint64(1); i <= 5; i++ {
+		evt := utsstypes.TssEvent{
+			Id:           i,
+			EventType:    utsstypes.TssEventType_TSS_EVENT_PROCESS_INITIATED,
+			Status:       utsstypes.TssEventStatus_TSS_EVENT_ACTIVE,
+			ProcessId:    i,
+			ProcessType:  utsstypes.TssProcessType_TSS_PROCESS_KEYGEN.String(),
+			ExpiryHeight: 500,
+			BlockHeight:  ctx.BlockHeight(),
+		}
+		require.NoError(t, app.UtssKeeper.TssEvents.Set(ctx, i, evt))
+		require.NoError(t, app.UtssKeeper.PendingTssEvents.Set(ctx, i, i))
 	}
 
 	querier := keeper.NewQuerier(app.UtssKeeper)

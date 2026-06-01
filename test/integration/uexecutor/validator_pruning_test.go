@@ -69,7 +69,7 @@ func TestValidatorPruningChainMeta(t *testing.T) {
 		// Promote all validators to ACTIVE so removal transitions to PENDING_LEAVE
 		for _, val := range vals {
 			valAddr, _ := sdk.ValAddressFromBech32(val.OperatorAddress)
-			require.NoError(t, testApp.UvalidatorKeeper.UpdateValidatorStatus(ctx, valAddr, uvalidatortypes.UVStatus_UV_STATUS_ACTIVE))
+			require.NoError(t, testApp.UvalidatorKeeper.UpdateValidatorStatus(ctx, valAddr, uvalidatortypes.UVStatus_UV_STATUS_ACTIVE, uvalidatortypes.TransitionReason_TRANSITION_REASON_UNSPECIFIED))
 		}
 
 		// All 4 validators vote on chain meta with increasing heights
@@ -120,7 +120,7 @@ func TestValidatorPruningChainMeta(t *testing.T) {
 		_ = testApp.UtssKeeper.CurrentTssProcess.Remove(ctx)
 		for _, val := range vals {
 			valAddr, _ := sdk.ValAddressFromBech32(val.OperatorAddress)
-			require.NoError(t, testApp.UvalidatorKeeper.UpdateValidatorStatus(ctx, valAddr, uvalidatortypes.UVStatus_UV_STATUS_ACTIVE))
+			require.NoError(t, testApp.UvalidatorKeeper.UpdateValidatorStatus(ctx, valAddr, uvalidatortypes.UVStatus_UV_STATUS_ACTIVE, uvalidatortypes.TransitionReason_TRANSITION_REASON_UNSPECIFIED))
 		}
 
 		coreAccs := make([]string, len(vals))

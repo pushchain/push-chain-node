@@ -19,12 +19,13 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Msg_UpdateParams_FullMethodName   = "/uexecutor.v1.Msg/UpdateParams"
-	Msg_ExecutePayload_FullMethodName = "/uexecutor.v1.Msg/ExecutePayload"
-	Msg_MigrateUEA_FullMethodName     = "/uexecutor.v1.Msg/MigrateUEA"
-	Msg_VoteInbound_FullMethodName    = "/uexecutor.v1.Msg/VoteInbound"
-	Msg_VoteOutbound_FullMethodName   = "/uexecutor.v1.Msg/VoteOutbound"
-	Msg_VoteChainMeta_FullMethodName  = "/uexecutor.v1.Msg/VoteChainMeta"
+	Msg_UpdateParams_FullMethodName       = "/uexecutor.v1.Msg/UpdateParams"
+	Msg_ExecutePayload_FullMethodName     = "/uexecutor.v1.Msg/ExecutePayload"
+	Msg_MigrateUEA_FullMethodName         = "/uexecutor.v1.Msg/MigrateUEA"
+	Msg_VoteInbound_FullMethodName        = "/uexecutor.v1.Msg/VoteInbound"
+	Msg_VoteOutbound_FullMethodName       = "/uexecutor.v1.Msg/VoteOutbound"
+	Msg_VoteChainMeta_FullMethodName      = "/uexecutor.v1.Msg/VoteChainMeta"
+	Msg_RevertStuckInbound_FullMethodName = "/uexecutor.v1.Msg/RevertStuckInbound"
 )
 
 // MsgClient is the client API for Msg service.
@@ -45,6 +46,10 @@ type MsgClient interface {
 	VoteOutbound(ctx context.Context, in *MsgVoteOutbound, opts ...grpc.CallOption) (*MsgVoteOutboundResponse, error)
 	// VoteChainMeta defines a message for universal validators to vote on chain metadata (gas price + block height)
 	VoteChainMeta(ctx context.Context, in *MsgVoteChainMeta, opts ...grpc.CallOption) (*MsgVoteChainMetaResponse, error)
+	// RevertStuckInbound creates an INBOUND_REVERT outbound for an inbound whose
+	// ballot has expired without finalizing, refunding the user on the source
+	// chain via the normal revert/outbound flow. Admin-only escape hatch.
+	RevertStuckInbound(ctx context.Context, in *MsgRevertStuckInbound, opts ...grpc.CallOption) (*MsgRevertStuckInboundResponse, error)
 }
 
 type msgClient struct {
@@ -109,6 +114,15 @@ func (c *msgClient) VoteChainMeta(ctx context.Context, in *MsgVoteChainMeta, opt
 	return out, nil
 }
 
+func (c *msgClient) RevertStuckInbound(ctx context.Context, in *MsgRevertStuckInbound, opts ...grpc.CallOption) (*MsgRevertStuckInboundResponse, error) {
+	out := new(MsgRevertStuckInboundResponse)
+	err := c.cc.Invoke(ctx, Msg_RevertStuckInbound_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MsgServer is the server API for Msg service.
 // All implementations must embed UnimplementedMsgServer
 // for forward compatibility
@@ -127,6 +141,10 @@ type MsgServer interface {
 	VoteOutbound(context.Context, *MsgVoteOutbound) (*MsgVoteOutboundResponse, error)
 	// VoteChainMeta defines a message for universal validators to vote on chain metadata (gas price + block height)
 	VoteChainMeta(context.Context, *MsgVoteChainMeta) (*MsgVoteChainMetaResponse, error)
+	// RevertStuckInbound creates an INBOUND_REVERT outbound for an inbound whose
+	// ballot has expired without finalizing, refunding the user on the source
+	// chain via the normal revert/outbound flow. Admin-only escape hatch.
+	RevertStuckInbound(context.Context, *MsgRevertStuckInbound) (*MsgRevertStuckInboundResponse, error)
 	mustEmbedUnimplementedMsgServer()
 }
 
@@ -151,6 +169,9 @@ func (UnimplementedMsgServer) VoteOutbound(context.Context, *MsgVoteOutbound) (*
 }
 func (UnimplementedMsgServer) VoteChainMeta(context.Context, *MsgVoteChainMeta) (*MsgVoteChainMetaResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method VoteChainMeta not implemented")
+}
+func (UnimplementedMsgServer) RevertStuckInbound(context.Context, *MsgRevertStuckInbound) (*MsgRevertStuckInboundResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RevertStuckInbound not implemented")
 }
 func (UnimplementedMsgServer) mustEmbedUnimplementedMsgServer() {}
 
@@ -273,6 +294,24 @@ func _Msg_VoteChainMeta_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Msg_RevertStuckInbound_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgRevertStuckInbound)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).RevertStuckInbound(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_RevertStuckInbound_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).RevertStuckInbound(ctx, req.(*MsgRevertStuckInbound))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Msg_ServiceDesc is the grpc.ServiceDesc for Msg service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -303,6 +342,10 @@ var Msg_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "VoteChainMeta",
 			Handler:    _Msg_VoteChainMeta_Handler,
+		},
+		{
+			MethodName: "RevertStuckInbound",
+			Handler:    _Msg_RevertStuckInbound_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -275,3 +275,47 @@ func TestBallotHook_OutboundExpiryDoesNotPopulateExpiredInbounds(t *testing.T) {
 	}))
 	require.Equal(t, 0, count, "OUTBOUND_TX terminal hook must not populate ExpiredInbounds")
 }
+
+// -------------------------------------------------------------------------
+// Merge-coexistence: PendingOutboundEntry carries BOTH signing_deadline
+// (field 4, from the TSS signature-deadline work) AND the per-variant audit
+// trail (field 5, F-2026-16642). RecordOutboundVote does a read-modify-write
+// of the whole entry, so it must preserve signing_deadline while appending
+// variants. This guards the field-numbering merge resolution.
+// -------------------------------------------------------------------------
+
+func TestPendingOutbound_SigningDeadlineAndVariantsCoexist(t *testing.T) {
+	chainApp, ctx, _ := utils.SetAppWithValidators(t)
+	utxId := "utx-coexist"
+	outboundId := "outbound-coexist"
+
+	const deadline int64 = 1716700000
+
+	// Seed an entry WITH a signing deadline (mimicking create_outbound.go when
+	// the destination chain has tss_signing_deadline configured).
+	require.NoError(t, chainApp.UexecutorKeeper.PendingOutbounds.Set(ctx, outboundId, uexecutortypes.PendingOutboundEntry{
+		OutboundId:      outboundId,
+		UniversalTxId:   utxId,
+		CreatedAt:       ctx.BlockHeight(),
+		SigningDeadline: deadline,
+	}))
+
+	// Record two votes → appends a variant (field 5).
+	obs := makeObservation(true, "0xdesttxcoexist", "")
+	ballotKey, err := uexecutortypes.GetOutboundBallotKey(utxId, outboundId, obs)
+	require.NoError(t, err)
+	require.NoError(t, chainApp.UexecutorKeeper.RecordOutboundVote(ctx, outboundId, obs, outboundAuditVoter1, ballotKey))
+	require.NoError(t, chainApp.UexecutorKeeper.RecordOutboundVote(ctx, outboundId, obs, outboundAuditVoter2, ballotKey))
+
+	entry, err := chainApp.UexecutorKeeper.PendingOutbounds.Get(ctx, outboundId)
+	require.NoError(t, err)
+
+	// Field 4 must survive the variant write.
+	require.Equal(t, deadline, entry.SigningDeadline,
+		"signing_deadline (field 4) must be preserved across RecordOutboundVote")
+
+	// Field 5 must carry the accumulated variant.
+	require.Len(t, entry.Variants, 1)
+	require.ElementsMatch(t, []string{outboundAuditVoter1, outboundAuditVoter2}, entry.Variants[0].Voters)
+	require.Equal(t, "0xdesttxcoexist", entry.Variants[0].ObservedTx.TxHash)
+}

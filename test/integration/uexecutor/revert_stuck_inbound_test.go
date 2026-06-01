@@ -121,7 +121,7 @@ func TestRevertStuckInbound_HappyPath_ExpiredBallot_CreatesRevertOutbound(t *tes
 	require.Len(t, utx.OutboundTx, 1)
 	ob := utx.OutboundTx[0]
 	require.Equal(t, resp.OutboundId, ob.Id, "outbound id should match response")
-	require.Equal(t, uexecutortypes.GetOutboundRevertId(inbound.SourceChain, inbound.TxHash), ob.Id,
+	require.Equal(t, uexecutortypes.GetOutboundRevertId(inbound.SourceChain, inbound.TxHash, inbound.LogIndex), ob.Id,
 		"outbound id must follow the canonical revert-id format")
 	require.Equal(t, uexecutortypes.TxType_INBOUND_REVERT, ob.TxType, "outbound type must be INBOUND_REVERT")
 	require.Equal(t, uexecutortypes.Status_PENDING, ob.OutboundStatus, "outbound must start PENDING so UVs sign it")

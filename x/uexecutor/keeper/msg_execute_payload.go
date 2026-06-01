@@ -7,6 +7,7 @@ import (
 	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
+	pchaintypes "github.com/pushchain/push-chain-node/types"
 	"github.com/pushchain/push-chain-node/utils"
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
@@ -54,8 +55,26 @@ func (k Keeper) ExecutePayload(ctx context.Context, evmFrom common.Address, univ
 	}
 
 	if !isDeployed {
-		k.Logger().Warn("execute payload rejected: UEA not deployed", "chain", caip2Identifier, "owner", universalAccountId.Owner)
-		return fmt.Errorf("UEA is not deployed")
+		// only deploy if the UEA address has funds and not deployed yet
+		ueaAccAddr := sdk.AccAddress(ueaAddr.Bytes())
+		balance := k.bankKeeper.GetBalance(sdkCtx, ueaAccAddr, pchaintypes.BaseDenom)
+		if balance.Amount.Sign() == 0 {
+			k.Logger().Warn("execute payload rejected: UEA not deployed and has no balance",
+				"chain", caip2Identifier,
+				"owner", universalAccountId.Owner,
+			)
+			return fmt.Errorf("UEA is not deployed")
+		}
+
+		k.Logger().Info("auto-deploying UEA before execute (pre-funded address)",
+			"uea", ueaAddr.Hex(),
+			"balance", balance.Amount.String(),
+			"chain", caip2Identifier,
+			"owner", universalAccountId.Owner,
+		)
+		if _, err := k.DeployUEAV2(ctx, evmFrom, universalAccountId); err != nil {
+			return errors.Wrapf(err, "failed to auto-deploy pre-funded UEA")
+		}
 	}
 
 	k.Logger().Debug("executing payload via UEA",

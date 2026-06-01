@@ -77,7 +77,7 @@ func NewUniversalClient(ctx context.Context, cfg *config.Config) (*UniversalClie
 
 	return &UniversalClient{
 		ctx:         ctx,
-		log:         log,
+		log:         log.With().Str("component", "core").Logger(),
 		config:      cfg,
 		queryServer: queryServer,
 		pushCore:    pushCore,
@@ -89,7 +89,7 @@ func NewUniversalClient(ctx context.Context, cfg *config.Config) (*UniversalClie
 
 // Start launches all subsystems, blocks until ctx is cancelled, then shuts down.
 func (uc *UniversalClient) Start() error {
-	uc.log.Info().Msg("Starting universal client...")
+	uc.log.Info().Msg("starting universal client")
 
 	if err := uc.chains.Start(uc.ctx); err != nil {
 		return fmt.Errorf("failed to start chains manager: %w", err)
@@ -99,17 +99,13 @@ func (uc *UniversalClient) Start() error {
 		if err := uc.tssNode.Start(uc.ctx); err != nil {
 			return fmt.Errorf("failed to start TSS node: %w", err)
 		}
-		uc.log.Info().
-			Str("peer_id", uc.tssNode.PeerID()).
-			Strs("listen_addrs", uc.tssNode.ListenAddrs()).
-			Msg("TSS node started")
 	}
 
 	if err := uc.queryServer.Start(); err != nil {
 		return fmt.Errorf("failed to start query server: %w", err)
 	}
 
-	uc.log.Info().Msg("Initialization complete. Entering main loop...")
+	uc.log.Info().Msg("universal client running")
 
 	<-uc.ctx.Done()
 
@@ -119,15 +115,15 @@ func (uc *UniversalClient) Start() error {
 
 // shutdown stops all subsystems in reverse startup order.
 func (uc *UniversalClient) shutdown() {
-	uc.log.Info().Msg("Shutting down universal client...")
+	uc.log.Debug().Msg("shutting down universal client")
 
 	if err := uc.queryServer.Stop(); err != nil {
-		uc.log.Error().Err(err).Msg("error stopping query server")
+		uc.log.Error().Err(err).Str("subsystem", "query_server").Msg("subsystem failed to stop")
 	}
 
 	if uc.tssNode != nil {
 		if err := uc.tssNode.Stop(); err != nil {
-			uc.log.Error().Err(err).Msg("error stopping TSS node")
+			uc.log.Error().Err(err).Str("subsystem", "tss_node").Msg("subsystem failed to stop")
 		}
 	}
 
@@ -137,9 +133,11 @@ func (uc *UniversalClient) shutdown() {
 
 	if uc.pushCore != nil {
 		if err := uc.pushCore.Close(); err != nil {
-			uc.log.Error().Err(err).Msg("error closing pushcore client")
+			uc.log.Error().Err(err).Str("subsystem", "push_core").Msg("subsystem failed to close")
 		}
 	}
+
+	uc.log.Info().Msg("universal client stopped")
 }
 
 // valoperToAccountAddr converts a validator operator address to its account address.
@@ -168,8 +166,6 @@ func initTSS(
 		return nil, nil
 	}
 
-	log.Info().Msg("Initializing TSS node...")
-
 	// Sanitize chain ID for use as a database filename (e.g. "push_42101-1" → "push_42101-1.db")
 	dbFilename := sanitizeForFilename(cfg.PushChainID) + ".db"
 	baseDir := filepath.Join(cfg.NodeHome, config.DatabasesSubdir)
@@ -193,11 +189,6 @@ func initTSS(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create TSS node: %w", err)
 	}
-
-	log.Info().
-		Str("valoper", cfg.PushValoperAddress).
-		Str("p2p_listen", cfg.TSSP2PListen).
-		Msg("TSS node initialized")
 
 	return node, nil
 }

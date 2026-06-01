@@ -19,7 +19,6 @@ import (
 
 	"github.com/pushchain/push-chain-node/universalClient/chains"
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
-	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
@@ -28,12 +27,29 @@ import (
 	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
+// PushCoreClient is the subset of pushcore.Client the coordinator depends on.
+// Defined as an interface so tests can inject a mock without spinning up a
+// real Push Chain RPC endpoint. *pushcore.Client satisfies this interface.
+type PushCoreClient interface {
+	GetLatestBlock(ctx context.Context) (uint64, error)
+	GetCurrentKey(ctx context.Context) (*utsstypes.TssKey, error)
+	GetAllUniversalValidators(ctx context.Context) ([]*types.UniversalValidator, error)
+}
+
 const (
-	// PerChainCap is the max in-flight SIGN events per destination chain (default 16; below EVM mempool accountqueue 64).
+	// PerChainCap is the max in-flight SIGN events per destination chain
+	// (default 16; below EVM mempool accountqueue 64).
+	// EVM-only: bypassed for non-EVM chains (e.g. SVM has no nonce queueing,
+	// so in-flight events don't block each other).
 	PerChainCap = 16
-	// ConsecutiveWaitThreshold: after this many consecutive polls where a chain has in-flight events,
-	// use finalized nonce to recover from stuck nonces (~200s at 10s poll).
+	// ConsecutiveWaitThreshold: after this many consecutive polls where a chain
+	// has in-flight events, use finalized nonce to recover from stuck nonces
+	// (~200s at 10s poll).
+	// EVM-only: SVM doesn't use a nonce, so stuck-nonce recovery is meaningless.
 	ConsecutiveWaitThreshold = 20
+	// staleValidatorsHaltMultiplier: if the cached validator set is older than
+	// this many pollInterval ticks, it is cleared
+	staleValidatorsHaltMultiplier = 10
 )
 
 // ackState tracks ACK status for an event.
@@ -47,7 +63,7 @@ type ackState struct {
 type Coordinator struct {
 	// Dependencies
 	eventStore      *eventstore.Store
-	pushCore        *pushcore.Client
+	pushCore        PushCoreClient
 	keyshareManager *keyshare.Manager
 	chains          *chains.Chains
 
@@ -59,10 +75,11 @@ type Coordinator struct {
 	send             SendFunc
 
 	// Lifecycle and cache
-	mu            sync.RWMutex
-	running       bool
-	stopCh        chan struct{}
-	allValidators []*types.UniversalValidator
+	mu                      sync.RWMutex
+	running                 bool
+	stopCh                  chan struct{}
+	allValidators           []*types.UniversalValidator
+	lastValidatorsRefreshAt time.Time // zero until first successful refresh
 
 	// ACK tracking for events we're coordinating (even if not participant)
 	ackTracking map[string]*ackState
@@ -76,7 +93,7 @@ type Coordinator struct {
 // NewCoordinator creates a new coordinator.
 func NewCoordinator(
 	eventStore *eventstore.Store,
-	pushCore *pushcore.Client,
+	pushCore PushCoreClient,
 	keyshareManager *keyshare.Manager,
 	chains *chains.Chains,
 	validatorAddress string,
@@ -104,82 +121,56 @@ func NewCoordinator(
 	}
 }
 
-// GetPartyIDFromPeerID gets the partyID (validator address) for a given peerID.
-// Uses cached allValidators for performance.
-func (c *Coordinator) GetPartyIDFromPeerID(ctx context.Context, peerID string) (string, error) {
-	// Use cached validators
-	c.mu.RLock()
-	allValidators := c.allValidators
-	c.mu.RUnlock()
-
-	if len(allValidators) == 0 {
-		// If cache is empty, try to update it
-		c.updateValidators(ctx)
-		c.mu.RLock()
-		allValidators = c.allValidators
-		c.mu.RUnlock()
+// validatorsSnapshot returns a read-only snapshot of the cached validator set.
+// Returns nil if the cache is stale
+func (c *Coordinator) validatorsSnapshot() []*types.UniversalValidator {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.lastValidatorsRefreshAt.IsZero() {
+		return nil
 	}
+	age := time.Since(c.lastValidatorsRefreshAt)
+	if age > c.pollInterval*time.Duration(staleValidatorsHaltMultiplier) {
+		if c.allValidators != nil {
+			c.logger.Warn().Dur("age", age).Msg("validator cache exceeded staleness threshold; clearing")
+			c.allValidators = nil
+		}
+		return nil
+	}
+	return c.allValidators
+}
 
-	for _, v := range allValidators {
+// GetPartyIDFromPeerID gets the partyID (validator address) for a given peerID.
+func (c *Coordinator) GetPartyIDFromPeerID(_ context.Context, peerID string) (string, error) {
+	for _, v := range c.validatorsSnapshot() {
 		if v.NetworkInfo != nil && v.NetworkInfo.PeerId == peerID {
 			if v.IdentifyInfo != nil {
 				return v.IdentifyInfo.CoreValidatorAddress, nil
 			}
 		}
 	}
-
 	return "", fmt.Errorf("peerID %s not found in validators", peerID)
 }
 
 // GetPeerIDFromPartyID gets the peerID for a given partyID (validator address).
-// Uses cached allValidators for performance.
-func (c *Coordinator) GetPeerIDFromPartyID(ctx context.Context, partyID string) (string, error) {
-	// Use cached validators
-	c.mu.RLock()
-	allValidators := c.allValidators
-	c.mu.RUnlock()
-
-	if len(allValidators) == 0 {
-		// If cache is empty, try to update it
-		c.updateValidators(ctx)
-		c.mu.RLock()
-		allValidators = c.allValidators
-		c.mu.RUnlock()
-	}
-
-	for _, v := range allValidators {
+func (c *Coordinator) GetPeerIDFromPartyID(_ context.Context, partyID string) (string, error) {
+	for _, v := range c.validatorsSnapshot() {
 		if v.IdentifyInfo != nil && v.IdentifyInfo.CoreValidatorAddress == partyID {
 			if v.NetworkInfo != nil {
 				return v.NetworkInfo.PeerId, nil
 			}
 		}
 	}
-
 	return "", fmt.Errorf("partyID %s not found in validators", partyID)
 }
 
 // GetMultiAddrsFromPeerID gets the multiaddrs for a given peerID.
-// Uses cached allValidators for performance.
-func (c *Coordinator) GetMultiAddrsFromPeerID(ctx context.Context, peerID string) ([]string, error) {
-	// Use cached validators
-	c.mu.RLock()
-	allValidators := c.allValidators
-	c.mu.RUnlock()
-
-	if len(allValidators) == 0 {
-		// If cache is empty, try to update it
-		c.updateValidators(ctx)
-		c.mu.RLock()
-		allValidators = c.allValidators
-		c.mu.RUnlock()
-	}
-
-	for _, v := range allValidators {
+func (c *Coordinator) GetMultiAddrsFromPeerID(_ context.Context, peerID string) ([]string, error) {
+	for _, v := range c.validatorsSnapshot() {
 		if v.NetworkInfo != nil && v.NetworkInfo.PeerId == peerID {
 			return v.NetworkInfo.MultiAddrs, nil
 		}
 	}
-
 	return nil, fmt.Errorf("peerID %s not found in validators", peerID)
 }
 
@@ -196,9 +187,7 @@ func (c *Coordinator) IsPeerCoordinator(ctx context.Context, peerID string) (boo
 		return false, fmt.Errorf("failed to get latest block: %w", err)
 	}
 
-	c.mu.RLock()
-	allValidators := c.allValidators
-	c.mu.RUnlock()
+	allValidators := c.validatorsSnapshot()
 
 	if len(allValidators) == 0 {
 		return false, nil
@@ -269,10 +258,7 @@ func (c *Coordinator) GetTSSAddress(ctx context.Context) (string, error) {
 // Used by the session manager to check whether a setup-message sender is eligible to participate.
 // For SIGN coordinator setup the coordinator calls getSignParticipants (random threshold subset).
 func (c *Coordinator) GetEligibleUV(protocolType string) []*types.UniversalValidator {
-	c.mu.RLock()
-	allValidators := c.allValidators
-	c.mu.RUnlock()
-
+	allValidators := c.validatorsSnapshot()
 	if len(allValidators) == 0 {
 		return nil
 	}
@@ -298,7 +284,7 @@ func (c *Coordinator) Start(ctx context.Context) {
 	c.running = true
 	c.mu.Unlock()
 
-	c.logger.Info().Msg("starting coordinator")
+	c.logger.Debug().Msg("starting coordinator")
 	go c.pollLoop(ctx)
 }
 
@@ -313,7 +299,7 @@ func (c *Coordinator) Stop() {
 	close(c.stopCh)
 	c.mu.Unlock()
 
-	c.logger.Info().Msg("stopping coordinator")
+	c.logger.Debug().Msg("stopping coordinator")
 }
 
 // pollLoop polls the database for pending events and processes them.
@@ -350,6 +336,7 @@ func (c *Coordinator) updateValidators(ctx context.Context) {
 
 	c.mu.Lock()
 	c.allValidators = allValidators
+	c.lastValidatorsRefreshAt = time.Now()
 	c.mu.Unlock()
 
 	c.logger.Debug().Int("count", len(allValidators)).Msg("updated validators cache")
@@ -364,11 +351,7 @@ func (c *Coordinator) processConfirmedEvents(ctx context.Context) error {
 		return fmt.Errorf("failed to get latest block: %w", err)
 	}
 
-	// Use cached validators (updated at polling interval)
-	c.mu.RLock()
-	allValidators := c.allValidators
-	c.mu.RUnlock()
-
+	allValidators := c.validatorsSnapshot()
 	if len(allValidators) == 0 {
 		return nil // No validators, skip
 	}
@@ -380,7 +363,7 @@ func (c *Coordinator) processConfirmedEvents(ctx context.Context) error {
 		return nil
 	}
 
-	c.logger.Info().Msg("processConfirmedEvents: we ARE coordinator, processing events")
+	c.logger.Debug().Msg("processConfirmedEvents: we ARE coordinator, processing events")
 
 	events, err := c.eventStore.GetNonExpiredConfirmedEvents(currentBlock, 10, 0)
 	if err != nil {
@@ -392,10 +375,14 @@ func (c *Coordinator) processConfirmedEvents(ctx context.Context) error {
 		return fmt.Errorf("failed to get in-flight sign count per chain: %w", err)
 	}
 
-	c.logger.Info().
-		Int("count", len(events)).
-		Uint64("current_block", currentBlock).
-		Msg("found confirmed events")
+	// Only surface at Info when we actually have events to process; otherwise
+	// the per-poll Debug above is sufficient and avoids steady-state log noise.
+	if len(events) > 0 {
+		c.logger.Info().
+			Int("count", len(events)).
+			Uint64("current_block", currentBlock).
+			Msg("found confirmed events")
+	}
 
 	// Per-chain nonce cache: fetched once per chain per poll, then incremented locally (n, n+1, n+2, …).
 	nonceByChain := make(map[string]uint64)
@@ -440,7 +427,7 @@ func (c *Coordinator) processConfirmedEvents(ctx context.Context) error {
 			}
 		}
 
-		c.logger.Info().
+		c.logger.Debug().
 			Str("event_id", event.EventID).
 			Str("type", event.Type).
 			Uint64("block_height", event.BlockHeight).
@@ -565,7 +552,7 @@ func (c *Coordinator) processEventAsCoordinator(ctx context.Context, event store
 				Msg("failed to send setup message")
 			// Continue - other participants may still receive it
 		} else {
-			c.logger.Info().
+			c.logger.Debug().
 				Str("event_id", event.EventID).
 				Str("receiver", receiverAddr).
 				Msg("sent setup message to participant")
@@ -723,14 +710,19 @@ func (c *Coordinator) createFundMigrationSignSetup(ctx context.Context, eventDat
 	if assignedNonce == nil {
 		return nil, nil, fmt.Errorf("assigned nonce is required for fund migration transaction")
 	}
+
 	gasPrice := new(big.Int)
 	gasPrice.SetString(migrationData.GasPrice, 10)
+
+	l1GasFee := new(big.Int)
+	l1GasFee.SetString(migrationData.L1GasFee, 10)
 
 	migrationFundData := &common.FundMigrationData{
 		From:     oldTSSAddr,
 		To:       currentTSSAddr,
 		GasPrice: gasPrice,
 		GasLimit: migrationData.GasLimit,
+		L1GasFee: l1GasFee,
 	}
 	signingReq, err := builder.GetFundMigrationSigningRequest(ctx, migrationFundData, *assignedNonce)
 	if err != nil {
@@ -1074,9 +1066,16 @@ func (c *Coordinator) assignSignNonce(
 		return 0, false
 	}
 
+	// Non-EVM chains (SVM today) have no nonce semantics — every tx carries
+	// its own blockhash and replay protection (ExecutedSubTx PDA on SVM).
+	// In-flight events don't block each other, so PerChainCap and the
+	// wait-then-recover dance are EVM-only optimizations. For non-EVM chains
+	// skip straight to nonce fetch (which returns 0 for SVM).
+	isEVM := c.chains != nil && c.chains.IsEVMChain(chain)
+
 	// ── Subsequent event for this chain (nonce already fetched this poll) ──
 	if _, exists := nonceByChain[chain]; exists {
-		if inFlightPerChain[chain] >= PerChainCap {
+		if isEVM && inFlightPerChain[chain] >= PerChainCap {
 			return 0, false
 		}
 		nonceByChain[chain]++
@@ -1088,7 +1087,7 @@ func (c *Coordinator) assignSignNonce(
 	// Decide: process normally, wait (skip), or recover with finalized nonce.
 	useFinalized := false
 
-	if inFlightPerChain[chain] > 0 {
+	if isEVM && inFlightPerChain[chain] > 0 {
 		c.chainWaitMu.Lock()
 		consecutiveWait := c.consecutiveWaitPerChain[chain]
 		if consecutiveWait < ConsecutiveWaitThreshold {
@@ -1109,7 +1108,7 @@ func (c *Coordinator) assignSignNonce(
 		// Cap is intentionally bypassed: stuck events have stale nonces and will
 		// be cleared by broadcaster → resolver → REVERTED.
 		useFinalized = true
-		c.logger.Info().
+		c.logger.Debug().
 			Str("chain", chain).
 			Int("in_flight", inFlightPerChain[chain]).
 			Int("consecutive_wait", consecutiveWait).

@@ -3,6 +3,7 @@ package types
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -29,6 +30,7 @@ type OutboundCreatedEvent struct {
 	PcTxHash         string `json:"pc_tx_hash"`
 	LogIndex         string `json:"log_index"`
 	RevertMsg        string `json:"revert_msg"`
+	SigningDeadline  int64  `json:"signing_deadline,omitempty"`
 }
 
 // NewOutboundCreatedEvent creates a Cosmos SDK event for outbound creation.
@@ -60,6 +62,7 @@ func NewOutboundCreatedEvent(e OutboundCreatedEvent) (sdk.Event, error) {
 		sdk.NewAttribute("pc_tx_hash", e.PcTxHash),
 		sdk.NewAttribute("log_index", e.LogIndex),
 		sdk.NewAttribute("revert_msg", e.RevertMsg),
+		sdk.NewAttribute("signing_deadline", strconv.FormatInt(e.SigningDeadline, 10)),
 		sdk.NewAttribute("data", string(bz)), // full JSON payload for indexers
 	)
 

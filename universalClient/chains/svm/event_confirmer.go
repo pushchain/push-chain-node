@@ -76,17 +76,17 @@ func (ec *EventConfirmer) checkAndConfirmEvents(ctx context.Context) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	ec.logger.Info().
+	ec.logger.Debug().
 		Dur("interval", interval).
 		Msg("starting event confirmation checking")
 
 	for {
 		select {
 		case <-ctx.Done():
-			ec.logger.Info().Msg("context cancelled, stopping event confirmer")
+			ec.logger.Debug().Msg("context cancelled, stopping event confirmer")
 			return
 		case <-ec.stopCh:
-			ec.logger.Info().Msg("stop signal received, stopping event confirmer")
+			ec.logger.Debug().Msg("stop signal received, stopping event confirmer")
 			return
 		case <-ticker.C:
 			if err := ec.processPendingEvents(ctx); err != nil {
@@ -158,6 +158,19 @@ func (ec *EventConfirmer) processPendingEvents(ctx context.Context) error {
 			continue
 		}
 
+		// Solana preserves meta.logMessages even when meta.err is set, so a Program
+		// data: line from a failed tx can reach the listener. Mark such events
+		// REVERTED here so they never promote to CONFIRMED and trigger a vote.
+		if tx.Meta.Err != nil {
+			if _, updateErr := ec.chainStore.UpdateEventStatus(event.EventID, store.StatusPending, store.StatusReverted); updateErr != nil {
+				ec.logger.Error().
+					Err(updateErr).
+					Str("event_id", event.EventID).
+					Msg("failed to mark failed-tx event as REVERTED")
+			}
+			continue
+		}
+
 		// Get transaction slot
 		txSlot := tx.Slot
 		if txSlot == 0 {
@@ -182,7 +195,7 @@ func (ec *EventConfirmer) processPendingEvents(ctx context.Context) error {
 
 			if rowsAffected > 0 {
 				confirmedCount++
-				ec.logger.Info().
+				ec.logger.Debug().
 					Str("event_id", event.EventID).
 					Str("event_type", event.Type).
 					Uint64("confirmations", confirmations).

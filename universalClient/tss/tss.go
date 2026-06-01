@@ -236,27 +236,30 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 		pushSigner:                 cfg.PushSigner,
 		stopCh:                     make(chan struct{}),
 		registeredPeers:            make(map[string]bool),
-		txResolver: txresolver.NewResolver(txresolver.Config{
-			EventStore:    evtStore,
-			Chains:        cfg.Chains,
-			PushSigner:    cfg.PushSigner,
-			CheckInterval: sessionExpiryCheckInterval,
-			Logger:        logger,
-		}),
 	}
 
-	// Create broadcaster after node so the closure can capture `node`.
+	getTSSAddress := func(ctx context.Context) (string, error) {
+		if node.coordinator == nil {
+			return "", fmt.Errorf("coordinator not initialized")
+		}
+		return node.coordinator.GetTSSAddress(ctx)
+	}
+
+	node.txResolver = txresolver.NewResolver(txresolver.Config{
+		EventStore:    evtStore,
+		Chains:        cfg.Chains,
+		PushSigner:    cfg.PushSigner,
+		CheckInterval: sessionExpiryCheckInterval,
+		Logger:        logger,
+		GetTSSAddress: getTSSAddress,
+	})
+
 	node.txBroadcaster = txbroadcaster.NewBroadcaster(txbroadcaster.Config{
 		EventStore:    evtStore,
 		Chains:        cfg.Chains,
 		CheckInterval: sessionExpiryCheckInterval,
 		Logger:        logger,
-		GetTSSAddress: func(ctx context.Context) (string, error) {
-			if node.coordinator == nil {
-				return "", fmt.Errorf("coordinator not initialized")
-			}
-			return node.coordinator.GetTSSAddress(ctx)
-		},
+		GetTSSAddress: getTSSAddress,
 	})
 
 	node.expirySweeper = expirysweeper.NewSweeper(expirysweeper.Config{
@@ -281,7 +284,7 @@ func (n *Node) Start(ctx context.Context) error {
 	n.ctx = ctx
 	n.mu.Unlock()
 
-	n.logger.Info().Msg("starting TSS node")
+	n.logger.Debug().Msg("starting TSS node")
 
 	// Start libp2p network
 	net, err := libp2pnet.New(ctx, n.networkCfg, n.logger)
@@ -295,11 +298,6 @@ func (n *Node) Start(ctx context.Context) error {
 		net.Close()
 		return fmt.Errorf("failed to register message handler: %w", err)
 	}
-
-	n.logger.Info().
-		Str("peer_id", net.ID()).
-		Strs("addrs", net.ListenAddrs()).
-		Msg("libp2p network started")
 
 	// Reset all IN_PROGRESS events to PENDING on startup
 	// This handles cases where the node crashed while events were in progress,
@@ -386,7 +384,7 @@ func (n *Node) Stop() error {
 	close(n.stopCh)
 	n.mu.Unlock()
 
-	n.logger.Info().Msg("stopping TSS node")
+	n.logger.Debug().Msg("stopping TSS node")
 
 	// Stop coordinator
 	n.coordinator.Stop()

@@ -38,7 +38,7 @@ func NewEventCleaner(
 
 // Start begins the periodic cleanup process
 func (ec *EventCleaner) Start(ctx context.Context) error {
-	ec.logger.Info().
+	ec.logger.Debug().
 		Str("cleanup_interval", ec.cleanupInterval.String()).
 		Str("retention_period", ec.retentionPeriod.String()).
 		Msg("starting event cleaner")
@@ -57,10 +57,10 @@ func (ec *EventCleaner) Start(ctx context.Context) error {
 		for {
 			select {
 			case <-ctx.Done():
-				ec.logger.Info().Msg("context cancelled, stopping event cleaner")
+				ec.logger.Debug().Msg("context cancelled, stopping event cleaner")
 				return
 			case <-ec.stopCh:
-				ec.logger.Info().Msg("stop signal received, stopping event cleaner")
+				ec.logger.Debug().Msg("stop signal received, stopping event cleaner")
 				return
 			case <-ec.ticker.C:
 				if err := ec.performCleanup(); err != nil {
@@ -75,7 +75,7 @@ func (ec *EventCleaner) Start(ctx context.Context) error {
 
 // Stop gracefully stops the event cleaner
 func (ec *EventCleaner) Stop() {
-	ec.logger.Info().Msg("stopping event cleaner")
+	ec.logger.Debug().Msg("stopping event cleaner")
 
 	if ec.ticker != nil {
 		ec.ticker.Stop()

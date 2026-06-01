@@ -37,10 +37,10 @@ func NewRPCClient(rpcURLs []string, expectedChainID int64, logger zerolog.Logger
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	for _, url := range rpcURLs {
+	for i, url := range rpcURLs {
 		client, err := ethclient.DialContext(ctx, url)
 		if err != nil {
-			log.Warn().Err(err).Str("url", url).Msg("failed to connect to RPC endpoint, skipping")
+			log.Warn().Err(err).Int("index", i).Msg("failed to connect to RPC endpoint, skipping")
 			continue
 		}
 
@@ -51,18 +51,17 @@ func NewRPCClient(rpcURLs []string, expectedChainID int64, logger zerolog.Logger
 			// This allows the system to continue even if verification is slow/unavailable
 			log.Warn().
 				Err(err).
-				Str("url", url).
+				Int("index", i).
 				Int64("expected_chain_id", expectedChainID).
 				Msg("failed to verify chain ID (timeout or error), proceeding with client anyway")
 			clients = append(clients, client)
-			log.Info().Str("url", url).Msg("connected to RPC endpoint (chain ID verification skipped)")
 			continue
 		}
 
 		if clientChainID.Int64() != expectedChainID {
 			client.Close()
 			log.Warn().
-				Str("url", url).
+				Int("index", i).
 				Int64("expected_chain_id", expectedChainID).
 				Int64("actual_chain_id", clientChainID.Int64()).
 				Msg("chain ID mismatch, closing client")
@@ -70,7 +69,7 @@ func NewRPCClient(rpcURLs []string, expectedChainID int64, logger zerolog.Logger
 		}
 
 		clients = append(clients, client)
-		log.Info().Str("url", url).Msg("connected to RPC endpoint")
+		log.Debug().Int("index", i).Msg("RPC client added to pool")
 	}
 
 	if len(clients) == 0 {
@@ -94,6 +93,9 @@ func (rc *RPCClient) executeWithFailover(ctx context.Context, operation string, 
 	}
 
 	maxAttempts := len(clients)
+	// Snapshot start index once per call so concurrent callers can't share
+	// counter advances and retry the same failing endpoint.
+	startIndex := atomic.AddUint64(&rc.index, 1) - 1
 	var lastErr error
 	for attempt := 0; attempt < maxAttempts; attempt++ {
 		if ctx != nil {
@@ -104,8 +106,7 @@ func (rc *RPCClient) executeWithFailover(ctx context.Context, operation string, 
 			}
 		}
 
-		index := atomic.AddUint64(&rc.index, 1) - 1
-		client := clients[index%uint64(len(clients))]
+		client := clients[(startIndex+uint64(attempt))%uint64(len(clients))]
 
 		if client == nil {
 			continue

@@ -64,7 +64,6 @@ func convertTssEvent(tssEvent *utsstypes.TssEvent) (*store.Event, error) {
 	}, nil
 }
 
-
 // convertFundMigrationEvent converts a FundMigration to a store.Event.
 func convertFundMigrationEvent(migration *utsstypes.FundMigration) (*store.Event, error) {
 	if migration == nil {
@@ -81,6 +80,7 @@ func convertFundMigrationEvent(migration *utsstypes.FundMigration) (*store.Event
 		BlockHeight:      migration.InitiatedBlock,
 		GasPrice:         migration.GasPrice,
 		GasLimit:         migration.GasLimit,
+		L1GasFee:         migration.L1GasFee,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal fund migration event data: %w", err)
@@ -137,6 +137,7 @@ func convertOutboundToEvent(entry *uexecutortypes.PendingOutboundEntry, outbound
 		PcTxHash:         pcTxHash,
 		LogIndex:         logIndex,
 		RevertMsg:        revertMsg,
+		SigningDeadline:  entry.SigningDeadline,
 	}
 
 	eventData, err := json.Marshal(outboundData)

@@ -24,6 +24,7 @@ const (
 	Msg_UpdateUniversalValidator_FullMethodName       = "/uvalidator.v1.Msg/UpdateUniversalValidator"
 	Msg_UpdateUniversalValidatorStatus_FullMethodName = "/uvalidator.v1.Msg/UpdateUniversalValidatorStatus"
 	Msg_RemoveUniversalValidator_FullMethodName       = "/uvalidator.v1.Msg/RemoveUniversalValidator"
+	Msg_RecomputeBallotQuorum_FullMethodName          = "/uvalidator.v1.Msg/RecomputeBallotQuorum"
 )
 
 // MsgClient is the client API for Msg service.
@@ -42,6 +43,10 @@ type MsgClient interface {
 	UpdateUniversalValidatorStatus(ctx context.Context, in *MsgUpdateUniversalValidatorStatus, opts ...grpc.CallOption) (*MsgUpdateUniversalValidatorStatusResponse, error)
 	// RemoveUniversalValidator defines a message to remove a universal validator.
 	RemoveUniversalValidator(ctx context.Context, in *MsgRemoveUniversalValidator, opts ...grpc.CallOption) (*MsgRemoveUniversalValidatorResponse, error)
+	// RecomputeBallotQuorum recomputes a pending ballot's eligible voters and
+	// voting threshold against the current eligible-voter set. Used as an admin
+	// escape hatch for ballots that became stuck due to eligibility drift.
+	RecomputeBallotQuorum(ctx context.Context, in *MsgRecomputeBallotQuorum, opts ...grpc.CallOption) (*MsgRecomputeBallotQuorumResponse, error)
 }
 
 type msgClient struct {
@@ -97,6 +102,15 @@ func (c *msgClient) RemoveUniversalValidator(ctx context.Context, in *MsgRemoveU
 	return out, nil
 }
 
+func (c *msgClient) RecomputeBallotQuorum(ctx context.Context, in *MsgRecomputeBallotQuorum, opts ...grpc.CallOption) (*MsgRecomputeBallotQuorumResponse, error) {
+	out := new(MsgRecomputeBallotQuorumResponse)
+	err := c.cc.Invoke(ctx, Msg_RecomputeBallotQuorum_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MsgServer is the server API for Msg service.
 // All implementations must embed UnimplementedMsgServer
 // for forward compatibility
@@ -113,6 +127,10 @@ type MsgServer interface {
 	UpdateUniversalValidatorStatus(context.Context, *MsgUpdateUniversalValidatorStatus) (*MsgUpdateUniversalValidatorStatusResponse, error)
 	// RemoveUniversalValidator defines a message to remove a universal validator.
 	RemoveUniversalValidator(context.Context, *MsgRemoveUniversalValidator) (*MsgRemoveUniversalValidatorResponse, error)
+	// RecomputeBallotQuorum recomputes a pending ballot's eligible voters and
+	// voting threshold against the current eligible-voter set. Used as an admin
+	// escape hatch for ballots that became stuck due to eligibility drift.
+	RecomputeBallotQuorum(context.Context, *MsgRecomputeBallotQuorum) (*MsgRecomputeBallotQuorumResponse, error)
 	mustEmbedUnimplementedMsgServer()
 }
 
@@ -134,6 +152,9 @@ func (UnimplementedMsgServer) UpdateUniversalValidatorStatus(context.Context, *M
 }
 func (UnimplementedMsgServer) RemoveUniversalValidator(context.Context, *MsgRemoveUniversalValidator) (*MsgRemoveUniversalValidatorResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RemoveUniversalValidator not implemented")
+}
+func (UnimplementedMsgServer) RecomputeBallotQuorum(context.Context, *MsgRecomputeBallotQuorum) (*MsgRecomputeBallotQuorumResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RecomputeBallotQuorum not implemented")
 }
 func (UnimplementedMsgServer) mustEmbedUnimplementedMsgServer() {}
 
@@ -238,6 +259,24 @@ func _Msg_RemoveUniversalValidator_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Msg_RecomputeBallotQuorum_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgRecomputeBallotQuorum)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).RecomputeBallotQuorum(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_RecomputeBallotQuorum_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).RecomputeBallotQuorum(ctx, req.(*MsgRecomputeBallotQuorum))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Msg_ServiceDesc is the grpc.ServiceDesc for Msg service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -264,6 +303,10 @@ var Msg_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RemoveUniversalValidator",
 			Handler:    _Msg_RemoveUniversalValidator_Handler,
+		},
+		{
+			MethodName: "RecomputeBallotQuorum",
+			Handler:    _Msg_RecomputeBallotQuorum_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

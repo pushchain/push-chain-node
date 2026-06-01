@@ -19,46 +19,37 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 )
 
-// ---------------------------------------------------------------------------
-// Resolver
-// ---------------------------------------------------------------------------
-
-// Config holds configuration for the tx resolver.
 type Config struct {
 	EventStore    *eventstore.Store
 	Chains        *chains.Chains
 	PushSigner    *pushsigner.Signer
 	CheckInterval time.Duration
 	Logger        zerolog.Logger
+	GetTSSAddress func(ctx context.Context) (string, error)
 }
-
-// maxNotFoundRetries is the number of consecutive "not found" checks before reverting.
-// At a 30s check interval this gives ~5 minutes for a tx to appear on chain.
-const maxNotFoundRetries = 10
 
 // Resolver takes BROADCASTED txs and moves them to terminal status (COMPLETED or REVERTED).
 type Resolver struct {
-	eventStore     *eventstore.Store
-	chains         *chains.Chains
-	pushSigner     *pushsigner.Signer
-	checkInterval  time.Duration
-	logger         zerolog.Logger
-	notFoundCounts map[string]int // eventID -> consecutive not-found count
+	eventStore    *eventstore.Store
+	chains        *chains.Chains
+	pushSigner    *pushsigner.Signer
+	checkInterval time.Duration
+	logger        zerolog.Logger
+	getTSSAddress func(ctx context.Context) (string, error)
 }
 
-// NewResolver creates a new tx resolver.
 func NewResolver(cfg Config) *Resolver {
 	interval := cfg.CheckInterval
 	if interval == 0 {
 		interval = 15 * time.Second
 	}
 	return &Resolver{
-		eventStore:     cfg.EventStore,
-		chains:         cfg.Chains,
-		pushSigner:     cfg.PushSigner,
-		checkInterval:  interval,
-		logger:         cfg.Logger.With().Str("component", "txresolver").Logger(),
-		notFoundCounts: make(map[string]int),
+		eventStore:    cfg.EventStore,
+		chains:        cfg.Chains,
+		pushSigner:    cfg.PushSigner,
+		checkInterval: interval,
+		logger:        cfg.Logger.With().Str("component", "txresolver").Logger(),
+		getTSSAddress: cfg.GetTSSAddress,
 	}
 }
 
@@ -209,14 +200,6 @@ func (r *Resolver) getBuilder(chainID string) (common.TxBuilder, error) {
 	return client.GetTxBuilder()
 }
 
-func (r *Resolver) verifyTxOnChain(ctx context.Context, chainID, txHash string) (bool, uint64, uint64, uint8, error) {
-	builder, err := r.getBuilder(chainID)
-	if err != nil {
-		return false, 0, 0, 0, err
-	}
-	return builder.VerifyBroadcastedTx(ctx, txHash)
-}
-
 // voteOutboundFailureAndMarkReverted votes failure for an outbound event and marks it REVERTED.
 func (r *Resolver) voteOutboundFailureAndMarkReverted(ctx context.Context, event *store.Event, txID, utxID, txHash string, blockHeight uint64, gasFeeUsed string, errorMsg string) error {
 	if r.pushSigner == nil {
@@ -242,8 +225,11 @@ func (r *Resolver) voteOutboundFailureAndMarkReverted(ctx context.Context, event
 		return fmt.Errorf("failed to mark event %s as reverted: %w", event.EventID, err)
 	}
 	r.logger.Info().
-		Str("event_id", event.EventID).Str("tx_id", txID).
-		Str("error_msg", errorMsg).Msg("voted outbound failure and marked REVERTED")
+		Str("event_id", event.EventID).
+		Str("type", event.Type).
+		Str("vote_tx_hash", voteTxHash).
+		Str("error_msg", errorMsg).
+		Msg("event marked as REVERTED")
 	return nil
 }
 
@@ -272,7 +258,9 @@ func (r *Resolver) voteFundMigrationAndMark(ctx context.Context, event *store.Ev
 	}
 
 	r.logger.Info().
-		Str("event_id", event.EventID).Uint64("migration_id", migrationID).
-		Str("tx_hash", txHash).Bool("success", success).Str("status", newStatus).
-		Msg("voted fund migration and updated status")
+		Str("event_id", event.EventID).
+		Str("type", event.Type).
+		Uint64("migration_id", migrationID).
+		Str("vote_tx_hash", voteTxHash).
+		Msg("event marked as " + newStatus)
 }

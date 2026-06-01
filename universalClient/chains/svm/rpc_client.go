@@ -36,19 +36,19 @@ func NewRPCClient(rpcURLs []string, expectedGenesisHash string, logger zerolog.L
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	for _, url := range rpcURLs {
+	for i, url := range rpcURLs {
 		client := rpc.New(url)
 
 		// Verify connection by checking health
 		health, err := client.GetHealth(ctx)
 		if err != nil {
-			log.Warn().Err(err).Str("url", url).Msg("failed to connect to RPC endpoint, skipping")
+			log.Warn().Err(err).Int("index", i).Msg("failed to connect to RPC endpoint, skipping")
 			continue
 		}
 
 		if health != "ok" {
 			log.Warn().
-				Str("url", url).
+				Int("index", i).
 				Str("health", health).
 				Msg("node is not healthy, skipping")
 			continue
@@ -62,11 +62,10 @@ func NewRPCClient(rpcURLs []string, expectedGenesisHash string, logger zerolog.L
 				// This allows the system to continue even if verification is slow/unavailable
 				log.Warn().
 					Err(err).
-					Str("url", url).
+					Int("index", i).
 					Str("expected_genesis_hash", expectedGenesisHash).
 					Msg("failed to verify genesis hash (timeout or error), proceeding with client anyway")
 				clients = append(clients, client)
-				log.Info().Str("url", url).Msg("connected to RPC endpoint (genesis hash verification skipped)")
 				continue
 			}
 
@@ -77,7 +76,7 @@ func NewRPCClient(rpcURLs []string, expectedGenesisHash string, logger zerolog.L
 
 			if actualHash != expectedGenesisHash {
 				log.Warn().
-					Str("url", url).
+					Int("index", i).
 					Str("expected_genesis_hash", expectedGenesisHash).
 					Str("actual_genesis_hash", genesisHash.String()).
 					Msg("genesis hash mismatch, skipping")
@@ -86,7 +85,7 @@ func NewRPCClient(rpcURLs []string, expectedGenesisHash string, logger zerolog.L
 		}
 
 		clients = append(clients, client)
-		log.Info().Str("url", url).Msg("connected to RPC endpoint")
+		log.Debug().Int("index", i).Msg("RPC client added to pool")
 	}
 
 	if len(clients) == 0 {
@@ -110,6 +109,10 @@ func (rc *RPCClient) executeWithFailover(ctx context.Context, operation string, 
 	}
 
 	maxAttempts := len(clients)
+	// Snapshot start index once per call so concurrent callers can't share
+	// counter advances and retry the same failing endpoint.
+	startIndex := atomic.AddUint64(&rc.index, 1) - 1
+	var lastErr error
 	for attempt := 0; attempt < maxAttempts; attempt++ {
 		if ctx != nil {
 			select {
@@ -119,8 +122,7 @@ func (rc *RPCClient) executeWithFailover(ctx context.Context, operation string, 
 			}
 		}
 
-		index := atomic.AddUint64(&rc.index, 1) - 1
-		client := clients[index%uint64(len(clients))]
+		client := clients[(startIndex+uint64(attempt))%uint64(len(clients))]
 
 		if client == nil {
 			continue
@@ -130,6 +132,7 @@ func (rc *RPCClient) executeWithFailover(ctx context.Context, operation string, 
 		if err == nil {
 			return nil
 		}
+		lastErr = err
 
 		rc.logger.Warn().
 			Str("operation", operation).
@@ -138,6 +141,9 @@ func (rc *RPCClient) executeWithFailover(ctx context.Context, operation string, 
 			Msg("operation failed, trying next endpoint")
 	}
 
+	if lastErr != nil {
+		return fmt.Errorf("operation %s failed after trying %d endpoints: %w", operation, maxAttempts, lastErr)
+	}
 	return fmt.Errorf("operation %s failed after trying %d endpoints", operation, maxAttempts)
 }
 
@@ -164,6 +170,40 @@ func (rc *RPCClient) GetLatestSlot(ctx context.Context) (uint64, error) {
 		return innerErr
 	})
 	return slot, err
+}
+
+// LatestFinalizedBlockTime returns the unix timestamp of the latest finalized
+// block — the cluster's view of "now" against which on-chain deadline checks
+// fire. Used by broadcaster and resolver to gate deadline-based decisions:
+// comparing local wall-clock to this value catches host-clock skew, full
+// cluster halts (block time stops advancing), and finalization stalls (the
+// latest *finalized* block ages even while production continues).
+//
+// Returns 0 + nil error if block time is unavailable for the latest slot
+// (e.g., the slot is too new for the RPC to have indexed). Returns 0 + err
+// only when the slot lookup itself fails.
+func (rc *RPCClient) LatestFinalizedBlockTime(ctx context.Context) (int64, error) {
+	slot, err := rc.GetLatestSlot(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	var blockTime int64
+	if err := rc.executeWithFailover(ctx, "get_block_time", func(client *rpc.Client) error {
+		t, innerErr := client.GetBlockTime(ctx, slot)
+		if innerErr != nil {
+			return innerErr
+		}
+		if t != nil {
+			blockTime = int64(*t)
+		}
+		return nil
+	}); err != nil {
+		// Block-time lookup failed (e.g., slot too recent). Surface 0 so caller
+		// treats it as "unknown freshness" and defers irreversible decisions.
+		return 0, nil
+	}
+	return blockTime, nil
 }
 
 // GetRecentBlockhash gets a recent blockhash for transaction building
@@ -252,12 +292,19 @@ func calculateMedian(fees []uint64) uint64 {
 	return fees[n/2]
 }
 
-// GetSignaturesForAddress gets transaction signatures for an address
-func (rc *RPCClient) GetSignaturesForAddress(ctx context.Context, address solana.PublicKey) ([]*rpc.TransactionSignature, error) {
+// GetSignaturesForAddress gets transaction signatures for an address. If
+// `before` is the zero signature, fetching starts from the most recent block;
+// otherwise it returns signatures strictly older than `before`, enabling
+// backward pagination.
+func (rc *RPCClient) GetSignaturesForAddress(ctx context.Context, address solana.PublicKey, before solana.Signature) ([]*rpc.TransactionSignature, error) {
+	var opts *rpc.GetSignaturesForAddressOpts
+	if !before.IsZero() {
+		opts = &rpc.GetSignaturesForAddressOpts{Before: before}
+	}
 	var signatures []*rpc.TransactionSignature
 	err := rc.executeWithFailover(ctx, "get_signatures_for_address", func(client *rpc.Client) error {
 		var innerErr error
-		signatures, innerErr = client.GetSignaturesForAddress(ctx, address)
+		signatures, innerErr = client.GetSignaturesForAddressWithOpts(ctx, address, opts)
 		return innerErr
 	})
 	return signatures, err
@@ -320,7 +367,9 @@ func (rc *RPCClient) SimulateTransaction(ctx context.Context, tx *solana.Transac
 	return result.Value, nil
 }
 
-// GetAccountData fetches account data for a given public key
+// GetAccountData fetches account data for a given public key. Uses Solana
+// RPC's default commitment (`finalized`, per the JSON-RPC spec) — reorg-safe
+// for both terminal decisions and race-recovery probes.
 func (rc *RPCClient) GetAccountData(ctx context.Context, pubkey solana.PublicKey) ([]byte, error) {
 	var accountData []byte
 	err := rc.executeWithFailover(ctx, "get_account_data", func(client *rpc.Client) error {

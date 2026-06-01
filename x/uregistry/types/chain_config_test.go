@@ -2,10 +2,16 @@ package types_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/pushchain/push-chain-node/x/uregistry/types"
 	"github.com/stretchr/testify/require"
 )
+
+func durationPtr(seconds int64) *time.Duration {
+	d := time.Duration(seconds) * time.Second
+	return &d
+}
 
 func TestChainConfig_ValidateBasic(t *testing.T) {
 	validMethod := &types.GatewayMethods{
@@ -193,6 +199,49 @@ func TestChainConfig_ValidateBasic(t *testing.T) {
 				GasOracleFetchInterval: 30,
 			},
 			expectErr: false,
+		},
+		{
+			name: "valid - with tss_signing_deadline",
+			config: types.ChainConfig{
+				Chain:             "solana:devnet",
+				VmType:            types.VmType_SVM,
+				PublicRpcUrl:      "https://api.devnet.solana.com",
+				GatewayAddress:    "addr",
+				BlockConfirmation: validBlockConfirmation,
+				GatewayMethods:    []*types.GatewayMethods{validMethod},
+				GasOracleFetchInterval: 30,
+				TssSigningDeadline: durationPtr(10 * 60), // 10 minutes
+			},
+			expectErr: false,
+		},
+		{
+			name: "valid - nil tss_signing_deadline",
+			config: types.ChainConfig{
+				Chain:             "eip155:1",
+				VmType:            types.VmType_EVM,
+				PublicRpcUrl:      "https://mainnet.infura.io",
+				GatewayAddress:    "0x1234",
+				BlockConfirmation: validBlockConfirmation,
+				GatewayMethods:    []*types.GatewayMethods{validMethod},
+				GasOracleFetchInterval: 30,
+				TssSigningDeadline: nil,
+			},
+			expectErr: false,
+		},
+		{
+			name: "invalid - negative tss_signing_deadline",
+			config: types.ChainConfig{
+				Chain:             "solana:devnet",
+				VmType:            types.VmType_SVM,
+				PublicRpcUrl:      "https://api.devnet.solana.com",
+				GatewayAddress:    "addr",
+				BlockConfirmation: validBlockConfirmation,
+				GatewayMethods:    []*types.GatewayMethods{validMethod},
+				GasOracleFetchInterval: 30,
+				TssSigningDeadline: durationPtr(-60),
+			},
+			expectErr: true,
+			errMsg:    "tss_signing_deadline must not be negative",
 		},
 		{
 			name: "invalid - bad vault method inside vault_methods",

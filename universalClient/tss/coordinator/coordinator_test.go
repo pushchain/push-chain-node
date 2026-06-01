@@ -24,6 +24,7 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
+	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
@@ -52,9 +53,9 @@ func (m *coordMockTxBuilder) VerifyBroadcastedTx(ctx context.Context, txHash str
 	return args.Bool(0), args.Get(1).(uint64), args.Get(2).(uint64), args.Get(3).(uint8), args.Error(4)
 }
 
-func (m *coordMockTxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, error) {
+func (m *coordMockTxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, int64, error) {
 	args := m.Called(ctx, txID)
-	return args.Bool(0), args.Error(1)
+	return args.Bool(0), args.Get(1).(int64), args.Error(2)
 }
 
 func (m *coordMockTxBuilder) GetGasFeeUsed(ctx context.Context, txHash string) (string, error) {
@@ -161,6 +162,9 @@ func setupTestCoordinator(t *testing.T) (*Coordinator, *eventstore.Store, *gorm.
 
 	coord.mu.Lock()
 	coord.allValidators = testValidators
+	// Also mark as freshly refreshed so validatorsSnapshot doesn't treat the
+	// injected slice as never-populated (the fixture doesn't run pollLoop).
+	coord.lastValidatorsRefreshAt = time.Now()
 	coord.mu.Unlock()
 
 	return coord, evtStore, db
@@ -668,6 +672,7 @@ func TestAssignSignNonce_SubsequentEventUsesCache(t *testing.T) {
 
 func TestAssignSignNonce_SubsequentEventCapReached(t *testing.T) {
 	coord, _, _ := setupTestCoordinator(t)
+	coord.chains = newTestChainsForCoordinator(t, "eip155:1", uregistrytypes.VmType_EVM, &coordMockChainClient{builder: &coordMockTxBuilder{}})
 
 	nonceByChain := map[string]uint64{"eip155:1": 10}
 	inFlightPerChain := map[string]int{"eip155:1": PerChainCap}
@@ -686,6 +691,7 @@ func TestAssignSignNonce_SubsequentEventCapReached(t *testing.T) {
 
 func TestAssignSignNonce_FirstEventWithInFlight_SkipsUntilThreshold(t *testing.T) {
 	coord, _, _ := setupTestCoordinator(t)
+	coord.chains = newTestChainsForCoordinator(t, "eip155:1", uregistrytypes.VmType_EVM, &coordMockChainClient{builder: &coordMockTxBuilder{}})
 
 	inFlightPerChain := map[string]int{"eip155:1": 1}
 	nonceByChain := map[string]uint64{}
@@ -705,6 +711,63 @@ func TestAssignSignNonce_FirstEventWithInFlight_SkipsUntilThreshold(t *testing.T
 
 	coord.chainWaitMu.Lock()
 	assert.Equal(t, 1, coord.consecutiveWaitPerChain["eip155:1"])
+	coord.chainWaitMu.Unlock()
+}
+
+// TestAssignSignNonce_SVM_BypassesPerChainCap verifies that SVM chains aren't
+// subject to the EVM-only PerChainCap. Solana has no nonce-based ordering, so
+// in-flight count creates no operational pressure.
+func TestAssignSignNonce_SVM_BypassesPerChainCap(t *testing.T) {
+	coord, _, _ := setupTestCoordinator(t)
+	coord.chains = newTestChainsForCoordinator(t, "solana:mainnet", uregistrytypes.VmType_SVM, &coordMockChainClient{builder: &coordMockTxBuilder{}})
+
+	// Subsequent-event branch with in-flight at the cap. On EVM this would
+	// return (0, false); on SVM we should pass through and assign.
+	nonceByChain := map[string]uint64{"solana:mainnet": 0}
+	inFlightPerChain := map[string]int{"solana:mainnet": PerChainCap}
+
+	nonce, ok := coord.assignSignNonce(
+		context.Background(),
+		store.Event{EventID: "e1"},
+		"solana:mainnet",
+		inFlightPerChain,
+		nonceByChain,
+		map[string]bool{},
+	)
+	assert.True(t, ok, "SVM should bypass PerChainCap")
+	assert.Equal(t, uint64(1), nonce)
+	assert.Equal(t, PerChainCap+1, inFlightPerChain["solana:mainnet"])
+}
+
+// TestAssignSignNonce_SVM_BypassesInFlightSkip verifies that SVM chains
+// bypass the EVM-only wait-counter/skippedChains machinery. Even with
+// in-flight events, the chain must NOT be marked as skipped and the
+// consecutive-wait counter must NOT increment.
+//
+// The downstream getNextNonceForChain call still tries to fetch a TSS
+// address (which fails in the test fixture, so ok=false here). That's
+// orthogonal to what we're testing — the gate is observed via the absence
+// of side-effects on skippedChains / consecutiveWaitPerChain.
+func TestAssignSignNonce_SVM_BypassesInFlightSkip(t *testing.T) {
+	coord, _, _ := setupTestCoordinator(t)
+	coord.chains = newTestChainsForCoordinator(t, "solana:mainnet", uregistrytypes.VmType_SVM, &coordMockChainClient{builder: &coordMockTxBuilder{}})
+
+	inFlightPerChain := map[string]int{"solana:mainnet": 5}
+	nonceByChain := map[string]uint64{}
+	skippedChains := map[string]bool{}
+
+	_, _ = coord.assignSignNonce(
+		context.Background(),
+		store.Event{EventID: "e1"},
+		"solana:mainnet",
+		inFlightPerChain,
+		nonceByChain,
+		skippedChains,
+	)
+
+	assert.False(t, skippedChains["solana:mainnet"], "SVM chain must not be marked as skipped on in-flight events")
+	coord.chainWaitMu.Lock()
+	assert.Equal(t, 0, coord.consecutiveWaitPerChain["solana:mainnet"], "SVM chain must not advance the consecutive-wait counter")
 	coord.chainWaitMu.Unlock()
 }
 
@@ -1163,5 +1226,166 @@ func TestGetEligibleForProtocol(t *testing.T) {
 
 	t.Run("unknown returns nil", func(t *testing.T) {
 		assert.Nil(t, getEligibleForProtocol("UNKNOWN", validators))
+	})
+}
+
+// stalenessMockPushCore satisfies PushCoreClient for staleness-tracking tests.
+// Toggle failGetAll to simulate GetAllUniversalValidators RPC outages.
+type stalenessMockPushCore struct {
+	block      uint64
+	validators []*types.UniversalValidator
+	failGetAll bool
+}
+
+func (m *stalenessMockPushCore) GetLatestBlock(_ context.Context) (uint64, error) {
+	return m.block, nil
+}
+
+func (m *stalenessMockPushCore) GetCurrentKey(_ context.Context) (*utsstypes.TssKey, error) {
+	return &utsstypes.TssKey{KeyId: "test-key"}, nil
+}
+
+func (m *stalenessMockPushCore) GetAllUniversalValidators(_ context.Context) ([]*types.UniversalValidator, error) {
+	if m.failGetAll {
+		return nil, fmt.Errorf("simulated GetAllUniversalValidators RPC failure")
+	}
+	return m.validators, nil
+}
+
+// TestIsPeerCoordinator_StaleCacheHalt covers the F-2026-16874 defensive guard:
+// once the validator cache has aged past the halt threshold (10 * pollInterval),
+// validatorsSnapshot clears it and IsPeerCoordinator reports the peer as
+// "not coordinator" so SETUPs against the stale roster never get accepted.
+func TestIsPeerCoordinator_StaleCacheHalt(t *testing.T) {
+	t.Run("never-refreshed cache → not coordinator, no error", func(t *testing.T) {
+		coord, _, _ := setupTestCoordinator(t)
+		// Swap to a working pushCore so we get past GetLatestBlock (which now
+		// runs before the cache check), and clear the fixture's timestamp to
+		// exercise the boot-time "never refreshed" path.
+		coord.pushCore = &stalenessMockPushCore{block: 0}
+		coord.mu.Lock()
+		coord.lastValidatorsRefreshAt = time.Time{}
+		coord.mu.Unlock()
+
+		ok, err := coord.IsPeerCoordinator(context.Background(), "peer1")
+		require.NoError(t, err)
+		assert.False(t, ok, "empty cache must report 'not coordinator' silently")
+	})
+
+	t.Run("cache aged past threshold → not coordinator, no error", func(t *testing.T) {
+		coord, _, _ := setupTestCoordinator(t)
+		// pollInterval=100ms in tests, threshold = 10 * 100ms = 1s.
+		// Backdate timestamp 5s — validatorsSnapshot will detect the staleness,
+		// clear the field, and IsPeerCoordinator will see an empty roster.
+		coord.pushCore = &stalenessMockPushCore{block: 0}
+		coord.mu.Lock()
+		coord.lastValidatorsRefreshAt = time.Now().Add(-5 * time.Second)
+		coord.mu.Unlock()
+
+		ok, err := coord.IsPeerCoordinator(context.Background(), "peer1")
+		require.NoError(t, err)
+		assert.False(t, ok, "stale cache must report 'not coordinator' silently")
+
+		// And the underlying field must have been cleared by the snapshot.
+		coord.mu.RLock()
+		assert.Nil(t, coord.allValidators)
+		coord.mu.RUnlock()
+	})
+
+	t.Run("fresh cache passes the staleness gate", func(t *testing.T) {
+		coord, _, _ := setupTestCoordinator(t)
+		coord.pushCore = &stalenessMockPushCore{block: 0}
+		coord.mu.Lock()
+		coord.lastValidatorsRefreshAt = time.Now()
+		coord.mu.Unlock()
+
+		// peer1 → validator1 at block 0 with coordinatorRange=100 → is coordinator.
+		ok, err := coord.IsPeerCoordinator(context.Background(), "peer1")
+		require.NoError(t, err)
+		assert.True(t, ok)
+	})
+}
+
+// TestUpdateValidators_StalenessTimestamp covers that updateValidators only
+// advances lastValidatorsRefreshAt on success — a failed refresh must leave
+// the timestamp untouched so the cache continues to age toward the halt threshold.
+func TestUpdateValidators_StalenessTimestamp(t *testing.T) {
+	t.Run("success advances the timestamp", func(t *testing.T) {
+		coord, _, _ := setupTestCoordinator(t)
+		coord.pushCore = &stalenessMockPushCore{validators: nil}
+
+		before := time.Now()
+		coord.updateValidators(context.Background())
+		after := time.Now()
+
+		coord.mu.RLock()
+		ts := coord.lastValidatorsRefreshAt
+		coord.mu.RUnlock()
+		require.False(t, ts.IsZero(), "timestamp must be set after a successful refresh")
+		assert.False(t, ts.Before(before), "timestamp must be >= call-start time")
+		assert.False(t, ts.After(after), "timestamp must be <= call-end time")
+	})
+
+	t.Run("failure leaves prior timestamp untouched", func(t *testing.T) {
+		coord, _, _ := setupTestCoordinator(t)
+
+		// First, a successful refresh to plant a timestamp.
+		coord.pushCore = &stalenessMockPushCore{validators: nil}
+		coord.updateValidators(context.Background())
+		coord.mu.RLock()
+		first := coord.lastValidatorsRefreshAt
+		coord.mu.RUnlock()
+		require.False(t, first.IsZero())
+
+		// Swap to a failing client; ensure enough wall-clock has passed that
+		// a (wrong) timestamp update would be detectable.
+		time.Sleep(10 * time.Millisecond)
+		coord.pushCore = &stalenessMockPushCore{failGetAll: true}
+		coord.updateValidators(context.Background())
+
+		coord.mu.RLock()
+		after := coord.lastValidatorsRefreshAt
+		coord.mu.RUnlock()
+		assert.Equal(t, first, after, "failed refresh must not move the staleness timestamp")
+	})
+}
+
+func TestValidatorsSnapshot(t *testing.T) {
+	t.Run("never refreshed returns nil", func(t *testing.T) {
+		coord, _, _ := setupTestCoordinator(t)
+		// Reset the fixture-set timestamp so this case really exercises the
+		// boot-time "never refreshed" path.
+		coord.mu.Lock()
+		coord.lastValidatorsRefreshAt = time.Time{}
+		coord.mu.Unlock()
+		assert.Nil(t, coord.validatorsSnapshot())
+	})
+
+	t.Run("just-refreshed cache returns the slice", func(t *testing.T) {
+		coord, _, _ := setupTestCoordinator(t)
+		vs := coord.validatorsSnapshot()
+		require.NotNil(t, vs)
+		assert.Len(t, vs, 3, "fixture has 3 validators")
+	})
+
+	t.Run("past threshold clears the underlying field and returns nil", func(t *testing.T) {
+		coord, _, _ := setupTestCoordinator(t)
+		// pollInterval=100ms; threshold = 10*100ms = 1s. Set last-refresh 1.1s ago.
+		coord.mu.Lock()
+		coord.lastValidatorsRefreshAt = time.Now().Add(-1100 * time.Millisecond)
+		coord.mu.Unlock()
+
+		assert.Nil(t, coord.validatorsSnapshot(), "past-threshold cache must be reported empty")
+		coord.mu.RLock()
+		assert.Nil(t, coord.allValidators, "underlying field must be cleared once we cross the threshold")
+		coord.mu.RUnlock()
+	})
+
+	t.Run("within threshold returns the slice unchanged", func(t *testing.T) {
+		coord, _, _ := setupTestCoordinator(t)
+		coord.mu.Lock()
+		coord.lastValidatorsRefreshAt = time.Now().Add(-500 * time.Millisecond)
+		coord.mu.Unlock()
+		assert.NotNil(t, coord.validatorsSnapshot())
 	})
 }

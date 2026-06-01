@@ -33,6 +33,11 @@ service Msg {
 
   // VoteChainMeta defines a message for universal validators to vote on chain metadata (gas price + block height)
   rpc VoteChainMeta(MsgVoteChainMeta) returns (MsgVoteChainMetaResponse);
+
+  // RevertStuckInbound creates an INBOUND_REVERT outbound for an inbound whose
+  // ballot has expired without finalizing, refunding the user on the source
+  // chain via the normal revert/outbound flow. Admin-only escape hatch.
+  rpc RevertStuckInbound(MsgRevertStuckInbound) returns (MsgRevertStuckInboundResponse);
 }
 
 // MsgUpdateParams is the Msg/UpdateParams request type.
@@ -140,3 +145,24 @@ message MsgVoteChainMeta {
 
 // MsgVoteChainMetaResponse defines the response for MsgVoteChainMeta
 message MsgVoteChainMetaResponse {}
+
+// MsgRevertStuckInbound is an admin escape hatch. For an inbound whose ballot
+// has expired without finalizing, this builds an INBOUND_REVERT outbound that
+// refunds the user on the source chain via the normal outbound/TSS flow.
+message MsgRevertStuckInbound {
+  option (amino.name) = "uexecutor/MsgRevertStuckInbound";
+  option (cosmos.msg.v1.signer) = "signer";
+
+  // signer must equal uvalidator Params.Admin
+  string signer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // inbound is the original payload the stuck ballot was voting on. Admin
+  // supplies this from off-chain UV observation logs since the chain does not
+  // persist ballot payloads.
+  Inbound inbound = 2;
+}
+
+message MsgRevertStuckInboundResponse {
+  string utx_id = 1;       // ID of the UTX created to hold the revert
+  string outbound_id = 2;  // ID of the INBOUND_REVERT outbound created
+}

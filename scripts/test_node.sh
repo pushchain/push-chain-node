@@ -137,6 +137,12 @@ from_scratch () {
   update_test_genesis '.app_state["tokenfactory"]["params"]["denom_creation_fee"]=[]'
   update_test_genesis '.app_state["tokenfactory"]["params"]["denom_creation_gas_consume"]=100000'
 
+  # setting admin of uregistry, utss, uvalidator modules
+  ADMIN_ADDR=$(BINARY keys show $KEY1 -a --keyring-backend $KEYRING)
+  update_test_genesis ".app_state[\"uregistry\"][\"params\"][\"admin\"]=\"$ADMIN_ADDR\""
+  update_test_genesis ".app_state[\"utss\"][\"params\"][\"admin\"]=\"$ADMIN_ADDR\""
+  update_test_genesis ".app_state[\"uvalidator\"][\"params\"][\"admin\"]=\"$ADMIN_ADDR\""
+
   # Allocate genesis accounts
   # Total: 10 000000000 . 000000000 000000000
   BINARY genesis add-genesis-account $KEY1 5000000000000000000000000000$DENOM,100000000test --keyring-backend $KEYRING --append

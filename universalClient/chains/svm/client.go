@@ -36,6 +36,7 @@ type Client struct {
 	eventConfirmer  *EventConfirmer
 	chainMetaOracle *ChainMetaOracle
 	txBuilder       *TxBuilder
+	rentReclaimer   *RentReclaimer
 
 	// Dependencies
 	pushSigner *pushsigner.Signer
@@ -105,7 +106,7 @@ func NewClient(
 func (c *Client) Start(ctx context.Context) error {
 	c.ctx, c.cancel = context.WithCancel(context.Background())
 
-	c.logger.Info().Str("chain", c.chainIDStr).Msg("starting Solana chain client")
+	c.logger.Debug().Str("chain", c.chainIDStr).Msg("starting Solana chain client")
 
 	// Initialize RPC client first (required for other components)
 	if err := c.createRPCClient(); err != nil {
@@ -128,7 +129,7 @@ func (c *Client) Start(ctx context.Context) error {
 
 // Stop gracefully shuts down the Solana chain client
 func (c *Client) Stop() error {
-	c.logger.Info().Msg("stopping Solana chain client")
+	c.logger.Debug().Msg("stopping Solana chain client")
 
 	// Cancel context first to signal shutdown
 	if c.cancel != nil {
@@ -266,6 +267,13 @@ func (c *Client) initializeComponents() error {
 			return fmt.Errorf("failed to create txBuilder: %w", err)
 		}
 		c.txBuilder = txBuilder
+
+		c.rentReclaimer = NewRentReclaimer(
+			c.txBuilder,
+			config.rentReclaimSweepInterval,
+			config.rentReclaimMinPDAAge,
+			c.logger,
+		)
 	}
 
 	return nil
@@ -297,6 +305,10 @@ func (c *Client) startComponents() error {
 		}
 	}
 
+	if c.rentReclaimer != nil {
+		c.rentReclaimer.Start(c.ctx)
+	}
+
 	return nil
 }
 
@@ -314,26 +326,30 @@ func (c *Client) createRPCClient() error {
 	}
 
 	c.rpcClient = rpcClient
-	c.logger.Info().Msg("Solana RPC clients initialized successfully")
+	c.logger.Info().Int("connected_count", len(rpcClient.clients)).Msg("RPC clients initialized successfully")
 	return nil
 }
 
 // componentConfig holds configuration values for components with defaults applied
 type componentConfig struct {
-	eventPollingInterval  int
-	gasPriceInterval      int
-	gasPriceMarkupPercent int
-	fastConfirmations     uint64
-	standardConfirmations uint64
+	eventPollingInterval     int
+	gasPriceInterval         int
+	gasPriceMarkupPercent    int
+	fastConfirmations        uint64
+	standardConfirmations    uint64
+	rentReclaimSweepInterval time.Duration
+	rentReclaimMinPDAAge     time.Duration
 }
 
 // applyDefaults applies default values to all component configuration
 func (c *Client) applyDefaults() componentConfig {
 	config := componentConfig{
-		eventPollingInterval:  5,  // default
-		gasPriceInterval:      30, // default
-		fastConfirmations:     5,  // Solana fast confirmations
-		standardConfirmations: 12, // Solana standard confirmations
+		eventPollingInterval:     5,  // default
+		gasPriceInterval:         30, // default
+		fastConfirmations:        5,  // Solana fast confirmations
+		standardConfirmations:    12, // Solana standard confirmations
+		rentReclaimSweepInterval: rentReclaimSweepInterval,
+		rentReclaimMinPDAAge:     rentReclaimMinPDAAge,
 	}
 
 	// Apply event polling interval
@@ -349,6 +365,22 @@ func (c *Client) applyDefaults() componentConfig {
 	// Apply gas price markup percent
 	if c.chainConfig != nil && c.chainConfig.GasPriceMarkupPercent != nil && *c.chainConfig.GasPriceMarkupPercent > 0 {
 		config.gasPriceMarkupPercent = *c.chainConfig.GasPriceMarkupPercent
+	}
+
+	// Apply rent-reclaimer overrides
+	if c.chainConfig != nil && c.chainConfig.RentReclaimSweepIntervalSeconds != nil && *c.chainConfig.RentReclaimSweepIntervalSeconds > 0 {
+		config.rentReclaimSweepInterval = time.Duration(*c.chainConfig.RentReclaimSweepIntervalSeconds) * time.Second
+	}
+	if c.chainConfig != nil && c.chainConfig.RentReclaimMinPDAAgeSeconds != nil && *c.chainConfig.RentReclaimMinPDAAgeSeconds > 0 {
+		requested := time.Duration(*c.chainConfig.RentReclaimMinPDAAgeSeconds) * time.Second
+		if requested < rentReclaimMinPDAAgeFloor {
+			c.logger.Warn().
+				Dur("requested", requested).
+				Dur("floor", rentReclaimMinPDAAgeFloor).
+				Msg("rent_reclaim_min_pda_age_seconds below safe floor; clamping to avoid racing in-flight finalize")
+			requested = rentReclaimMinPDAAgeFloor
+		}
+		config.rentReclaimMinPDAAge = requested
 	}
 
 	// Apply confirmation requirements

@@ -23,12 +23,34 @@ import (
 // This is a deterministic address used only in tests.
 var mockRecipientContractAddr = common.HexToAddress("0x00000000000000000000000000000000000000C3")
 
+// statefulRecipientContractAddr is used by tests that need to prove the
+// recipient's payload code actually ran (or didn't) by observing a storage mutation.
+var statefulRecipientContractAddr = common.HexToAddress("0x00000000000000000000000000000000000000C4")
+
 // deployMockRecipientContract deploys a minimal smart contract that accepts any call
 // without reverting. Bytecode "00" = STOP opcode — succeeds with empty output.
 func deployMockRecipientContract(t *testing.T, chainApp *app.ChainApp, ctx sdk.Context) common.Address {
 	t.Helper()
 	// "00" = STOP opcode: accepts any function call, returns success with empty data
 	return utils.DeployContract(t, chainApp, ctx, mockRecipientContractAddr, "00")
+}
+
+// deployStatefulRecipientContract deploys a contract that increments storage
+// slot 0 on every call (regardless of calldata). Used to witness whether the
+// recipient's payload code actually executed and committed.
+//
+// Bytecode (10 bytes, hex 60005460010160005500):
+//
+//	60 00   PUSH1 0x00     [0]
+//	54      SLOAD          [val]
+//	60 01   PUSH1 0x01     [val, 1]
+//	01      ADD            [val+1]
+//	60 00   PUSH1 0x00     [val+1, 0]
+//	55      SSTORE         []
+//	00      STOP
+func deployStatefulRecipientContract(t *testing.T, chainApp *app.ChainApp, ctx sdk.Context) common.Address {
+	t.Helper()
+	return utils.DeployContract(t, chainApp, ctx, statefulRecipientContractAddr, "60005460010160005500")
 }
 
 // setupInboundCEASmartContractTest mirrors setupInboundCEAPayloadTest but deploys
@@ -42,9 +64,9 @@ func setupInboundCEASmartContractTest(
 	chainApp, ctx, _, validators := utils.SetAppWithMultipleValidators(t, numVals)
 
 	chainConfigTest := uregistrytypes.ChainConfig{
-		Chain:        "eip155:11155111",
-		VmType:       uregistrytypes.VmType_EVM,
-		PublicRpcUrl: "https://sepolia.drpc.org",
+		Chain:          "eip155:11155111",
+		VmType:         uregistrytypes.VmType_EVM,
+		PublicRpcUrl:   "https://sepolia.drpc.org",
 		GatewayAddress: "0x28E0F09bE2321c1420Dc60Ee146aACbD68B335Fe",
 		BlockConfirmation: &uregistrytypes.BlockConfirmation{
 			FastInbound:     5,
@@ -326,6 +348,134 @@ func TestInboundCEASmartContractRecipient(t *testing.T) {
 		require.True(t, balanceAfter.Amount.LT(balanceBefore.Amount),
 			"smart contract upc balance should decrease after gas fee deduction (before=%s, after=%s)",
 			balanceBefore.Amount, balanceAfter.Amount)
+	})
+
+	// F-2026-16738: when DeductGasFeesFromReceipt fails after a successful
+	// CallExecuteUniversalTx, the EVM call + fee deduction now run inside a
+	// CacheContext that is discarded on fee failure. The deposit (which
+	// happens before this scope) stays committed; the executeUniversalTx
+	// state changes are rolled back so the recipient cannot consume gas
+	// without paying for it.
+	t.Run("fee deduction failure rolls back executeUniversalTx, keeps deposit", func(t *testing.T) {
+		chainApp, ctx, vals, _, coreVals, _ := setupInboundCEASmartContractTest(t, 4)
+
+		// Deploy a recipient whose payload mutates EVM storage (slot 0
+		// counter +1 on every call). Lets us prove the payload ran AND
+		// was rolled back by reading storage post-execution.
+		recipientAddr := deployStatefulRecipientContract(t, chainApp, ctx)
+
+		// Sanity-check the storage starts at zero.
+		slot := common.Hash{}
+		preState := chainApp.EVMKeeper.GetState(ctx, recipientAddr, slot)
+		require.Equal(t, common.Hash{}, preState, "stateful recipient slot 0 must start at zero")
+
+		// Recipient has zero native upc balance → DeductGasFeesFromReceipt
+		// will fail with insufficient funds.
+		recipientAccAddr := sdk.AccAddress(recipientAddr.Bytes())
+		balanceBefore := chainApp.BankKeeper.GetBalance(ctx, recipientAccAddr, "upc")
+		require.True(t, balanceBefore.Amount.IsZero(), "recipient must start with zero upc balance for this test")
+
+		usdcAddress := utils.GetDefaultAddresses().ExternalUSDCAddr
+		testAddress := utils.GetDefaultAddresses().DefaultTestAddr
+		statefulInbound := &uexecutortypes.Inbound{
+			SourceChain: "eip155:11155111",
+			TxHash:      "0xsc-fee-fail-01",
+			Sender:      testAddress,
+			Recipient:   recipientAddr.String(),
+			Amount:      "1000000",
+			AssetAddr:   usdcAddress.String(),
+			LogIndex:    "1",
+			TxType:      uexecutortypes.TxType_FUNDS_AND_PAYLOAD,
+			UniversalPayload: &uexecutortypes.UniversalPayload{
+				To:                   recipientAddr.String(),
+				Value:                "1000000",
+				Data:                 "0xdeadbeef",
+				GasLimit:             "21000000",
+				MaxFeePerGas:         "1000000000",
+				MaxPriorityFeePerGas: "200000000",
+				Nonce:                "1",
+				Deadline:             "9999999999",
+				VType:                uexecutortypes.VerificationType(1),
+			},
+			VerificationData: "",
+			IsCEA:            true,
+			RevertInstructions: &uexecutortypes.RevertInstructions{
+				FundRecipient: testAddress,
+			},
+		}
+
+		// Vote tx must succeed even though fee deduction fails internally —
+		// only the cached executeUniversalTx state is discarded; the rest
+		// of the SDK tx commits.
+		for i := 0; i < 3; i++ {
+			valAddr, err := sdk.ValAddressFromBech32(coreVals[i].OperatorAddress)
+			require.NoError(t, err)
+			coreValAcc := sdk.AccAddress(valAddr).String()
+
+			err = utils.ExecVoteInbound(t, ctx, chainApp, vals[i], coreValAcc, statefulInbound)
+			require.NoError(t, err, "vote tx should succeed even when fee deduction fails internally")
+		}
+
+		utxKey := uexecutortypes.GetInboundUniversalTxKey(*statefulInbound)
+		utx, found, err := chainApp.UexecutorKeeper.GetUniversalTx(ctx, utxKey)
+		require.NoError(t, err)
+		require.True(t, found, "UTX must exist (vote completed atomically)")
+		require.GreaterOrEqual(t, len(utx.PcTx), 2, "should have deposit + executeUniversalTx PCTxs")
+
+		// Deposit succeeded — happened BEFORE the cache scope, so it persists.
+		depositPcTx := utx.PcTx[0]
+		require.Equal(t, "SUCCESS", depositPcTx.Status, "deposit PCTx should succeed (outside cache scope)")
+		require.Empty(t, depositPcTx.ErrorMsg)
+
+		// callPcTx records the fee-deduction failure with the canonical prefix.
+		callPcTx := utx.PcTx[1]
+		require.Equal(t, "FAILED", callPcTx.Status, "callPcTx Status should record fee deduction failure")
+		require.Contains(t, callPcTx.ErrorMsg, "gas fee deduction failed",
+			"ErrorMsg must carry the canonical 'gas fee deduction failed' prefix")
+
+		// EVM call DID execute (and was measured) before the cache was discarded.
+		// TxHash + GasUsed are returned values from the call; they survive even
+		// though the state changes were rolled back.
+		require.NotEmpty(t, callPcTx.TxHash, "EVM tx hash should be captured even when fee fails")
+		require.Greater(t, callPcTx.GasUsed, uint64(0), "EVM execution consumed gas (proves it ran in the cache)")
+
+		// THE PRIMARY ASSERTION: the recipient's payload code did NOT mutate
+		// committed EVM storage. Slot 0 stayed at 0 because the cache holding
+		// the SSTORE was discarded. Proves the CacheContext rollback worked.
+		postState := chainApp.EVMKeeper.GetState(ctx, recipientAddr, slot)
+		require.Equal(t, common.Hash{}, postState,
+			"recipient storage slot 0 must remain 0 (proves executeUniversalTx state was rolled back)")
+
+		// Deposit (above the cache scope) committed atomically with the rest
+		// of the SDK tx — recipient holds the PRC20 tokens.
+		prc20ABI, err := uexecutortypes.ParsePRC20ABI()
+		require.NoError(t, err)
+		prc20Address := utils.GetDefaultAddresses().PRC20USDCAddr
+		ueModuleAccAddress, _ := chainApp.UexecutorKeeper.GetUeModuleAddress(ctx)
+
+		res, err := chainApp.EVMKeeper.CallEVM(
+			ctx, prc20ABI, ueModuleAccAddress, prc20Address, false, "balanceOf", recipientAddr,
+		)
+		require.NoError(t, err)
+		balances, err := prc20ABI.Unpack("balanceOf", res.Ret)
+		require.NoError(t, err)
+		require.Len(t, balances, 1)
+		expectedAmount := new(big.Int)
+		expectedAmount.SetString(statefulInbound.Amount, 10)
+		require.Equal(t, 0, balances[0].(*big.Int).Cmp(expectedAmount),
+			"PRC20 balance must be deposited to recipient (deposit was outside the rolled-back cache scope)")
+
+		// No fee was actually collected (cache discarded → no bank debit).
+		balanceAfter := chainApp.BankKeeper.GetBalance(ctx, recipientAccAddr, "upc")
+		require.Equal(t, balanceBefore.Amount, balanceAfter.Amount,
+			"recipient upc balance unchanged (cache discarded; no fee collected)")
+
+		// Rescue path correctly does not fire: it checks PcTx[0].Status which
+		// is SUCCESS, so no INBOUND_REVERT outbound is created.
+		for _, ob := range utx.OutboundTx {
+			require.NotEqual(t, uexecutortypes.TxType_INBOUND_REVERT, ob.TxType,
+				"no INBOUND_REVERT should be created (deposit succeeded)")
+		}
 	})
 
 	t.Run("EOA recipient receives deposit only, no executeUniversalTx", func(t *testing.T) {

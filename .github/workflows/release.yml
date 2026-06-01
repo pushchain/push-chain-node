@@ -10,19 +10,6 @@ on:
         description: 'Version tag (e.g., v1.0.0)'
         required: true
         type: string
-      branch:
-        description: 'Branch to build from (default: main)'
-        required: false
-        type: string
-        default: 'main'
-      commit_id:
-        description: 'Specific commit SHA to build (overrides branch if set)'
-        required: false
-        type: string
-      compare_from:
-        description: 'Compare from tag (optional, auto-detects if empty)'
-        required: false
-        type: string
       prerelease:
         description: 'Mark as pre-release'
         required: false
@@ -47,25 +34,9 @@ jobs:
       version: ${{ steps.version.outputs.version }}
 
     steps:
-      - name: Resolve checkout ref
-        id: resolve-ref
-        run: |
-          COMMIT_ID="${{ github.event.inputs.commit_id }}"
-          BRANCH="${{ github.event.inputs.branch }}"
-          # Strip vcs.revision= prefix if accidentally included
-          COMMIT_ID="${COMMIT_ID#vcs.revision=}"
-          if [ -n "$COMMIT_ID" ]; then
-            echo "ref=$COMMIT_ID" >> $GITHUB_OUTPUT
-          elif [ -n "$BRANCH" ]; then
-            echo "ref=$BRANCH" >> $GITHUB_OUTPUT
-          else
-            echo "ref=" >> $GITHUB_OUTPUT
-          fi
-
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: ${{ steps.resolve-ref.outputs.ref || '' }}
           fetch-depth: 0
 
       - name: Get version
@@ -97,13 +68,7 @@ jobs:
           git config --local user.name "GitHub Action"
 
           VERSION=${{ steps.version.outputs.version }}
-          COMMIT_REF="${{ github.event.inputs.commit_id }}"
-          # Strip vcs.revision= prefix if accidentally included
-          COMMIT_REF="${COMMIT_REF#vcs.revision=}"
-          if [ -z "$COMMIT_REF" ]; then
-            COMMIT_REF="HEAD"
-          fi
-          echo "Tagging commit: $COMMIT_REF"
+          echo "Tagging HEAD as $VERSION"
 
           if git tag --list | grep -q "^${VERSION}$"; then
             echo "Tag $VERSION already exists, deleting it first"
@@ -111,7 +76,7 @@ jobs:
             git push --delete origin $VERSION || true
           fi
 
-          git tag -a $VERSION $COMMIT_REF -m "Release $VERSION"
+          git tag -a $VERSION HEAD -m "Release $VERSION"
           git push origin $VERSION
 
       - name: Set up Go
@@ -209,24 +174,9 @@ jobs:
     needs: build-linux  # Wait for version tag to be created
 
     steps:
-      - name: Resolve checkout ref
-        id: resolve-ref
-        run: |
-          COMMIT_ID="${{ github.event.inputs.commit_id }}"
-          BRANCH="${{ github.event.inputs.branch }}"
-          COMMIT_ID="${COMMIT_ID#vcs.revision=}"
-          if [ -n "$COMMIT_ID" ]; then
-            echo "ref=$COMMIT_ID" >> $GITHUB_OUTPUT
-          elif [ -n "$BRANCH" ]; then
-            echo "ref=$BRANCH" >> $GITHUB_OUTPUT
-          else
-            echo "ref=" >> $GITHUB_OUTPUT
-          fi
-
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: ${{ steps.resolve-ref.outputs.ref || '' }}
           fetch-depth: 0
 
       - name: Get version
@@ -348,24 +298,9 @@ jobs:
     needs: build-linux  # Wait for version tag to be created
 
     steps:
-      - name: Resolve checkout ref
-        id: resolve-ref
-        run: |
-          COMMIT_ID="${{ github.event.inputs.commit_id }}"
-          BRANCH="${{ github.event.inputs.branch }}"
-          COMMIT_ID="${COMMIT_ID#vcs.revision=}"
-          if [ -n "$COMMIT_ID" ]; then
-            echo "ref=$COMMIT_ID" >> $GITHUB_OUTPUT
-          elif [ -n "$BRANCH" ]; then
-            echo "ref=$BRANCH" >> $GITHUB_OUTPUT
-          else
-            echo "ref=" >> $GITHUB_OUTPUT
-          fi
-
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: ${{ steps.resolve-ref.outputs.ref || '' }}
           fetch-depth: 0
 
       - name: Get version
@@ -565,24 +500,9 @@ jobs:
     needs: [build-linux, build-linux-arm64, build-macos]
 
     steps:
-      - name: Resolve checkout ref
-        id: resolve-ref
-        run: |
-          COMMIT_ID="${{ github.event.inputs.commit_id }}"
-          BRANCH="${{ github.event.inputs.branch }}"
-          COMMIT_ID="${COMMIT_ID#vcs.revision=}"
-          if [ -n "$COMMIT_ID" ]; then
-            echo "ref=$COMMIT_ID" >> $GITHUB_OUTPUT
-          elif [ -n "$BRANCH" ]; then
-            echo "ref=$BRANCH" >> $GITHUB_OUTPUT
-          else
-            echo "ref=" >> $GITHUB_OUTPUT
-          fi
-
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: ${{ steps.resolve-ref.outputs.ref || '' }}
           fetch-depth: 0
 
       - name: Get version
@@ -636,11 +556,7 @@ jobs:
         run: |
           VERSION=${{ steps.version.outputs.version }}
 
-          # Use provided compare_from or auto-detect previous tag
-          COMPARE_FROM="${{ github.event.inputs.compare_from }}"
-          if [ -z "$COMPARE_FROM" ]; then
-            COMPARE_FROM=$(git tag --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+' | grep -v "$VERSION" | head -1)
-          fi
+          COMPARE_FROM=$(git tag --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+' | grep -v "$VERSION" | head -1)
           if [ -z "$COMPARE_FROM" ]; then
             COMPARE_FROM=$(git rev-list --max-parents=0 HEAD)
           fi
@@ -655,6 +571,42 @@ jobs:
 
           cat changelog.md
 
+      - name: Build Cosmovisor upgrade-info JSON
+        id: cosmovisor
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          VERSION_NO_V="${VERSION#v}"
+          REPO="${{ github.repository }}"
+          BASE_URL="https://github.com/${REPO}/releases/download/${VERSION}"
+          PROJECT="${PROJECT_NAME}"
+
+          read_hash() {
+            awk '{print $1}' "release/${PROJECT}_${VERSION_NO_V}_$1.tar.gz.sha256"
+          }
+
+          DARWIN_ARM64_HASH=$(read_hash darwin_arm64)
+          LINUX_AMD64_HASH=$(read_hash linux_amd64)
+          LINUX_ARM64_HASH=$(read_hash linux_arm64)
+
+          JSON=$(cat <<JSON
+          {
+            "binaries": {
+              "darwin/arm64": "${BASE_URL}/${PROJECT}_${VERSION_NO_V}_darwin_arm64.tar.gz?checksum=sha256:${DARWIN_ARM64_HASH}",
+              "linux/amd64": "${BASE_URL}/${PROJECT}_${VERSION_NO_V}_linux_amd64.tar.gz?checksum=sha256:${LINUX_AMD64_HASH}",
+              "linux/arm64": "${BASE_URL}/${PROJECT}_${VERSION_NO_V}_linux_arm64.tar.gz?checksum=sha256:${LINUX_ARM64_HASH}"
+            }
+          }
+          JSON
+          )
+
+          echo "$JSON"
+
+          {
+            echo "json<<COSMOVISOR_EOF"
+            echo "$JSON"
+            echo "COSMOVISOR_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -668,6 +620,14 @@ jobs:
             | Linux | AMD64 (x86_64) | `${{ env.PROJECT_NAME }}_*_linux_amd64.tar.gz` |
             | Linux | ARM64 (aarch64) | `${{ env.PROJECT_NAME }}_*_linux_arm64.tar.gz` |
             | macOS | Apple Silicon (arm64) | `${{ env.PROJECT_NAME }}_*_darwin_arm64.tar.gz` |
+
+            ## 🚀 Cosmovisor upgrade-info
+
+            Use this payload as the `--upgrade-info` argument when submitting a software-upgrade governance proposal. URLs include `?checksum=sha256:…` so cosmovisor can verify auto-downloaded binaries.
+
+            ```json
+            ${{ steps.cosmovisor.outputs.json }}
+            ```
 
             ## ✅ Verification
 

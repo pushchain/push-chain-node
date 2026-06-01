@@ -30,12 +30,18 @@ type FundMigrationData struct {
 	To       string   // New TSS address (derived from current pubkey)
 	GasPrice *big.Int // Gas price from the migration event
 	GasLimit uint64   // Gas limit from the migration event
+	L1GasFee *big.Int // Extra L1 data-availability fee (wei); 0 for non-L2 chains
 }
 
-// UnsignedSigningReq contains the request for signing an outbound transaction
+// UnsignedSigningReq contains the request for signing an outbound or fund-migration transaction.
 type UnsignedSigningReq struct {
 	SigningHash []byte // Hash to be signed by TSS
 	Nonce       uint64 // evm - TSS Address nonce | svm - PDA nonce
+
+	// TSSFundMigrationAmount is the native value swept for a fund-migration tx, fixed at
+	// signing time. Nil for outbound. Must be reused verbatim at broadcast — re-querying
+	// balance there races with a successful sweep from another validator.
+	TSSFundMigrationAmount *big.Int `json:"TSSFundMigrationAmount,omitempty"`
 }
 
 // TxBuilder builds and broadcasts transactions for outbound transfers
@@ -61,9 +67,13 @@ type TxBuilder interface {
 
 	// IsAlreadyExecuted checks whether a transaction with the given txID has already been
 	// executed on the destination chain (e.g., by another relayer).
-	// For SVM: checks if the ExecutedTx PDA exists on-chain.
-	// For EVM: returns false (EVM uses nonce-based replay protection).
-	IsAlreadyExecuted(ctx context.Context, txID string) (bool, error)
+	// For SVM: checks if the ExecutedTx PDA exists on-chain, AND returns the
+	//   unix timestamp of the latest finalized block. Callers use this as the
+	//   cluster's "now" to gate deadline-based give-up/REVERT decisions and to
+	//   detect cluster halt or finalization stall (queryBlockTime far behind
+	//   wall-clock). 0 means freshness couldn't be determined.
+	// For EVM: returns (false, 0, nil). EVM uses nonce-based replay protection.
+	IsAlreadyExecuted(ctx context.Context, txID string) (executed bool, queryBlockTime int64, err error)
 
 	// GetGasFeeUsed returns the gas fee used by a transaction on the destination chain.
 	// EVM: fetches receipt and returns gasUsed * effectiveGasPrice as decimal string.

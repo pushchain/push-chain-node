@@ -515,7 +515,7 @@ func (c *Coordinator) processEventAsCoordinator(ctx context.Context, event store
 
 	// Create and send setup message to all participants
 	setupMsg := Message{
-		Type:               "setup",
+		Type:               MessageTypeSetup,
 		EventID:            event.EventID,
 		Payload:            setupData,
 		Participants:       partyIDs,
@@ -562,178 +562,29 @@ func (c *Coordinator) processEventAsCoordinator(ctx context.Context, event store
 	return nil
 }
 
-// HandleACK processes an ACK message from a participant.
-// This is called by the session manager when coordinator receives an ACK.
-func (c *Coordinator) HandleACK(ctx context.Context, senderPeerID string, eventID string) error {
-	c.ackMu.Lock()
-	defer c.ackMu.Unlock()
-
-	state, exists := c.ackTracking[eventID]
-	if !exists {
-		// Not tracking this event, ignore (might be from a different coordinator)
-		return nil
-	}
-
-	// Check if already ACKed
-	if state.ackedBy[senderPeerID] {
-		c.logger.Debug().
-			Str("event_id", eventID).
-			Str("sender", senderPeerID).
-			Msg("duplicate ACK received, ignoring")
-		return nil
-	}
-
-	// Verify sender is a participant
-	senderPartyID, err := c.GetPartyIDFromPeerID(ctx, senderPeerID)
-	if err != nil {
-		return fmt.Errorf("failed to get partyID for sender peerID %s: %w", senderPeerID, err)
-	}
-
-	isParticipant := false
-	for _, participantPartyID := range state.participants {
-		if participantPartyID == senderPartyID {
-			isParticipant = true
-			break
-		}
-	}
-	if !isParticipant {
-		return fmt.Errorf("sender %s (partyID: %s) is not a participant for event %s", senderPeerID, senderPartyID, eventID)
-	}
-
-	// Mark as ACKed
-	state.ackedBy[senderPeerID] = true
-	state.ackCount++
-
-	c.logger.Debug().
-		Str("event_id", eventID).
-		Str("sender", senderPeerID).
-		Str("sender_party_id", senderPartyID).
-		Int("ack_count", state.ackCount).
-		Int("expected_participants", len(state.participants)).
-		Msg("coordinator received ACK")
-
-	// Check if all participants have ACKed
-	if state.ackCount == len(state.participants) {
-		c.logger.Info().
-			Str("event_id", eventID).
-			Int("total_participants", len(state.participants)).
-			Msg("all participants ACKed, coordinator will send BEGIN message")
-
-		// Send BEGIN message to all participants
-		beginMsg := Message{
-			Type:         "begin",
-			EventID:      eventID,
-			Payload:      nil,
-			Participants: state.participants,
-		}
-		beginMsgBytes, err := json.Marshal(beginMsg)
-		if err != nil {
-			return fmt.Errorf("failed to marshal begin message: %w", err)
-		}
-
-		// Send to all participants
-		for _, participantPartyID := range state.participants {
-			participantPeerID, err := c.GetPeerIDFromPartyID(ctx, participantPartyID)
-			if err != nil {
-				c.logger.Warn().
-					Err(err).
-					Str("participant_party_id", participantPartyID).
-					Msg("failed to get peerID for participant, skipping begin message")
-				continue
-			}
-
-			if err := c.send(ctx, participantPeerID, beginMsgBytes); err != nil {
-				c.logger.Warn().
-					Err(err).
-					Str("participant_peer_id", participantPeerID).
-					Str("participant_party_id", participantPartyID).
-					Msg("failed to send begin message to participant")
-				continue
-			}
-
-			c.logger.Debug().
-				Str("event_id", eventID).
-				Str("participant_peer_id", participantPeerID).
-				Msg("coordinator sent begin message to participant")
-		}
-
-		// Clean up ACK tracking after sending BEGIN
-		delete(c.ackTracking, eventID)
-	}
-
-	return nil
-}
-
 // createFundMigrationSignSetup creates a sign setup message for fund migration.
 // Uses the OLD key (not the current key) to sign a transaction moving funds from old TSS to current TSS.
 func (c *Coordinator) createFundMigrationSignSetup(ctx context.Context, eventData []byte, partyIDs []string, assignedNonce *uint64) ([]byte, *common.UnsignedSigningReq, error) {
-	// Parse migration event data
 	var migrationData utsstypes.FundMigrationInitiatedEventData
 	if err := json.Unmarshal(eventData, &migrationData); err != nil {
 		return nil, nil, fmt.Errorf("failed to unmarshal fund migration event data: %w", err)
 	}
 
-	// Load old keyshare (we sign with the old key to move funds out of old TSS)
-	keyshareBytes, err := c.keyshareManager.Get(migrationData.OldKeyID)
-	if err != nil {
+	// Load old keyshare as a sanity check; keyID bytes are derived from the string.
+	if _, err := c.keyshareManager.Get(migrationData.OldKeyID); err != nil {
 		return nil, nil, fmt.Errorf("failed to load keyshare for old keyId %s: %w", migrationData.OldKeyID, err)
 	}
-	_ = keyshareBytes // Keyshare is loaded for validation, keyID is derived from string
-
-	// Derive key ID bytes from old key ID (SHA256 hash)
 	keyIDBytes := deriveKeyIDBytes(migrationData.OldKeyID)
 
-	// Derive old and current TSS addresses
-	oldTSSAddr, err := DeriveEVMAddressFromPubkey(migrationData.OldTssPubkey)
+	signingReq, err := c.buildFundMigrationTransaction(ctx, eventData, assignedNonce, nil /* query chain for balance */)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to derive old TSS address: %w", err)
-	}
-	currentTSSAddr, err := DeriveEVMAddressFromPubkey(migrationData.CurrentTssPubkey)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to derive current TSS address: %w", err)
+		return nil, nil, fmt.Errorf("failed to build fund migration transaction: %w", err)
 	}
 
-	// Get chain client and tx builder
-	if c.chains == nil {
-		return nil, nil, fmt.Errorf("chains manager not configured")
-	}
-	client, err := c.chains.GetClient(migrationData.Chain)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get client for chain %s: %w", migrationData.Chain, err)
-	}
-	builder, err := client.GetTxBuilder()
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get tx builder for chain %s: %w", migrationData.Chain, err)
-	}
-
-	// Build fund migration signing request
-	if assignedNonce == nil {
-		return nil, nil, fmt.Errorf("assigned nonce is required for fund migration transaction")
-	}
-
-	gasPrice := new(big.Int)
-	gasPrice.SetString(migrationData.GasPrice, 10)
-
-	l1GasFee := new(big.Int)
-	l1GasFee.SetString(migrationData.L1GasFee, 10)
-
-	migrationFundData := &common.FundMigrationData{
-		From:     oldTSSAddr,
-		To:       currentTSSAddr,
-		GasPrice: gasPrice,
-		GasLimit: migrationData.GasLimit,
-		L1GasFee: l1GasFee,
-	}
-	signingReq, err := builder.GetFundMigrationSigningRequest(ctx, migrationFundData, *assignedNonce)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get fund migration signing request: %w", err)
-	}
-
-	// Encode participant IDs (separated by null bytes)
 	participantIDs := make([]byte, 0, len(partyIDs)*10)
 	for i, partyID := range partyIDs {
 		if i > 0 {
-			participantIDs = append(participantIDs, 0) // Separator
+			participantIDs = append(participantIDs, 0)
 		}
 		participantIDs = append(participantIDs, []byte(partyID)...)
 	}
@@ -744,6 +595,64 @@ func (c *Coordinator) createFundMigrationSignSetup(ctx context.Context, eventDat
 	}
 
 	return setupData, signingReq, nil
+}
+
+// buildFundMigrationTransaction parses event data and returns the signing
+// request for sweeping old-TSS funds to the current TSS. If claimedAmount is
+// non-nil, the balance is reconstructed as amount + gas + L1 instead of
+// queried from chain — used by the ACK verify path to rebuild the hash
+// deterministically without racing a successful sweep.
+func (c *Coordinator) buildFundMigrationTransaction(ctx context.Context, eventData []byte, assignedNonce *uint64, claimedAmount *big.Int) (*common.UnsignedSigningReq, error) {
+	if assignedNonce == nil {
+		return nil, fmt.Errorf("assigned nonce is required for fund migration transaction")
+	}
+	var migrationData utsstypes.FundMigrationInitiatedEventData
+	if err := json.Unmarshal(eventData, &migrationData); err != nil {
+		return nil, fmt.Errorf("unmarshal fund migration event data: %w", err)
+	}
+	oldTSSAddr, err := DeriveEVMAddressFromPubkey(migrationData.OldTssPubkey)
+	if err != nil {
+		return nil, fmt.Errorf("derive old TSS address: %w", err)
+	}
+	currentTSSAddr, err := DeriveEVMAddressFromPubkey(migrationData.CurrentTssPubkey)
+	if err != nil {
+		return nil, fmt.Errorf("derive current TSS address: %w", err)
+	}
+	if c.chains == nil {
+		return nil, fmt.Errorf("chains manager not configured")
+	}
+	client, err := c.chains.GetClient(migrationData.Chain)
+	if err != nil {
+		return nil, fmt.Errorf("get client for chain %s: %w", migrationData.Chain, err)
+	}
+	builder, err := client.GetTxBuilder()
+	if err != nil {
+		return nil, fmt.Errorf("get tx builder for chain %s: %w", migrationData.Chain, err)
+	}
+
+	gasPrice := new(big.Int)
+	gasPrice.SetString(migrationData.GasPrice, 10)
+	l1GasFee := new(big.Int)
+	l1GasFee.SetString(migrationData.L1GasFee, 10)
+
+	var balance *big.Int
+	if claimedAmount != nil {
+		// balance = amount + gas + L1; inverse of computeFundMigrationTransfer
+		balance = new(big.Int).Set(claimedAmount)
+		balance.Add(balance, new(big.Int).Mul(gasPrice, new(big.Int).SetUint64(migrationData.GasLimit)))
+		if l1GasFee.Sign() > 0 {
+			balance.Add(balance, l1GasFee)
+		}
+	}
+
+	return builder.GetFundMigrationSigningRequest(ctx, &common.FundMigrationData{
+		From:     oldTSSAddr,
+		To:       currentTSSAddr,
+		GasPrice: gasPrice,
+		GasLimit: migrationData.GasLimit,
+		L1GasFee: l1GasFee,
+		Balance:  balance,
+	}, *assignedNonce)
 }
 
 // createKeygenSetup creates a keygen/keyrefresh setup message.

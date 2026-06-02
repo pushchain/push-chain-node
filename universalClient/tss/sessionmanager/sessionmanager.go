@@ -97,31 +97,22 @@ func (sm *SessionManager) Start(ctx context.Context) {
 	go sm.startExpiryChecker(ctx)
 }
 
-// HandleIncomingMessage handles an incoming message.
-// peerID: The peer ID of the sender
-// data: The raw message bytes (should be JSON-encoded coordinator.Message)
-func (sm *SessionManager) HandleIncomingMessage(ctx context.Context, peerID string, data []byte) error {
-	// Unmarshal message
-	var msg coordinator.Message
-	if err := json.Unmarshal(data, &msg); err != nil {
-		return fmt.Errorf("failed to unmarshal message: %w", err)
-	}
-
+// HandleIncomingMessage routes a session-manager-bound message
+func (sm *SessionManager) HandleIncomingMessage(ctx context.Context, peerID string, msg *coordinator.Message) error {
 	sm.logger.Debug().
 		Str("peer_id", peerID).
-		Str("type", msg.Type).
+		Str("type", string(msg.Type)).
 		Str("event_id", msg.EventID).
 		Int("participants_count", len(msg.Participants)).
 		Msg("handling incoming message")
 
-	// Route based on message type
 	switch msg.Type {
-	case "setup":
-		return sm.handleSetupMessage(ctx, peerID, &msg)
-	case "begin":
-		return sm.handleBeginMessage(ctx, peerID, &msg)
-	case "step":
-		return sm.handleStepMessage(ctx, peerID, &msg)
+	case coordinator.MessageTypeSetup:
+		return sm.handleSetupMessage(ctx, peerID, msg)
+	case coordinator.MessageTypeBegin:
+		return sm.handleBeginMessage(ctx, peerID, msg)
+	case coordinator.MessageTypeStep:
+		return sm.handleStepMessage(ctx, peerID, msg)
 	default:
 		return fmt.Errorf("unknown message type: %s", msg.Type)
 	}
@@ -153,7 +144,21 @@ func (sm *SessionManager) handleSetupMessage(ctx context.Context, senderPeerID s
 		return fmt.Errorf("event %s not found in database: %w", msg.EventID, err)
 	}
 
-	// 4. Validate event is CONFIRMED and not expired
+	// 3b. Short-circuit: if this event already has signing data persisted from
+	// a prior successful session, respond to setup with an ACK carrying the
+	// signature. The coordinator verifies cryptographically and can skip a
+	// fresh DKLS run
+	if signed := extractSignedDataFromEvent(event); signed != nil {
+		sm.logger.Info().
+			Str("event_id", msg.EventID).
+			Msg("event already has signing data, responding to setup with existing signature")
+		if err := sm.sendACK(ctx, senderPeerID, msg.EventID, signed); err != nil {
+			return fmt.Errorf("failed to send ACK with signed data: %w", err)
+		}
+		return nil
+	}
+
+	// 4. Validate event is CONFIRMED ( Unsigned )
 	if event.Status != store.StatusConfirmed {
 		return fmt.Errorf("event %s is not in confirmed status (got %s)", msg.EventID, event.Status)
 	}
@@ -212,8 +217,8 @@ func (sm *SessionManager) handleSetupMessage(ctx context.Context, senderPeerID s
 		Str("protocol", event.Type).
 		Msg("created session from setup message")
 
-	// 10. Send ACK to coordinator
-	if err := sm.sendACK(ctx, senderPeerID, msg.EventID); err != nil {
+	// 10. Send ACK to coordinator (no signed data — fresh session)
+	if err := sm.sendACK(ctx, senderPeerID, msg.EventID, nil); err != nil {
 		sm.logger.Warn().
 			Err(err).
 			Str("event_id", msg.EventID).
@@ -297,7 +302,7 @@ func (sm *SessionManager) processSessionStep(ctx context.Context, eventID string
 		}
 
 		coordMsg := coordinator.Message{
-			Type:    "step",
+			Type:    coordinator.MessageTypeStep,
 			EventID: eventID,
 			Payload: dklsMsg.Data,
 		}
@@ -366,12 +371,13 @@ func (sm *SessionManager) handleBeginMessage(ctx context.Context, senderPeerID s
 }
 
 // sendACK sends an ACK message to the coordinator after successfully creating a session.
-func (sm *SessionManager) sendACK(ctx context.Context, coordinatorPeerID string, eventID string) error {
+// If signedData is non-nil it is attached to the ACK, telling the coordinator the
+// participant already holds a valid signature so a fresh DKLS run is unnecessary.
+func (sm *SessionManager) sendACK(ctx context.Context, coordinatorPeerID string, eventID string, signedData *coordinator.SignedDataPayload) error {
 	ackMsg := coordinator.Message{
-		Type:         "ack",
-		EventID:      eventID,
-		Payload:      nil, // ACK doesn't need payload
-		Participants: nil, // ACK doesn't need participants
+		Type:       coordinator.MessageTypeACK,
+		EventID:    eventID,
+		SignedData: signedData,
 	}
 	msgBytes, err := json.Marshal(ackMsg)
 	if err != nil {
@@ -382,10 +388,11 @@ func (sm *SessionManager) sendACK(ctx context.Context, coordinatorPeerID string,
 		return fmt.Errorf("failed to send ACK message: %w", err)
 	}
 
-	sm.logger.Debug().
-		Str("event_id", eventID).
-		Str("coordinator", coordinatorPeerID).
-		Msg("sent ACK to coordinator")
+	logEv := sm.logger.Debug().Str("event_id", eventID).Str("coordinator", coordinatorPeerID)
+	if signedData != nil {
+		logEv = logEv.Bool("has_signed_data", true)
+	}
+	logEv.Msg("sent ACK to coordinator")
 
 	return nil
 }
@@ -989,4 +996,36 @@ func (sm *SessionManager) handleSigningComplete(_ context.Context, eventID strin
 		Str("event_id", eventID).
 		Msg("signing complete — event marked SIGNED with signing_data for txBroadcaster")
 	return nil
+}
+
+// extractSignedDataFromEvent returns signing data if persisted on the event
+func extractSignedDataFromEvent(event *store.Event) *coordinator.SignedDataPayload {
+	if event == nil {
+		return nil
+	}
+	var raw struct {
+		SigningData *struct {
+			Signature              string   `json:"signature"`
+			SigningHash            string   `json:"signing_hash"`
+			Nonce                  uint64   `json:"nonce"`
+			TSSFundMigrationAmount *big.Int `json:"tss_fund_migration_amount,omitempty"`
+		} `json:"signing_data,omitempty"`
+	}
+	if err := json.Unmarshal(event.EventData, &raw); err != nil || raw.SigningData == nil {
+		return nil
+	}
+	sigBytes, err := hex.DecodeString(raw.SigningData.Signature)
+	if err != nil {
+		return nil
+	}
+	hashBytes, err := hex.DecodeString(raw.SigningData.SigningHash)
+	if err != nil {
+		return nil
+	}
+	return &coordinator.SignedDataPayload{
+		Signature:              sigBytes,
+		SigningHash:            hashBytes,
+		Nonce:                  raw.SigningData.Nonce,
+		TSSFundMigrationAmount: raw.SigningData.TSSFundMigrationAmount,
+	}
 }

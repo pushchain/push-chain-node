@@ -853,67 +853,6 @@ func TestGetMultiAddrsFromPeerID(t *testing.T) {
 	})
 }
 
-func TestHandleACK(t *testing.T) {
-	coord, _, _ := setupTestCoordinator(t)
-	ctx := context.Background()
-
-	t.Run("ack for untracked event is ignored", func(t *testing.T) {
-		err := coord.HandleACK(ctx, "peer1", "unknown-event")
-		assert.NoError(t, err)
-	})
-
-	t.Run("ack tracking with registered event", func(t *testing.T) {
-		coord.ackMu.Lock()
-		coord.ackTracking["test-event"] = &ackState{
-			participants: []string{"validator1", "validator2", "validator3"},
-			ackedBy:      make(map[string]bool),
-			ackCount:     0,
-		}
-		coord.ackMu.Unlock()
-
-		// First ACK
-		err := coord.HandleACK(ctx, "peer1", "test-event")
-		assert.NoError(t, err)
-
-		coord.ackMu.RLock()
-		state := coord.ackTracking["test-event"]
-		assert.Equal(t, 1, state.ackCount)
-		assert.True(t, state.ackedBy["peer1"])
-		coord.ackMu.RUnlock()
-
-		// Duplicate ACK from same peer should not increment
-		err = coord.HandleACK(ctx, "peer1", "test-event")
-		assert.NoError(t, err)
-
-		coord.ackMu.RLock()
-		assert.Equal(t, 1, coord.ackTracking["test-event"].ackCount)
-		coord.ackMu.RUnlock()
-
-		// ACK from second peer
-		err = coord.HandleACK(ctx, "peer2", "test-event")
-		assert.NoError(t, err)
-
-		coord.ackMu.RLock()
-		assert.Equal(t, 2, coord.ackTracking["test-event"].ackCount)
-		coord.ackMu.RUnlock()
-	})
-
-	t.Run("ack from non-participant is rejected", func(t *testing.T) {
-		coord.ackMu.Lock()
-		coord.ackTracking["restricted-event"] = &ackState{
-			participants: []string{"validator1"},
-			ackedBy:      make(map[string]bool),
-			ackCount:     0,
-		}
-		coord.ackMu.Unlock()
-
-		// peer2 maps to validator2 which is not in participants
-		err := coord.HandleACK(ctx, "peer2", "restricted-event")
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "not a participant")
-	})
-}
-
 func TestCoordinator_DoubleStartStop(t *testing.T) {
 	coord, _, _ := setupTestCoordinator(t)
 	ctx := context.Background()
@@ -1068,57 +1007,6 @@ func TestGetMultiAddrsFromPeerID_NilNetworkInfo(t *testing.T) {
 	_, err := coord.GetMultiAddrsFromPeerID(ctx, "any-peer")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
-}
-
-func TestHandleACK_UnknownPeerID(t *testing.T) {
-	coord, _, _ := setupTestCoordinator(t)
-	ctx := context.Background()
-
-	coord.ackMu.Lock()
-	coord.ackTracking["evt-unknown-peer"] = &ackState{
-		participants: []string{"validator1"},
-		ackedBy:      make(map[string]bool),
-		ackCount:     0,
-	}
-	coord.ackMu.Unlock()
-
-	err := coord.HandleACK(ctx, "totally-unknown-peer", "evt-unknown-peer")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to get partyID")
-}
-
-func TestHandleACK_AllACKsTriggersBEGIN(t *testing.T) {
-	coord, _, _ := setupTestCoordinator(t)
-	ctx := context.Background()
-
-	var sentMessages []string
-	coord.send = func(_ context.Context, peerID string, _ []byte) error {
-		sentMessages = append(sentMessages, peerID)
-		return nil
-	}
-
-	coord.ackMu.Lock()
-	coord.ackTracking["evt-begin"] = &ackState{
-		participants: []string{"validator1", "validator2"},
-		ackedBy:      map[string]bool{"peer1": true},
-		ackCount:     1,
-	}
-	coord.ackMu.Unlock()
-
-	// Second ACK completes the set
-	err := coord.HandleACK(ctx, "peer2", "evt-begin")
-	require.NoError(t, err)
-
-	// BEGIN should have been sent to both participants
-	assert.Len(t, sentMessages, 2)
-	assert.Contains(t, sentMessages, "peer1")
-	assert.Contains(t, sentMessages, "peer2")
-
-	// ACK tracking should be cleaned up
-	coord.ackMu.RLock()
-	_, exists := coord.ackTracking["evt-begin"]
-	coord.ackMu.RUnlock()
-	assert.False(t, exists, "ack tracking should be removed after all ACKs received")
 }
 
 func TestGetActiveParticipants(t *testing.T) {

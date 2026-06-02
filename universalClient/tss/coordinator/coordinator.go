@@ -140,6 +140,21 @@ func (c *Coordinator) validatorsSnapshot() []*types.UniversalValidator {
 	return c.allValidators
 }
 
+// Validators returns the cached validator set snapshot, or nil if stale.
+// Exposed for sessionmanager broadcast fanout.
+func (c *Coordinator) Validators() []*types.UniversalValidator {
+	return c.validatorsSnapshot()
+}
+
+// CancelTracking drops the ackTracking entry for the event if present.
+// Used by sessionmanager when a signature_broadcast arrives for an event
+// this UV is also coordinating, so no further BEGIN is sent.
+func (c *Coordinator) CancelTracking(eventID string) {
+	c.ackMu.Lock()
+	delete(c.ackTracking, eventID)
+	c.ackMu.Unlock()
+}
+
 // GetPartyIDFromPeerID gets the partyID (validator address) for a given peerID.
 func (c *Coordinator) GetPartyIDFromPeerID(_ context.Context, peerID string) (string, error) {
 	for _, v := range c.validatorsSnapshot() {

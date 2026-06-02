@@ -157,15 +157,6 @@ func TestHandleSignedAck_FailurePaths(t *testing.T) {
 		coord.ackMu.Unlock()
 	}
 
-	t.Run("bad signature length rejected", func(t *testing.T) {
-		err := coord.handleSignedAck(ctx, "peer1", "evt", &SignedDataPayload{
-			Signature:   make([]byte, 10),
-			SigningHash: make([]byte, 32),
-		})
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "signature must be 64 or 65 bytes")
-	})
-
 	t.Run("untracked event silently ignored", func(t *testing.T) {
 		err := coord.handleSignedAck(ctx, "peer1", "never-tracked", &SignedDataPayload{
 			Signature:   make([]byte, 64),
@@ -241,6 +232,29 @@ func TestHandleSignedAck_FailurePaths(t *testing.T) {
 		_, stillTracked := coord.ackTracking["tracked-evt"]
 		coord.ackMu.RUnlock()
 		assert.True(t, stillTracked, "failed verification must not cancel coordination")
+	})
+}
+
+func TestVerifySignedData(t *testing.T) {
+	coord, _, _ := setupTestCoordinator(t)
+	ctx := context.Background()
+
+	// Use any event — these tests fail before event type is even consulted.
+	event := &store.Event{Type: store.EventTypeSignOutbound, EventData: []byte("{}")}
+
+	t.Run("nil signed_data rejected", func(t *testing.T) {
+		err := coord.VerifySignedData(ctx, event, nil)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "nil")
+	})
+
+	t.Run("bad signature length rejected", func(t *testing.T) {
+		err := coord.VerifySignedData(ctx, event, &SignedDataPayload{
+			Signature:   make([]byte, 10),
+			SigningHash: make([]byte, 32),
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "signature must be 64 or 65 bytes")
 	})
 }
 

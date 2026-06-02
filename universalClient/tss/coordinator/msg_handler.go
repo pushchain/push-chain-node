@@ -173,15 +173,9 @@ func (c *Coordinator) handleUnsignedAck(ctx context.Context, senderPeerID string
 }
 
 // handleSignedAck verifies a prior signature claimed in an ACK and, on
-// success, drops ackTracking so no BEGIN goes out. Hash is rebuilt from
-// event data — the peer's announced hash is not trusted. Fund-migration
-// events are verified against the OLD TSS pubkey (signer of the migration tx).
-// Sender must be a tracked participant; untracked events are silently ignored.
+// success, drops ackTracking so no BEGIN goes out. Sender must be a tracked
+// participant; untracked events are silently ignored.
 func (c *Coordinator) handleSignedAck(ctx context.Context, senderPeerID, eventID string, signedData *SignedDataPayload) error {
-	if len(signedData.Signature) != 64 && len(signedData.Signature) != 65 {
-		return fmt.Errorf("signature must be 64 or 65 bytes, got %d", len(signedData.Signature))
-	}
-
 	if err := c.validateIncomingRequest(ctx, eventID, senderPeerID); err != nil {
 		if isSkippableACKError(err) {
 			return nil
@@ -193,19 +187,8 @@ func (c *Coordinator) handleSignedAck(ctx context.Context, senderPeerID, eventID
 	if err != nil {
 		return fmt.Errorf("event %s not found in store: %w", eventID, err)
 	}
-	expectedHash, err := c.rebuildSigningHash(ctx, event, signedData.Nonce, signedData.TSSFundMigrationAmount)
-	if err != nil {
-		return fmt.Errorf("rebuild signing hash for event %s: %w", eventID, err)
-	}
-	if !bytes.Equal(expectedHash, signedData.SigningHash) {
-		return fmt.Errorf("announced signing_hash does not match rebuilt hash for event %s", eventID)
-	}
-	pubkeyHex, err := c.verifyingPubkey(ctx, event)
-	if err != nil {
-		return fmt.Errorf("resolve verifying pubkey for event %s: %w", eventID, err)
-	}
-	if err := verifyECDSASignature(pubkeyHex, expectedHash, signedData.Signature); err != nil {
-		return fmt.Errorf("signature verification failed for event %s from %s: %w", eventID, senderPeerID, err)
+	if err := c.VerifySignedData(ctx, event, signedData); err != nil {
+		return fmt.Errorf("event %s from %s: %w", eventID, senderPeerID, err)
 	}
 
 	c.ackMu.Lock()
@@ -217,6 +200,35 @@ func (c *Coordinator) handleSignedAck(ctx context.Context, senderPeerID, eventID
 		Str("sender", senderPeerID).
 		Msg("ACK carried verified prior signature; cancelling coordination for this event")
 
+	return nil
+}
+
+// VerifySignedData checks that signedData is a valid signature for event:
+// rebuilds the expected signing hash from event data, compares it to the
+// announced hash, then ECDSA-verifies the signature against the correct TSS
+// pubkey (current for SIGN_OUTBOUND, OldTssPubkey for SIGN_FUND_MIGRATE).
+// The sender's announced hash is not trusted — only the event-bound rebuild is.
+func (c *Coordinator) VerifySignedData(ctx context.Context, event *store.Event, signedData *SignedDataPayload) error {
+	if signedData == nil {
+		return fmt.Errorf("signed_data is nil")
+	}
+	if len(signedData.Signature) != 64 && len(signedData.Signature) != 65 {
+		return fmt.Errorf("signature must be 64 or 65 bytes, got %d", len(signedData.Signature))
+	}
+	expectedHash, err := c.rebuildSigningHash(ctx, event, signedData.Nonce, signedData.TSSFundMigrationAmount)
+	if err != nil {
+		return fmt.Errorf("rebuild signing hash: %w", err)
+	}
+	if !bytes.Equal(expectedHash, signedData.SigningHash) {
+		return fmt.Errorf("announced signing_hash does not match rebuilt hash")
+	}
+	pubkeyHex, err := c.verifyingPubkey(ctx, event)
+	if err != nil {
+		return fmt.Errorf("resolve verifying pubkey: %w", err)
+	}
+	if err := verifyECDSASignature(pubkeyHex, expectedHash, signedData.Signature); err != nil {
+		return fmt.Errorf("ECDSA verification failed: %w", err)
+	}
 	return nil
 }
 

@@ -14,10 +14,11 @@ type SendFunc func(ctx context.Context, peerID string, data []byte) error
 type MessageType string
 
 const (
-	MessageTypeSetup MessageType = "setup" // coordinator → participants: start a session
-	MessageTypeACK   MessageType = "ack"   // participant → coordinator: ready (or SignedData attached → already signed)
-	MessageTypeBegin MessageType = "begin" // coordinator → participants: all ACKed, run
-	MessageTypeStep  MessageType = "step"  // participant ↔ participant: DKLS protocol round
+	MessageTypeSetup              MessageType = "setup"               // coordinator → participants: start a session
+	MessageTypeACK                MessageType = "ack"                 // participant → coordinator: ready (or SignedData attached → already signed)
+	MessageTypeBegin              MessageType = "begin"               // coordinator → participants: all ACKed, run
+	MessageTypeStep               MessageType = "step"                // participant ↔ participant: DKLS protocol round
+	MessageTypeSignatureBroadcast MessageType = "signature_broadcast" // participant → all UVs: signature ready, persist & participate in voting
 )
 
 // SignedDataPayload is an already-produced signature. Attached to an ACK

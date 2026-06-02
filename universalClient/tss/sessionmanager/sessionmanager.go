@@ -113,6 +113,8 @@ func (sm *SessionManager) HandleIncomingMessage(ctx context.Context, peerID stri
 		return sm.handleBeginMessage(ctx, peerID, msg)
 	case coordinator.MessageTypeStep:
 		return sm.handleStepMessage(ctx, peerID, msg)
+	case coordinator.MessageTypeSignatureBroadcast:
+		return sm.handleSignatureBroadcast(ctx, peerID, msg)
 	default:
 		return fmt.Errorf("unknown message type: %s", msg.Type)
 	}
@@ -370,6 +372,60 @@ func (sm *SessionManager) handleBeginMessage(ctx context.Context, senderPeerID s
 	return sm.processSessionStep(ctx, msg.EventID)
 }
 
+// handleSignatureBroadcast persists a signature distributed by a signing
+// participant. The sender is NOT trusted: the receiver re-derives the expected
+// hash from local event data, ECDSA-verifies against the correct TSS pubkey
+// (current for SIGN_OUTBOUND, OldTssPubkey for SIGN_FUND_MIGRATE), and only
+// then persists. Idempotent — events already past CONFIRMED are skipped.
+// Implements the F-2026-16965 fix: failure-vote visibility extends from the
+// signing set to every UV.
+func (sm *SessionManager) handleSignatureBroadcast(ctx context.Context, senderPeerID string, msg *coordinator.Message) error {
+	event, err := sm.eventStore.GetEvent(msg.EventID)
+	if err != nil {
+		return fmt.Errorf("event %s not found in database: %w", msg.EventID, err)
+	}
+
+	// Idempotent: if we've already moved past CONFIRMED, the signature is
+	// either already persisted locally (we were a signer or got an earlier
+	// broadcast) or the tx flow has progressed past it.
+	switch event.Status {
+	case store.StatusSigned, store.StatusBroadcasted, store.StatusCompleted, store.StatusReverted:
+		sm.logger.Debug().Str("event_id", msg.EventID).Str("status", event.Status).
+			Msg("signature_broadcast for event already past CONFIRMED, skipping")
+		if sm.coordinator != nil {
+			sm.coordinator.CancelTracking(msg.EventID)
+		}
+		return nil
+	}
+
+	if event.Type != store.EventTypeSignOutbound && event.Type != store.EventTypeSignFundMigrate {
+		return fmt.Errorf("signature_broadcast for non-sign event type %s", event.Type)
+	}
+
+	if err := sm.coordinator.VerifySignedData(ctx, event, msg.SignedData); err != nil {
+		return fmt.Errorf("signature_broadcast: %w", err)
+	}
+
+	// Persist as SIGNED via the same path a local sign-completion uses, so
+	// signing_data lands on event_data in the format txbroadcaster expects.
+	rebuiltReq := &common.UnsignedSigningReq{
+		SigningHash:            msg.SignedData.SigningHash,
+		Nonce:                  msg.SignedData.Nonce,
+		TSSFundMigrationAmount: msg.SignedData.TSSFundMigrationAmount,
+	}
+	if err := sm.handleSigningComplete(ctx, msg.EventID, event.EventData, msg.SignedData.Signature, rebuiltReq); err != nil {
+		return fmt.Errorf("persist signature from broadcast: %w", err)
+	}
+
+	if sm.coordinator != nil {
+		sm.coordinator.CancelTracking(msg.EventID)
+	}
+
+	sm.logger.Debug().Str("event_id", msg.EventID).Str("sender", senderPeerID).
+		Msg("signature_broadcast persisted; event will be broadcast + resolved locally")
+	return nil
+}
+
 // sendACK sends an ACK message to the coordinator after successfully creating a session.
 // If signedData is non-nil it is attached to the ACK, telling the coordinator the
 // participant already holds a valid signature so a fresh DKLS run is unnecessary.
@@ -437,8 +493,59 @@ func (sm *SessionManager) handleSignFinished(ctx context.Context, eventID string
 		return err
 	}
 
+	// Broadcast the signature to all UVs so non-signing nodes also persist as
+	// SIGNED and can vote on failure. Best-effort: failed sends are logged but
+	// do not abort. Recovery via sweeper retry covers any peers we miss.
+	sm.broadcastSignature(ctx, eventID, &coordinator.SignedDataPayload{
+		Signature:              result.Signature,
+		SigningHash:            signingReq.SigningHash,
+		Nonce:                  signingReq.Nonce,
+		TSSFundMigrationAmount: signingReq.TSSFundMigrationAmount,
+	})
+
 	sm.logger.Info().Str("event_id", eventID).Msg("sign session finished successfully")
 	return nil
+}
+
+// broadcastSignature sends a signature_broadcast to every known UV (skipping
+// self). Per-peer send failures are logged at warn; nothing aborts the fanout.
+func (sm *SessionManager) broadcastSignature(ctx context.Context, eventID string, signedData *coordinator.SignedDataPayload) {
+	if sm.coordinator == nil {
+		return
+	}
+	validators := sm.coordinator.Validators()
+	if len(validators) == 0 {
+		sm.logger.Warn().Str("event_id", eventID).Msg("no validators to broadcast signature to")
+		return
+	}
+	msgBytes, err := json.Marshal(coordinator.Message{
+		Type:       coordinator.MessageTypeSignatureBroadcast,
+		EventID:    eventID,
+		SignedData: signedData,
+	})
+	if err != nil {
+		sm.logger.Warn().Err(err).Str("event_id", eventID).Msg("marshal signature_broadcast")
+		return
+	}
+	sent := 0
+	for _, v := range validators {
+		if v.NetworkInfo == nil || v.NetworkInfo.PeerId == "" {
+			continue
+		}
+		if v.IdentifyInfo != nil && v.IdentifyInfo.CoreValidatorAddress == sm.partyID {
+			continue // self
+		}
+		if err := sm.send(ctx, v.NetworkInfo.PeerId, msgBytes); err != nil {
+			sm.logger.Debug().Err(err).
+				Str("event_id", eventID).
+				Str("peer_id", v.NetworkInfo.PeerId).
+				Msg("signature_broadcast send failed")
+			continue
+		}
+		sent++
+	}
+	sm.logger.Debug().Str("event_id", eventID).Int("sent", sent).
+		Msg("signature_broadcast fanout complete")
 }
 
 // handleKeyFinished handles a completed key session (keygen/keyrefresh/quorumchange):

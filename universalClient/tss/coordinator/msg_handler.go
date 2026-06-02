@@ -4,12 +4,27 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 )
+
+// Sentinel errors validateIncomingRequest may return for ACKs that are
+// well-formed but should be silently ignored. Callers map both to a nil
+// return; the messages exist for clarity in debug logs and stacks.
+var (
+	errEventNotTracked = errors.New("event is not tracked by this coordinator")
+	errDuplicateACK    = errors.New("duplicate ACK from sender")
+)
+
+// isSkippableACKError reports whether err is one of the silent-skip sentinels
+// from validateIncomingRequest.
+func isSkippableACKError(err error) bool {
+	return errors.Is(err, errEventNotTracked) || errors.Is(err, errDuplicateACK)
+}
 
 // HandleIncomingMessage routes a coordinator-bound message. Caller unmarshals.
 func (c *Coordinator) HandleIncomingMessage(ctx context.Context, peerID string, msg *Message) error {
@@ -30,36 +45,35 @@ func (c *Coordinator) HandleIncomingMessage(ctx context.Context, peerID string, 
 	}
 }
 
-// handleUnsignedAck counts a plain ACK and, when all participants have ACKed,
-// sends BEGIN and clears ackTracking. No signature is involved.
-func (c *Coordinator) handleUnsignedAck(ctx context.Context, senderPeerID string, eventID string) error {
-	c.ackMu.Lock()
-	defer c.ackMu.Unlock()
+// validateIncomingRequest checks that the coordinator is tracking the event,
+// the sender is a listed participant, and the sender hasn't already ACKed.
+// Returns nil if the ACK should be processed, errSkipACK if it should be
+// silently ignored (untracked or duplicate — logged at debug), or a
+// descriptive error when the sender is reachable but not a participant.
+// Snapshots state under ackMu.RLock so the caller doesn't hold the lock
+// across GetPartyIDFromPeerID.
+func (c *Coordinator) validateIncomingRequest(ctx context.Context, eventID, senderPeerID string) error {
+	c.ackMu.RLock()
+	state, ok := c.ackTracking[eventID]
+	var participants []string
+	var alreadyAcked bool
+	if ok {
+		participants = append([]string(nil), state.participants...)
+		alreadyAcked = state.ackedBy[senderPeerID]
+	}
+	c.ackMu.RUnlock()
 
-	state, exists := c.ackTracking[eventID]
-	if !exists {
-		// Not tracking this event, ignore (might be from a different coordinator)
-		return nil
+	if participants == nil {
+		return fmt.Errorf("event %s: %w", eventID, errEventNotTracked)
 	}
 
-	// Check if already ACKed
-	if state.ackedBy[senderPeerID] {
-		c.logger.Debug().
-			Str("event_id", eventID).
-			Str("sender", senderPeerID).
-			Msg("duplicate ACK received, ignoring")
-		return nil
-	}
-
-	// Verify sender is a participant
 	senderPartyID, err := c.GetPartyIDFromPeerID(ctx, senderPeerID)
 	if err != nil {
 		return fmt.Errorf("failed to get partyID for sender peerID %s: %w", senderPeerID, err)
 	}
-
 	isParticipant := false
-	for _, participantPartyID := range state.participants {
-		if participantPartyID == senderPartyID {
+	for _, p := range participants {
+		if p == senderPartyID {
 			isParticipant = true
 			break
 		}
@@ -67,20 +81,46 @@ func (c *Coordinator) handleUnsignedAck(ctx context.Context, senderPeerID string
 	if !isParticipant {
 		return fmt.Errorf("sender %s (partyID: %s) is not a participant for event %s", senderPeerID, senderPartyID, eventID)
 	}
+	if alreadyAcked {
+		c.logger.Debug().
+			Str("event_id", eventID).
+			Str("sender", senderPeerID).
+			Msg("duplicate ACK received, ignoring")
+		return fmt.Errorf("sender %s on event %s: %w", senderPeerID, eventID, errDuplicateACK)
+	}
+	return nil
+}
 
-	// Mark as ACKed
+// handleUnsignedAck counts a plain ACK and, when all participants have ACKed,
+// sends BEGIN and clears ackTracking. No signature is involved.
+func (c *Coordinator) handleUnsignedAck(ctx context.Context, senderPeerID string, eventID string) error {
+	if err := c.validateIncomingRequest(ctx, eventID, senderPeerID); err != nil {
+		if isSkippableACKError(err) {
+			return nil
+		}
+		return err
+	}
+
+	c.ackMu.Lock()
+	defer c.ackMu.Unlock()
+
+	// Race guard: between the helper's RLock and this Lock another goroutine
+	// could have cleared tracking or ACKed for this peer. Re-check silently.
+	state, exists := c.ackTracking[eventID]
+	if !exists || state.ackedBy[senderPeerID] {
+		return nil
+	}
+
 	state.ackedBy[senderPeerID] = true
 	state.ackCount++
 
 	c.logger.Debug().
 		Str("event_id", eventID).
 		Str("sender", senderPeerID).
-		Str("sender_party_id", senderPartyID).
 		Int("ack_count", state.ackCount).
 		Int("expected_participants", len(state.participants)).
 		Msg("coordinator received ACK")
 
-	// Check if all participants have ACKed
 	if state.ackCount == len(state.participants) {
 		c.logger.Info().
 			Str("event_id", eventID).
@@ -136,10 +176,19 @@ func (c *Coordinator) handleUnsignedAck(ctx context.Context, senderPeerID string
 // success, drops ackTracking so no BEGIN goes out. Hash is rebuilt from
 // event data — the peer's announced hash is not trusted. Fund-migration
 // events are verified against the OLD TSS pubkey (signer of the migration tx).
+// Sender must be a tracked participant; untracked events are silently ignored.
 func (c *Coordinator) handleSignedAck(ctx context.Context, senderPeerID, eventID string, signedData *SignedDataPayload) error {
 	if len(signedData.Signature) != 64 && len(signedData.Signature) != 65 {
 		return fmt.Errorf("signature must be 64 or 65 bytes, got %d", len(signedData.Signature))
 	}
+
+	if err := c.validateIncomingRequest(ctx, eventID, senderPeerID); err != nil {
+		if isSkippableACKError(err) {
+			return nil
+		}
+		return err
+	}
+
 	event, err := c.eventStore.GetEvent(eventID)
 	if err != nil {
 		return fmt.Errorf("event %s not found in store: %w", eventID, err)
@@ -160,16 +209,12 @@ func (c *Coordinator) handleSignedAck(ctx context.Context, senderPeerID, eventID
 	}
 
 	c.ackMu.Lock()
-	_, tracked := c.ackTracking[eventID]
-	if tracked {
-		delete(c.ackTracking, eventID)
-	}
+	delete(c.ackTracking, eventID)
 	c.ackMu.Unlock()
 
 	c.logger.Debug().
 		Str("event_id", eventID).
 		Str("sender", senderPeerID).
-		Bool("was_tracking", tracked).
 		Msg("ACK carried verified prior signature; cancelling coordination for this event")
 
 	return nil

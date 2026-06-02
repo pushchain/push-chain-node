@@ -145,6 +145,18 @@ func TestHandleSignedAck_FailurePaths(t *testing.T) {
 	coord, _, db := setupTestCoordinator(t)
 	ctx := context.Background()
 
+	// trackEvent registers an event as tracked with validator1 as a participant
+	// so handleSignedAck reaches the verify path (peer1 → validator1).
+	trackEvent := func(eventID string) {
+		coord.ackMu.Lock()
+		coord.ackTracking[eventID] = &ackState{
+			participants: []string{"validator1"},
+			ackedBy:      make(map[string]bool),
+			ackCount:     0,
+		}
+		coord.ackMu.Unlock()
+	}
+
 	t.Run("bad signature length rejected", func(t *testing.T) {
 		err := coord.handleSignedAck(ctx, "peer1", "evt", &SignedDataPayload{
 			Signature:   make([]byte, 10),
@@ -154,7 +166,27 @@ func TestHandleSignedAck_FailurePaths(t *testing.T) {
 		assert.Contains(t, err.Error(), "signature must be 64 or 65 bytes")
 	})
 
+	t.Run("untracked event silently ignored", func(t *testing.T) {
+		err := coord.handleSignedAck(ctx, "peer1", "never-tracked", &SignedDataPayload{
+			Signature:   make([]byte, 64),
+			SigningHash: make([]byte, 32),
+		})
+		assert.NoError(t, err)
+	})
+
+	t.Run("non-participant rejected", func(t *testing.T) {
+		trackEvent("only-v1")
+		// peer2 maps to validator2 which is not in participants.
+		err := coord.handleSignedAck(ctx, "peer2", "only-v1", &SignedDataPayload{
+			Signature:   make([]byte, 64),
+			SigningHash: make([]byte, 32),
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not a participant")
+	})
+
 	t.Run("event not in store rejected", func(t *testing.T) {
+		trackEvent("no-such-event")
 		err := coord.handleSignedAck(ctx, "peer1", "no-such-event", &SignedDataPayload{
 			Signature:   make([]byte, 64),
 			SigningHash: make([]byte, 32),
@@ -170,6 +202,7 @@ func TestHandleSignedAck_FailurePaths(t *testing.T) {
 			Type:        store.EventTypeKeygen,
 			Status:      store.StatusConfirmed,
 		}).Error)
+		trackEvent("keygen-evt")
 		err := coord.handleSignedAck(ctx, "peer1", "keygen-evt", &SignedDataPayload{
 			Signature:   make([]byte, 64),
 			SigningHash: make([]byte, 32),
@@ -186,6 +219,7 @@ func TestHandleSignedAck_FailurePaths(t *testing.T) {
 			Status:      store.StatusConfirmed,
 			EventData:   []byte("{}"),
 		}).Error)
+		trackEvent("fm-evt")
 		err := coord.handleSignedAck(ctx, "peer1", "fm-evt", &SignedDataPayload{
 			Signature:   make([]byte, 64),
 			SigningHash: make([]byte, 32),
@@ -194,15 +228,10 @@ func TestHandleSignedAck_FailurePaths(t *testing.T) {
 		assert.Contains(t, err.Error(), "requires positive claimed amount")
 	})
 
-	t.Run("ack with SignedData does not touch ackTracking on failure", func(t *testing.T) {
-		coord.ackMu.Lock()
-		coord.ackTracking["tracked-evt"] = &ackState{
-			participants: []string{"validator1"},
-			ackedBy:      make(map[string]bool),
-			ackCount:     0,
-		}
-		coord.ackMu.Unlock()
+	t.Run("verification failure does not touch ackTracking", func(t *testing.T) {
+		trackEvent("tracked-evt")
 
+		// Bad sig length → rejected before any state mutation.
 		_ = coord.handleSignedAck(ctx, "peer1", "tracked-evt", &SignedDataPayload{
 			Signature:   make([]byte, 10),
 			SigningHash: make([]byte, 32),

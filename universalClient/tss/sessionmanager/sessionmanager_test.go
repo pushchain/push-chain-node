@@ -875,6 +875,41 @@ func TestSendACK(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to send ACK message")
 	})
+
+	t.Run("SignedData payload round-trips through JSON", func(t *testing.T) {
+		var capturedData []byte
+		sendFn := func(_ context.Context, _ string, data []byte) error {
+			capturedData = data
+			return nil
+		}
+		sm := NewSessionManager(
+			nil, nil, nil, nil, nil,
+			sendFn,
+			"validator1",
+			3*time.Minute, 30*time.Second, 60,
+			zerolog.Nop(),
+			nil,
+		)
+
+		signed := &coordinator.SignedDataPayload{
+			Signature:              bytes.Repeat([]byte{0xaa}, 64),
+			SigningHash:            bytes.Repeat([]byte{0xbb}, 32),
+			Nonce:                  42,
+			TSSFundMigrationAmount: big.NewInt(123_456),
+		}
+		require.NoError(t, sm.sendACK(context.Background(), "coord-peer", "evt-signed", signed))
+
+		var msg coordinator.Message
+		require.NoError(t, json.Unmarshal(capturedData, &msg))
+		assert.Equal(t, coordinator.MessageTypeACK, msg.Type)
+		assert.Equal(t, "evt-signed", msg.EventID)
+		require.NotNil(t, msg.SignedData)
+		assert.Equal(t, signed.Signature, msg.SignedData.Signature)
+		assert.Equal(t, signed.SigningHash, msg.SignedData.SigningHash)
+		assert.Equal(t, signed.Nonce, msg.SignedData.Nonce)
+		require.NotNil(t, msg.SignedData.TSSFundMigrationAmount)
+		assert.Equal(t, 0, signed.TSSFundMigrationAmount.Cmp(msg.SignedData.TSSFundMigrationAmount))
+	})
 }
 
 func TestHandleSetupMessage_PriorSignedDataShortCircuits(t *testing.T) {

@@ -165,6 +165,7 @@ func TestVoteTssKeyProcess(t *testing.T) {
 		app.UvalidatorKeeper.UpdateValidatorStatus(ctx,
 			valAddr1,
 			uvalidatortypes.UVStatus_UV_STATUS_PENDING_JOIN,
+			uvalidatortypes.TransitionReason_TRANSITION_REASON_UNSPECIFIED,
 		)
 
 		err := app.UtssKeeper.InitiateTssKeyProcess(ctx, utsstypes.TssProcessType_TSS_PROCESS_KEYGEN)

@@ -1198,3 +1198,148 @@ func TestHandleIncomingMessage_Routing(t *testing.T) {
 		assert.Contains(t, err.Error(), "does not exist")
 	})
 }
+
+// TestHandleSignatureBroadcast_IdempotentAcrossStatuses locks in the
+// idempotency invariant: a signature_broadcast arriving for an event already
+// past CONFIRMED is a no-op (no error, no DB write). Failing this test would
+// mean a duplicate broadcast could overwrite a SIGNED event, leak a session,
+// or cause a redundant tx broadcast.
+func TestHandleSignatureBroadcast_IdempotentAcrossStatuses(t *testing.T) {
+	statuses := []string{
+		store.StatusSigned,
+		store.StatusBroadcasted,
+		store.StatusCompleted,
+		store.StatusReverted,
+	}
+	for _, status := range statuses {
+		t.Run(status, func(t *testing.T) {
+			sm, _, _, _, _, testDB := setupTestSessionManager(t)
+			ctx := context.Background()
+
+			origEventData, _ := json.Marshal(map[string]any{"x": 1})
+			require.NoError(t, testDB.Create(&store.Event{
+				EventID:     "evt-idem-" + status,
+				BlockHeight: 100,
+				Type:        store.EventTypeSignOutbound,
+				Status:      status,
+				EventData:   origEventData,
+			}).Error)
+
+			msg := coordinator.Message{
+				Type:    coordinator.MessageTypeSignatureBroadcast,
+				EventID: "evt-idem-" + status,
+				SignedData: &coordinator.SignedDataPayload{
+					Signature:   bytes.Repeat([]byte{0xff}, 64), // intentionally garbage — should never be verified
+					SigningHash: bytes.Repeat([]byte{0xee}, 32),
+					Nonce:       42,
+				},
+			}
+			// No error, no event mutation, no verify attempt.
+			require.NoError(t, sm.HandleIncomingMessage(ctx, "peer1", &msg))
+
+			var after store.Event
+			require.NoError(t, testDB.Where("event_id = ?", "evt-idem-"+status).First(&after).Error)
+			assert.Equal(t, status, after.Status, "status must not change on idempotent skip")
+			assert.JSONEq(t, string(origEventData), string(after.EventData),
+				"event_data must not change on idempotent skip")
+		})
+	}
+}
+
+// TestBroadcastSignature_SelfSkipAndFanout exercises sessionmanager's
+// fanout: validators are iterated, self is excluded by partyID, and per-peer
+// send failures don't abort the loop. Locks in the Option C invariants on
+// the sender side.
+func TestBroadcastSignature_SelfSkipAndFanout(t *testing.T) {
+	sm, _, _, _, _, _ := setupTestSessionManager(t)
+
+	var sentTo []string
+	sendFn := func(_ context.Context, peerID string, _ []byte) error {
+		// Fail on peer2 to verify per-peer failure tolerance.
+		if peerID == "peer2" {
+			return fmt.Errorf("simulated network error")
+		}
+		sentTo = append(sentTo, peerID)
+		return nil
+	}
+	sm.send = sendFn
+
+	sm.broadcastSignature(context.Background(), "evt-fanout", &coordinator.SignedDataPayload{
+		Signature:   bytes.Repeat([]byte{0x01}, 64),
+		SigningHash: bytes.Repeat([]byte{0x02}, 32),
+		Nonce:       1,
+	})
+
+	// Test fixture has validator1 (sm.partyID), validator2 (peer2), validator3 (peer3).
+	// validator1 is self → skipped. peer2's send fails → not counted. peer3 succeeds.
+	assert.NotContains(t, sentTo, "peer1", "self (validator1/peer1) must be skipped")
+	assert.NotContains(t, sentTo, "peer2", "failed send must not appear in successful sends")
+	assert.Contains(t, sentTo, "peer3", "non-failing non-self peer must receive the broadcast")
+}
+
+// TestBroadcastSignature_EmptyValidatorCache verifies the fanout no-ops
+// gracefully when the validator cache is empty (stale on the coordinator side).
+func TestBroadcastSignature_EmptyValidatorCache(t *testing.T) {
+	sm, coord, _, _, _, _ := setupTestSessionManager(t)
+
+	// Clear the validator cache by reaching into the coordinator.
+	coordValue := reflect.ValueOf(coord).Elem()
+	if f := coordValue.FieldByName("allValidators"); f.IsValid() {
+		*(*[]*types.UniversalValidator)(unsafe.Pointer(f.UnsafeAddr())) = nil
+	}
+
+	called := false
+	sm.send = func(_ context.Context, _ string, _ []byte) error {
+		called = true
+		return nil
+	}
+	sm.broadcastSignature(context.Background(), "evt-empty", &coordinator.SignedDataPayload{
+		Signature:   bytes.Repeat([]byte{0x01}, 64),
+		SigningHash: bytes.Repeat([]byte{0x02}, 32),
+	})
+	assert.False(t, called, "no send should happen when validator set is empty")
+}
+
+// TestExtractSignedDataFromEvent_CorruptDataIsObservable verifies that
+// malformed signing_data is surfaced via the error return rather than silently
+// swallowed. Audit-relevant: future DB corruption must be diagnosable.
+func TestExtractSignedDataFromEvent_CorruptDataIsObservable(t *testing.T) {
+	t.Run("nil event returns no error", func(t *testing.T) {
+		signed, err := extractSignedDataFromEvent(nil)
+		assert.Nil(t, signed)
+		assert.NoError(t, err)
+	})
+
+	t.Run("no signing_data returns no error", func(t *testing.T) {
+		ev := &store.Event{EventData: []byte(`{"x":1}`)}
+		signed, err := extractSignedDataFromEvent(ev)
+		assert.Nil(t, signed)
+		assert.NoError(t, err)
+	})
+
+	t.Run("bad JSON returns error", func(t *testing.T) {
+		ev := &store.Event{EventData: []byte("not json")}
+		signed, err := extractSignedDataFromEvent(ev)
+		assert.Nil(t, signed)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "unmarshal")
+	})
+
+	t.Run("bad hex in signature returns error", func(t *testing.T) {
+		ev := &store.Event{EventData: []byte(`{"signing_data":{"signature":"not-hex","signing_hash":"deadbeef","nonce":1}}`)}
+		signed, err := extractSignedDataFromEvent(ev)
+		assert.Nil(t, signed)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "decode signing_data.signature hex")
+	})
+
+	t.Run("valid signing_data returns payload", func(t *testing.T) {
+		ev := &store.Event{EventData: []byte(`{"signing_data":{"signature":"aabb","signing_hash":"cc","nonce":42}}`)}
+		signed, err := extractSignedDataFromEvent(ev)
+		require.NoError(t, err)
+		require.NotNil(t, signed)
+		assert.Equal(t, []byte{0xaa, 0xbb}, signed.Signature)
+		assert.Equal(t, []byte{0xcc}, signed.SigningHash)
+		assert.Equal(t, uint64(42), signed.Nonce)
+	})
+}

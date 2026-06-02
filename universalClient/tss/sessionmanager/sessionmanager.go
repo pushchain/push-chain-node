@@ -150,7 +150,12 @@ func (sm *SessionManager) handleSetupMessage(ctx context.Context, senderPeerID s
 	// a prior successful session, respond to setup with an ACK carrying the
 	// signature. The coordinator verifies cryptographically and can skip a
 	// fresh DKLS run
-	if signed := extractSignedDataFromEvent(event); signed != nil {
+	signed, signedErr := extractSignedDataFromEvent(event)
+	if signedErr != nil {
+		sm.logger.Warn().Err(signedErr).Str("event_id", msg.EventID).
+			Msg("signing_data on event is corrupt; falling back to normal setup")
+	}
+	if signed != nil {
 		sm.logger.Info().
 			Str("event_id", msg.EventID).
 			Msg("event already has signing data, responding to setup with existing signature")
@@ -1105,10 +1110,13 @@ func (sm *SessionManager) handleSigningComplete(_ context.Context, eventID strin
 	return nil
 }
 
-// extractSignedDataFromEvent returns signing data if persisted on the event
-func extractSignedDataFromEvent(event *store.Event) *coordinator.SignedDataPayload {
+// extractSignedDataFromEvent returns signing data persisted on the event, or
+// (nil, nil) if no signing_data is present. A non-nil error signals corruption
+// (bad JSON or non-hex bytes) and the caller should log; the protocol falls
+// back to normal setup in that case.
+func extractSignedDataFromEvent(event *store.Event) (*coordinator.SignedDataPayload, error) {
 	if event == nil {
-		return nil
+		return nil, nil
 	}
 	var raw struct {
 		SigningData *struct {
@@ -1118,21 +1126,24 @@ func extractSignedDataFromEvent(event *store.Event) *coordinator.SignedDataPaylo
 			TSSFundMigrationAmount *big.Int `json:"tss_fund_migration_amount,omitempty"`
 		} `json:"signing_data,omitempty"`
 	}
-	if err := json.Unmarshal(event.EventData, &raw); err != nil || raw.SigningData == nil {
-		return nil
+	if err := json.Unmarshal(event.EventData, &raw); err != nil {
+		return nil, fmt.Errorf("unmarshal event_data: %w", err)
+	}
+	if raw.SigningData == nil {
+		return nil, nil
 	}
 	sigBytes, err := hex.DecodeString(raw.SigningData.Signature)
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("decode signing_data.signature hex: %w", err)
 	}
 	hashBytes, err := hex.DecodeString(raw.SigningData.SigningHash)
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("decode signing_data.signing_hash hex: %w", err)
 	}
 	return &coordinator.SignedDataPayload{
 		Signature:              sigBytes,
 		SigningHash:            hashBytes,
 		Nonce:                  raw.SigningData.Nonce,
 		TSSFundMigrationAmount: raw.SigningData.TSSFundMigrationAmount,
-	}
+	}, nil
 }

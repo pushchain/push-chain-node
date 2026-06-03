@@ -179,7 +179,9 @@ func (cs *ChainStore) DeleteTerminalEvents(updatedBefore any) (int64, error) {
 		return 0, fmt.Errorf("database is nil")
 	}
 
-	res := cs.database.Client().
+	// Unscoped() = hard delete (free disk). Without it, GORM does a soft
+	// delete (just sets deleted_at), which defeats the cleaner's purpose.
+	res := cs.database.Client().Unscoped().
 		Where("status IN ? AND updated_at < ?",
 			[]string{store.StatusCompleted, store.StatusReorged, store.StatusReverted}, updatedBefore).
 		Delete(&store.Event{})

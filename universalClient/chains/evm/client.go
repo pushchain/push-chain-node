@@ -35,6 +35,7 @@ type Client struct {
 	eventListener   *EventListener
 	eventProcessor  *common.EventProcessor
 	eventConfirmer  *EventConfirmer
+	eventCleaner    *common.EventCleaner
 	chainMetaOracle *ChainMetaOracle
 	txBuilder       *TxBuilder
 
@@ -74,6 +75,14 @@ func NewClient(
 		database:       database,
 		pushSigner:     pushSigner,
 	}
+
+	client.eventCleaner = common.NewEventCleaner(
+		database,
+		chainConfig.CleanupIntervalSeconds,
+		chainConfig.RetentionPeriodSeconds,
+		chainIDStr,
+		log,
+	)
 
 	// Initialize components that don't require RPC client
 	if pushSigner != nil {
@@ -145,6 +154,10 @@ func (c *Client) Stop() error {
 
 	if c.chainMetaOracle != nil {
 		c.chainMetaOracle.Stop()
+	}
+
+	if c.eventCleaner != nil {
+		c.eventCleaner.Stop()
 	}
 
 	// Close RPC client last
@@ -298,6 +311,12 @@ func (c *Client) startComponents() error {
 	if c.chainMetaOracle != nil {
 		if err := c.chainMetaOracle.Start(c.ctx); err != nil {
 			return fmt.Errorf("failed to start gas oracle: %w", err)
+		}
+	}
+
+	if c.eventCleaner != nil {
+		if err := c.eventCleaner.Start(c.ctx); err != nil {
+			return fmt.Errorf("failed to start event cleaner: %w", err)
 		}
 	}
 

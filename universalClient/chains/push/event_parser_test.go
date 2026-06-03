@@ -149,7 +149,7 @@ func TestConvertOutboundToEvent(t *testing.T) {
 		assert.Equal(t, "0x123abc", result.EventID)
 		assert.Equal(t, store.EventTypeSignOutbound, result.Type)
 		assert.Equal(t, uint64(1000), result.BlockHeight)
-		assert.Equal(t, uint64(1000+DefaultExpiryOffset), result.ExpiryBlockHeight)
+		assert.Equal(t, uint64(0), result.ExpiryBlockHeight, "sign events have no client-side expiry")
 		assert.Equal(t, store.StatusConfirmed, result.Status)
 		assert.Equal(t, store.ConfirmationInstant, result.ConfirmationType)
 
@@ -192,7 +192,7 @@ func TestConvertOutboundToEvent(t *testing.T) {
 
 		assert.Equal(t, "0xminimal", result.EventID)
 		assert.Equal(t, uint64(500), result.BlockHeight)
-		assert.Equal(t, uint64(500+DefaultExpiryOffset), result.ExpiryBlockHeight)
+		assert.Equal(t, uint64(0), result.ExpiryBlockHeight, "sign events have no client-side expiry")
 
 		var data uexecutortypes.OutboundCreatedEvent
 		require.NoError(t, json.Unmarshal(result.EventData, &data))
@@ -326,7 +326,7 @@ func TestConvertFundMigrationEvent(t *testing.T) {
 		assert.Equal(t, store.StatusConfirmed, result.Status)
 		assert.Equal(t, store.ConfirmationInstant, result.ConfirmationType)
 		assert.Equal(t, uint64(5000), result.BlockHeight)
-		assert.Equal(t, uint64(5000+DefaultExpiryOffset), result.ExpiryBlockHeight)
+		assert.Equal(t, uint64(0), result.ExpiryBlockHeight, "fund migration events have no client-side expiry")
 
 		var data utsstypes.FundMigrationInitiatedEventData
 		require.NoError(t, json.Unmarshal(result.EventData, &data))
@@ -379,6 +379,3 @@ func TestHashEventID(t *testing.T) {
 	})
 }
 
-func TestDefaultExpiryOffset(t *testing.T) {
-	assert.Equal(t, uint64(600), uint64(DefaultExpiryOffset))
-}

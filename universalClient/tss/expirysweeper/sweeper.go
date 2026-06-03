@@ -2,44 +2,45 @@ package expirysweeper
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/rs/zerolog"
 
-	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
-	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
-
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
-	"github.com/pushchain/push-chain-node/universalClient/pushsigner"
-	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 )
 
 const (
 	defaultCheckInterval = 30 * time.Second
-	sweepBatchSize       = 100
+	defaultMaxEventAge   = 1 * time.Hour
 )
 
 // Config holds configuration for the expiry sweeper.
 type Config struct {
 	EventStore    *eventstore.Store
 	PushCore      *pushcore.Client
-	PushSigner    *pushsigner.Signer // Optional — nil disables failure voting
 	CheckInterval time.Duration
+	MaxEventAge   time.Duration // Events older than this are deleted (default: 1h).
 	Logger        zerolog.Logger
 }
 
-// Sweeper polls for CONFIRMED events past their expiry block and marks them REVERTED.
-// For SIGN events a failure vote is submitted to Push chain first so the protocol
-// can refund the user. Key events (KEYGEN/KEYREFRESH/QUORUM_CHANGE) are marked
-// REVERTED directly — TSS never started so there is no outbound to vote on.
+// Sweeper periodically drops events that have expired or grown too old.
+// Two deletion triggers:
+//  1. Block-based: events past their ExpiryBlockHeight (KEY events have a
+//     protocol-driven expiry; SIGN events have ExpiryBlockHeight=0 and skip).
+//  2. Age-based: only UNSIGNED events (status CONFIRMED or IN_PROGRESS) older
+//     than MaxEventAge. SIGNED and later statuses carry local commitments and
+//     are preserved.
+//
+// Dropping is safe because push chain is the source of truth: if a dropped
+// event is still pending on push chain, the push chain pending-tx parser
+// re-populates it on its next poll. Anything truly stale (no longer pending
+// upstream) stays dropped, which is the desired cleanup behaviour.
 type Sweeper struct {
 	eventStore    *eventstore.Store
 	pushCore      *pushcore.Client
-	pushSigner    *pushsigner.Signer
 	checkInterval time.Duration
+	maxEventAge   time.Duration
 	logger        zerolog.Logger
 }
 
@@ -49,11 +50,15 @@ func NewSweeper(cfg Config) *Sweeper {
 	if interval == 0 {
 		interval = defaultCheckInterval
 	}
+	maxAge := cfg.MaxEventAge
+	if maxAge == 0 {
+		maxAge = defaultMaxEventAge
+	}
 	return &Sweeper{
 		eventStore:    cfg.EventStore,
 		pushCore:      cfg.PushCore,
-		pushSigner:    cfg.PushSigner,
 		checkInterval: interval,
+		maxEventAge:   maxAge,
 		logger:        cfg.Logger.With().Str("component", "expiry_sweeper").Logger(),
 	}
 }
@@ -78,117 +83,23 @@ func (s *Sweeper) run(ctx context.Context) {
 }
 
 func (s *Sweeper) sweep(ctx context.Context) {
-	currentBlock, err := s.pushCore.GetLatestBlock(ctx)
-	if err != nil {
-		s.logger.Warn().Err(err).Msg("failed to get current block, skipping sweep")
-		return
+	// Block-based deletion: events past their protocol-driven ExpiryBlockHeight.
+	if currentBlock, err := s.pushCore.GetLatestBlock(ctx); err != nil {
+		s.logger.Warn().Err(err).Msg("failed to get current block, skipping block-expiry sweep")
+	} else if deleted, err := s.eventStore.DeleteExpiredEvents(currentBlock); err != nil {
+		s.logger.Error().Err(err).Msg("failed to delete expired events")
+	} else if deleted > 0 {
+		s.logger.Info().Int64("deleted", deleted).Uint64("current_block", currentBlock).
+			Msg("deleted block-expired events")
 	}
 
-	events, err := s.eventStore.GetExpiredConfirmedEvents(currentBlock, sweepBatchSize)
-	if err != nil {
-		s.logger.Error().Err(err).Msg("failed to query expired confirmed events")
-		return
+	// Age-based deletion: only UNSIGNED events older than maxEventAge.
+	// Push chain re-populates anything still pending upstream.
+	cutoff := time.Now().Add(-s.maxEventAge)
+	if deleted, err := s.eventStore.DeleteOldUnsignedEvents(cutoff); err != nil {
+		s.logger.Error().Err(err).Msg("failed to delete old unsigned events")
+	} else if deleted > 0 {
+		s.logger.Info().Int64("deleted", deleted).Time("cutoff", cutoff).
+			Msg("deleted age-expired unsigned events")
 	}
-	if len(events) == 0 {
-		return
-	}
-
-	swept := 0
-	for _, event := range events {
-		if event.Type == store.EventTypeSignOutbound {
-			if err := s.voteOutboundFailureAndMarkReverted(ctx, &event, "event expired before TSS could start"); err != nil {
-				s.logger.Error().Err(err).Str("event_id", event.EventID).Msg("failed to sweep expired SIGN_OUTBOUND event")
-				continue
-			}
-		} else if event.Type == store.EventTypeSignFundMigrate {
-			if err := s.voteFundMigrationFailureAndMarkReverted(ctx, &event, "event expired before TSS could start"); err != nil {
-				s.logger.Error().Err(err).Str("event_id", event.EventID).Msg("failed to sweep expired SIGN_FUND_MIGRATE event")
-				continue
-			}
-		} else {
-			if err := s.eventStore.Update(event.EventID, map[string]any{"status": store.StatusReverted}); err != nil {
-				s.logger.Error().Err(err).Str("event_id", event.EventID).Msg("failed to revert expired key event")
-				continue
-			}
-		}
-		swept++
-	}
-
-	// Only surface at Info when we actually swept something; routine no-op
-	// sweeps drop to Debug to avoid steady-state log noise.
-	level := s.logger.Debug()
-	if swept > 0 {
-		level = s.logger.Info()
-	}
-	level.
-		Int("swept", swept).
-		Int("total_expired", len(events)).
-		Uint64("current_block", currentBlock).
-		Msg("swept expired confirmed events")
-}
-
-// voteOutboundFailureAndMarkReverted submits a failure vote for an outbound event and marks it REVERTED.
-func (s *Sweeper) voteOutboundFailureAndMarkReverted(ctx context.Context, event *store.Event, errorMsg string) error {
-	var data uexecutortypes.OutboundCreatedEvent
-	if err := json.Unmarshal(event.EventData, &data); err != nil {
-		return fmt.Errorf("failed to parse outbound event data for event %s: %w", event.EventID, err)
-	}
-
-	fields := map[string]any{"status": store.StatusReverted}
-
-	if s.pushSigner == nil {
-		s.logger.Warn().Str("event_id", event.EventID).Msg("pushSigner not configured, skipping failure vote")
-	} else {
-		observation := &uexecutortypes.OutboundObservation{
-			Success:    false,
-			TxHash:     "",
-			ErrorMsg:   errorMsg,
-			GasFeeUsed: "0",
-		}
-		voteTxHash, err := s.pushSigner.VoteOutbound(ctx, data.TxID, data.UniversalTxId, observation)
-		if err != nil {
-			return fmt.Errorf("failed to vote failure for event %s: %w", event.EventID, err)
-		}
-		fields["vote_tx_hash"] = voteTxHash
-	}
-
-	if err := s.eventStore.Update(event.EventID, fields); err != nil {
-		return fmt.Errorf("failed to mark event %s as reverted: %w", event.EventID, err)
-	}
-	s.logger.Info().
-		Str("event_id", event.EventID).
-		Str("tx_id", data.TxID).
-		Str("error_msg", errorMsg).
-		Msg("voted outbound failure and marked REVERTED")
-	return nil
-}
-
-// voteFundMigrationFailureAndMarkReverted submits a failure vote for a fund migration event and marks it REVERTED.
-func (s *Sweeper) voteFundMigrationFailureAndMarkReverted(ctx context.Context, event *store.Event, errorMsg string) error {
-	var data utsstypes.FundMigrationInitiatedEventData
-	if err := json.Unmarshal(event.EventData, &data); err != nil {
-		return fmt.Errorf("failed to parse fund migration event data for event %s: %w", event.EventID, err)
-	}
-
-	fields := map[string]any{"status": store.StatusReverted}
-
-	if s.pushSigner == nil {
-		s.logger.Warn().Str("event_id", event.EventID).Msg("pushSigner not configured, skipping failure vote")
-	} else {
-		voteTxHash, err := s.pushSigner.VoteFundMigration(ctx, data.MigrationID, "", false)
-		if err != nil {
-			return fmt.Errorf("failed to vote fund migration failure for event %s: %w", event.EventID, err)
-		}
-		fields["vote_tx_hash"] = voteTxHash
-	}
-
-	if err := s.eventStore.Update(event.EventID, fields); err != nil {
-		return fmt.Errorf("failed to mark event %s as reverted: %w", event.EventID, err)
-	}
-	s.logger.Info().
-		Str("event_id", event.EventID).
-		Uint64("migration_id", data.MigrationID).
-		Str("error_msg", errorMsg).
-		Msg("voted fund migration failure and marked REVERTED")
-	return nil
 }

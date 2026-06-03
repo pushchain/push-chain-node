@@ -265,7 +265,6 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 	node.expirySweeper = expirysweeper.NewSweeper(expirysweeper.Config{
 		EventStore:    evtStore,
 		PushCore:      cfg.PushCore,
-		PushSigner:    cfg.PushSigner,
 		CheckInterval: sessionExpiryCheckInterval,
 		Logger:        logger,
 	})

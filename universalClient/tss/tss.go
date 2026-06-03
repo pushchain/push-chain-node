@@ -466,46 +466,25 @@ func (n *Node) Send(ctx context.Context, peerID string, data []byte) error {
 	return n.network.Send(ctx, peerID, data)
 }
 
-// onReceive handles incoming messages from p2p network.
-// It passes raw data directly to sessionManager.
+// onReceive routes an incoming p2p message
 func (n *Node) onReceive(peerID string, data []byte) {
-	ctx := n.ctx
-
-	// Unmarshal to check message type
 	var msg coordinator.Message
-	if err := json.Unmarshal(data, &msg); err == nil {
-		// If it's an ACK message, route it to coordinator only (not session manager)
-		if msg.Type == "ack" {
-			if err := n.HandleACKMessage(ctx, peerID, &msg); err != nil {
-				n.logger.Warn().
-					Err(err).
-					Str("peer_id", peerID).
-					Str("event_id", msg.EventID).
-					Msg("failed to handle ACK message")
-			}
-			return // ACK messages are handled by coordinator only
-		}
+	if err := json.Unmarshal(data, &msg); err != nil {
+		n.logger.Warn().Err(err).Str("peer_id", peerID).Msg("failed to unmarshal incoming message")
+		return
 	}
 
-	// Pass non-ACK messages to session manager
-	if err := n.sessionManager.HandleIncomingMessage(ctx, peerID, data); err != nil {
-		n.logger.Warn().
-			Err(err).
-			Str("peer_id", peerID).
-			Int("data_len", len(data)).
+	var err error
+	switch msg.Type {
+	case coordinator.MessageTypeACK:
+		err = n.coordinator.HandleIncomingMessage(n.ctx, peerID, &msg)
+	default:
+		err = n.sessionManager.HandleIncomingMessage(n.ctx, peerID, &msg)
+	}
+	if err != nil {
+		n.logger.Warn().Err(err).Str("peer_id", peerID).Str("event_id", msg.EventID).
 			Msg("failed to handle incoming message")
 	}
-}
-
-// HandleACKMessage handles ACK messages and forwards them to coordinator.
-// This allows coordinator to track ACKs even when it's not a participant.
-func (n *Node) HandleACKMessage(ctx context.Context, senderPeerID string, msg *coordinator.Message) error {
-	if n.coordinator == nil {
-		return fmt.Errorf("coordinator not initialized")
-	}
-
-	// Forward ACK to coordinator for tracking
-	return n.coordinator.HandleACK(ctx, senderPeerID, msg.EventID)
 }
 
 // PeerID returns the libp2p peer ID (helper function).

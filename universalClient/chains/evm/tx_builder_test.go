@@ -1193,6 +1193,53 @@ func TestBroadcastFundMigrationTx_RejectsMissingAmount(t *testing.T) {
 	})
 }
 
+// TestGetFundMigrationSigningRequest_UsesProvidedBalance verifies that when
+// data.Balance is non-nil the builder uses it verbatim and skips the RPC
+// GetBalance call. This is the determinism guarantee the coordinator's
+// verification path depends on.
+func TestGetFundMigrationSigningRequest_UsesProvidedBalance(t *testing.T) {
+	tb := newTestTxBuilder(t)
+
+	gasPrice := big.NewInt(20_000_000_000)
+	gasLimit := uint64(21000)
+	expectedAmount := big.NewInt(1_000_000_000_000_000)
+	gasCost := new(big.Int).Mul(gasPrice, new(big.Int).SetUint64(gasLimit))
+	balance := new(big.Int).Add(expectedAmount, gasCost)
+
+	data := &common.FundMigrationData{
+		From:     "0x1111111111111111111111111111111111111111",
+		To:       "0x2222222222222222222222222222222222222222",
+		GasPrice: gasPrice,
+		GasLimit: gasLimit,
+		L1GasFee: big.NewInt(0),
+		Balance:  balance,
+	}
+
+	req, err := tb.GetFundMigrationSigningRequest(context.Background(), data, 42)
+	require.NoError(t, err)
+	assert.Equal(t, 0, expectedAmount.Cmp(req.TSSFundMigrationAmount))
+	assert.NotEmpty(t, req.SigningHash)
+	assert.Equal(t, uint64(42), req.Nonce)
+}
+
+// TestGetFundMigrationSigningRequest_ProvidedBalanceInsufficient verifies the
+// insufficient-balance check fires on caller-provided Balance below gas cost.
+func TestGetFundMigrationSigningRequest_ProvidedBalanceInsufficient(t *testing.T) {
+	tb := newTestTxBuilder(t)
+
+	data := &common.FundMigrationData{
+		From:     "0x1111111111111111111111111111111111111111",
+		To:       "0x2222222222222222222222222222222222222222",
+		GasPrice: big.NewInt(20_000_000_000),
+		GasLimit: 21000,
+		L1GasFee: big.NewInt(0),
+		Balance:  big.NewInt(1),
+	}
+	_, err := tb.GetFundMigrationSigningRequest(context.Background(), data, 0)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "insufficient balance")
+}
+
 // TestBroadcastFundMigrationTx_DoesNotQueryBalance asserts broadcast never
 // calls GetBalance. Fails loudly if a balance lookup is reintroduced.
 func TestBroadcastFundMigrationTx_DoesNotQueryBalance(t *testing.T) {

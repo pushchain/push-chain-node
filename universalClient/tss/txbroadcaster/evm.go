@@ -18,8 +18,9 @@ import (
 // Flow:
 //  1. Build and broadcast the signed tx (tx hash is always returned, even on error)
 //  2. Success → BROADCASTED with tx hash
-//  3. Error → check finalized nonce on chain:
-//     - nonce consumed (tx landed) → BROADCASTED with tx hash
+//  3. Error: tx already on chain (mined by another node, or "already known") → BROADCASTED
+//  4. Error otherwise: check finalized nonce on chain:
+//     - nonce consumed → BROADCASTED with tx hash (resolver will REVERT)
 //     - nonce NOT consumed → keep SIGNED, retry next tick
 func (b *Broadcaster) broadcastOutboundEVM(ctx context.Context, event *store.Event, data *txflow.SignedOutboundData, chainID string) {
 	log := b.logger.With().Str("event_id", event.EventID).Str("chain", chainID).Logger()
@@ -53,6 +54,17 @@ func (b *Broadcaster) broadcastOutboundEVM(ctx context.Context, event *store.Eve
 	// Broadcast failed — check if the tx landed on chain anyway (another node, or "already known")
 	if txHash == "" {
 		log.Warn().Err(broadcastErr).Msg("failed to assemble tx, will retry next tick")
+		return
+	}
+
+	// First: is the tx already mined on chain (e.g., another node broadcast it)?
+	// "already known" RPC errors fall into this bucket — the broadcast effectively
+	// succeeded, and once the tx mines we can promote without waiting for the
+	// nonce check.
+	if found, _, _, _, vErr := builder.VerifyBroadcastedTx(ctx, txHash); vErr == nil && found {
+		log.Debug().Err(broadcastErr).Str("tx_hash", txHash).
+			Msg("broadcast errored but tx is on chain, marking BROADCASTED")
+		b.markBroadcasted(event, chainID, txHash)
 		return
 	}
 
@@ -125,6 +137,13 @@ func (b *Broadcaster) broadcastFundMigrationEVM(ctx context.Context, event *stor
 
 	if txHash == "" {
 		log.Warn().Err(broadcastErr).Msg("failed to assemble fund migration tx, will retry next tick")
+		return
+	}
+
+	if found, _, _, _, vErr := builder.VerifyBroadcastedTx(ctx, txHash); vErr == nil && found {
+		log.Debug().Err(broadcastErr).Str("tx_hash", txHash).
+			Msg("fund migration broadcast errored but tx is on chain, marking BROADCASTED")
+		b.markBroadcasted(event, chainID, txHash)
 		return
 	}
 

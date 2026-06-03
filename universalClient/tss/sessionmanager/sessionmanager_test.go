@@ -1,7 +1,9 @@
 package sessionmanager
 
 import (
+	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -186,19 +188,12 @@ func TestHandleIncomingMessage_InvalidMessage(t *testing.T) {
 	sm, _, _, _, _, _ := setupTestSessionManager(t)
 	ctx := context.Background()
 
-	t.Run("invalid JSON", func(t *testing.T) {
-		err := sm.HandleIncomingMessage(ctx, "peer1", []byte("invalid json"))
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to unmarshal message")
-	})
-
 	t.Run("unknown message type", func(t *testing.T) {
 		msg := coordinator.Message{
 			Type:    "unknown",
 			EventID: "event1",
 		}
-		data, _ := json.Marshal(msg)
-		err := sm.HandleIncomingMessage(ctx, "peer1", data)
+		err := sm.HandleIncomingMessage(ctx, "peer1", &msg)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "unknown message type")
 	})
@@ -224,8 +219,7 @@ func TestHandleSetupMessage_Validation(t *testing.T) {
 			Type:    "setup",
 			EventID: "nonexistent",
 		}
-		data, _ := json.Marshal(msg)
-		err := sm.HandleIncomingMessage(ctx, "peer1", data)
+		err := sm.HandleIncomingMessage(ctx, "peer1", &msg)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "not found in database")
 	})
@@ -236,8 +230,7 @@ func TestHandleSetupMessage_Validation(t *testing.T) {
 			Type:    "setup",
 			EventID: event.EventID,
 		}
-		data, _ := json.Marshal(msg)
-		err := sm.HandleIncomingMessage(ctx, "peer2", data)
+		err := sm.HandleIncomingMessage(ctx, "peer2", &msg)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "is not the coordinator")
 	})
@@ -248,8 +241,7 @@ func TestHandleSetupMessage_Validation(t *testing.T) {
 			EventID:      event.EventID,
 			Participants: []string{"invalid"},
 		}
-		data, _ := json.Marshal(msg)
-		err := sm.HandleIncomingMessage(ctx, "peer1", data)
+		err := sm.HandleIncomingMessage(ctx, "peer1", &msg)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "participants validation failed")
 	})
@@ -262,8 +254,7 @@ func TestHandleSetupMessage_Validation(t *testing.T) {
 			Type:    "setup",
 			EventID: "nonexistent",
 		}
-		data, _ := json.Marshal(msg)
-		err := sm.HandleIncomingMessage(ctx, "peer2", data)
+		err := sm.HandleIncomingMessage(ctx, "peer2", &msg)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "is not the coordinator")
 		assert.NotContains(t, err.Error(), "not found in database")
@@ -288,8 +279,7 @@ func TestHandleSetupMessage_Expiry(t *testing.T) {
 		setCoordinatorPushCore(sm.coordinator, &mockPushCore{block: 5})
 
 		msg := coordinator.Message{Type: "setup", EventID: past.EventID}
-		data, _ := json.Marshal(msg)
-		err := sm.HandleIncomingMessage(ctx, "peer1", data)
+		err := sm.HandleIncomingMessage(ctx, "peer1", &msg)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "has expired")
 	})
@@ -306,8 +296,7 @@ func TestHandleSetupMessage_Expiry(t *testing.T) {
 
 		setCoordinatorPushCore(sm.coordinator, &mockPushCore{block: 0})
 		msg := coordinator.Message{Type: "setup", EventID: event.EventID}
-		data, _ := json.Marshal(msg)
-		err := sm.HandleIncomingMessage(ctx, "peer1", data)
+		err := sm.HandleIncomingMessage(ctx, "peer1", &msg)
 		// A later check (participants) fails, but the expiry branch must not fire.
 		assert.Error(t, err)
 		assert.NotContains(t, err.Error(), "has expired")
@@ -334,8 +323,7 @@ func TestHandleStepMessage_Validation(t *testing.T) {
 			Type:    "step",
 			EventID: "nonexistent",
 		}
-		data, _ := json.Marshal(msg)
-		err := sm.HandleIncomingMessage(ctx, "peer1", data)
+		err := sm.HandleIncomingMessage(ctx, "peer1", &msg)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "does not exist")
 	})
@@ -360,8 +348,7 @@ func TestHandleStepMessage_Validation(t *testing.T) {
 			EventID: "event1",
 			Payload: []byte("test"),
 		}
-		data, _ := json.Marshal(msg)
-		err := sm.HandleIncomingMessage(ctx, "peer1", data)
+		err := sm.HandleIncomingMessage(ctx, "peer1", &msg)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "not in session participants")
 		mockSess.AssertExpectations(t)
@@ -481,10 +468,9 @@ func TestSessionManager_Integration(t *testing.T) {
 		Participants: []string{"validator1", "validator2", "validator3"},
 		Payload:      []byte("invalid setup data"), // Will fail when creating session
 	}
-	data, _ := json.Marshal(msg)
 
 	// This will fail at session creation or GetLatestBlockNum, but validation should pass
-	err := sm.HandleIncomingMessage(ctx, "peer1", data)
+	err := sm.HandleIncomingMessage(ctx, "peer1", &msg)
 	// We expect an error because we can't create a real DKLS session with invalid data
 	// or because GetLatestBlockNum fails
 	assert.Error(t, err)
@@ -721,8 +707,7 @@ func TestHandleSetupMessage_EventStatus(t *testing.T) {
 			Type:    "setup",
 			EventID: "event-in-progress",
 		}
-		data, _ := json.Marshal(msg)
-		err := sm.HandleIncomingMessage(ctx, "peer1", data)
+		err := sm.HandleIncomingMessage(ctx, "peer1", &msg)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "not in confirmed status")
 	})
@@ -740,8 +725,7 @@ func TestHandleSetupMessage_EventStatus(t *testing.T) {
 			Type:    "setup",
 			EventID: "event-completed",
 		}
-		data, _ := json.Marshal(msg)
-		err := sm.HandleIncomingMessage(ctx, "peer1", data)
+		err := sm.HandleIncomingMessage(ctx, "peer1", &msg)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "not in confirmed status")
 	})
@@ -759,8 +743,7 @@ func TestHandleSetupMessage_EventStatus(t *testing.T) {
 			Type:    "setup",
 			EventID: "event-reverted",
 		}
-		data, _ := json.Marshal(msg)
-		err := sm.HandleIncomingMessage(ctx, "peer1", data)
+		err := sm.HandleIncomingMessage(ctx, "peer1", &msg)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "not in confirmed status")
 	})
@@ -778,8 +761,7 @@ func TestHandleSetupMessage_EventStatus(t *testing.T) {
 			Type:    "setup",
 			EventID: "event-signed",
 		}
-		data, _ := json.Marshal(msg)
-		err := sm.HandleIncomingMessage(ctx, "peer1", data)
+		err := sm.HandleIncomingMessage(ctx, "peer1", &msg)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "not in confirmed status")
 	})
@@ -801,8 +783,7 @@ func TestHandleSetupMessage_EventStatus(t *testing.T) {
 			Type:    "setup",
 			EventID: "event-dup",
 		}
-		data, _ := json.Marshal(msg)
-		err := sm.HandleIncomingMessage(ctx, "peer1", data)
+		err := sm.HandleIncomingMessage(ctx, "peer1", &msg)
 		assert.NoError(t, err, "duplicate setup should be silently ignored")
 	})
 }
@@ -816,8 +797,7 @@ func TestHandleBeginMessage(t *testing.T) {
 			Type:    "begin",
 			EventID: "nonexistent",
 		}
-		data, _ := json.Marshal(msg)
-		err := sm.HandleIncomingMessage(ctx, "peer1", data)
+		err := sm.HandleIncomingMessage(ctx, "peer1", &msg)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "does not exist")
 	})
@@ -838,8 +818,7 @@ func TestHandleBeginMessage(t *testing.T) {
 			Type:    "begin",
 			EventID: "begin-event-1",
 		}
-		data, _ := json.Marshal(msg)
-		err := sm.HandleIncomingMessage(ctx, "peer2", data)
+		err := sm.HandleIncomingMessage(ctx, "peer2", &msg)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "begin message must come from coordinator")
 	})
@@ -865,16 +844,17 @@ func TestSendACK(t *testing.T) {
 			nil,
 		)
 
-		err := sm.sendACK(context.Background(), "coord-peer", "evt-123")
+		err := sm.sendACK(context.Background(), "coord-peer", "evt-123", nil)
 		require.NoError(t, err)
 		assert.Equal(t, "coord-peer", capturedPeerID)
 
 		var msg coordinator.Message
 		require.NoError(t, json.Unmarshal(capturedData, &msg))
-		assert.Equal(t, "ack", msg.Type)
+		assert.Equal(t, coordinator.MessageTypeACK, msg.Type)
 		assert.Equal(t, "evt-123", msg.EventID)
 		assert.Nil(t, msg.Payload)
 		assert.Nil(t, msg.Participants)
+		assert.Nil(t, msg.SignedData)
 	})
 
 	t.Run("returns error when send fails", func(t *testing.T) {
@@ -891,10 +871,105 @@ func TestSendACK(t *testing.T) {
 			nil,
 		)
 
-		err := sm.sendACK(context.Background(), "coord-peer", "evt-456")
+		err := sm.sendACK(context.Background(), "coord-peer", "evt-456", nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to send ACK message")
 	})
+
+	t.Run("SignedData payload round-trips through JSON", func(t *testing.T) {
+		var capturedData []byte
+		sendFn := func(_ context.Context, _ string, data []byte) error {
+			capturedData = data
+			return nil
+		}
+		sm := NewSessionManager(
+			nil, nil, nil, nil, nil,
+			sendFn,
+			"validator1",
+			3*time.Minute, 30*time.Second, 60,
+			zerolog.Nop(),
+			nil,
+		)
+
+		signed := &coordinator.SignedDataPayload{
+			Signature:              bytes.Repeat([]byte{0xaa}, 64),
+			SigningHash:            bytes.Repeat([]byte{0xbb}, 32),
+			Nonce:                  42,
+			TSSFundMigrationAmount: big.NewInt(123_456),
+		}
+		require.NoError(t, sm.sendACK(context.Background(), "coord-peer", "evt-signed", signed))
+
+		var msg coordinator.Message
+		require.NoError(t, json.Unmarshal(capturedData, &msg))
+		assert.Equal(t, coordinator.MessageTypeACK, msg.Type)
+		assert.Equal(t, "evt-signed", msg.EventID)
+		require.NotNil(t, msg.SignedData)
+		assert.Equal(t, signed.Signature, msg.SignedData.Signature)
+		assert.Equal(t, signed.SigningHash, msg.SignedData.SigningHash)
+		assert.Equal(t, signed.Nonce, msg.SignedData.Nonce)
+		require.NotNil(t, msg.SignedData.TSSFundMigrationAmount)
+		assert.Equal(t, 0, signed.TSSFundMigrationAmount.Cmp(msg.SignedData.TSSFundMigrationAmount))
+	})
+}
+
+func TestHandleSetupMessage_PriorSignedDataShortCircuits(t *testing.T) {
+	cases := []struct {
+		name   string
+		status string
+	}{
+		{"SIGNED", store.StatusSigned},
+		{"BROADCASTED", store.StatusBroadcasted},
+		{"COMPLETED", store.StatusCompleted},
+		{"REVERTED", store.StatusReverted},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			sm, _, _, _, _, testDB := setupTestSessionManager(t)
+
+			sigHex := hex.EncodeToString(bytes.Repeat([]byte{0xaa}, 64))
+			hashHex := hex.EncodeToString(bytes.Repeat([]byte{0xbb}, 32))
+			eventData, _ := json.Marshal(map[string]any{
+				"signing_data": map[string]any{
+					"signature":    sigHex,
+					"signing_hash": hashHex,
+					"nonce":        uint64(7),
+				},
+			})
+			require.NoError(t, testDB.Create(&store.Event{
+				EventID:     "evt-" + tc.name,
+				BlockHeight: 100,
+				Type:        store.EventTypeSignOutbound,
+				Status:      tc.status,
+				EventData:   eventData,
+			}).Error)
+
+			var sent []coordinator.Message
+			sm.send = func(_ context.Context, _ string, data []byte) error {
+				var m coordinator.Message
+				require.NoError(t, json.Unmarshal(data, &m))
+				sent = append(sent, m)
+				return nil
+			}
+
+			msg := coordinator.Message{Type: coordinator.MessageTypeSetup, EventID: "evt-" + tc.name}
+			err := sm.HandleIncomingMessage(context.Background(), "peer1", &msg)
+			require.NoError(t, err)
+
+			sm.mu.RLock()
+			_, sessionCreated := sm.sessions["evt-"+tc.name]
+			sm.mu.RUnlock()
+			assert.False(t, sessionCreated, "no session must be created on short-circuit")
+
+			require.Len(t, sent, 1, "exactly one ACK must be sent")
+			ack := sent[0]
+			assert.Equal(t, coordinator.MessageTypeACK, ack.Type)
+			assert.Equal(t, "evt-"+tc.name, ack.EventID)
+			require.NotNil(t, ack.SignedData)
+			assert.Equal(t, uint64(7), ack.SignedData.Nonce)
+			assert.Len(t, ack.SignedData.Signature, 64)
+			assert.Len(t, ack.SignedData.SigningHash, 32)
+		})
+	}
 }
 
 func TestCleanSession(t *testing.T) {
@@ -964,9 +1039,8 @@ func TestHandleStepMessage_InputAndStep(t *testing.T) {
 			EventID: "step-evt",
 			Payload: []byte("step-payload"),
 		}
-		data, _ := json.Marshal(msg)
 		// peer1 maps to validator1 which is in participants
-		err := sm.HandleIncomingMessage(ctx, "peer1", data)
+		err := sm.HandleIncomingMessage(ctx, "peer1", &msg)
 		assert.NoError(t, err)
 		mockSess.AssertCalled(t, "InputMessage", []byte("step-payload"))
 		mockSess.AssertCalled(t, "Step")
@@ -991,8 +1065,7 @@ func TestHandleStepMessage_InputAndStep(t *testing.T) {
 			EventID: "step-err-evt",
 			Payload: []byte("bad-data"),
 		}
-		data, _ := json.Marshal(msg)
-		err := sm.HandleIncomingMessage(ctx, "peer1", data)
+		err := sm.HandleIncomingMessage(ctx, "peer1", &msg)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to input message")
 	})
@@ -1014,7 +1087,7 @@ func TestHandleSigningComplete(t *testing.T) {
 		}
 		err := sm.handleSigningComplete(context.Background(), "evt-2", []byte("not json"), []byte{0x01}, req)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to parse event data")
+		assert.Contains(t, err.Error(), "parse event data")
 	})
 
 	t.Run("successful signing complete persists data", func(t *testing.T) {
@@ -1097,8 +1170,7 @@ func TestHandleIncomingMessage_Routing(t *testing.T) {
 			Type:    "begin",
 			EventID: "no-such-event",
 		}
-		data, _ := json.Marshal(msg)
-		err := sm.HandleIncomingMessage(ctx, "peer1", data)
+		err := sm.HandleIncomingMessage(ctx, "peer1", &msg)
 		// Should fail with "does not exist" from handleBeginMessage (not "unknown type")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "does not exist")
@@ -1109,8 +1181,7 @@ func TestHandleIncomingMessage_Routing(t *testing.T) {
 			Type:    "setup",
 			EventID: "no-such-event",
 		}
-		data, _ := json.Marshal(msg)
-		err := sm.HandleIncomingMessage(ctx, "peer1", data)
+		err := sm.HandleIncomingMessage(ctx, "peer1", &msg)
 		// Should fail with "not found in database" from handleSetupMessage
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "not found in database")
@@ -1121,10 +1192,154 @@ func TestHandleIncomingMessage_Routing(t *testing.T) {
 			Type:    "step",
 			EventID: "no-such-event",
 		}
-		data, _ := json.Marshal(msg)
-		err := sm.HandleIncomingMessage(ctx, "peer1", data)
+		err := sm.HandleIncomingMessage(ctx, "peer1", &msg)
 		// Should fail with "does not exist" from handleStepMessage
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "does not exist")
+	})
+}
+
+// TestHandleSignatureBroadcast_IdempotentAcrossStatuses locks in the
+// idempotency invariant: a signature_broadcast arriving for an event already
+// past CONFIRMED is a no-op (no error, no DB write). Failing this test would
+// mean a duplicate broadcast could overwrite a SIGNED event, leak a session,
+// or cause a redundant tx broadcast.
+func TestHandleSignatureBroadcast_IdempotentAcrossStatuses(t *testing.T) {
+	statuses := []string{
+		store.StatusSigned,
+		store.StatusBroadcasted,
+		store.StatusCompleted,
+		store.StatusReverted,
+	}
+	for _, status := range statuses {
+		t.Run(status, func(t *testing.T) {
+			sm, _, _, _, _, testDB := setupTestSessionManager(t)
+			ctx := context.Background()
+
+			origEventData, _ := json.Marshal(map[string]any{"x": 1})
+			require.NoError(t, testDB.Create(&store.Event{
+				EventID:     "evt-idem-" + status,
+				BlockHeight: 100,
+				Type:        store.EventTypeSignOutbound,
+				Status:      status,
+				EventData:   origEventData,
+			}).Error)
+
+			msg := coordinator.Message{
+				Type:    coordinator.MessageTypeSignatureBroadcast,
+				EventID: "evt-idem-" + status,
+				SignedData: &coordinator.SignedDataPayload{
+					Signature:   bytes.Repeat([]byte{0xff}, 64), // intentionally garbage — should never be verified
+					SigningHash: bytes.Repeat([]byte{0xee}, 32),
+					Nonce:       42,
+				},
+			}
+			// No error, no event mutation, no verify attempt.
+			require.NoError(t, sm.HandleIncomingMessage(ctx, "peer1", &msg))
+
+			var after store.Event
+			require.NoError(t, testDB.Where("event_id = ?", "evt-idem-"+status).First(&after).Error)
+			assert.Equal(t, status, after.Status, "status must not change on idempotent skip")
+			assert.JSONEq(t, string(origEventData), string(after.EventData),
+				"event_data must not change on idempotent skip")
+		})
+	}
+}
+
+// TestBroadcastSignature_SelfSkipAndFanout exercises sessionmanager's
+// fanout: validators are iterated, self is excluded by partyID, and per-peer
+// send failures don't abort the loop. Locks in the Option C invariants on
+// the sender side.
+func TestBroadcastSignature_SelfSkipAndFanout(t *testing.T) {
+	sm, _, _, _, _, _ := setupTestSessionManager(t)
+
+	var sentTo []string
+	sendFn := func(_ context.Context, peerID string, _ []byte) error {
+		// Fail on peer2 to verify per-peer failure tolerance.
+		if peerID == "peer2" {
+			return fmt.Errorf("simulated network error")
+		}
+		sentTo = append(sentTo, peerID)
+		return nil
+	}
+	sm.send = sendFn
+
+	sm.broadcastSignature(context.Background(), "evt-fanout", &coordinator.SignedDataPayload{
+		Signature:   bytes.Repeat([]byte{0x01}, 64),
+		SigningHash: bytes.Repeat([]byte{0x02}, 32),
+		Nonce:       1,
+	})
+
+	// Test fixture has validator1 (sm.partyID), validator2 (peer2), validator3 (peer3).
+	// validator1 is self → skipped. peer2's send fails → not counted. peer3 succeeds.
+	assert.NotContains(t, sentTo, "peer1", "self (validator1/peer1) must be skipped")
+	assert.NotContains(t, sentTo, "peer2", "failed send must not appear in successful sends")
+	assert.Contains(t, sentTo, "peer3", "non-failing non-self peer must receive the broadcast")
+}
+
+// TestBroadcastSignature_EmptyValidatorCache verifies the fanout no-ops
+// gracefully when the validator cache is empty (stale on the coordinator side).
+func TestBroadcastSignature_EmptyValidatorCache(t *testing.T) {
+	sm, coord, _, _, _, _ := setupTestSessionManager(t)
+
+	// Clear the validator cache by reaching into the coordinator.
+	coordValue := reflect.ValueOf(coord).Elem()
+	if f := coordValue.FieldByName("allValidators"); f.IsValid() {
+		*(*[]*types.UniversalValidator)(unsafe.Pointer(f.UnsafeAddr())) = nil
+	}
+
+	called := false
+	sm.send = func(_ context.Context, _ string, _ []byte) error {
+		called = true
+		return nil
+	}
+	sm.broadcastSignature(context.Background(), "evt-empty", &coordinator.SignedDataPayload{
+		Signature:   bytes.Repeat([]byte{0x01}, 64),
+		SigningHash: bytes.Repeat([]byte{0x02}, 32),
+	})
+	assert.False(t, called, "no send should happen when validator set is empty")
+}
+
+// TestExtractSignedDataFromEvent_CorruptDataIsObservable verifies that
+// malformed signing_data is surfaced via the error return rather than silently
+// swallowed. Audit-relevant: future DB corruption must be diagnosable.
+func TestExtractSignedDataFromEvent_CorruptDataIsObservable(t *testing.T) {
+	t.Run("nil event returns no error", func(t *testing.T) {
+		signed, err := extractSignedDataFromEvent(nil)
+		assert.Nil(t, signed)
+		assert.NoError(t, err)
+	})
+
+	t.Run("no signing_data returns no error", func(t *testing.T) {
+		ev := &store.Event{EventData: []byte(`{"x":1}`)}
+		signed, err := extractSignedDataFromEvent(ev)
+		assert.Nil(t, signed)
+		assert.NoError(t, err)
+	})
+
+	t.Run("bad JSON returns error", func(t *testing.T) {
+		ev := &store.Event{EventData: []byte("not json")}
+		signed, err := extractSignedDataFromEvent(ev)
+		assert.Nil(t, signed)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "unmarshal")
+	})
+
+	t.Run("bad hex in signature returns error", func(t *testing.T) {
+		ev := &store.Event{EventData: []byte(`{"signing_data":{"signature":"not-hex","signing_hash":"deadbeef","nonce":1}}`)}
+		signed, err := extractSignedDataFromEvent(ev)
+		assert.Nil(t, signed)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "decode signing_data.signature hex")
+	})
+
+	t.Run("valid signing_data returns payload", func(t *testing.T) {
+		ev := &store.Event{EventData: []byte(`{"signing_data":{"signature":"aabb","signing_hash":"cc","nonce":42}}`)}
+		signed, err := extractSignedDataFromEvent(ev)
+		require.NoError(t, err)
+		require.NotNil(t, signed)
+		assert.Equal(t, []byte{0xaa, 0xbb}, signed.Signature)
+		assert.Equal(t, []byte{0xcc}, signed.SigningHash)
+		assert.Equal(t, uint64(42), signed.Nonce)
 	})
 }

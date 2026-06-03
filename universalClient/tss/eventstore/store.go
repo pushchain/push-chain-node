@@ -108,26 +108,82 @@ func (s *Store) PersistSignature(
 	return result.RowsAffected > 0, nil
 }
 
-// CountInProgress returns the number of events with status IN_PROGRESS.
-// Used by the coordinator to cap how many new events to fetch.
-func (s *Store) CountInProgress() (int64, error) {
-	var count int64
-	if err := s.db.Model(&store.Event{}).Where("status = ?", store.StatusInProgress).Count(&count).Error; err != nil {
-		return 0, fmt.Errorf("failed to count IN_PROGRESS events: %w", err)
+// RecoverInProgressEvents repairs IN_PROGRESS rows on node startup.
+//
+// Two passes, in order:
+//  1. Rows whose event_data already carries a `signing_data` block are flipped
+//     to SIGNED — a signature was persisted (via signed ACK or
+//     signature_broadcast) but the row's status got clobbered before reaching
+//     SIGNED (e.g., the setup-handler racing with PersistSignature).
+//  2. The remaining IN_PROGRESS rows are reset to CONFIRMED — they represent
+//     genuine mid-session crashes and should be retried.
+//
+// Returns (signedRecovered, confirmedReset, err).
+func (s *Store) RecoverInProgressEvents() (int64, int64, error) {
+	var rows []store.Event
+	if err := s.db.Where("status = ?", store.StatusInProgress).Find(&rows).Error; err != nil {
+		return 0, 0, fmt.Errorf("load IN_PROGRESS events: %w", err)
 	}
-	return count, nil
+
+	var signedRecovered, confirmedReset int64
+	for i := range rows {
+		ev := &rows[i]
+		target := store.StatusConfirmed
+		if hasSigningData(ev.EventData) {
+			target = store.StatusSigned
+		}
+		if err := s.db.Model(&store.Event{}).
+			Where("event_id = ?", ev.EventID).
+			Update("status", target).Error; err != nil {
+			return signedRecovered, confirmedReset,
+				fmt.Errorf("recover %s to %s: %w", ev.EventID, target, err)
+		}
+		if target == store.StatusSigned {
+			signedRecovered++
+		} else {
+			confirmedReset++
+		}
+	}
+	return signedRecovered, confirmedReset, nil
 }
 
-// ResetInProgressEventsToConfirmed resets all IN_PROGRESS events to CONFIRMED status.
-// Called on node startup to recover from crashes mid-session.
-func (s *Store) ResetInProgressEventsToConfirmed() (int64, error) {
-	result := s.db.Model(&store.Event{}).
-		Where("status = ?", store.StatusInProgress).
-		Update("status", store.StatusConfirmed)
-	if result.Error != nil {
-		return 0, fmt.Errorf("failed to reset IN_PROGRESS events to CONFIRMED: %w", result.Error)
+// hasSigningData reports whether event_data carries a *structurally usable*
+// signing_data block — strict enough that promoting the row to SIGNED won't
+// give the broadcaster a payload it'll fail to assemble. Mirrors the checks in
+// sessionmanager.extractSignedDataFromEvent:
+//
+//   - event_data parses as JSON
+//   - signing_data block is present
+//   - signature hex-decodes to 64 (r||s) or 65 (r||s||v) bytes
+//   - signing_hash hex-decodes to 32 bytes
+//
+// nonce is intentionally not checked (0 is a valid nonce slot). Corrupt or
+// loose JSON returns false.
+func hasSigningData(eventData []byte) bool {
+	if len(eventData) == 0 {
+		return false
 	}
-	return result.RowsAffected, nil
+	var raw struct {
+		SigningData *struct {
+			Signature   string `json:"signature"`
+			SigningHash string `json:"signing_hash"`
+		} `json:"signing_data,omitempty"`
+	}
+	if err := json.Unmarshal(eventData, &raw); err != nil {
+		return false
+	}
+	if raw.SigningData == nil {
+		return false
+	}
+	sig, err := hex.DecodeString(raw.SigningData.Signature)
+	if err != nil || (len(sig) != 64 && len(sig) != 65) {
+		return false
+	}
+	hash, err := hex.DecodeString(raw.SigningData.SigningHash)
+	if err != nil || len(hash) != 32 {
+		return false
+	}
+	return true
 }
 
 // GetNonExpiredConfirmedEvents returns confirmed events ready to be processed.

@@ -125,13 +125,6 @@ func (s *signSession) Step() ([]Message, bool, error) {
 				break
 			}
 
-			if receiver == s.partyID {
-				if err := s.InputMessage(msgData); err != nil {
-					return nil, false, fmt.Errorf("failed to queue local message: %w", err)
-				}
-				continue
-			}
-
 			messages = append(messages, Message{
 				Receiver: receiver,
 				Data:     msgData,

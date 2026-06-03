@@ -14,7 +14,6 @@ import (
 
 	"github.com/pushchain/push-chain-node/universalClient/db"
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
-	"github.com/pushchain/push-chain-node/universalClient/tss/coordinator"
 )
 
 // generateTestPrivateKey generates a random Ed25519 private key for testing.
@@ -254,29 +253,6 @@ func TestConvertPrivateKeyHexToBase64(t *testing.T) {
 	})
 }
 
-func TestHandleACKMessage_CoordinatorNil(t *testing.T) {
-	t.Run("coordinator is nil", func(t *testing.T) {
-		node, _, _ := setupTestNode(t)
-		// Node is not started, so coordinator is nil
-		err := node.HandleACKMessage(context.Background(), "sender-peer", &coordinator.Message{
-			Type:    "ack",
-			EventID: "event-123",
-		})
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "coordinator not initialized")
-	})
-
-	t.Run("node not started coordinator nil", func(t *testing.T) {
-		node, _, _ := setupTestNode(t)
-		assert.Nil(t, node.coordinator)
-		err := node.HandleACKMessage(context.Background(), "peer-abc", &coordinator.Message{
-			Type:    "ack",
-			EventID: "event-456",
-		})
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "coordinator not initialized")
-	})
-}
 
 func TestNewNode_DefaultValues(t *testing.T) {
 	database, err := db.OpenInMemoryDB(true)

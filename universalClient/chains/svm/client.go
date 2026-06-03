@@ -34,6 +34,7 @@ type Client struct {
 	eventListener   *EventListener
 	eventProcessor  *common.EventProcessor
 	eventConfirmer  *EventConfirmer
+	eventCleaner    *common.EventCleaner
 	chainMetaOracle *ChainMetaOracle
 	txBuilder       *TxBuilder
 	rentReclaimer   *RentReclaimer
@@ -83,6 +84,19 @@ func NewClient(
 		database:       database,
 		pushSigner:     pushSigner,
 		nodeHome:       nodeHome,
+	}
+
+	// Create event cleaner if config is provided
+	if chainConfig.CleanupIntervalSeconds != nil && chainConfig.RetentionPeriodSeconds != nil {
+		cleanupInterval := time.Duration(*chainConfig.CleanupIntervalSeconds) * time.Second
+		retentionPeriod := time.Duration(*chainConfig.RetentionPeriodSeconds) * time.Second
+		client.eventCleaner = common.NewEventCleaner(
+			database,
+			cleanupInterval,
+			retentionPeriod,
+			chainIDStr,
+			log,
+		)
 	}
 
 	// Initialize components that don't require RPC client
@@ -155,6 +169,10 @@ func (c *Client) Stop() error {
 
 	if c.chainMetaOracle != nil {
 		c.chainMetaOracle.Stop()
+	}
+
+	if c.eventCleaner != nil {
+		c.eventCleaner.Stop()
 	}
 
 	// Close RPC client last
@@ -307,6 +325,12 @@ func (c *Client) startComponents() error {
 
 	if c.rentReclaimer != nil {
 		c.rentReclaimer.Start(c.ctx)
+	}
+
+	if c.eventCleaner != nil {
+		if err := c.eventCleaner.Start(c.ctx); err != nil {
+			return fmt.Errorf("failed to start event cleaner: %w", err)
+		}
 	}
 
 	return nil

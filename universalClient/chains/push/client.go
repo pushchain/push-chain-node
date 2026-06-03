@@ -83,8 +83,7 @@ func (c *Client) Start(ctx context.Context) error {
 	// Start event cleaner if configured
 	if c.eventCleaner != nil {
 		if err := c.eventCleaner.Start(c.ctx); err != nil {
-			c.logger.Warn().Err(err).Msg("failed to start event cleaner")
-			// Don't fail startup if cleaner fails
+			return fmt.Errorf("failed to start event cleaner: %w", err)
 		}
 	}
 

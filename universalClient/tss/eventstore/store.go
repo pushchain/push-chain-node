@@ -1,8 +1,10 @@
 package eventstore
 
 import (
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
-	"time"
+	"math/big"
 
 	"github.com/rs/zerolog"
 	"gorm.io/gorm"
@@ -52,6 +54,67 @@ func (s *Store) Update(eventID string, fields map[string]any) error {
 		return fmt.Errorf("event %s not found", eventID)
 	}
 	return nil
+}
+
+// PersistSignature merges signing data (signature, hash, nonce, optional fund
+// migration amount) onto an event's event_data and flips its status to SIGNED.
+//
+// Conditional on current status ∈ {CONFIRMED, IN_PROGRESS} — if the row has
+// already advanced (SIGNED/BROADCASTED/COMPLETED/REVERTED), the write is a
+// no-op. This prevents late writers (a second signature_broadcast arriving
+// after the broadcaster already moved the row to BROADCASTED) from clobbering
+// downstream progress.
+//
+// Returns (persisted, error). persisted=false when the status guard skipped
+// the write; caller can log and move on.
+func (s *Store) PersistSignature(
+	eventID string,
+	eventData []byte,
+	signature []byte,
+	signingHash []byte,
+	nonce uint64,
+	fundMigrationAmount *big.Int,
+) (bool, error) {
+	signingData := map[string]any{
+		"signature":    hex.EncodeToString(signature),
+		"signing_hash": hex.EncodeToString(signingHash),
+		"nonce":        nonce,
+	}
+	if fundMigrationAmount != nil && fundMigrationAmount.Sign() > 0 {
+		signingData["tss_fund_migration_amount"] = fundMigrationAmount
+	}
+
+	var raw map[string]any
+	if err := json.Unmarshal(eventData, &raw); err != nil {
+		return false, fmt.Errorf("parse event data for signing_data injection: %w", err)
+	}
+	raw["signing_data"] = signingData
+	newEventData, err := json.Marshal(raw)
+	if err != nil {
+		return false, fmt.Errorf("marshal event data with signing_data: %w", err)
+	}
+
+	result := s.db.Model(&store.Event{}).
+		Where("event_id = ? AND status IN ?", eventID,
+			[]string{store.StatusConfirmed, store.StatusInProgress}).
+		Updates(map[string]any{
+			"event_data": newEventData,
+			"status":     store.StatusSigned,
+		})
+	if result.Error != nil {
+		return false, fmt.Errorf("persist signature for %s: %w", eventID, result.Error)
+	}
+	return result.RowsAffected > 0, nil
+}
+
+// CountInProgress returns the number of events with status IN_PROGRESS.
+// Used by the coordinator to cap how many new events to fetch.
+func (s *Store) CountInProgress() (int64, error) {
+	var count int64
+	if err := s.db.Model(&store.Event{}).Where("status = ?", store.StatusInProgress).Count(&count).Error; err != nil {
+		return 0, fmt.Errorf("failed to count IN_PROGRESS events: %w", err)
+	}
+	return count, nil
 }
 
 // ResetInProgressEventsToConfirmed resets all IN_PROGRESS events to CONFIRMED status.

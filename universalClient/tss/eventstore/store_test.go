@@ -573,3 +573,144 @@ func TestGetBroadcastedSignEvents_IncludesFundMigrate(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// PersistSignature
+// ---------------------------------------------------------------------------
+
+func TestPersistSignature(t *testing.T) {
+	baseEventData := []byte(`{"destination_chain":"eip155:1","recipient":"0xabc"}`)
+	sig := []byte{0xbe, 0xef}
+	hash := []byte{0xde, 0xad}
+
+	t.Run("from CONFIRMED flips to SIGNED and merges signing_data", func(t *testing.T) {
+		s := setupTestStore(t)
+		event := store.Event{
+			EventID:   "ev-1",
+			Type:      store.EventTypeSignOutbound,
+			Status:    store.StatusConfirmed,
+			EventData: baseEventData,
+		}
+		if err := s.db.Create(&event).Error; err != nil {
+			t.Fatalf("seed event: %v", err)
+		}
+
+		persisted, err := s.PersistSignature("ev-1", baseEventData, sig, hash, 42, nil)
+		if err != nil {
+			t.Fatalf("PersistSignature: %v", err)
+		}
+		if !persisted {
+			t.Fatal("expected persisted=true, got false")
+		}
+
+		got, err := s.GetEvent("ev-1")
+		if err != nil {
+			t.Fatalf("GetEvent: %v", err)
+		}
+		if got.Status != store.StatusSigned {
+			t.Errorf("status = %q, want SIGNED", got.Status)
+		}
+		var raw map[string]any
+		if err := json.Unmarshal(got.EventData, &raw); err != nil {
+			t.Fatalf("unmarshal event_data: %v", err)
+		}
+		sd, ok := raw["signing_data"].(map[string]any)
+		if !ok {
+			t.Fatalf("signing_data missing or wrong type: %T", raw["signing_data"])
+		}
+		if sd["signature"] != "beef" {
+			t.Errorf("signature = %v, want beef", sd["signature"])
+		}
+		if sd["signing_hash"] != "dead" {
+			t.Errorf("signing_hash = %v, want dead", sd["signing_hash"])
+		}
+	})
+
+	t.Run("from IN_PROGRESS also flips to SIGNED", func(t *testing.T) {
+		s := setupTestStore(t)
+		event := store.Event{
+			EventID:   "ev-2",
+			Type:      store.EventTypeSignOutbound,
+			Status:    store.StatusInProgress,
+			EventData: baseEventData,
+		}
+		if err := s.db.Create(&event).Error; err != nil {
+			t.Fatalf("seed event: %v", err)
+		}
+
+		persisted, err := s.PersistSignature("ev-2", baseEventData, sig, hash, 7, nil)
+		if err != nil {
+			t.Fatalf("PersistSignature: %v", err)
+		}
+		if !persisted {
+			t.Fatal("expected persisted=true")
+		}
+		got, _ := s.GetEvent("ev-2")
+		if got.Status != store.StatusSigned {
+			t.Errorf("status = %q, want SIGNED", got.Status)
+		}
+	})
+
+	t.Run("skips when already SIGNED", func(t *testing.T) {
+		s := setupTestStore(t)
+		event := store.Event{
+			EventID:   "ev-3",
+			Type:      store.EventTypeSignOutbound,
+			Status:    store.StatusSigned,
+			EventData: baseEventData,
+		}
+		if err := s.db.Create(&event).Error; err != nil {
+			t.Fatalf("seed event: %v", err)
+		}
+
+		persisted, err := s.PersistSignature("ev-3", baseEventData, sig, hash, 1, nil)
+		if err != nil {
+			t.Fatalf("PersistSignature: %v", err)
+		}
+		if persisted {
+			t.Fatal("expected persisted=false (status guard)")
+		}
+		// event_data left untouched
+		got, _ := s.GetEvent("ev-3")
+		if string(got.EventData) != string(baseEventData) {
+			t.Errorf("event_data mutated when it should have been left alone")
+		}
+	})
+
+	t.Run("skips when BROADCASTED (no clobber)", func(t *testing.T) {
+		// Critical: late writer must not undo a successful BROADCASTED transition.
+		s := setupTestStore(t)
+		event := store.Event{
+			EventID:           "ev-4",
+			Type:              store.EventTypeSignOutbound,
+			Status:            store.StatusBroadcasted,
+			EventData:         baseEventData,
+			BroadcastedTxHash: "eip155:1:0xdeadbeef",
+		}
+		if err := s.db.Create(&event).Error; err != nil {
+			t.Fatalf("seed event: %v", err)
+		}
+
+		persisted, err := s.PersistSignature("ev-4", baseEventData, sig, hash, 1, nil)
+		if err != nil {
+			t.Fatalf("PersistSignature: %v", err)
+		}
+		if persisted {
+			t.Fatal("expected persisted=false (BROADCASTED guard)")
+		}
+		got, _ := s.GetEvent("ev-4")
+		if got.Status != store.StatusBroadcasted {
+			t.Errorf("status = %q, want BROADCASTED (clobbered!)", got.Status)
+		}
+		if got.BroadcastedTxHash != "eip155:1:0xdeadbeef" {
+			t.Errorf("broadcasted_tx_hash mutated")
+		}
+	})
+
+	t.Run("invalid event data JSON returns error", func(t *testing.T) {
+		s := setupTestStore(t)
+		_, err := s.PersistSignature("ev-5", []byte("not json"), sig, hash, 1, nil)
+		if err == nil {
+			t.Fatal("expected error on invalid JSON")
+		}
+	})
+}

@@ -1074,34 +1074,21 @@ func (sm *SessionManager) handleSigningComplete(_ context.Context, eventID strin
 		return fmt.Errorf("signing request is nil - cannot persist signing data")
 	}
 
-	// Build signing_data to persist alongside the original event data
-	signingData := map[string]any{
-		"signature":    hex.EncodeToString(signature),
-		"signing_hash": hex.EncodeToString(signingReq.SigningHash),
-		"nonce":        signingReq.Nonce,
-	}
-	if signingReq.TSSFundMigrationAmount != nil && signingReq.TSSFundMigrationAmount.Sign() > 0 {
-		signingData["tss_fund_migration_amount"] = signingReq.TSSFundMigrationAmount
-	}
-
-	// Unmarshal original event data, add signing_data, re-marshal
-	var raw map[string]any
-	if err := json.Unmarshal(eventData, &raw); err != nil {
-		return fmt.Errorf("failed to parse event data for signing_data injection: %w", err)
-	}
-	raw["signing_data"] = signingData
-
-	newEventData, err := json.Marshal(raw)
+	persisted, err := sm.eventStore.PersistSignature(
+		eventID,
+		eventData,
+		signature,
+		signingReq.SigningHash,
+		signingReq.Nonce,
+		signingReq.TSSFundMigrationAmount,
+	)
 	if err != nil {
-		return fmt.Errorf("failed to marshal event data with signing_data: %w", err)
+		return fmt.Errorf("failed to persist signing data: %w", err)
 	}
-
-	// Persist enriched event data + mark SIGNED; txBroadcaster will pick it up
-	if err := sm.eventStore.Update(eventID, map[string]any{
-		"event_data": newEventData,
-		"status":     store.StatusSigned,
-	}); err != nil {
-		return fmt.Errorf("failed to update event with signing data: %w", err)
+	if !persisted {
+		sm.logger.Debug().Str("event_id", eventID).
+			Msg("signing data not persisted — event already past CONFIRMED/IN_PROGRESS")
+		return nil
 	}
 
 	sm.logger.Info().

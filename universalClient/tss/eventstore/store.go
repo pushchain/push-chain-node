@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/rs/zerolog"
 	"gorm.io/gorm"
@@ -225,4 +226,3 @@ func (s *Store) DeleteOldUnsignedEvents(cutoff time.Time) (int64, error) {
 	}
 	return result.RowsAffected, nil
 }
-

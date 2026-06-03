@@ -173,8 +173,10 @@ func (c *Coordinator) handleUnsignedAck(ctx context.Context, senderPeerID string
 }
 
 // handleSignedAck verifies a prior signature claimed in an ACK and, on
-// success, drops ackTracking so no BEGIN goes out. Sender must be a tracked
-// participant; untracked events are silently ignored.
+// success, persists it to the event so the local txBroadcaster can pick it up
+// without waiting for a sibling's signature_broadcast fanout. Then drops
+// ackTracking so no BEGIN goes out. Sender must be a tracked participant;
+// untracked events are silently ignored.
 func (c *Coordinator) handleSignedAck(ctx context.Context, senderPeerID, eventID string, signedData *SignedDataPayload) error {
 	if err := c.validateIncomingRequest(ctx, eventID, senderPeerID); err != nil {
 		if isSkippableACKError(err) {
@@ -191,14 +193,31 @@ func (c *Coordinator) handleSignedAck(ctx context.Context, senderPeerID, eventID
 		return fmt.Errorf("event %s from %s: %w", eventID, senderPeerID, err)
 	}
 
+	persisted, err := c.eventStore.PersistSignature(
+		eventID,
+		event.EventData,
+		signedData.Signature,
+		signedData.SigningHash,
+		signedData.Nonce,
+		signedData.TSSFundMigrationAmount,
+	)
+	if err != nil {
+		return fmt.Errorf("event %s: persist verified signature: %w", eventID, err)
+	}
+
 	c.ackMu.Lock()
 	delete(c.ackTracking, eventID)
 	c.ackMu.Unlock()
 
-	c.logger.Debug().
+	logEv := c.logger.Debug().
 		Str("event_id", eventID).
 		Str("sender", senderPeerID).
-		Msg("ACK carried verified prior signature; cancelling coordination for this event")
+		Bool("persisted", persisted)
+	if persisted {
+		logEv.Msg("ACK carried verified prior signature; event marked SIGNED, cancelling coordination")
+	} else {
+		logEv.Msg("ACK carried verified prior signature; event already past CONFIRMED, cancelling coordination")
+	}
 
 	return nil
 }

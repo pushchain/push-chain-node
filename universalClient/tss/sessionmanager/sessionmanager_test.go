@@ -1087,7 +1087,7 @@ func TestHandleSigningComplete(t *testing.T) {
 		}
 		err := sm.handleSigningComplete(context.Background(), "evt-2", []byte("not json"), []byte{0x01}, req)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to parse event data")
+		assert.Contains(t, err.Error(), "parse event data")
 	})
 
 	t.Run("successful signing complete persists data", func(t *testing.T) {

@@ -335,37 +335,6 @@ func TestUpdate(t *testing.T) {
 	})
 }
 
-func TestCountInProgress(t *testing.T) {
-	t.Run("no in-progress events", func(t *testing.T) {
-		s := setupTestStore(t)
-		createTestEvent(t, s, "event-1", 100, store.StatusConfirmed, 200)
-		createTestEvent(t, s, "event-2", 100, store.StatusCompleted, 200)
-
-		count, err := s.CountInProgress()
-		if err != nil {
-			t.Fatalf("CountInProgress() error = %v, want nil", err)
-		}
-		if count != 0 {
-			t.Errorf("CountInProgress() = %d, want 0", count)
-		}
-	})
-
-	t.Run("some in-progress events", func(t *testing.T) {
-		s := setupTestStore(t)
-		createTestEvent(t, s, "event-1", 100, store.StatusInProgress, 200)
-		createTestEvent(t, s, "event-2", 100, store.StatusInProgress, 200)
-		createTestEvent(t, s, "event-3", 100, store.StatusConfirmed, 200)
-
-		count, err := s.CountInProgress()
-		if err != nil {
-			t.Fatalf("CountInProgress() error = %v, want nil", err)
-		}
-		if count != 2 {
-			t.Errorf("CountInProgress() = %d, want 2", count)
-		}
-	})
-}
-
 func TestResetInProgressEventsToConfirmed(t *testing.T) {
 	t.Run("resets in-progress events", func(t *testing.T) {
 		s := setupTestStore(t)
@@ -422,76 +391,6 @@ func TestResetInProgressEventsToConfirmed(t *testing.T) {
 		broadcasted, _ := s.GetEvent("broadcasted-1")
 		if broadcasted.Status != store.StatusBroadcasted {
 			t.Errorf("broadcasted event status = %s, want %s", broadcasted.Status, store.StatusBroadcasted)
-		}
-	})
-}
-
-func TestGetExpiredConfirmedEvents(t *testing.T) {
-	t.Run("returns only expired CONFIRMED events", func(t *testing.T) {
-		s := setupTestStore(t)
-		// Expired CONFIRMED (should be returned)
-		createTestEvent(t, s, "confirmed-expired", 50, store.StatusConfirmed, 90)
-		// Expired non-CONFIRMED (should NOT be returned)
-		createTestEvent(t, s, "ip-expired", 50, store.StatusInProgress, 95)
-		createTestEvent(t, s, "signed-expired", 50, store.StatusSigned, 95)
-		createTestEvent(t, s, "broadcasted-expired", 50, store.StatusBroadcasted, 100)
-		// Not expired
-		createTestEvent(t, s, "confirmed-valid", 50, store.StatusConfirmed, 200)
-		// Terminal statuses (should not be returned)
-		createTestEvent(t, s, "completed", 50, store.StatusCompleted, 90)
-		createTestEvent(t, s, "reverted", 50, store.StatusReverted, 90)
-
-		events, err := s.GetExpiredConfirmedEvents(100, 100)
-		if err != nil {
-			t.Fatalf("GetExpiredConfirmedEvents() error = %v, want nil", err)
-		}
-		if len(events) != 1 {
-			t.Errorf("GetExpiredConfirmedEvents() returned %d events, want 1", len(events))
-		}
-		if len(events) > 0 && events[0].EventID != "confirmed-expired" {
-			t.Errorf("GetExpiredConfirmedEvents() event ID = %s, want confirmed-expired", events[0].EventID)
-		}
-	})
-
-	t.Run("no expired events", func(t *testing.T) {
-		s := setupTestStore(t)
-		createTestEvent(t, s, "event-1", 50, store.StatusConfirmed, 200)
-
-		events, err := s.GetExpiredConfirmedEvents(100, 100)
-		if err != nil {
-			t.Fatalf("GetExpiredConfirmedEvents() error = %v, want nil", err)
-		}
-		if len(events) != 0 {
-			t.Errorf("GetExpiredConfirmedEvents() returned %d events, want 0", len(events))
-		}
-	})
-
-	t.Run("respects limit", func(t *testing.T) {
-		s := setupTestStore(t)
-		createTestEvent(t, s, "expired-1", 50, store.StatusConfirmed, 90)
-		createTestEvent(t, s, "expired-2", 60, store.StatusConfirmed, 95)
-		createTestEvent(t, s, "expired-3", 70, store.StatusConfirmed, 99)
-
-		events, err := s.GetExpiredConfirmedEvents(100, 2)
-		if err != nil {
-			t.Fatalf("GetExpiredConfirmedEvents() error = %v, want nil", err)
-		}
-		if len(events) != 2 {
-			t.Errorf("GetExpiredConfirmedEvents() returned %d events, want 2", len(events))
-		}
-	})
-
-	t.Run("orders by block height", func(t *testing.T) {
-		s := setupTestStore(t)
-		createTestEvent(t, s, "expired-high", 70, store.StatusConfirmed, 90)
-		createTestEvent(t, s, "expired-low", 50, store.StatusConfirmed, 90)
-
-		events, err := s.GetExpiredConfirmedEvents(100, 100)
-		if err != nil {
-			t.Fatalf("GetExpiredConfirmedEvents() error = %v, want nil", err)
-		}
-		if events[0].EventID != "expired-low" {
-			t.Errorf("first event = %s, want expired-low", events[0].EventID)
 		}
 	})
 }

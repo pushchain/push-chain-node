@@ -14,36 +14,55 @@ import (
 	storemodels "github.com/pushchain/push-chain-node/universalClient/store"
 )
 
+func intPtr(v int) *int { return &v }
+
 func TestNewEventCleaner(t *testing.T) {
 	t.Run("creates event cleaner with valid params", func(t *testing.T) {
 		logger := zerolog.Nop()
-		cleanupInterval := 1 * time.Hour
-		retentionPeriod := 24 * time.Hour
 		chainID := "eip155:1"
 
-		cleaner := NewEventCleaner(nil, cleanupInterval, retentionPeriod, chainID, logger)
+		cleaner := NewEventCleaner(nil, intPtr(3600), intPtr(86400), chainID, logger)
 
 		require.NotNil(t, cleaner)
-		assert.Equal(t, cleanupInterval, cleaner.cleanupInterval)
-		assert.Equal(t, retentionPeriod, cleaner.retentionPeriod)
+		assert.Equal(t, 1*time.Hour, cleaner.cleanupInterval)
+		assert.Equal(t, 24*time.Hour, cleaner.retentionPeriod)
 		assert.Nil(t, cleaner.database)
-		assert.NotNil(t, cleaner.stopCh)
+		// stopCh is created in Start, not at construction time.
+		assert.Nil(t, cleaner.stopCh)
+		assert.False(t, cleaner.running)
+	})
+
+	t.Run("nil pointers fall back to package defaults", func(t *testing.T) {
+		cleaner := NewEventCleaner(nil, nil, nil, "test-chain", zerolog.Nop())
+		require.NotNil(t, cleaner)
+		assert.Equal(t, defaultCleanupInterval, cleaner.cleanupInterval)
+		assert.Equal(t, defaultRetentionPeriod, cleaner.retentionPeriod)
+	})
+
+	t.Run("only one pointer set: other falls back to default", func(t *testing.T) {
+		cleaner := NewEventCleaner(nil, intPtr(60), nil, "test-chain", zerolog.Nop())
+		assert.Equal(t, 60*time.Second, cleaner.cleanupInterval)
+		assert.Equal(t, defaultRetentionPeriod, cleaner.retentionPeriod)
+
+		cleaner = NewEventCleaner(nil, nil, intPtr(60), "test-chain", zerolog.Nop())
+		assert.Equal(t, defaultCleanupInterval, cleaner.cleanupInterval)
+		assert.Equal(t, 60*time.Second, cleaner.retentionPeriod)
 	})
 
 	t.Run("creates event cleaner with different intervals", func(t *testing.T) {
-		logger := zerolog.Nop()
-
 		testCases := []struct {
-			cleanup   time.Duration
-			retention time.Duration
+			cleanupSec   int
+			retentionSec int
+			cleanup      time.Duration
+			retention    time.Duration
 		}{
-			{30 * time.Minute, 12 * time.Hour},
-			{1 * time.Hour, 48 * time.Hour},
-			{5 * time.Minute, 1 * time.Hour},
+			{1800, 43200, 30 * time.Minute, 12 * time.Hour},
+			{3600, 172800, 1 * time.Hour, 48 * time.Hour},
+			{300, 3600, 5 * time.Minute, 1 * time.Hour},
 		}
 
 		for _, tc := range testCases {
-			cleaner := NewEventCleaner(nil, tc.cleanup, tc.retention, "test-chain", logger)
+			cleaner := NewEventCleaner(nil, intPtr(tc.cleanupSec), intPtr(tc.retentionSec), "test-chain", zerolog.Nop())
 			assert.Equal(t, tc.cleanup, cleaner.cleanupInterval)
 			assert.Equal(t, tc.retention, cleaner.retentionPeriod)
 		}
@@ -62,23 +81,59 @@ func TestEventCleanerStruct(t *testing.T) {
 }
 
 func TestEventCleanerStop(t *testing.T) {
-	t.Run("stop closes channel", func(t *testing.T) {
-		logger := zerolog.Nop()
-		cleaner := NewEventCleaner(nil, time.Hour, time.Hour, "test-chain", logger)
-
-		// Start a ticker to test stop
-		cleaner.ticker = time.NewTicker(time.Hour)
-
-		// Should not panic
+	t.Run("stop before start is a no-op", func(t *testing.T) {
+		cleaner := NewEventCleaner(nil, intPtr(3600), intPtr(3600), "test-chain", zerolog.Nop())
+		// Must not panic on close(nil stopCh).
 		cleaner.Stop()
 	})
 
-	t.Run("stop with nil ticker", func(t *testing.T) {
-		logger := zerolog.Nop()
-		cleaner := NewEventCleaner(nil, time.Hour, time.Hour, "test-chain", logger)
-		cleaner.ticker = nil
+	t.Run("stop after start closes channel and flips running flag", func(t *testing.T) {
+		database := newTestCleanerDB(t, nil)
+		cleaner := NewEventCleaner(database, intPtr(3600), intPtr(0), "test-chain", zerolog.Nop())
 
-		// Should not panic
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		require.NoError(t, cleaner.Start(ctx))
+		require.True(t, cleaner.running)
+
+		cleaner.Stop()
+		assert.False(t, cleaner.running)
+	})
+
+	t.Run("double stop is idempotent", func(t *testing.T) {
+		database := newTestCleanerDB(t, nil)
+		cleaner := NewEventCleaner(database, intPtr(3600), intPtr(0), "test-chain", zerolog.Nop())
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		require.NoError(t, cleaner.Start(ctx))
+
+		cleaner.Stop()
+		cleaner.Stop() // must not panic on close(closed channel)
+	})
+
+	t.Run("restart after stop is supported", func(t *testing.T) {
+		database := newTestCleanerDB(t, nil)
+		cleaner := NewEventCleaner(database, intPtr(3600), intPtr(0), "test-chain", zerolog.Nop())
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		require.NoError(t, cleaner.Start(ctx))
+		cleaner.Stop()
+		require.NoError(t, cleaner.Start(ctx)) // stopCh recreated, no error
+		cleaner.Stop()
+	})
+
+	t.Run("double start fails", func(t *testing.T) {
+		database := newTestCleanerDB(t, nil)
+		cleaner := NewEventCleaner(database, intPtr(3600), intPtr(0), "test-chain", zerolog.Nop())
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		require.NoError(t, cleaner.Start(ctx))
+		err := cleaner.Start(ctx)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "already running")
 		cleaner.Stop()
 	})
 }
@@ -100,9 +155,7 @@ func newTestCleanerDB(t *testing.T, events []storemodels.Event) *ucdb.DB {
 func TestPerformCleanup(t *testing.T) {
 	t.Run("deletes terminal events older than retention period", func(t *testing.T) {
 		database := newTestCleanerDB(t, nil)
-		logger := zerolog.Nop()
 
-		// Insert terminal events: COMPLETED, REVERTED, REORGED
 		for i, status := range []string{storemodels.StatusCompleted, storemodels.StatusReverted, storemodels.StatusReorged} {
 			evt := storemodels.Event{
 				EventID:          fmt.Sprintf("terminal-%d", i),
@@ -111,11 +164,9 @@ func TestPerformCleanup(t *testing.T) {
 				ConfirmationType: storemodels.ConfirmationStandard,
 				Status:           status,
 			}
-			result := database.Client().Create(&evt)
-			require.NoError(t, result.Error)
+			require.NoError(t, database.Client().Create(&evt).Error)
 		}
 
-		// Also insert a PENDING event that should NOT be deleted
 		pending := storemodels.Event{
 			EventID:          "pending-1",
 			BlockHeight:      100,
@@ -123,16 +174,13 @@ func TestPerformCleanup(t *testing.T) {
 			ConfirmationType: storemodels.ConfirmationStandard,
 			Status:           storemodels.StatusPending,
 		}
-		result := database.Client().Create(&pending)
-		require.NoError(t, result.Error)
+		require.NoError(t, database.Client().Create(&pending).Error)
 
-		// Use zero retention period so all terminal events are eligible for cleanup
-		cleaner := NewEventCleaner(database, time.Hour, 0, "test-chain", logger)
+		// Zero retention so all terminal events are eligible.
+		cleaner := NewEventCleaner(database, intPtr(3600), intPtr(0), "test-chain", zerolog.Nop())
 
-		err := cleaner.performCleanup()
-		require.NoError(t, err)
+		require.NoError(t, cleaner.performCleanup())
 
-		// Verify terminal events are deleted
 		var remaining []storemodels.Event
 		database.Client().Find(&remaining)
 		require.Len(t, remaining, 1)
@@ -141,9 +189,7 @@ func TestPerformCleanup(t *testing.T) {
 
 	t.Run("does not delete events within retention period", func(t *testing.T) {
 		database := newTestCleanerDB(t, nil)
-		logger := zerolog.Nop()
 
-		// Insert a terminal event (just created, so updated_at is now)
 		evt := storemodels.Event{
 			EventID:          "recent-completed",
 			BlockHeight:      1,
@@ -151,16 +197,12 @@ func TestPerformCleanup(t *testing.T) {
 			ConfirmationType: storemodels.ConfirmationStandard,
 			Status:           storemodels.StatusCompleted,
 		}
-		result := database.Client().Create(&evt)
-		require.NoError(t, result.Error)
+		require.NoError(t, database.Client().Create(&evt).Error)
 
-		// Use a very long retention period so the event is still within retention
-		cleaner := NewEventCleaner(database, time.Hour, 24*time.Hour, "test-chain", logger)
+		cleaner := NewEventCleaner(database, intPtr(3600), intPtr(86400), "test-chain", zerolog.Nop())
 
-		err := cleaner.performCleanup()
-		require.NoError(t, err)
+		require.NoError(t, cleaner.performCleanup())
 
-		// Event should still exist
 		var remaining []storemodels.Event
 		database.Client().Find(&remaining)
 		assert.Len(t, remaining, 1)
@@ -168,18 +210,13 @@ func TestPerformCleanup(t *testing.T) {
 
 	t.Run("no events to delete returns no error", func(t *testing.T) {
 		database := newTestCleanerDB(t, nil)
-		logger := zerolog.Nop()
-
-		cleaner := NewEventCleaner(database, time.Hour, 0, "test-chain", logger)
-
-		err := cleaner.performCleanup()
-		assert.NoError(t, err)
+		cleaner := NewEventCleaner(database, intPtr(3600), intPtr(0), "test-chain", zerolog.Nop())
+		assert.NoError(t, cleaner.performCleanup())
 	})
 }
 
 func TestEventCleanerStart(t *testing.T) {
 	t.Run("start runs initial cleanup and returns nil", func(t *testing.T) {
-		// Seed a terminal event
 		database := newTestCleanerDB(t, []storemodels.Event{
 			{
 				EventID:          "old-completed",
@@ -189,74 +226,56 @@ func TestEventCleanerStart(t *testing.T) {
 				Status:           storemodels.StatusCompleted,
 			},
 		})
-		logger := zerolog.Nop()
 
-		// Zero retention so the initial cleanup deletes the event
-		cleaner := NewEventCleaner(database, time.Hour, 0, "test-chain", logger)
+		cleaner := NewEventCleaner(database, intPtr(3600), intPtr(0), "test-chain", zerolog.Nop())
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		err := cleaner.Start(ctx)
-		require.NoError(t, err)
+		require.NoError(t, cleaner.Start(ctx))
 
-		// Give initial cleanup a moment to complete (it runs synchronously before the goroutine)
-		// The initial cleanup in Start is synchronous, so it should have already run.
 		var remaining []storemodels.Event
 		database.Client().Find(&remaining)
 		assert.Empty(t, remaining, "initial cleanup should have deleted the terminal event")
 
-		// Clean up
 		cancel()
 	})
 
 	t.Run("start stops when context is cancelled", func(t *testing.T) {
 		database := newTestCleanerDB(t, nil)
-		logger := zerolog.Nop()
-
-		cleaner := NewEventCleaner(database, 50*time.Millisecond, 0, "test-chain", logger)
+		cleaner := NewEventCleaner(database, intPtr(3600), intPtr(0), "test-chain", zerolog.Nop())
+		// Override to a fast interval to keep the test snappy.
+		cleaner.cleanupInterval = 50 * time.Millisecond
 
 		ctx, cancel := context.WithCancel(context.Background())
 
-		err := cleaner.Start(ctx)
-		require.NoError(t, err)
+		require.NoError(t, cleaner.Start(ctx))
 		require.NotNil(t, cleaner.ticker)
 
-		// Cancel the context and give the goroutine time to exit
 		cancel()
 		time.Sleep(100 * time.Millisecond)
 	})
 
 	t.Run("start stops when Stop is called", func(t *testing.T) {
 		database := newTestCleanerDB(t, nil)
-		logger := zerolog.Nop()
+		cleaner := NewEventCleaner(database, intPtr(3600), intPtr(0), "test-chain", zerolog.Nop())
+		cleaner.cleanupInterval = 50 * time.Millisecond
 
-		cleaner := NewEventCleaner(database, 50*time.Millisecond, 0, "test-chain", logger)
-
-		ctx := context.Background()
-
-		err := cleaner.Start(ctx)
-		require.NoError(t, err)
-
-		// Stop should cause the goroutine to exit
+		require.NoError(t, cleaner.Start(context.Background()))
 		cleaner.Stop()
 		time.Sleep(100 * time.Millisecond)
 	})
 
 	t.Run("periodic cleanup runs on ticker interval", func(t *testing.T) {
 		database := newTestCleanerDB(t, nil)
-		logger := zerolog.Nop()
-
-		// Use a very short interval so the ticker fires quickly
-		cleaner := NewEventCleaner(database, 50*time.Millisecond, 0, "test-chain", logger)
+		cleaner := NewEventCleaner(database, intPtr(3600), intPtr(0), "test-chain", zerolog.Nop())
+		cleaner.cleanupInterval = 50 * time.Millisecond
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		err := cleaner.Start(ctx)
-		require.NoError(t, err)
+		require.NoError(t, cleaner.Start(ctx))
 
-		// Insert a terminal event after Start so it was not cleaned by initial cleanup
 		evt := storemodels.Event{
 			EventID:          "late-completed",
 			BlockHeight:      1,
@@ -264,10 +283,8 @@ func TestEventCleanerStart(t *testing.T) {
 			ConfirmationType: storemodels.ConfirmationStandard,
 			Status:           storemodels.StatusCompleted,
 		}
-		result := database.Client().Create(&evt)
-		require.NoError(t, result.Error)
+		require.NoError(t, database.Client().Create(&evt).Error)
 
-		// Wait for at least one ticker cycle
 		time.Sleep(150 * time.Millisecond)
 
 		var remaining []storemodels.Event
@@ -280,7 +297,6 @@ func TestEventCleanerStart(t *testing.T) {
 
 func TestEventCleanerStartStopLifecycle(t *testing.T) {
 	t.Run("full lifecycle: start, cleanup, stop", func(t *testing.T) {
-		// Seed terminal events
 		database := newTestCleanerDB(t, []storemodels.Event{
 			{
 				EventID:          "completed-1",
@@ -304,26 +320,20 @@ func TestEventCleanerStartStopLifecycle(t *testing.T) {
 				Status:           storemodels.StatusPending,
 			},
 		})
-		logger := zerolog.Nop()
 
-		cleaner := NewEventCleaner(database, time.Hour, 0, "test-chain", logger)
+		cleaner := NewEventCleaner(database, intPtr(3600), intPtr(0), "test-chain", zerolog.Nop())
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		// Start: initial cleanup removes terminal events
-		err := cleaner.Start(ctx)
-		require.NoError(t, err)
+		require.NoError(t, cleaner.Start(ctx))
 
 		var remaining []storemodels.Event
 		database.Client().Find(&remaining)
 		require.Len(t, remaining, 1)
 		assert.Equal(t, "pending-keep", remaining[0].EventID)
 
-		// Stop gracefully
 		cleaner.Stop()
-
-		// After stop, cleaner should not panic or leave stale state
 		time.Sleep(50 * time.Millisecond)
 	})
 }

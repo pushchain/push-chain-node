@@ -9,6 +9,14 @@ import (
 	"github.com/rs/zerolog"
 )
 
+// Defaults applied when the per-chain config leaves cleanup settings unset.
+// Chosen to keep the DB bounded even without explicit operator config:
+// cleanup runs hourly, terminal events linger for a day before being purged.
+const (
+	defaultCleanupInterval = 1 * time.Hour
+	defaultRetentionPeriod = 24 * time.Hour
+)
+
 // EventCleaner handles periodic cleanup of old confirmed events for a chain
 type EventCleaner struct {
 	database        *db.DB
@@ -17,27 +25,39 @@ type EventCleaner struct {
 	logger          zerolog.Logger
 	ticker          *time.Ticker
 	stopCh          chan struct{}
+	running         bool
 }
 
 // NewEventCleaner creates a new event cleaner for a chain
 func NewEventCleaner(
 	database *db.DB,
-	cleanupInterval time.Duration,
-	retentionPeriod time.Duration,
+	cleanupIntervalSeconds *int,
+	retentionPeriodSeconds *int,
 	chainID string,
 	logger zerolog.Logger,
 ) *EventCleaner {
+	cleanupInterval := defaultCleanupInterval
+	if cleanupIntervalSeconds != nil {
+		cleanupInterval = time.Duration(*cleanupIntervalSeconds) * time.Second
+	}
+	retentionPeriod := defaultRetentionPeriod
+	if retentionPeriodSeconds != nil {
+		retentionPeriod = time.Duration(*retentionPeriodSeconds) * time.Second
+	}
 	return &EventCleaner{
 		database:        database,
 		cleanupInterval: cleanupInterval,
 		retentionPeriod: retentionPeriod,
 		logger:          logger.With().Str("component", "event_cleaner").Str("chain", chainID).Logger(),
-		stopCh:          make(chan struct{}),
 	}
 }
 
 // Start begins the periodic cleanup process
 func (ec *EventCleaner) Start(ctx context.Context) error {
+	if ec.running {
+		return fmt.Errorf("event cleaner is already running")
+	}
+
 	ec.logger.Debug().
 		Str("cleanup_interval", ec.cleanupInterval.String()).
 		Str("retention_period", ec.retentionPeriod.String()).
@@ -49,7 +69,8 @@ func (ec *EventCleaner) Start(ctx context.Context) error {
 		// Don't fail startup on cleanup error, just log it
 	}
 
-	// Start periodic cleanup
+	ec.running = true
+	ec.stopCh = make(chan struct{})
 	ec.ticker = time.NewTicker(ec.cleanupInterval)
 
 	go func() {
@@ -73,18 +94,20 @@ func (ec *EventCleaner) Start(ctx context.Context) error {
 	return nil
 }
 
-// Stop gracefully stops the event cleaner
+// Stop gracefully stops the event cleaner. No-op if not running.
 func (ec *EventCleaner) Stop() {
+	if !ec.running {
+		return
+	}
 	ec.logger.Debug().Msg("stopping event cleaner")
-
 	if ec.ticker != nil {
 		ec.ticker.Stop()
 	}
-
 	close(ec.stopCh)
+	ec.running = false
 }
 
-// performCleanup executes cleanup of terminal events (COMPLETED, REVERTED, EXPIRED)
+// performCleanup executes cleanup of terminal events (COMPLETED, REORGED, REVERTED)
 func (ec *EventCleaner) performCleanup() error {
 	start := time.Now()
 
@@ -106,7 +129,7 @@ func (ec *EventCleaner) performCleanup() error {
 		ec.logger.Info().
 			Int64("deleted_count", deletedCount).
 			Str("duration", duration.String()).
-			Msg("terminal event cleanup completed (COMPLETED, REVERTED, EXPIRED)")
+			Msg("terminal event cleanup completed (COMPLETED, REORGED, REVERTED)")
 
 		// Checkpoint WAL after cleanup
 		ec.checkpointWAL()

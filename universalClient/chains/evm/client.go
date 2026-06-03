@@ -76,18 +76,13 @@ func NewClient(
 		pushSigner:     pushSigner,
 	}
 
-	// Create event cleaner if config is provided
-	if chainConfig != nil && chainConfig.CleanupIntervalSeconds != nil && chainConfig.RetentionPeriodSeconds != nil {
-		cleanupInterval := time.Duration(*chainConfig.CleanupIntervalSeconds) * time.Second
-		retentionPeriod := time.Duration(*chainConfig.RetentionPeriodSeconds) * time.Second
-		client.eventCleaner = common.NewEventCleaner(
-			database,
-			cleanupInterval,
-			retentionPeriod,
-			chainIDStr,
-			log,
-		)
-	}
+	client.eventCleaner = common.NewEventCleaner(
+		database,
+		chainConfig.CleanupIntervalSeconds,
+		chainConfig.RetentionPeriodSeconds,
+		chainIDStr,
+		log,
+	)
 
 	// Initialize components that don't require RPC client
 	if pushSigner != nil {

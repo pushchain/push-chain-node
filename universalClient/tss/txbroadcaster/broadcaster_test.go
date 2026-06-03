@@ -219,6 +219,9 @@ func TestEVM_BroadcastError_NonceConsumed_MarksBroadcasted(t *testing.T) {
 
 	builder.On("BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return("0xabc", fmt.Errorf("already known"))
+	// VerifyBroadcastedTx=not found → fall through to the nonce-consumed check.
+	builder.On("VerifyBroadcastedTx", mock.Anything, "0xabc").
+		Return(false, uint64(0), uint64(0), uint8(0), nil)
 	builder.On("GetNextNonce", mock.Anything, "0xTSS", true).Return(uint64(10), nil)
 
 	b := newBroadcaster(evtStore, ch, "0xTSS")
@@ -227,6 +230,32 @@ func TestEVM_BroadcastError_NonceConsumed_MarksBroadcasted(t *testing.T) {
 	ev := getEvent(t, db, "ev-1")
 	require.Equal(t, store.StatusBroadcasted, ev.Status)
 	require.Equal(t, "eip155:1:0xabc", ev.BroadcastedTxHash)
+}
+
+// Broadcast error but the tx is already mined on chain (another node sent it,
+// or "already known" race). VerifyBroadcastedTx=found → markBroadcasted without
+// consulting the nonce path.
+func TestEVM_BroadcastError_TxOnChain_MarksBroadcasted(t *testing.T) {
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "eip155:1", uregistrytypes.VmType_EVM, client)
+
+	insertSignedEvent(t, db, "ev-1", "eip155:1", 5)
+
+	builder.On("BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return("0xabc", fmt.Errorf("already known"))
+	builder.On("VerifyBroadcastedTx", mock.Anything, "0xabc").
+		Return(true, uint64(100), uint64(3), uint8(1), nil)
+
+	b := newBroadcaster(evtStore, ch, "0xTSS")
+	b.processSigned(context.Background())
+
+	ev := getEvent(t, db, "ev-1")
+	require.Equal(t, store.StatusBroadcasted, ev.Status)
+	require.Equal(t, "eip155:1:0xabc", ev.BroadcastedTxHash)
+	// Nonce path should not have run.
+	builder.AssertNotCalled(t, "GetNextNonce", mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestEVM_BroadcastSuccess_MarksBroadcasted(t *testing.T) {
@@ -281,6 +310,8 @@ func TestEVM_BroadcastFails_WithTxHash_NonceNotConsumed_StaysSigned(t *testing.T
 
 	builder.On("BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return("0xabc", fmt.Errorf("gas too low"))
+	builder.On("VerifyBroadcastedTx", mock.Anything, "0xabc").
+		Return(false, uint64(0), uint64(0), uint8(0), nil)
 	builder.On("GetNextNonce", mock.Anything, "0xTSS", true).Return(uint64(5), nil)
 
 	b := newBroadcaster(evtStore, ch, "0xTSS")
@@ -301,6 +332,8 @@ func TestEVM_GetTSSAddressNil_UsesEmptyAddress(t *testing.T) {
 
 	builder.On("BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return("0xabc", fmt.Errorf("already known"))
+	builder.On("VerifyBroadcastedTx", mock.Anything, "0xabc").
+		Return(false, uint64(0), uint64(0), uint8(0), nil)
 	// Expect empty address since GetTSSAddress is nil.
 	builder.On("GetNextNonce", mock.Anything, "", true).Return(uint64(10), nil)
 
@@ -706,6 +739,8 @@ func TestFundMigrationEVM_BroadcastFails_NonceConsumed(t *testing.T) {
 
 	builder.On("BroadcastFundMigrationTx", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return("0xfailed", fmt.Errorf("already known"))
+	builder.On("VerifyBroadcastedTx", mock.Anything, "0xfailed").
+		Return(false, uint64(0), uint64(0), uint8(0), nil)
 	builder.On("GetNextNonce", mock.Anything, mock.Anything, true).Return(uint64(10), nil)
 
 	b := newBroadcaster(evtStore, ch, "")
@@ -777,6 +812,8 @@ func TestFundMigrationEVM_BroadcastFails_NonceNotConsumed_StaysSigned(t *testing
 
 	builder.On("BroadcastFundMigrationTx", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return("0xfailed", fmt.Errorf("rpc error"))
+	builder.On("VerifyBroadcastedTx", mock.Anything, "0xfailed").
+		Return(false, uint64(0), uint64(0), uint8(0), nil)
 	builder.On("GetNextNonce", mock.Anything, mock.Anything, true).Return(uint64(3), nil)
 
 	b := newBroadcaster(evtStore, ch, "")
@@ -785,3 +822,4 @@ func TestFundMigrationEVM_BroadcastFails_NonceNotConsumed_StaysSigned(t *testing
 	ev := getEvent(t, db, "fm-1")
 	require.Equal(t, store.StatusSigned, ev.Status) // stays SIGNED for retry
 }
+

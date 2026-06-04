@@ -1769,8 +1769,8 @@ github.com/prysmaticlabs/gohashtree v0.0.4-beta.0.20240624100937-73632381301b h1
 github.com/prysmaticlabs/gohashtree v0.0.4-beta.0.20240624100937-73632381301b/go.mod h1:HRuvtXLZ4WkaB1MItToVH2e8ZwKwZPY5/Rcby+CvvLY=
 github.com/prysmaticlabs/prysm/v5 v5.3.0 h1:7Lr8ndapBTZg00YE+MgujN6+yvJR6Bdfn28ZDSJ00II=
 github.com/prysmaticlabs/prysm/v5 v5.3.0/go.mod h1:r1KhlduqDMIGZ1GhR5pjZ2Ko8Q89noTDYTRoPKwf1+c=
-github.com/pushchain/evm v1.0.0-rc2.0.20260518124843-b5053b7ed645 h1:je7kEfgAtoZiLizQ7+Pq50fHcMTyr8Hz1lc52gW8WPY=
-github.com/pushchain/evm v1.0.0-rc2.0.20260518124843-b5053b7ed645/go.mod h1:byHCefIPjWbQGgVbubMCBwwBDfhWuiPavb1x8YhMH9k=
+github.com/pushchain/evm v1.0.0-rc2.0.20260604090552-d3251a04c5b2 h1:aeXrv0vxp2NQimXbWiy4Wc9TIsC64Z41zocS8+ScgNY=
+github.com/pushchain/evm v1.0.0-rc2.0.20260604090552-d3251a04c5b2/go.mod h1:vKf+jvVTJOouZQ0dCYTGlktHaOO5MAhry7zK9RApElY=
 github.com/quic-go/qpack v0.4.0 h1:Cr9BXA1sQS2SmDUWjSofMPNKmvF6IiIfDRmgU0w1ZCo=
 github.com/quic-go/qpack v0.4.0/go.mod h1:UZVnYIfi5GRk+zI9UMaCPsmZ2xKJP7XBUvVyT1Knj9A=
 github.com/quic-go/qtls-go1-20 v0.3.4 h1:MfFAPULvst4yoMgY9QmtpYmfij/em7O8UUi+bNVm7Cg=

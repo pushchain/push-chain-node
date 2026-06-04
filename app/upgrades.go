@@ -22,6 +22,7 @@ import (
 	evmchainidffix "github.com/pushchain/push-chain-node/app/upgrades/evm-chainid-fix"
 	evmpreinstalls "github.com/pushchain/push-chain-node/app/upgrades/evm-preinstalls"
 	ethhashfix "github.com/pushchain/push-chain-node/app/upgrades/eth-hash-fix"
+	evmblockscoutfix "github.com/pushchain/push-chain-node/app/upgrades/evm-blockscout-fix"
 	evmrpcfix "github.com/pushchain/push-chain-node/app/upgrades/evm-rpc-fix"
 	evmv040 "github.com/pushchain/push-chain-node/app/upgrades/evm-v0-4-0"
 	feeabs "github.com/pushchain/push-chain-node/app/upgrades/fee-abs"
@@ -52,6 +53,7 @@ var Upgrades = []upgrades.Upgrade{
 	tsscorefix.NewUpgrade(),
 	tsscoreevmparamsfix.NewUpgrade(),
 	evmrpcfix.NewUpgrade(),
+	evmblockscoutfix.NewUpgrade(),
 	tssvotegasless.NewUpgrade(),
 	removefeeabsv1.NewUpgrade(),
 	outbound.NewUpgrade(),

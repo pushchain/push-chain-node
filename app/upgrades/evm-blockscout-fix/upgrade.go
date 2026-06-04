@@ -1,18 +1,17 @@
-package evmrpcfix
+package evmblockscoutfix
 
 import (
 	"context"
 
+	storetypes "cosmossdk.io/store/types"
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
-	storetypes "cosmossdk.io/store/types"
 	"github.com/pushchain/push-chain-node/app/upgrades"
 )
 
-const UpgradeName = "evm-rpc-fix"
+const UpgradeName = "evm-blockscout-fix"
 
-// NewUpgrade constructs the upgrade definition
 func NewUpgrade() upgrades.Upgrade {
 	return upgrades.Upgrade{
 		UpgradeName:          UpgradeName,

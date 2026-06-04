@@ -17,11 +17,12 @@ import (
 	"cosmossdk.io/collections/indexes"
 	storetypes "cosmossdk.io/core/store"
 	"cosmossdk.io/log"
+	"github.com/pushchain/push-chain-node/utils"
 	"github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
-// TokenConfigIndexes: PRC20Index maps lowercased PRC20 contract address →
-// token storage key for O(1) GetTokenConfigByPRC20. Rows without
+// TokenConfigIndexes: PRC20Index maps canonical (EIP-55) PRC20 contract
+// address → token storage key for O(1) GetTokenConfigByPRC20. Rows without
 // NativeRepresentation index under the empty-string sentinel which is never
 // queried. Framework auto-maintains on every Set/Remove.
 type TokenConfigIndexes struct {
@@ -30,6 +31,17 @@ type TokenConfigIndexes struct {
 
 func (t TokenConfigIndexes) IndexesList() []collections.Index[string, types.TokenConfig] {
 	return []collections.Index[string, types.TokenConfig]{t.PRC20Index}
+}
+
+// canonicalPRC20 returns the EIP-55 form of a PRC20 address (PRC20s are EVM).
+// Lenient (falls back to lowercase-trim) so index writes never fail; strict
+// enforcement is in NativeRepresentation.ValidateBasic.
+func canonicalPRC20(addr string) string {
+	canon, err := utils.CanonicalizeEVMAddress(addr)
+	if err != nil {
+		return strings.ToLower(strings.TrimSpace(addr))
+	}
+	return canon
 }
 
 func newTokenConfigIndexes(sb *collections.SchemaBuilder) TokenConfigIndexes {
@@ -41,7 +53,7 @@ func newTokenConfigIndexes(sb *collections.SchemaBuilder) TokenConfigIndexes {
 				if v.NativeRepresentation == nil || v.NativeRepresentation.ContractAddress == "" {
 					return "", nil // sentinel — non-PRC20 rows
 				}
-				return strings.ToLower(v.NativeRepresentation.ContractAddress), nil
+				return canonicalPRC20(v.NativeRepresentation.ContractAddress), nil
 			},
 		),
 	}
@@ -233,10 +245,11 @@ func (k Keeper) GetTokenConfigByPRC20(
 	prc20Addr string,
 ) (types.TokenConfig, error) {
 
-	prc20Addr = strings.ToLower(strings.TrimSpace(prc20Addr))
-	if prc20Addr == "" {
+	if strings.TrimSpace(prc20Addr) == "" {
 		return types.TokenConfig{}, fmt.Errorf("prc20 address is empty")
 	}
+	// Same canonical form as the index function, so any case variant hits the row.
+	prc20Addr = canonicalPRC20(prc20Addr)
 
 	// PRC20 addresses are globally unique by construction; MatchExact returns at most one.
 	iter, err := k.TokenConfigs.Indexes.PRC20Index.MatchExact(ctx, prc20Addr)

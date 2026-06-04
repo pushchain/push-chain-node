@@ -34,7 +34,7 @@ func TestNativeRepresentation_ValidateBasic(t *testing.T) {
 			name: "valid - only contract_address set with 0x",
 			nativeRep: types.NativeRepresentation{
 				Denom:           "",
-				ContractAddress: "0xabc123def4567890",
+				ContractAddress: "0x387b9C8Db60E74999aAAC5A2b7825b400F12d68E",
 			},
 			expectErr: false,
 		},
@@ -42,7 +42,7 @@ func TestNativeRepresentation_ValidateBasic(t *testing.T) {
 			name: "valid - both denom and contract_address set",
 			nativeRep: types.NativeRepresentation{
 				Denom:           "uatom",
-				ContractAddress: "0xdeadbeefcafebabe",
+				ContractAddress: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
 			},
 			expectErr: false,
 		},

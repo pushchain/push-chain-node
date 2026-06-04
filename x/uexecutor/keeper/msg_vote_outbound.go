@@ -3,8 +3,10 @@ package keeper
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/pushchain/push-chain-node/utils"
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
@@ -50,6 +52,12 @@ func (k Keeper) VoteOutbound(
 	if !found {
 		return fmt.Errorf("outbound %s not found in UniversalTx %s", outboundId, utxId)
 	}
+
+	// Canonicalize the observed tx hash for the destination chain so encoding
+	// variants of the same observation land on one ballot.
+	observedTx.TxHash = utils.LenientCanonicalizeTxHash(outbound.DestinationChain, observedTx.TxHash)
+	observedTx.GasFeeUsed = strings.TrimSpace(observedTx.GasFeeUsed)
+	observedTx.ErrorMsg = strings.TrimSpace(observedTx.ErrorMsg)
 
 	// Prevent double-finalization
 	if outbound.OutboundStatus != types.Status_PENDING {

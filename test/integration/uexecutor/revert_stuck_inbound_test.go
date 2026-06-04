@@ -8,6 +8,7 @@ import (
 
 	"github.com/pushchain/push-chain-node/app"
 	utils "github.com/pushchain/push-chain-node/test/utils"
+	chainutils "github.com/pushchain/push-chain-node/utils"
 	uexecutorkeeper "github.com/pushchain/push-chain-node/x/uexecutor/keeper"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
@@ -41,9 +42,9 @@ func setupRevertStuckInbound(t *testing.T) (chainApp *app.ChainApp, ctx sdk.Cont
 	usdcAddress := utils.GetDefaultAddresses().ExternalUSDCAddr
 
 	tokenConfig := uregistrytypes.TokenConfig{
-		Chain:        "eip155:11155111",
-		Address:      usdcAddress.String(),
-		Name:         "USD Coin", Symbol: "USDC", Decimals: 6, Enabled: true,
+		Chain:   "eip155:11155111",
+		Address: usdcAddress.String(),
+		Name:    "USD Coin", Symbol: "USDC", Decimals: 6, Enabled: true,
 		LiquidityCap: "1000000000000000000000000", TokenType: 1,
 		NativeRepresentation: &uregistrytypes.NativeRepresentation{
 			ContractAddress: prc20Address.String(),
@@ -130,7 +131,7 @@ func TestRevertStuckInbound_HappyPath_ExpiredBallot_CreatesRevertOutbound(t *tes
 		"recipient must use RevertInstructions.FundRecipient when set")
 	require.Equal(t, inbound.Amount, ob.Amount, "full amount refunded")
 	require.Equal(t, inbound.AssetAddr, ob.ExternalAssetAddr, "external asset addr must match the original deposit asset")
-	require.Equal(t, inbound.Sender, ob.Sender, "sender field carries original depositor")
+	require.Equal(t, chainutils.LenientCanonicalizeEVMAddress(inbound.Sender), ob.Sender, "sender field carries original depositor")
 
 	// --- PendingOutbounds index assertions ---
 	pending, err := chainApp.UexecutorKeeper.PendingOutbounds.Get(ctx, ob.Id)
@@ -157,7 +158,7 @@ func TestRevertStuckInbound_RecipientFallback_UsesSender(t *testing.T) {
 
 	utx, _, _ := chainApp.UexecutorKeeper.GetUniversalTx(ctx, resp.UtxId)
 	require.Len(t, utx.OutboundTx, 1)
-	require.Equal(t, inbound.Sender, utx.OutboundTx[0].Recipient,
+	require.Equal(t, chainutils.LenientCanonicalizeEVMAddress(inbound.Sender), utx.OutboundTx[0].Recipient,
 		"with no RevertInstructions, refund goes to original sender")
 }
 

@@ -17,6 +17,7 @@ import (
 
 	"github.com/pushchain/push-chain-node/app"
 	utils "github.com/pushchain/push-chain-node/test/utils"
+	chainutils "github.com/pushchain/push-chain-node/utils"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
@@ -80,7 +81,7 @@ func setupRescueFundsTest(
 	*app.ChainApp,
 	sdk.Context,
 	[]string, // universalVals
-	string,   // utxId of the failed CEA UTX
+	string, // utxId of the failed CEA UTX
 	[]stakingtypes.Validator,
 ) {
 	t.Helper()
@@ -205,7 +206,7 @@ func TestRescueFunds(t *testing.T) {
 		rescueOb := findRescueOutbound(utx)
 		require.NotNil(t, rescueOb)
 		// Falls back to original inbound sender
-		require.Equal(t, utils.GetDefaultAddresses().DefaultTestAddr, rescueOb.Recipient)
+		require.Equal(t, chainutils.LenientCanonicalizeEVMAddress(utils.GetDefaultAddresses().DefaultTestAddr), rescueOb.Recipient)
 	})
 
 	t.Run("rescue is rejected for non-CEA inbound with no reverted auto-revert", func(t *testing.T) {

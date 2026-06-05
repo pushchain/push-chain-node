@@ -272,7 +272,7 @@ func TestVoteFundMigration(t *testing.T) {
 		migrationId, err := app.UtssKeeper.InitiateFundMigration(ctx, oldKeyId, testChain)
 		require.NoError(t, err)
 
-		txHash := "0xdeadbeef1234567890"
+		txHash := "0xdeadbeef12345678deadbeef12345678deadbeef12345678deadbeef12345678"
 
 		// Vote with all validators (2/3 quorum needed, so 3 votes for 3 validators)
 		for i, val := range universalVals {
@@ -320,7 +320,7 @@ func TestVoteFundMigration(t *testing.T) {
 		migrationId, err := app.UtssKeeper.InitiateFundMigration(ctx, oldKeyId, testChain)
 		require.NoError(t, err)
 
-		txHash := "0xfailedtx"
+		txHash := ""
 
 		// Vote failure with all validators
 		for _, val := range universalVals {
@@ -338,7 +338,7 @@ func TestVoteFundMigration(t *testing.T) {
 		app, ctx, universalVals, _ := setupFundMigrationTest(t, 3, false)
 
 		valAddr, _ := sdk.ValAddressFromBech32(universalVals[0])
-		err := app.UtssKeeper.VoteFundMigration(ctx, valAddr, 999, "0xtx", true)
+		err := app.UtssKeeper.VoteFundMigration(ctx, valAddr, 999, "0x1111111111111111111111111111111111111111111111111111111111111111", true)
 		require.ErrorContains(t, err, "not found")
 	})
 
@@ -351,12 +351,12 @@ func TestVoteFundMigration(t *testing.T) {
 		// Finalize it first
 		for _, val := range universalVals {
 			valAddr, _ := sdk.ValAddressFromBech32(val)
-			_ = app.UtssKeeper.VoteFundMigration(ctx, valAddr, migrationId, "0xtx", true)
+			_ = app.UtssKeeper.VoteFundMigration(ctx, valAddr, migrationId, "0x1111111111111111111111111111111111111111111111111111111111111111", true)
 		}
 
 		// Try to vote again
 		valAddr, _ := sdk.ValAddressFromBech32(universalVals[0])
-		err = app.UtssKeeper.VoteFundMigration(ctx, valAddr, migrationId, "0xtx2", true)
+		err = app.UtssKeeper.VoteFundMigration(ctx, valAddr, migrationId, "0x2222222222222222222222222222222222222222222222222222222222222222", true)
 		require.ErrorContains(t, err, "already finalized")
 	})
 }
@@ -391,7 +391,7 @@ func TestFundMigrationQueries(t *testing.T) {
 		// Finalize it
 		for _, val := range universalVals {
 			valAddr, _ := sdk.ValAddressFromBech32(val)
-			_ = app.UtssKeeper.VoteFundMigration(ctx, valAddr, migrationId, "0xtx", true)
+			_ = app.UtssKeeper.VoteFundMigration(ctx, valAddr, migrationId, "0x1111111111111111111111111111111111111111111111111111111111111111", true)
 		}
 
 		// Should be removed from pending
@@ -402,4 +402,54 @@ func TestFundMigrationQueries(t *testing.T) {
 		})
 		require.Equal(t, 0, pendingCount)
 	})
+}
+
+// TestVoteFundMigration_EquivalentHashEncodingsConverge is the F-2026-17041
+// regression: three validators submit the SAME migration tx hash in three
+// different encodings (EIP-55-style mixed case, lowercase, no 0x prefix).
+// Canonicalization in VoteFundMigration must land all votes on ONE ballot,
+// finalizing the migration — pre-fix each encoding produced its own ballot
+// and quorum never formed.
+func TestVoteFundMigration_EquivalentHashEncodingsConverge(t *testing.T) {
+	app, ctx, universalVals, oldKeyId := setupFundMigrationTest(t, 3, false)
+
+	migrationId, err := app.UtssKeeper.InitiateFundMigration(ctx, oldKeyId, testChain)
+	require.NoError(t, err)
+
+	canonical := "0xb28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd"
+	encodings := []string{
+		"0xB28F49668E7E76DC96D7AABE5B7F63FECFBD1C3574774C05E8204E749FD96FBD", // uppercase
+		"0xb28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd", // lowercase
+		"b28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd",   // no prefix
+	}
+	require.Len(t, universalVals, 3)
+
+	for i, val := range universalVals {
+		valAddr, err := sdk.ValAddressFromBech32(val)
+		require.NoError(t, err)
+		require.NoError(t, app.UtssKeeper.VoteFundMigration(ctx, valAddr, migrationId, encodings[i], true),
+			"vote %d with encoding %q must be accepted", i, encodings[i])
+	}
+
+	// All three encodings converged on one ballot → quorum reached → COMPLETED.
+	migration, err := app.UtssKeeper.FundMigrations.Get(ctx, migrationId)
+	require.NoError(t, err)
+	require.Equal(t, utsstypes.FundMigrationStatus_FUND_MIGRATION_STATUS_COMPLETED, migration.Status,
+		"equivalent encodings must aggregate on one ballot and finalize")
+	require.Equal(t, canonical, migration.TxHash,
+		"stored tx hash must be the canonical 0x-lowercase form")
+}
+
+// TestVoteFundMigration_MalformedHashRejected: strict per-namespace
+// validation rejects garbage hashes for EVM chains instead of keying a
+// ballot off them.
+func TestVoteFundMigration_MalformedHashRejected(t *testing.T) {
+	app, ctx, universalVals, oldKeyId := setupFundMigrationTest(t, 3, false)
+
+	migrationId, err := app.UtssKeeper.InitiateFundMigration(ctx, oldKeyId, testChain)
+	require.NoError(t, err)
+
+	valAddr, _ := sdk.ValAddressFromBech32(universalVals[0])
+	err = app.UtssKeeper.VoteFundMigration(ctx, valAddr, migrationId, "0xnot-a-real-hash", true)
+	require.ErrorContains(t, err, "invalid tx hash")
 }

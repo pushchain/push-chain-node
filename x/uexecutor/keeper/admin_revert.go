@@ -26,6 +26,10 @@ import (
 func (k Keeper) RevertStuckInbound(ctx context.Context, inbound types.Inbound) (utxId, outboundId string, err error) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
+	// Same canonical form as the vote path, so the admin-supplied payload
+	// derives the same ballot key / UTX key the votes did.
+	inbound.Canonicalize()
+
 	if vErr := inbound.ValidateBasic(); vErr != nil {
 		return "", "", errors.Wrap(sdkErrors.ErrInvalidRequest, vErr.Error())
 	}

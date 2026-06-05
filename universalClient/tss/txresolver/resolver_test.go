@@ -224,9 +224,14 @@ func TestParseCAIPTxHash(t *testing.T) {
 		require.Error(t, err)
 	})
 
-	t.Run("colon at end", func(t *testing.T) {
-		_, _, err := parseCAIPTxHash("eip155:1:")
-		require.Error(t, err)
+	t.Run("trailing colon accepted with empty hash (SVM broadcaster signal)", func(t *testing.T) {
+		// `solana:<cluster>:` is the broadcaster's "no real tx hash to point to"
+		// marker; the parser passes the chainID through and lets the chain
+		// branch decide whether empty hash is acceptable.
+		chainID, txHash, err := parseCAIPTxHash("solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1:")
+		require.NoError(t, err)
+		assert.Equal(t, "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1", chainID)
+		assert.Equal(t, "", txHash)
 	})
 
 	t.Run("colon at start", func(t *testing.T) {
@@ -449,6 +454,57 @@ func TestSVM_InvalidEventData_Skips(t *testing.T) {
 	builder.AssertNotCalled(t, "IsAlreadyExecuted", mock.Anything, mock.Anything)
 }
 
+func TestResolveOutbound_SVMEmptyHashDispatchesToSVMFlow(t *testing.T) {
+	// Regression: BroadcastedTxHash = "solana:<cluster>:" (empty hash suffix)
+	// must NOT vote REVERT through the parse-error branch — that branch is
+	// EVM-shaped. SVM verifies by event txID; the dispatcher must route this
+	// to resolveSVM, which then calls IsAlreadyExecuted on the event's txID.
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "solana:mainnet", uregistrytypes.VmType_SVM, client)
+
+	eventData := makeOutboundEventData("tx-123", "utx-456", "solana:mainnet")
+	insertBroadcastedEvent(t, db, "ev-svm-empty", "solana:mainnet", "solana:mainnet:", eventData)
+
+	// resolveSVM should reach IsAlreadyExecuted with the event's txID.
+	builder.On("IsAlreadyExecuted", mock.Anything, "tx-123").
+		Return(true, time.Now().Unix(), nil)
+
+	resolver := newResolver(evtStore, ch)
+	ev := getEvent(t, db, "ev-svm-empty")
+	resolver.resolveOutbound(context.Background(), &ev)
+
+	// Critical assertion: the SVM verification path was reached.
+	builder.AssertCalled(t, "IsAlreadyExecuted", mock.Anything, "tx-123")
+}
+
+func TestResolveOutboundEVM_EmptyHashRewindsToSigned(t *testing.T) {
+	// Defensive: if a row reaches the EVM resolver with empty rawTxHash
+	// (broadcaster bug), don't trust the nonce check — voting REVERT here
+	// would risk reverting a row whose tx is actually on chain. Rewind to
+	// SIGNED so the broadcaster recomputes the deterministic hash from
+	// signing_data on its next tick. No chain RPCs should be consulted.
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "eip155:1", uregistrytypes.VmType_EVM, client)
+
+	eventData := makeOutboundEventData("tx-evm", "utx-evm", "eip155:1")
+	insertBroadcastedEvent(t, db, "ev-evm-empty", "eip155:1", "eip155:1:", eventData)
+
+	resolver := newResolver(evtStore, ch)
+	ev := getEvent(t, db, "ev-evm-empty")
+	resolver.resolveOutbound(context.Background(), &ev)
+
+	// Status rewound to SIGNED — broadcaster will recompute hash next tick.
+	updated := getEvent(t, db, "ev-evm-empty")
+	require.Equal(t, store.StatusSigned, updated.Status)
+	// No chain calls — we knew the hash was missing without asking.
+	builder.AssertNotCalled(t, "VerifyBroadcastedTx", mock.Anything, mock.Anything)
+	builder.AssertNotCalled(t, "GetNextNonce", mock.Anything, mock.Anything, mock.Anything)
+}
+
 func TestResolveEventRouting(t *testing.T) {
 	t.Run("invalid CAIP hash with no outbound IDs triggers warning", func(t *testing.T) {
 		evtStore, _ := setupTestDB(t)
@@ -467,12 +523,13 @@ func TestResolveEventRouting(t *testing.T) {
 		resolver.resolveEvent(context.Background(), event)
 	})
 
-	t.Run("invalid CAIP hash with valid outbound IDs attempts revert", func(t *testing.T) {
+	t.Run("invalid CAIP hash logs warning and does NOT vote REVERT", func(t *testing.T) {
+		// Malformed CAIP is treated as a bug indicator, not a dead-row signal.
+		// The row is left BROADCASTED for manual recovery; nothing is voted.
 		evtStore, _ := setupTestDB(t)
 		resolver := NewResolver(Config{
 			EventStore: evtStore,
 			Logger:     zerolog.Nop(),
-			// No PushSigner — voteFailure will log warning but not panic
 		})
 
 		eventData := makeOutboundEventData("tx-1", "utx-1", "eip155:1")
@@ -482,7 +539,7 @@ func TestResolveEventRouting(t *testing.T) {
 			EventData:         eventData,
 		}
 
-		// Should not panic — will try to vote failure (no signer, logged), then try to mark reverted
+		// Should not panic, should not vote — just logs and returns.
 		resolver.resolveEvent(context.Background(), event)
 	})
 }
@@ -715,6 +772,25 @@ func TestFundMigrationEVM_VerifyError_StaysBroadcasted(t *testing.T) {
 
 	ev := getEvent(t, db, "fm-verify-err")
 	require.Equal(t, store.StatusBroadcasted, ev.Status)
+	builder.AssertNotCalled(t, "GetNextNonce", mock.Anything, mock.Anything, mock.Anything)
+}
+
+func TestFundMigrationEVM_EmptyHashRewindsToSigned(t *testing.T) {
+	// EVM fund migration with empty rawTxHash → rewind to SIGNED so the
+	// broadcaster recomputes the deterministic hash. No chain RPCs consulted.
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "eip155:1", uregistrytypes.VmType_EVM, client)
+
+	insertBroadcastedFundMigrationEvent(t, db, "fm-empty", "eip155:1", "eip155:1:", 42)
+
+	resolver := newResolver(evtStore, ch)
+	resolver.processBroadcasted(context.Background())
+
+	ev := getEvent(t, db, "fm-empty")
+	require.Equal(t, store.StatusSigned, ev.Status)
+	builder.AssertNotCalled(t, "VerifyBroadcastedTx", mock.Anything, mock.Anything)
 	builder.AssertNotCalled(t, "GetNextNonce", mock.Anything, mock.Anything, mock.Anything)
 }
 
@@ -1121,11 +1197,13 @@ func TestResolveOutbound_SVM_RoutingPath(t *testing.T) {
 	builder.AssertCalled(t, "IsAlreadyExecuted", mock.Anything, "tx-svm-1")
 }
 
-func TestResolveOutbound_InvalidCAIP_ValidIDs_VotesFailure(t *testing.T) {
-	// CAIP parse fails but extractOutboundIDs succeeds → voteOutboundFailureAndMarkReverted called.
-	// With nil pushSigner, vote returns early (logged) so event stays unchanged.
+func TestResolveOutbound_InvalidCAIP_LeavesBroadcasted(t *testing.T) {
+	// Malformed CAIP is treated as a bug indicator, not a dead-row signal.
+	// The row stays BROADCASTED — no vote, no status change. Operators see the
+	// warning log and can manually inspect / recover the row.
 	evtStore, db := setupTestDB(t)
-	ch := newTestChains(t, "eip155:1", uregistrytypes.VmType_EVM, &mockChainClient{builder: &mockTxBuilder{}})
+	builder := &mockTxBuilder{}
+	ch := newTestChains(t, "eip155:1", uregistrytypes.VmType_EVM, &mockChainClient{builder: builder})
 
 	eventData := makeOutboundEventData("tx-bad", "utx-bad", "eip155:1")
 	insertBroadcastedEvent(t, db, "ev-bad-caip", "eip155:1", "invalid-no-colon", eventData)
@@ -1133,9 +1211,10 @@ func TestResolveOutbound_InvalidCAIP_ValidIDs_VotesFailure(t *testing.T) {
 	resolver := newResolver(evtStore, ch)
 	resolver.processBroadcasted(context.Background())
 
-	// No pushSigner → voteOutboundFailureAndMarkReverted returns nil early (no status change)
 	ev := getEvent(t, db, "ev-bad-caip")
 	require.Equal(t, store.StatusBroadcasted, ev.Status)
+	// Neither the chain nor the voter should have been consulted.
+	builder.AssertNotCalled(t, "VerifyBroadcastedTx", mock.Anything, mock.Anything)
 }
 
 func TestVoteOutboundFailureAndMarkReverted_EmptyGasFeeDefaults(t *testing.T) {

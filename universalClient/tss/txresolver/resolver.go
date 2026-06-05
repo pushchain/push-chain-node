@@ -28,7 +28,6 @@ type Config struct {
 	GetTSSAddress func(ctx context.Context) (string, error)
 }
 
-// Resolver takes BROADCASTED txs and moves them to terminal status (COMPLETED or REVERTED).
 type Resolver struct {
 	eventStore    *eventstore.Store
 	chains        *chains.Chains
@@ -53,7 +52,6 @@ func NewResolver(cfg Config) *Resolver {
 	}
 }
 
-// Start begins the background loop.
 func (r *Resolver) Start(ctx context.Context) {
 	go r.run(ctx)
 }
@@ -74,7 +72,6 @@ func (r *Resolver) run(ctx context.Context) {
 
 const processBroadcastedBatchSize = 100
 
-// processBroadcasted drains all BROADCASTED SIGN events in batches.
 func (r *Resolver) processBroadcasted(ctx context.Context) {
 	if r.chains == nil {
 		return
@@ -97,7 +94,6 @@ func (r *Resolver) processBroadcasted(ctx context.Context) {
 	}
 }
 
-// resolveEvent dispatches to the appropriate handler based on event type.
 func (r *Resolver) resolveEvent(ctx context.Context, event *store.Event) {
 	switch event.Type {
 	case store.EventTypeSignOutbound:
@@ -110,21 +106,16 @@ func (r *Resolver) resolveEvent(ctx context.Context, event *store.Event) {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Outbound resolution (parsing + chain dispatch)
-// ---------------------------------------------------------------------------
-
-// resolveOutbound parses the CAIP tx hash and delegates to chain-specific resolution.
+// resolveOutbound dispatches a BROADCASTED row to the chain-specific resolver.
+// Malformed CAIP leaves the row BROADCASTED — voting REVERT on a bug indicator
+// risks an irreversible mistake. Empty-hash handling is per chain.
 func (r *Resolver) resolveOutbound(ctx context.Context, event *store.Event) {
 	chainID, rawTxHash, err := parseCAIPTxHash(event.BroadcastedTxHash)
 	if err != nil {
-		txID, utxID, extractErr := extractOutboundIDs(event)
-		if extractErr != nil {
-			r.logger.Warn().Err(extractErr).Str("event_id", event.EventID).
-				Msg("invalid broadcasted tx hash and failed to extract outbound IDs")
-			return
-		}
-		_ = r.voteOutboundFailureAndMarkReverted(ctx, event, txID, utxID, "", 0, "0", "invalid broadcasted tx hash format")
+		r.logger.Warn().Err(err).
+			Str("event_id", event.EventID).
+			Str("broadcasted_tx_hash", event.BroadcastedTxHash).
+			Msg("invalid CAIP, leaving BROADCASTED")
 		return
 	}
 
@@ -141,19 +132,20 @@ func (r *Resolver) resolveOutbound(ctx context.Context, event *store.Event) {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Fund migration resolution (parsing + EVM resolution with explicit voting)
-// ---------------------------------------------------------------------------
-
-// resolveFundMigration resolves a SIGN_FUND_MIGRATE event.
-// Unlike outbound where success voting is done by the destination chain event listener,
-// fund migration requires the resolver to vote both success and failure explicitly
-// since there is no gateway event to observe for native transfers.
+// resolveFundMigration resolves a SIGN_FUND_MIGRATE event. EVM-only; the
+// resolver votes both success and failure explicitly (no gateway event).
 func (r *Resolver) resolveFundMigration(ctx context.Context, event *store.Event) {
 	chainID, rawTxHash, err := parseCAIPTxHash(event.BroadcastedTxHash)
 	if err != nil {
-		r.logger.Warn().Err(err).Str("event_id", event.EventID).
-			Msg("fund migration: invalid broadcasted tx hash format")
+		r.logger.Warn().Err(err).
+			Str("event_id", event.EventID).
+			Str("broadcasted_tx_hash", event.BroadcastedTxHash).
+			Msg("invalid CAIP, leaving BROADCASTED")
+		return
+	}
+	if !r.chains.IsEVMChain(chainID) {
+		r.logger.Warn().Str("chain", chainID).Str("event_id", event.EventID).
+			Msg("fund migration resolution not supported for this chain type")
 		return
 	}
 
@@ -164,21 +156,15 @@ func (r *Resolver) resolveFundMigration(ctx context.Context, event *store.Event)
 		return
 	}
 
-	if r.chains.IsEVMChain(chainID) {
-		r.resolveFundMigrationEVM(ctx, event, chainID, rawTxHash, migrationData.MigrationID)
-	} else {
-		r.logger.Warn().Str("chain", chainID).Str("event_id", event.EventID).
-			Msg("fund migration resolution not supported for this chain type")
-	}
+	r.resolveFundMigrationEVM(ctx, event, chainID, rawTxHash, migrationData.MigrationID)
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
+// parseCAIPTxHash splits "<chainID>:<rawTxHash>" on the LAST colon (chainID
+// itself contains colons). Empty hash suffix is accepted — SVM emits that form
+// to signal "no on-chain hash"; chain callers decide whether to accept.
 func parseCAIPTxHash(caipTxHash string) (chainID, txHash string, err error) {
 	lastColon := strings.LastIndex(caipTxHash, ":")
-	if lastColon <= 0 || lastColon == len(caipTxHash)-1 {
+	if lastColon <= 0 {
 		return "", "", fmt.Errorf("invalid CAIP tx hash format: %s", caipTxHash)
 	}
 	return caipTxHash[:lastColon], caipTxHash[lastColon+1:], nil

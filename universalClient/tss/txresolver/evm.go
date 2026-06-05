@@ -37,6 +37,13 @@ func (r *Resolver) resolveOutboundEVM(ctx context.Context, event *store.Event, c
 		Str("chain", chainID).
 		Str("tx_hash", rawTxHash).Logger()
 
+	// Empty hash → rewind so broadcaster recomputes deterministically.
+	if rawTxHash == "" {
+		log.Debug().Msg("EVM outbound BROADCASTED with empty tx hash, rewinding to SIGNED")
+		r.rewindToSigned(event, chainID, 0, 0)
+		return
+	}
+
 	txID, utxID, err := extractOutboundIDs(event)
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to extract outbound IDs")
@@ -105,6 +112,13 @@ func (r *Resolver) resolveFundMigrationEVM(ctx context.Context, event *store.Eve
 		Str("type", event.Type).
 		Str("chain", chainID).
 		Str("tx_hash", rawTxHash).Logger()
+
+	// Empty hash → rewind so broadcaster recomputes deterministically.
+	if rawTxHash == "" {
+		log.Debug().Msg("EVM fund migration BROADCASTED with empty tx hash, rewinding to SIGNED")
+		r.rewindToSigned(event, chainID, 0, 0)
+		return
+	}
 
 	builder, err := r.getBuilder(chainID)
 	if err != nil {

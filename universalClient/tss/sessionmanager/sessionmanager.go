@@ -855,18 +855,42 @@ func (sm *SessionManager) checkExpiredSessions(ctx context.Context, blockDelay u
 			// Clean up session
 			sm.cleanSession(eventID, state)
 
-			// Update event: mark as confimed and set new block height (current + delay)
-			newBlockHeight := currentBlock + blockDelay
-			if err := sm.eventStore.Update(eventID, map[string]any{"status": store.StatusConfirmed, "block_height": newBlockHeight}); err != nil {
-				sm.logger.Warn().
-					Err(err).
-					Str("event_id", eventID).
+			// Recovery-at-boundary: if a signature was already persisted (via a
+			// signed-ACK or a sibling's signature_broadcast) but the setup-handler
+			// clobbered status back to IN_PROGRESS, event_data carries
+			// signing_data. Restore SIGNED so the broadcaster picks it up. Otherwise
+			// roll back to CONFIRMED with a deferred block height for retry.
+			event, getErr := sm.eventStore.GetEvent(eventID)
+			if getErr != nil {
+				sm.logger.Warn().Err(getErr).Str("event_id", eventID).
+					Msg("failed to load expired event for recovery")
+				continue
+			}
+			signed, sErr := extractSignedDataFromEvent(event)
+			if sErr != nil {
+				sm.logger.Warn().Err(sErr).Str("event_id", eventID).
+					Msg("signing_data on expired event is corrupt; will retry as CONFIRMED")
+			}
+			var (
+				updates map[string]any
+				logMsg  string
+			)
+			if signed != nil {
+				updates = map[string]any{"status": store.StatusSigned}
+				logMsg = "expired session removed; signing_data present, restored to SIGNED"
+			} else {
+				newBlockHeight := currentBlock + blockDelay
+				updates = map[string]any{
+					"status":       store.StatusConfirmed,
+					"block_height": newBlockHeight,
+				}
+				logMsg = "expired session removed, event marked as pending for retry"
+			}
+			if err := sm.eventStore.Update(eventID, updates); err != nil {
+				sm.logger.Warn().Err(err).Str("event_id", eventID).
 					Msg("failed to update expired session event")
 			} else {
-				sm.logger.Info().
-					Str("event_id", eventID).
-					Uint64("new_block_height", newBlockHeight).
-					Msg("expired session removed, event marked as pending for retry")
+				sm.logger.Info().Str("event_id", eventID).Msg(logMsg)
 			}
 		}
 	}

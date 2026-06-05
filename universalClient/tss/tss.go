@@ -298,16 +298,18 @@ func (n *Node) Start(ctx context.Context) error {
 		return fmt.Errorf("failed to register message handler: %w", err)
 	}
 
-	// Reset all IN_PROGRESS events to PENDING on startup
-	// This handles cases where the node crashed while events were in progress,
-	// causing sessions to be lost from memory but events remaining in IN_PROGRESS state
-	resetCount, err := n.eventStore.ResetInProgressEventsToConfirmed()
+	// Recover IN_PROGRESS events on startup. Two-pass:
+	//   1. Rows whose event_data already carries signing_data → SIGNED
+	//      (signature was persisted but status got clobbered by a race).
+	//   2. Remaining IN_PROGRESS → CONFIRMED (genuine mid-session crashes).
+	signedRecovered, confirmedReset, err := n.eventStore.RecoverInProgressEvents()
 	if err != nil {
-		n.logger.Warn().Err(err).Msg("failed to reset IN_PROGRESS events to PENDING, continuing anyway")
-	} else if resetCount > 0 {
+		n.logger.Warn().Err(err).Msg("failed to recover IN_PROGRESS events, continuing anyway")
+	} else if signedRecovered > 0 || confirmedReset > 0 {
 		n.logger.Info().
-			Int64("reset_count", resetCount).
-			Msg("reset IN_PROGRESS events to PENDING on node startup")
+			Int64("signed_recovered", signedRecovered).
+			Int64("confirmed_reset", confirmedReset).
+			Msg("recovered IN_PROGRESS events on node startup")
 	}
 
 	// Create coordinator with send function using node's Send method

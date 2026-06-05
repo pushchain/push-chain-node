@@ -2,6 +2,8 @@ package eventstore
 
 import (
 	"encoding/json"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -335,40 +337,117 @@ func TestUpdate(t *testing.T) {
 	})
 }
 
-func TestResetInProgressEventsToConfirmed(t *testing.T) {
-	t.Run("resets in-progress events", func(t *testing.T) {
+func TestHasSigningData(t *testing.T) {
+	validSig := strings.Repeat("ab", 64)   // 64 bytes (r||s)
+	validSig65 := strings.Repeat("cd", 65) // 65 bytes (r||s||v)
+	validHash := strings.Repeat("ef", 32)  // 32 bytes
+
+	cases := []struct {
+		name string
+		body string
+		want bool
+	}{
+		{"empty bytes", "", false},
+		{"not json", "not json", false},
+		{"no signing_data key", `{"foo":"bar"}`, false},
+		{"signing_data is null", `{"signing_data":null}`, false},
+		{"signing_data missing signature", fmt.Sprintf(
+			`{"signing_data":{"signing_hash":"%s"}}`, validHash), false},
+		{"signing_data missing signing_hash", fmt.Sprintf(
+			`{"signing_data":{"signature":"%s"}}`, validSig), false},
+		{"signature not hex", fmt.Sprintf(
+			`{"signing_data":{"signature":"zzz","signing_hash":"%s"}}`, validHash), false},
+		{"signing_hash not hex", fmt.Sprintf(
+			`{"signing_data":{"signature":"%s","signing_hash":"zzz"}}`, validSig), false},
+		{"signature wrong length (32B)", fmt.Sprintf(
+			`{"signing_data":{"signature":"%s","signing_hash":"%s"}}`,
+			strings.Repeat("ab", 32), validHash), false},
+		{"signing_hash wrong length (16B)", fmt.Sprintf(
+			`{"signing_data":{"signature":"%s","signing_hash":"%s"}}`,
+			validSig, strings.Repeat("ef", 16)), false},
+		{"valid 64-byte signature", fmt.Sprintf(
+			`{"signing_data":{"signature":"%s","signing_hash":"%s","nonce":42}}`,
+			validSig, validHash), true},
+		{"valid 65-byte signature (with v)", fmt.Sprintf(
+			`{"signing_data":{"signature":"%s","signing_hash":"%s","nonce":42}}`,
+			validSig65, validHash), true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := hasSigningData([]byte(tc.body)); got != tc.want {
+				t.Errorf("hasSigningData(%q) = %v, want %v", tc.body, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestRecoverInProgressEvents(t *testing.T) {
+	// Helper: seed an IN_PROGRESS event whose event_data carries signing_data
+	// (mimicking a row whose status was clobbered after PersistSignature ran).
+	// 64-byte signature (r||s, 128 hex chars), 32-byte hash (64 hex chars).
+	validSig := strings.Repeat("ab", 64)
+	validHash := strings.Repeat("cd", 32)
+	createInProgressWithSigningData := func(t *testing.T, s *Store, id string) {
+		t.Helper()
+		body := []byte(fmt.Sprintf(
+			`{"foo":"bar","signing_data":{"signature":"%s","signing_hash":"%s","nonce":1}}`,
+			validSig, validHash))
+		ev := store.Event{
+			EventID:     id,
+			BlockHeight: 100,
+			Type:        store.EventTypeSignOutbound,
+			Status:      store.StatusInProgress,
+			EventData:   body,
+		}
+		if err := s.db.Create(&ev).Error; err != nil {
+			t.Fatalf("seed %s: %v", id, err)
+		}
+	}
+
+	t.Run("rescues IN_PROGRESS with signing_data to SIGNED, resets the rest to CONFIRMED", func(t *testing.T) {
 		s := setupTestStore(t)
-		createTestEvent(t, s, "ip-1", 100, store.StatusInProgress, 200)
-		createTestEvent(t, s, "ip-2", 100, store.StatusInProgress, 200)
+		createInProgressWithSigningData(t, s, "rescue-1")
+		createInProgressWithSigningData(t, s, "rescue-2")
+		createTestEvent(t, s, "plain-ip-1", 100, store.StatusInProgress, 200) // no signing_data
 		createTestEvent(t, s, "confirmed-1", 100, store.StatusConfirmed, 200)
 
-		count, err := s.ResetInProgressEventsToConfirmed()
+		signedRecovered, confirmedReset, err := s.RecoverInProgressEvents()
 		if err != nil {
-			t.Fatalf("ResetInProgressEventsToConfirmed() error = %v, want nil", err)
+			t.Fatalf("RecoverInProgressEvents: %v", err)
 		}
-		if count != 2 {
-			t.Errorf("ResetInProgressEventsToConfirmed() reset %d, want 2", count)
+		if signedRecovered != 2 {
+			t.Errorf("signedRecovered = %d, want 2", signedRecovered)
+		}
+		if confirmedReset != 1 {
+			t.Errorf("confirmedReset = %d, want 1", confirmedReset)
 		}
 
-		// Verify all are now CONFIRMED
-		for _, id := range []string{"ip-1", "ip-2", "confirmed-1"} {
-			event, _ := s.GetEvent(id)
-			if event.Status != store.StatusConfirmed {
-				t.Errorf("event %s status = %s, want %s", id, event.Status, store.StatusConfirmed)
+		for _, id := range []string{"rescue-1", "rescue-2"} {
+			ev, _ := s.GetEvent(id)
+			if ev.Status != store.StatusSigned {
+				t.Errorf("%s status = %s, want SIGNED", id, ev.Status)
 			}
+		}
+		ev, _ := s.GetEvent("plain-ip-1")
+		if ev.Status != store.StatusConfirmed {
+			t.Errorf("plain-ip-1 status = %s, want CONFIRMED", ev.Status)
+		}
+		ev, _ = s.GetEvent("confirmed-1")
+		if ev.Status != store.StatusConfirmed {
+			t.Errorf("confirmed-1 should be untouched, status = %s", ev.Status)
 		}
 	})
 
-	t.Run("no in-progress events", func(t *testing.T) {
+	t.Run("no IN_PROGRESS events", func(t *testing.T) {
 		s := setupTestStore(t)
 		createTestEvent(t, s, "event-1", 100, store.StatusConfirmed, 200)
 
-		count, err := s.ResetInProgressEventsToConfirmed()
+		signedRecovered, confirmedReset, err := s.RecoverInProgressEvents()
 		if err != nil {
-			t.Fatalf("ResetInProgressEventsToConfirmed() error = %v, want nil", err)
+			t.Fatalf("RecoverInProgressEvents: %v", err)
 		}
-		if count != 0 {
-			t.Errorf("ResetInProgressEventsToConfirmed() reset %d, want 0", count)
+		if signedRecovered != 0 || confirmedReset != 0 {
+			t.Errorf("counts = (%d, %d), want (0, 0)", signedRecovered, confirmedReset)
 		}
 	})
 
@@ -378,19 +457,61 @@ func TestResetInProgressEventsToConfirmed(t *testing.T) {
 		createTestEvent(t, s, "broadcasted-1", 100, store.StatusBroadcasted, 200)
 		createTestEvent(t, s, "ip-1", 100, store.StatusInProgress, 200)
 
-		count, _ := s.ResetInProgressEventsToConfirmed()
-		if count != 1 {
-			t.Errorf("ResetInProgressEventsToConfirmed() reset %d, want 1", count)
+		_, confirmedReset, _ := s.RecoverInProgressEvents()
+		if confirmedReset != 1 {
+			t.Errorf("confirmedReset = %d, want 1", confirmedReset)
 		}
 
-		// REVERTED and BROADCASTED should be unchanged
 		reverted, _ := s.GetEvent("reverted-1")
 		if reverted.Status != store.StatusReverted {
-			t.Errorf("reverted event status = %s, want %s", reverted.Status, store.StatusReverted)
+			t.Errorf("reverted status = %s", reverted.Status)
 		}
 		broadcasted, _ := s.GetEvent("broadcasted-1")
 		if broadcasted.Status != store.StatusBroadcasted {
-			t.Errorf("broadcasted event status = %s, want %s", broadcasted.Status, store.StatusBroadcasted)
+			t.Errorf("broadcasted status = %s", broadcasted.Status)
+		}
+	})
+
+	t.Run("malformed signing_data treated as no signing_data", func(t *testing.T) {
+		// Stricter than just "bad JSON": structurally valid JSON with a
+		// signing_data block whose fields fail length/hex validation must NOT
+		// be promoted to SIGNED — the broadcaster would fail to assemble.
+		cases := []struct {
+			id   string
+			body []byte
+		}{
+			{"non-json", []byte(`not json at all`)},
+			{"sig-wrong-length", []byte(
+				`{"signing_data":{"signature":"ab","signing_hash":"` +
+					strings.Repeat("ef", 32) + `"}}`)},
+			{"sig-not-hex", []byte(
+				`{"signing_data":{"signature":"zzzz","signing_hash":"` +
+					strings.Repeat("ef", 32) + `"}}`)},
+		}
+		s := setupTestStore(t)
+		for _, c := range cases {
+			if err := s.db.Create(&store.Event{
+				EventID:     c.id,
+				BlockHeight: 100,
+				Type:        store.EventTypeSignOutbound,
+				Status:      store.StatusInProgress,
+				EventData:   c.body,
+			}).Error; err != nil {
+				t.Fatalf("seed %s: %v", c.id, err)
+			}
+		}
+		signedRecovered, confirmedReset, err := s.RecoverInProgressEvents()
+		if err != nil {
+			t.Fatalf("RecoverInProgressEvents: %v", err)
+		}
+		if signedRecovered != 0 || confirmedReset != int64(len(cases)) {
+			t.Errorf("counts = (%d, %d), want (0, %d)", signedRecovered, confirmedReset, len(cases))
+		}
+		for _, c := range cases {
+			ev, _ := s.GetEvent(c.id)
+			if ev.Status != store.StatusConfirmed {
+				t.Errorf("%s status = %s, want CONFIRMED", c.id, ev.Status)
+			}
 		}
 	})
 }

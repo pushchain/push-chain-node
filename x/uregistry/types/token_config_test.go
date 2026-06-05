@@ -23,7 +23,7 @@ func TestTokenConfig_ValidateBasic(t *testing.T) {
 			name: "valid token config",
 			config: types.TokenConfig{
 				Chain:                "eip155:1",
-				Address:              "0xabc123",
+				Address:              "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
 				Name:                 "USD Coin",
 				Symbol:               "USDC",
 				Decimals:             6,
@@ -38,7 +38,7 @@ func TestTokenConfig_ValidateBasic(t *testing.T) {
 			name: "missing chain",
 			config: types.TokenConfig{
 				Chain:                "",
-				Address:              "0xabc123",
+				Address:              "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
 				Name:                 "USD Coin",
 				Symbol:               "USDC",
 				Decimals:             6,
@@ -68,7 +68,7 @@ func TestTokenConfig_ValidateBasic(t *testing.T) {
 			name: "zero decimals",
 			config: types.TokenConfig{
 				Chain:                "eip155:1",
-				Address:              "0xabc123",
+				Address:              "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
 				Name:                 "USD Coin",
 				Symbol:               "USDC",
 				Decimals:             0,
@@ -83,7 +83,7 @@ func TestTokenConfig_ValidateBasic(t *testing.T) {
 			name: "invalid token type",
 			config: types.TokenConfig{
 				Chain:                "eip155:1",
-				Address:              "0xabc123",
+				Address:              "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
 				Name:                 "USD Coin",
 				Symbol:               "USDC",
 				Decimals:             6,
@@ -98,7 +98,7 @@ func TestTokenConfig_ValidateBasic(t *testing.T) {
 			name: "missing liquidity cap",
 			config: types.TokenConfig{
 				Chain:                "eip155:1",
-				Address:              "0xabc123",
+				Address:              "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
 				Name:                 "USD Coin",
 				Symbol:               "USDC",
 				Decimals:             6,
@@ -113,7 +113,7 @@ func TestTokenConfig_ValidateBasic(t *testing.T) {
 			name: "invalid native representation contract address",
 			config: types.TokenConfig{
 				Chain:        "eip155:1",
-				Address:      "0xabc123",
+				Address:      "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
 				Name:         "USD Coin",
 				Symbol:       "USDC",
 				Decimals:     6,

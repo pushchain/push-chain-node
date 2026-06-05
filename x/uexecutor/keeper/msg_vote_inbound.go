@@ -16,6 +16,10 @@ import (
 // query what happened to their cross-chain tx instead of having funds silently stuck
 // in the gateway contract.
 func (k Keeper) VoteInbound(ctx context.Context, universalValidator sdk.ValAddress, inbound types.Inbound) error {
+	// Canonicalize first so every derived key + the stored inbound use one
+	// representation per logical event.
+	inbound.Canonicalize()
+
 	k.Logger().Info("vote inbound received",
 		"validator", universalValidator.String(),
 		"source_chain", inbound.SourceChain,

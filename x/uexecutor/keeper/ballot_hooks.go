@@ -2,10 +2,7 @@ package keeper
 
 import (
 	"context"
-	"encoding/hex"
-	"errors"
 
-	"cosmossdk.io/collections"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
@@ -77,45 +74,40 @@ func (h BallotHooks) afterInboundBallotTerminal(
 	ballotID string,
 	status uvalidatortypes.BallotStatus,
 ) error {
-	// Decode ballot ID → Inbound (ballot ID for INBOUND_TX is hex(marshal(Inbound))).
-	bz, err := hex.DecodeString(ballotID)
-	if err != nil {
-		h.k.Logger().Warn("ballot terminal hook: cannot hex-decode inbound ballot id",
-			"ballot_id", ballotID, "err", err.Error())
-		return nil
-	}
-	var inbound types.Inbound
-	if err := inbound.Unmarshal(bz); err != nil {
-		h.k.Logger().Warn("ballot terminal hook: cannot unmarshal inbound from ballot id",
-			"ballot_id", ballotID, "err", err.Error())
-		return nil
-	}
-	utxKey := types.GetInboundUniversalTxKey(inbound)
-
-	entry, err := h.k.PendingInbounds.Get(ctx, utxKey)
-	if err != nil {
-		if errors.Is(err, collections.ErrNotFound) {
-			// Entry was already cleared (e.g. the consensus-success path in
-			// VoteInbound already removed it before this hook fires). Nothing
-			// to do.
-			return nil
+	// Ballot IDs are one-way canonical digests (not reversible), so locate
+	// the owning audit-trail entry by scanning PendingInbounds for the
+	// variant carrying this ballot ID. The pending set is small and
+	// transient, and this hook only fires on terminal transitions.
+	var (
+		utxKey string
+		entry  types.PendingInboundEntry
+		found  bool
+	)
+	err := h.k.PendingInbounds.Walk(ctx, nil, func(key string, e types.PendingInboundEntry) (bool, error) {
+		for _, v := range e.Variants {
+			if v.BallotId == ballotID {
+				utxKey, entry, found = key, e, true
+				return true, nil
+			}
 		}
+		return false, nil
+	})
+	if err != nil {
 		return err
+	}
+	if !found {
+		// Entry was already cleared (e.g. the consensus-success path in
+		// VoteInbound already removed it before this hook fires), or the
+		// ballot does not belong to a tracked inbound. Nothing to do.
+		return nil
 	}
 
 	// Mark this variant's terminal status.
-	found := false
 	for i := range entry.Variants {
 		if entry.Variants[i].BallotId == ballotID {
 			entry.Variants[i].TerminalStatus = status
-			found = true
 			break
 		}
-	}
-	if !found {
-		h.k.Logger().Warn("ballot terminal hook: inbound variant not found in pending entry",
-			"ballot_id", ballotID, "utx_key", utxKey)
-		return nil
 	}
 
 	// If any variant is still PENDING, persist the updated entry and wait.

@@ -30,6 +30,8 @@ const (
 	Query_GetPendingOutbound_FullMethodName  = "/uexecutor.v1.Query/GetPendingOutbound"
 	Query_AllPendingOutbounds_FullMethodName = "/uexecutor.v1.Query/AllPendingOutbounds"
 	Query_AllExpiredInbounds_FullMethodName  = "/uexecutor.v1.Query/AllExpiredInbounds"
+	Query_InboundKeys_FullMethodName         = "/uexecutor.v1.Query/InboundKeys"
+	Query_OutboundBallotKey_FullMethodName   = "/uexecutor.v1.Query/OutboundBallotKey"
 )
 
 // QueryClient is the client API for Query service.
@@ -60,6 +62,14 @@ type QueryClient interface {
 	// inbounds whose ballots all reached EXPIRED/REJECTED without producing
 	// a UniversalTx). Consumed by the future escape-hatch refund flow.
 	AllExpiredInbounds(ctx context.Context, in *QueryAllExpiredInboundsRequest, opts ...grpc.CallOption) (*QueryAllExpiredInboundsResponse, error)
+	// Derives the canonical UTX id and inbound ballot id for a given inbound,
+	// so off-chain validators read the keys from the chain instead of
+	// re-implementing the canonicalization + digest rules.
+	InboundKeys(ctx context.Context, in *QueryInboundKeysRequest, opts ...grpc.CallOption) (*QueryInboundKeysResponse, error)
+	// Derives the canonical outbound ballot id for a given observation. The
+	// observed tx hash is canonicalized against the outbound's destination
+	// chain (looked up by utx_id/outbound_id).
+	OutboundBallotKey(ctx context.Context, in *QueryOutboundBallotKeyRequest, opts ...grpc.CallOption) (*QueryOutboundBallotKeyResponse, error)
 }
 
 type queryClient struct {
@@ -169,6 +179,24 @@ func (c *queryClient) AllExpiredInbounds(ctx context.Context, in *QueryAllExpire
 	return out, nil
 }
 
+func (c *queryClient) InboundKeys(ctx context.Context, in *QueryInboundKeysRequest, opts ...grpc.CallOption) (*QueryInboundKeysResponse, error) {
+	out := new(QueryInboundKeysResponse)
+	err := c.cc.Invoke(ctx, Query_InboundKeys_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) OutboundBallotKey(ctx context.Context, in *QueryOutboundBallotKeyRequest, opts ...grpc.CallOption) (*QueryOutboundBallotKeyResponse, error) {
+	out := new(QueryOutboundBallotKeyResponse)
+	err := c.cc.Invoke(ctx, Query_OutboundBallotKey_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // QueryServer is the server API for Query service.
 // All implementations must embed UnimplementedQueryServer
 // for forward compatibility
@@ -197,6 +225,14 @@ type QueryServer interface {
 	// inbounds whose ballots all reached EXPIRED/REJECTED without producing
 	// a UniversalTx). Consumed by the future escape-hatch refund flow.
 	AllExpiredInbounds(context.Context, *QueryAllExpiredInboundsRequest) (*QueryAllExpiredInboundsResponse, error)
+	// Derives the canonical UTX id and inbound ballot id for a given inbound,
+	// so off-chain validators read the keys from the chain instead of
+	// re-implementing the canonicalization + digest rules.
+	InboundKeys(context.Context, *QueryInboundKeysRequest) (*QueryInboundKeysResponse, error)
+	// Derives the canonical outbound ballot id for a given observation. The
+	// observed tx hash is canonicalized against the outbound's destination
+	// chain (looked up by utx_id/outbound_id).
+	OutboundBallotKey(context.Context, *QueryOutboundBallotKeyRequest) (*QueryOutboundBallotKeyResponse, error)
 	mustEmbedUnimplementedQueryServer()
 }
 
@@ -236,6 +272,12 @@ func (UnimplementedQueryServer) AllPendingOutbounds(context.Context, *QueryAllPe
 }
 func (UnimplementedQueryServer) AllExpiredInbounds(context.Context, *QueryAllExpiredInboundsRequest) (*QueryAllExpiredInboundsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AllExpiredInbounds not implemented")
+}
+func (UnimplementedQueryServer) InboundKeys(context.Context, *QueryInboundKeysRequest) (*QueryInboundKeysResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method InboundKeys not implemented")
+}
+func (UnimplementedQueryServer) OutboundBallotKey(context.Context, *QueryOutboundBallotKeyRequest) (*QueryOutboundBallotKeyResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method OutboundBallotKey not implemented")
 }
 func (UnimplementedQueryServer) mustEmbedUnimplementedQueryServer() {}
 
@@ -448,6 +490,42 @@ func _Query_AllExpiredInbounds_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Query_InboundKeys_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryInboundKeysRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).InboundKeys(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_InboundKeys_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).InboundKeys(ctx, req.(*QueryInboundKeysRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_OutboundBallotKey_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryOutboundBallotKeyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).OutboundBallotKey(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_OutboundBallotKey_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).OutboundBallotKey(ctx, req.(*QueryOutboundBallotKeyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Query_ServiceDesc is the grpc.ServiceDesc for Query service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -498,6 +576,14 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AllExpiredInbounds",
 			Handler:    _Query_AllExpiredInbounds_Handler,
+		},
+		{
+			MethodName: "InboundKeys",
+			Handler:    _Query_InboundKeys_Handler,
+		},
+		{
+			MethodName: "OutboundBallotKey",
+			Handler:    _Query_OutboundBallotKey_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

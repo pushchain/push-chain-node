@@ -9,6 +9,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	utils "github.com/pushchain/push-chain-node/test/utils"
+	chainutils "github.com/pushchain/push-chain-node/utils"
 	uexecutorkeeper "github.com/pushchain/push-chain-node/x/uexecutor/keeper"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	typesv2 "github.com/pushchain/push-chain-node/x/uexecutor/typesv2"
@@ -65,7 +66,7 @@ func TestGetUniversalTxV2(t *testing.T) {
 		require.NotNil(t, utx.InboundTx)
 		require.Equal(t, inbound.SourceChain, utx.InboundTx.SourceChain)
 		require.Equal(t, inbound.TxHash, utx.InboundTx.TxHash)
-		require.Equal(t, inbound.Sender, utx.InboundTx.Sender)
+		require.Equal(t, chainutils.LenientCanonicalizeEVMAddress(inbound.Sender), utx.InboundTx.Sender)
 		require.Equal(t, inbound.Amount, utx.InboundTx.Amount)
 		require.Equal(t, inbound.AssetAddr, utx.InboundTx.AssetAddr)
 

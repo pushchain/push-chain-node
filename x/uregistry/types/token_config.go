@@ -6,6 +6,8 @@ import (
 
 	"cosmossdk.io/errors"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+
+	"github.com/pushchain/push-chain-node/utils"
 )
 
 // Stringer method for TokenConfig
@@ -25,6 +27,13 @@ func (p TokenConfig) ValidateBasic() error {
 
 	if strings.TrimSpace(p.Address) == "" {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "token contract address cannot be empty")
+	}
+
+	// Enforce a parseable address for the chain's namespace (e.g. 20-byte hex
+	// for eip155, base58 for solana) so every registration lands on the
+	// canonical storage key.
+	if _, err := utils.CanonicalizeAddressByNamespace(p.Chain, p.Address); err != nil {
+		return errors.Wrapf(sdkerrors.ErrInvalidRequest, "invalid token address for chain %s: %s", p.Chain, err)
 	}
 
 	if strings.TrimSpace(p.Name) == "" {

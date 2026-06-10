@@ -22,12 +22,14 @@ import (
 	"github.com/pushchain/push-chain-node/x/uregistry/keeper"
 	v2 "github.com/pushchain/push-chain-node/x/uregistry/migrations/v2"
 	v3 "github.com/pushchain/push-chain-node/x/uregistry/migrations/v3"
+	v4 "github.com/pushchain/push-chain-node/x/uregistry/migrations/v4"
 	"github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
 const (
 	// ConsensusVersion defines the current x/uregistry module consensus version.
-	ConsensusVersion = 3
+	// v4: canonical token storage keys + PRC20 reverse index (F-2026-17022).
+	ConsensusVersion = 4
 )
 
 var (
@@ -154,6 +156,11 @@ func (a AppModule) RegisterServices(cfg module.Configurator) {
 	if err := cfg.RegisterMigration(types.ModuleName, 2, a.migrateToV3()); err != nil {
 		panic(fmt.Sprintf("failed to migrate %s from version 2 to 3: %v", types.ModuleName, err))
 	}
+
+	// Register uregistry migration for v4 (from version 3 → 4): canonical token keys + PRC20 index
+	if err := cfg.RegisterMigration(types.ModuleName, 3, a.migrateToV4()); err != nil {
+		panic(fmt.Sprintf("failed to migrate %s from version 3 to 4: %v", types.ModuleName, err))
+	}
 }
 
 func (a AppModule) migrateToV2() module.MigrationHandler {
@@ -169,6 +176,14 @@ func (a AppModule) migrateToV3() module.MigrationHandler {
 		ctx.Logger().Info("🔧 Running uregistry module migration: v2 → v3 (vault fields)")
 
 		return v3.MigrateChainConfigs(ctx, &a.keeper, a.AppModuleBasic.cdc, a.keeper.Logger())
+	}
+}
+
+func (a AppModule) migrateToV4() module.MigrationHandler {
+	return func(ctx sdk.Context) error {
+		ctx.Logger().Info("🔧 Running uregistry module migration: v3 → v4 (canonical token keys + PRC20 index)")
+
+		return v4.MigrateTokenConfigs(ctx, &a.keeper)
 	}
 }
 

@@ -232,7 +232,7 @@ var (
 	BaseDenomUnit int64 = 18
 
 	BaseDenom    = pushtypes.BaseDenom
-	DisplayDenom = "MY_DENOM_DISPLAY" // TODO: ?
+	DisplayDenom = pushtypes.DisplayDenom
 
 	// Bech32PrefixAccAddr defines the Bech32 prefix of an account's address
 	Bech32PrefixAccAddr = Bech32Prefix

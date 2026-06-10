@@ -9,8 +9,10 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
 	"github.com/pushchain/push-chain-node/app/upgrades"
+	pushtypes "github.com/pushchain/push-chain-node/types"
 )
 
 // Upgrade for the pushchain/evm dependency bump from v0.4.0 to v0.5.0.
@@ -46,6 +48,22 @@ func CreateUpgradeHandler(
 		logger := sdkCtx.Logger().With("upgrade", UpgradeName)
 		logger.Info("Starting upgrade handler")
 		logger.Info("pushchain/evm v0.4.0 → v0.5.0: coin info state migration, precompile/ante API updates")
+
+		// Register denom metadata for the EVM base denom in the bank module.
+		// InitEvmCoinInfo reads bank metadata to determine coin decimals and
+		// display denom; the chain genesis has no metadata entry for upc so
+		// this must be set here before InitEvmCoinInfo is called.
+		keepers.BankKeeper.SetDenomMetaData(sdkCtx, banktypes.Metadata{
+			Description: "Native token of Push Chain",
+			DenomUnits: []*banktypes.DenomUnit{
+				{Denom: pushtypes.BaseDenom, Exponent: 0},
+				{Denom: pushtypes.DisplayDenom, Exponent: 18},
+			},
+			Base:    pushtypes.BaseDenom,
+			Display: pushtypes.DisplayDenom,
+			Name:    "Push Chain",
+			Symbol:  "PC",
+		})
 
 		// InitEvmCoinInfo is required in v0.5 — chain denom/decimal config is now stored
 		// on-chain rather than derived purely from app options at startup.

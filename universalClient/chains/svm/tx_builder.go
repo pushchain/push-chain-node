@@ -1,60 +1,27 @@
-// Package svm implements the Solana (SVM) transaction builder for Push Chain's
-// cross-chain outbound transaction system.
+// Package svm implements the Solana transaction builder for Push Chain
+// cross-chain outbounds.
 //
-// # How Cross-Chain Outbound Works (High-Level)
+// # Two-signature model
 //
-// When a user on Push Chain wants to send funds/execute something on Solana:
+// Every gateway tx carries two signatures:
+//   - TSS (secp256k1/ECDSA): authorizes the cross-chain op. Signs the keccak256
+//     of the canonical message; gateway recovers via secp256k1_recover and
+//     checks against the TSS PDA's stored ETH address.
+//   - Relayer (Ed25519): standard Solana tx signature. Relayer pays the SOL fee.
 //
-//  1. Push Chain emits an OutboundCreatedEvent with details (amount, recipient, etc.)
-//  2. A coordinator node picks up the event
-//  3. This TxBuilder constructs the message that needs to be signed (GetOutboundSigningRequest)
-//  4. Push Chain validators collectively sign the message using TSS (Threshold Signature Scheme)
-//     - TSS uses secp256k1 (same curve as Ethereum) — the TSS group has an ETH-style address
-//  5. This TxBuilder assembles the full Solana transaction with the TSS signature and broadcasts it
-//     (BroadcastOutboundSigningRequest)
-//  6. The Solana gateway contract verifies the TSS signature on-chain using secp256k1_recover
+// # Gateway entry points
 //
-// # Two-Signature Architecture
+//   - finalize_universal_tx — id=1 withdraw, id=2 execute (CPI).
+//   - finalize_universal_tx_with_ix_data_ref — same flow but ix_data is loaded
+//     from a stored PDA (large-payload path). See the Ref-Finalize Route section.
+//   - revert_universal_tx — id=3, refund-on-failure for SOL and SPL.
+//   - rescue_funds — id=4, emergency drain of locked vault funds.
 //
-// Every Solana transaction requires TWO different signatures:
-//
-//   - TSS Signature (secp256k1/ECDSA): Signs the message hash. Verified by the gateway contract
-//     on-chain via secp256k1_recover. This proves the Push Chain validators approved the operation.
-//     The TSS group's ETH address is stored in the TSS PDA on Solana.
-//
-//   - Relayer Signature (Ed25519): Signs the Solana transaction itself. This is a standard
-//     Solana transaction signature from the relayer's keypair. The relayer pays for gas (SOL).
-//
-// # Gateway Contract (Anchor/Rust on Solana)
-//
-// The gateway is an Anchor program deployed on Solana with these main entry points:
-//
-//   - finalize_universal_tx (instruction_id=1 for withdraw, 2 for execute):
-//     Unified function that handles both simple fund transfers and arbitrary program execution.
-//     For withdraw: transfers SOL/SPL from the vault to a recipient.
-//     For execute: calls an arbitrary Solana program via CPI with provided accounts and data.
-//
-//   - revert_universal_tx (instruction_id=3): Reverts a failed cross-chain tx, returns native SOL.
-//
-//   - revert_universal_tx_token (instruction_id=4): Same but for SPL tokens.
-//
-// # Key Concepts
-//
-//   - PDA (Program Derived Address): Deterministic addresses derived from seeds + program ID.
-//     Like CREATE2 in EVM. The gateway uses PDAs for config, vault, TSS state, etc.
-//
-//   - Anchor Discriminator: First 8 bytes of sha256("global:<method_name>"). Tells the
-//     Anchor framework which function to call. Similar to EVM function selectors (4 bytes of keccak256).
-//
-//   - Borsh Serialization: Solana's standard binary format. Little-endian integers,
-//     Vec<T> = 4-byte LE length prefix + elements. Used for instruction data.
-//
-//   - TSS PDA: Stores the TSS group's 20-byte ETH address and chain ID. Replay protection uses per-tx ExecutedTx PDAs.
-//
-//   - CEA (Cross-chain Execution Account): Per-sender identity PDA derived from the EVM sender address.
-//
-//   - ATA (Associated Token Account): Deterministic token account for a wallet + mint pair.
-//     Like mapping(address => mapping(token => balance)) in EVM, but accounts are explicit on Solana.
+// Gateway-internals shorthand used throughout this file:
+//   - PDA: deterministic address from seeds + program ID (Solana CREATE2 analog).
+//   - Anchor discriminator: sha256("global:<method>")[:8] — 8-byte function selector.
+//   - Borsh: Solana's binary encoding — LE integers, Vec<T> = 4-byte LE len + bytes.
+//   - CEA: per-sender identity PDA used as the CPI signer for execute mode.
 package svm
 
 import (
@@ -81,31 +48,63 @@ import (
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
-// GatewayAccountMeta represents a single account that a target program needs when executing
-// an arbitrary cross-chain call (instruction_id=2). The payload from Push Chain includes a list
-// of these — each with the account's public key and whether it needs write access.
-// This mirrors the Rust struct in the gateway contract (state.rs).
+// =============================================================================
+//  Gateway Program Constants
+// =============================================================================
+
+// Gateway-protocol values — must match the on-chain Rust program. Changing any
+// of these requires a coordinated gateway program upgrade.
+var (
+	// PDA seed prefixes.
+	configSeed          = []byte("config")
+	vaultSeed           = []byte("vault")
+	feeVaultSeed        = []byte("fee_vault")
+	tssSeed             = []byte("final_tss_pda")
+	executedSubTxSeed   = []byte("executed_sub_tx")
+	ceaAuthoritySeed    = []byte("push_identity")
+	rateLimitConfigSeed = []byte("rate_limit_config")
+	tokenRateLimitSeed  = []byte("rate_limit")
+	storedIxDataSeed    = []byte("stored_ix_data")
+
+	// TSS message envelope — cross-protocol replay guard.
+	tssMessagePrefix = []byte("PUSH_CHAIN_SVM")
+
+	// Anchor discriminators for ref-finalize. Copied verbatim from the IDL —
+	// anchorDiscriminator() typos would only fail at runtime as a decode error.
+	discStoreExecuteIxData     = [8]byte{177, 199, 114, 191, 66, 93, 93, 110}
+	discFinalizeUniversalTxRef = [8]byte{143, 158, 113, 225, 174, 35, 57, 141}
+	discCloseStoredIxData      = [8]byte{58, 81, 153, 208, 99, 218, 247, 14}
+)
+
+// Local policy — universalClient-side routing thresholds and compute budget.
+// Safe to tune in a universalClient release without coordinating with the gateway.
+const (
+	solanaTxMaxBytes                  = 1232            // Solana hard tx-size limit (legacy and v0)
+	maxDirectTxSize                   = 1180            // fall back to ref-route above this; margin absorbs blockhash-encoding variance
+	maxRefRouteIxData                 = 921             // ix_data ceiling — store tx itself must fit under solanaTxMaxBytes
+	defaultComputeUnitLimit           = uint32(400_000) // CU budget per gateway tx; covers all flows including CEA execute
+	storedIxDataRefundRecipientOffset = 72
+)
+
+// =============================================================================
+//  Types
+// =============================================================================
+
+// GatewayAccountMeta describes one CPI account the target program needs for
+// execute-mode (instruction_id=2) outbounds. Mirrors the Rust struct in state.rs.
 type GatewayAccountMeta struct {
-	Pubkey     [32]byte // Solana public key (32 bytes, not base58-encoded)
-	IsWritable bool     // Whether the target program needs to write to this account
+	Pubkey     [32]byte // raw 32-byte pubkey, not base58
+	IsWritable bool
 }
 
-// TxBuilder constructs and broadcasts Solana transactions for cross-chain operations.
-// It implements the common.TxBuilder interface shared with the EVM tx builder.
-//
-// The builder needs:
-//   - rpcClient: to talk to a Solana RPC node (fetch account data, send transactions)
-//   - chainID: identifies the Solana cluster (e.g., "solana:EtWTRABZ..." for devnet)
-//   - gatewayAddress: the deployed gateway program's public key on Solana
-//   - nodeHome: filesystem path where the relayer's Solana keypair is stored
 type TxBuilder struct {
 	rpcClient      *RPCClient
 	chainID        string
 	gatewayAddress solana.PublicKey
 	nodeHome       string
 	logger         zerolog.Logger
-	protocolALT    solana.PublicKey                        // Protocol ALT pubkey (zero if not configured)
-	tokenALTs      map[solana.PublicKey]solana.PublicKey    // mint pubkey → token ALT pubkey
+	protocolALT    solana.PublicKey                      // zero if not configured
+	tokenALTs      map[solana.PublicKey]solana.PublicKey // mint → token ALT
 }
 
 // NewTxBuilder creates a new Solana transaction builder.
@@ -326,7 +325,7 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 
 	if txType == uetypes.TxType_INBOUND_REVERT || txType == uetypes.TxType_RESCUE_FUNDS {
 		// Revert (id=3) and rescue (id=4): instruction_id determined by TxType, no payload decode
-		instructionID, err = tb.determineInstructionID(txType, isNative)
+		instructionID, err = tb.determineInstructionID(txType)
 		if err != nil {
 			return nil, fmt.Errorf("failed to determine instruction ID: %w", err)
 		}
@@ -369,24 +368,17 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 
 		// If payload was empty/missing, fall back to TxType-derived instruction_id
 		if instructionID == 0 {
-			fallbackID, fbErr := tb.determineInstructionID(txType, isNative)
+			fallbackID, fbErr := tb.determineInstructionID(txType)
 			if fbErr != nil {
 				return nil, fmt.Errorf("failed to determine instruction ID: %w", fbErr)
 			}
 			instructionID = fallbackID
 		}
 
-		// Validate instruction_id
-		if instructionID != 1 && instructionID != 2 {
-			return nil, fmt.Errorf("invalid instruction_id: %d (expected 1=withdraw or 2=execute)", instructionID)
-		}
-
-		// Validate mode-specific constraints per integration guide
+		// Mode-specific semantic checks. Shape (instruction_id ∈ {1,2}, withdraw ⇒
+		// no accounts/ix_data) is already guaranteed by decodePayload + determineInstructionID.
 		switch instructionID {
 		case 1: // Withdraw mode
-			if len(accounts) > 0 || len(ixData) > 0 {
-				return nil, fmt.Errorf("withdraw mode: accounts and ixData must be empty")
-			}
 			if amount.Uint64() == 0 {
 				return nil, fmt.Errorf("withdraw mode: amount must be > 0")
 			}
@@ -405,7 +397,7 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 	// This message is what TSS validators sign. The gateway contract reconstructs
 	// the same message on-chain and verifies the signature matches.
 	messageHash, err := tb.constructTSSMessage(
-		instructionID, chainID, amount.Uint64(),
+		instructionID, chainID, data.SigningDeadline, amount.Uint64(),
 		txID, universalTxID, sender, token, gasFee,
 		targetProgram, accounts, ixData,
 		revertRecipient, revertMint, revertMsg,
@@ -420,6 +412,14 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 	}, nil
 }
 
+// =============================================================================
+//  Transaction Status & Lifecycle Queries
+//
+//  Helpers that report the on-chain progress of an outbound. Used by the
+//  coordinator (nonce seeding), the broadcaster (replay-check), the resolver
+//  (terminal-state detection), and the event listener (status confirmation).
+// =============================================================================
+
 // GetNextNonce returns 0 for SVM. The contract no longer uses a global nonce;
 // replay protection is handled by per-tx ExecutedTx PDAs.
 func (tb *TxBuilder) GetNextNonce(ctx context.Context, signerAddress string, useFinalized bool) (uint64, error) {
@@ -427,32 +427,36 @@ func (tb *TxBuilder) GetNextNonce(ctx context.Context, signerAddress string, use
 }
 
 // IsAlreadyExecuted checks if the ExecutedTx PDA for the given txID exists on-chain,
-// indicating another relayer has already processed this transaction.
-func (tb *TxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, error) {
+// indicating another relayer has already processed this transaction. Also
+// returns the latest finalized block's unix timestamp — the cluster's view of
+// "now" — so callers can gate deadline-based decisions against cluster time
+// rather than the host's local clock. queryBlockTime is best-effort: 0 means
+// the RPC couldn't supply it and the caller should treat cluster freshness as
+// unknown (defer irreversible decisions).
+func (tb *TxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, int64, error) {
 	txIDBytes, err := hex.DecodeString(removeHexPrefix(txID))
 	if err != nil {
-		return false, fmt.Errorf("invalid txID: %s", txID)
+		return false, 0, fmt.Errorf("invalid txID: %s", txID)
 	}
 	if len(txIDBytes) != 32 {
-		return false, fmt.Errorf("txID must be 32 bytes, got %d", len(txIDBytes))
+		return false, 0, fmt.Errorf("txID must be 32 bytes, got %d", len(txIDBytes))
 	}
 
 	var txIDArr [32]byte
 	copy(txIDArr[:], txIDBytes)
 
-	executedTxPDA, _, err := solana.FindProgramAddress([][]byte{[]byte("executed_sub_tx"), txIDArr[:]}, tb.gatewayAddress)
+	executedTxPDA, _, err := solana.FindProgramAddress([][]byte{executedSubTxSeed, txIDArr[:]}, tb.gatewayAddress)
 	if err != nil {
-		return false, fmt.Errorf("failed to derive executed_tx PDA: %w", err)
+		return false, 0, fmt.Errorf("failed to derive executed_tx PDA: %w", err)
 	}
 
-	data, err := tb.rpcClient.GetAccountData(ctx, executedTxPDA)
-	if err != nil {
-		// Account doesn't exist or RPC error — treat as not executed
-		return false, nil
-	}
+	data, _ := tb.rpcClient.GetAccountData(ctx, executedTxPDA)
+	executed := len(data) > 0
 
-	// If we got non-empty data, the PDA exists → tx was already executed
-	return len(data) > 0, nil
+	// Cluster freshness signal — best-effort; 0 on RPC failure.
+	blockTime, _ := tb.rpcClient.LatestFinalizedBlockTime(ctx)
+
+	return executed, blockTime, nil
 }
 
 // GetGasFeeUsed returns "0" for SVM. SVM gas accounting is handled via vault
@@ -460,6 +464,44 @@ func (tb *TxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, 
 // by the relayer, which is reimbursed from the gasFee baked into the signed message.
 func (tb *TxBuilder) GetGasFeeUsed(ctx context.Context, txHash string) (string, error) {
 	return "0", nil
+}
+
+// VerifyBroadcastedTx checks the status of a broadcasted transaction on Solana.
+// Returns (found, blockHeight, confirmations, status, error):
+//   - found=false: tx not found or not yet confirmed
+//   - found=true: tx exists on-chain
+//   - confirmations: number of slots since the tx was included (0 = just confirmed)
+//   - status: 0 = failed, 1 = success
+func (tb *TxBuilder) VerifyBroadcastedTx(ctx context.Context, txHash string) (found bool, blockHeight uint64, confirmations uint64, status uint8, err error) {
+	sig, sigErr := solana.SignatureFromBase58(txHash)
+	if sigErr != nil {
+		return false, 0, 0, 0, nil
+	}
+
+	tx, txErr := tb.rpcClient.GetTransaction(ctx, sig)
+	if txErr != nil {
+		return false, 0, 0, 0, nil
+	}
+
+	if tx == nil {
+		return false, 0, 0, 0, nil
+	}
+
+	// Calculate confirmations from current slot
+	var confs uint64
+	if tx.Slot > 0 {
+		latestSlot, slotErr := tb.rpcClient.GetLatestSlot(ctx)
+		if slotErr == nil && latestSlot >= tx.Slot {
+			confs = latestSlot - tx.Slot + 1
+		}
+	}
+
+	// Check if transaction had an error
+	if tx.Meta != nil && tx.Meta.Err != nil {
+		return true, tx.Slot, confs, 0, nil
+	}
+
+	return true, tx.Slot, confs, 1, nil
 }
 
 // =============================================================================
@@ -481,7 +523,13 @@ func (tb *TxBuilder) GetGasFeeUsed(ctx context.Context, txHash string) (string, 
 // =============================================================================
 
 // BroadcastOutboundSigningRequest assembles a complete Solana transaction with the
-// TSS signature and broadcasts it to the Solana network.
+// TSS signature and broadcasts it to the Solana network. For execute-mode
+// outbounds (instruction_id=2) whose direct tx exceeds maxDirectTxSize, falls
+// back to the 2-tx ref-finalize route automatically.
+//
+// Returned tx hash is always the FINALIZE tx (direct or ref-finalize). The
+// resolver / event listener only need to track this — the store tx is an
+// implementation detail invisible to downstream consumers.
 func (tb *TxBuilder) BroadcastOutboundSigningRequest(
 	ctx context.Context,
 	req *common.UnsignedSigningReq,
@@ -491,6 +539,21 @@ func (tb *TxBuilder) BroadcastOutboundSigningRequest(
 	tx, instructionID, err := tb.BuildOutboundTransaction(ctx, req, data, signature)
 	if err != nil {
 		return "", err
+	}
+
+	// Ref route is only viable for execute (id=2):
+	//   - id=1 (withdraw) carries empty ix_data → can't overflow, and the
+	//     store instruction would reject it with EmptyIxData anyway.
+	//   - id=3/4 (revert/rescue) go through separate gateway entrypoints
+	//     (revert_universal_tx / rescue_funds) with no ref-route counterpart.
+	if instructionID == 2 {
+		if txBytes, mErr := tx.MarshalBinary(); mErr == nil && len(txBytes) > maxDirectTxSize {
+			tb.logger.Info().
+				Int("direct_tx_bytes", len(txBytes)).
+				Int("threshold", maxDirectTxSize).
+				Msg("direct finalize exceeds tx size threshold, switching to ref-finalize route")
+			return tb.broadcastRefRoute(ctx, req, data, signature)
+		}
 	}
 
 	txHash, err := tb.rpcClient.BroadcastTransaction(ctx, tx)
@@ -504,6 +567,59 @@ func (tb *TxBuilder) BroadcastOutboundSigningRequest(
 		Msg("transaction broadcast successfully")
 
 	return txHash, nil
+}
+
+// storedPDAExists is the race-recovery probe — if the PDA is on-chain we can
+// proceed to finalize regardless of whose store_execute_ix_data put it there.
+func (tb *TxBuilder) storedPDAExists(ctx context.Context, storedPDA solana.PublicKey) bool {
+	data, _ := tb.rpcClient.GetAccountData(ctx, storedPDA)
+	return len(data) > 0
+}
+
+// broadcastRefRoute drives the 2-tx ref-finalize flow as a tick-based state
+// machine — at most ONE action per broadcaster tick:
+//
+//   - PDA exists on-chain → broadcast finalize, return tx hash.
+//   - PDA absent          → broadcast store, return non-nil error so the
+//     broadcaster counts it as a failed attempt and retries next tick. The
+//     happy path: tick N broadcasts store, tick N+1 (15s later, after ~13s
+//     Finalized) sees the PDA and broadcasts finalize.
+//
+// PDA is content-addressed by (sub_tx_id, keccak256(ix_data)); every validator
+// derives the same address. Only one store wins on-chain (Anchor `init` dedups);
+// losers see AccountAlreadyInUse — the broadcaster's retry handles it.
+func (tb *TxBuilder) broadcastRefRoute(
+	ctx context.Context,
+	req *common.UnsignedSigningReq,
+	data *uetypes.OutboundCreatedEvent,
+	signature []byte,
+) (string, error) {
+	storeTx, refTx, storedPDA, err := tb.BuildRefRouteTransactions(ctx, req, data, signature)
+	if err != nil {
+		return "", fmt.Errorf("failed to build ref-route transactions: %w", err)
+	}
+
+	if tb.storedPDAExists(ctx, storedPDA) {
+		refHash, err := tb.rpcClient.BroadcastTransaction(ctx, refTx)
+		if err != nil {
+			return "", fmt.Errorf("failed to broadcast finalize_universal_tx_with_ix_data_ref: %w", err)
+		}
+		tb.logger.Info().
+			Str("tx_hash", refHash).
+			Str("stored_pda", storedPDA.String()).
+			Msg("ref-finalize broadcast successfully")
+		return refHash, nil
+	}
+
+	storeHash, broadcastErr := tb.rpcClient.BroadcastTransaction(ctx, storeTx)
+	if broadcastErr != nil {
+		return "", fmt.Errorf("failed to broadcast store_execute_ix_data: %w", broadcastErr)
+	}
+	tb.logger.Info().
+		Str("store_tx_hash", storeHash).
+		Str("stored_pda", storedPDA.String()).
+		Msg("store_execute_ix_data broadcast; finalize deferred to next tick")
+	return "", fmt.Errorf("store_execute_ix_data broadcast; finalize will be attempted on next broadcaster tick")
 }
 
 // fetchAddressTables fetches Address Lookup Table state for V0 transactions.
@@ -674,7 +790,7 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 	if txType == uetypes.TxType_INBOUND_REVERT || txType == uetypes.TxType_RESCUE_FUNDS {
 		// Revert (id=3) and rescue (id=4): instruction_id determined by TxType, no payload decode
 		var idErr error
-		instructionID, idErr = tb.determineInstructionID(txType, isNative)
+		instructionID, idErr = tb.determineInstructionID(txType)
 		if idErr != nil {
 			return nil, 0, fmt.Errorf("failed to determine instruction ID: %w", idErr)
 		}
@@ -696,41 +812,37 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 
 		// Fall back to TxType if payload was empty
 		if instructionID == 0 {
-			fallbackID, fbErr := tb.determineInstructionID(txType, isNative)
+			fallbackID, fbErr := tb.determineInstructionID(txType)
 			if fbErr != nil {
 				return nil, 0, fmt.Errorf("failed to determine instruction ID: %w", fbErr)
 			}
 			instructionID = fallbackID
 		}
-
-		if instructionID != 1 && instructionID != 2 {
-			return nil, 0, fmt.Errorf("invalid instruction_id: %d", instructionID)
-		}
 	}
 
 	// --- Derive PDAs ---
-	configPDA, _, err := solana.FindProgramAddress([][]byte{[]byte("config")}, tb.gatewayAddress)
+	configPDA, _, err := solana.FindProgramAddress([][]byte{configSeed}, tb.gatewayAddress)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to derive config PDA: %w", err)
 	}
 
-	vaultPDA, _, err := solana.FindProgramAddress([][]byte{[]byte("vault")}, tb.gatewayAddress)
+	vaultPDA, _, err := solana.FindProgramAddress([][]byte{vaultSeed}, tb.gatewayAddress)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to derive vault PDA: %w", err)
 	}
 
-	tssPDA, _, err := solana.FindProgramAddress([][]byte{[]byte("final_tss_pda")}, tb.gatewayAddress)
+	tssPDA, _, err := solana.FindProgramAddress([][]byte{tssSeed}, tb.gatewayAddress)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to derive TSS PDA: %w", err)
 	}
 
-	executedTxPDA, _, err := solana.FindProgramAddress([][]byte{[]byte("executed_sub_tx"), txID[:]}, tb.gatewayAddress)
+	executedTxPDA, _, err := solana.FindProgramAddress([][]byte{executedSubTxSeed, txID[:]}, tb.gatewayAddress)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to derive executed_tx PDA: %w", err)
 	}
 
 	// --- Derive fee_vault PDA (needed for revert and rescue) ---
-	feeVaultPDA, _, err := solana.FindProgramAddress([][]byte{[]byte("fee_vault")}, tb.gatewayAddress)
+	feeVaultPDA, _, err := solana.FindProgramAddress([][]byte{feeVaultSeed}, tb.gatewayAddress)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to derive fee_vault PDA: %w", err)
 	}
@@ -756,14 +868,14 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 			targetProgram = solana.SystemProgramID
 		}
 
-		ceaAuthorityPDA, _, ceaErr := solana.FindProgramAddress([][]byte{[]byte("push_identity"), sender[:]}, tb.gatewayAddress)
+		ceaAuthorityPDA, _, ceaErr := solana.FindProgramAddress([][]byte{ceaAuthoritySeed, sender[:]}, tb.gatewayAddress)
 		if ceaErr != nil {
 			return nil, 0, fmt.Errorf("failed to derive cea_authority PDA: %w", ceaErr)
 		}
 
 		instructionData = tb.buildWithdrawAndExecuteData(
 			instructionID, txID, universalTxID, amount.Uint64(), sender,
-			writableFlags, ixData, gasFee,
+			writableFlags, ixData, gasFee, data.SigningDeadline,
 			signature, recoveryID, req.SigningHash,
 		)
 
@@ -774,13 +886,14 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 			isNative, instructionID,
 			recipientPubkey, mintPubkey,
 			execAccounts,
+			solana.PublicKey{}, solana.PublicKey{}, // direct route: None sentinels for stored_ix_data + store_refund_recipient
 		)
 
 	case instructionID == 3:
 		// ---- revert_universal_tx (unified for SOL and SPL) ----
 		instructionData = tb.buildRevertData(
 			txID, universalTxID, amount.Uint64(),
-			recipientPubkey, revertMsgBytes, gasFee,
+			recipientPubkey, revertMsgBytes, gasFee, data.SigningDeadline,
 			signature, recoveryID, req.SigningHash,
 		)
 		accounts = tb.buildRevertAccounts(
@@ -792,7 +905,7 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 	case instructionID == 4:
 		// ---- rescue_funds ----
 		instructionData = tb.buildRescueData(
-			txID, universalTxID, amount.Uint64(), gasFee,
+			txID, universalTxID, amount.Uint64(), gasFee, data.SigningDeadline,
 			signature, recoveryID, req.SigningHash,
 		)
 		accounts = tb.buildRescueAccounts(
@@ -814,11 +927,9 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 		instructionData,
 	)
 
-	// Hardcoded compute budget for Solana transactions. The event's gasLimit is a fee
-	// parameter (used by core for gasFee = gasPrice × gasLimit), not actual compute units.
-	// 400,000 CU is sufficient for all gateway operations including CEA execute flows.
-	const svmComputeUnitLimit = uint32(400_000)
-	computeLimitIx := tb.buildSetComputeUnitLimitInstruction(svmComputeUnitLimit)
+	// Event's gasLimit is a fee parameter (gasFee = gasPrice × gasLimit), not
+	// actual compute units; we always allocate defaultComputeUnitLimit instead.
+	computeLimitIx := tb.buildSetComputeUnitLimitInstruction(defaultComputeUnitLimit)
 
 	// Build the instruction list.
 	instructions := []solana.Instruction{computeLimitIx}
@@ -867,18 +978,297 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 		return nil, 0, fmt.Errorf("failed to sign transaction: %w", err)
 	}
 
-	// Warn if transaction exceeds Solana's 1232-byte raw limit.
+	// Warn if transaction exceeds Solana's raw tx limit.
 	if txBytes, marshalErr := tx.MarshalBinary(); marshalErr == nil {
-		if len(txBytes) > 1232 {
+		if len(txBytes) > solanaTxMaxBytes {
 			tb.logger.Warn().
 				Int("raw_bytes", len(txBytes)).
+				Int("limit", solanaTxMaxBytes).
 				Int("ix_data_bytes", len(ixData)).
 				Uint8("instruction_id", instructionID).
-				Msg("transaction exceeds 1232-byte Solana limit")
+				Msg("transaction exceeds Solana raw tx limit")
 		}
 	}
 
 	return tx, instructionID, nil
+}
+
+// =============================================================================
+//  STEP 2b: BuildRefRouteTransactions
+//
+//  For execute-mode outbounds whose direct finalize_universal_tx exceeds
+//  Solana's 1232-byte limit, the universal validator splits the work into
+//  two transactions:
+//
+//    1. store_execute_ix_data — relayer-signed only (no TSS involvement);
+//       uploads raw ix_data into a content-addressed PDA.
+//    2. finalize_universal_tx_with_ix_data_ref — uses the SAME TSS signature
+//       as the direct route; gateway reconstructs the message from stored bytes.
+//
+//  NOTE: parsing duplicates BuildOutboundTransaction. Future refactor should
+//  hoist the parse into a shared helper. For now the duplication is bounded
+//  to execute mode (id=2); revert/rescue (3/4) never use this path.
+// =============================================================================
+
+// BuildRefRouteTransactions builds the (storeTx, refFinalizeTx) pair for a
+// large-payload execute outbound. Only valid for instructionID=2 with non-empty
+// ix_data; callers should size-check the direct tx first and only invoke this
+// when the direct route doesn't fit.
+//
+// Returns the storedIxData PDA alongside the txs so the broadcaster can probe
+// for pre-existing PDAs (retry idempotency) before re-broadcasting the store tx.
+func (tb *TxBuilder) BuildRefRouteTransactions(
+	ctx context.Context,
+	req *common.UnsignedSigningReq,
+	data *uetypes.OutboundCreatedEvent,
+	signature []byte,
+) (*solana.Transaction, *solana.Transaction, solana.PublicKey, error) {
+	if req == nil {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("signing request is nil")
+	}
+	if data == nil {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("outbound event data is nil")
+	}
+	if len(signature) != 65 {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("signature must be 65 bytes, got %d", len(signature))
+	}
+
+	recoveryID := signature[64]
+	signature = signature[:64]
+
+	relayerKeypair, err := tb.loadRelayerKeypair()
+	if err != nil {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("failed to load relayer keypair: %w", err)
+	}
+
+	// --- Parse event (mirrors BuildOutboundTransaction; execute path only) ---
+
+	amount := new(big.Int)
+	amount, ok := amount.SetString(data.Amount, 10)
+	if !ok {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("invalid amount: %s", data.Amount)
+	}
+	if !amount.IsUint64() {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("amount exceeds u64 max: %s", data.Amount)
+	}
+
+	assetAddr := data.AssetAddr
+	isNative := assetAddr == "" || assetAddr == "0x0" || assetAddr == "0x0000000000000000000000000000000000000000"
+
+	var txID [32]byte
+	txIDBytes, err := hex.DecodeString(removeHexPrefix(data.TxID))
+	if err != nil {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("invalid txID: %s", data.TxID)
+	}
+	if len(txIDBytes) == 32 {
+		copy(txID[:], txIDBytes)
+	} else if len(txIDBytes) > 0 {
+		copy(txID[32-len(txIDBytes):], txIDBytes)
+	}
+
+	var universalTxID [32]byte
+	utxIDBytes, err := hex.DecodeString(removeHexPrefix(data.UniversalTxId))
+	if err != nil {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("invalid universalTxID: %s", data.UniversalTxId)
+	}
+	if len(utxIDBytes) == 32 {
+		copy(universalTxID[:], utxIDBytes)
+	} else if len(utxIDBytes) > 0 {
+		copy(universalTxID[32-len(utxIDBytes):], utxIDBytes)
+	}
+
+	var sender [20]byte
+	senderBytes, err := hex.DecodeString(removeHexPrefix(data.Sender))
+	if err != nil {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("invalid sender: %s", data.Sender)
+	}
+	if len(senderBytes) == 20 {
+		copy(sender[:], senderBytes)
+	} else {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("invalid sender length: expected 20 bytes, got %d", len(senderBytes))
+	}
+
+	var mintPubkey solana.PublicKey
+	if !isNative {
+		mintPubkey, err = solana.PublicKeyFromBase58(assetAddr)
+		if err != nil {
+			hexBytes, hexErr := hex.DecodeString(removeHexPrefix(assetAddr))
+			if hexErr != nil || len(hexBytes) != 32 {
+				return nil, nil, solana.PublicKey{}, fmt.Errorf("invalid asset address format: %s", assetAddr)
+			}
+			mintPubkey = solana.PublicKeyFromBytes(hexBytes)
+		}
+	}
+
+	var gasFee uint64
+	if data.GasFee != "" {
+		gasFee, _ = strconv.ParseUint(data.GasFee, 10, 64)
+	}
+
+	recipientPubkey, err := solana.PublicKeyFromBase58(data.Recipient)
+	if err != nil {
+		hexBytes, hexErr := hex.DecodeString(removeHexPrefix(data.Recipient))
+		if hexErr != nil || len(hexBytes) != 32 {
+			return nil, nil, solana.PublicKey{}, fmt.Errorf("invalid recipient address format: %s", data.Recipient)
+		}
+		recipientPubkey = solana.PublicKeyFromBytes(hexBytes)
+	}
+
+	// Decode payload — ref route is execute-only, so we require an instruction_id of 2.
+	var execAccounts []GatewayAccountMeta
+	var ixData []byte
+	var instructionID uint8
+	payloadHex := removeHexPrefix(data.Payload)
+	if payloadHex != "" {
+		payloadBytes, decErr := hex.DecodeString(payloadHex)
+		if decErr != nil {
+			return nil, nil, solana.PublicKey{}, fmt.Errorf("failed to decode payload hex: %w", decErr)
+		}
+		if len(payloadBytes) > 0 {
+			execAccounts, ixData, instructionID, _, err = decodePayload(payloadBytes)
+			if err != nil {
+				return nil, nil, solana.PublicKey{}, fmt.Errorf("failed to decode payload: %w", err)
+			}
+		}
+	}
+	if instructionID != 2 {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("ref route only valid for execute mode (instruction_id=2), got %d", instructionID)
+	}
+	if len(ixData) == 0 {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("ref route requires non-empty ix_data")
+	}
+	if len(ixData) > maxRefRouteIxData {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("ix_data size %d exceeds ref-route max %d (store tx would itself exceed %d-byte limit)", len(ixData), maxRefRouteIxData, solanaTxMaxBytes)
+	}
+
+	// --- Derive PDAs ---
+
+	configPDA, _, err := solana.FindProgramAddress([][]byte{configSeed}, tb.gatewayAddress)
+	if err != nil {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("failed to derive config PDA: %w", err)
+	}
+	vaultPDA, _, err := solana.FindProgramAddress([][]byte{vaultSeed}, tb.gatewayAddress)
+	if err != nil {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("failed to derive vault PDA: %w", err)
+	}
+	tssPDA, _, err := solana.FindProgramAddress([][]byte{tssSeed}, tb.gatewayAddress)
+	if err != nil {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("failed to derive TSS PDA: %w", err)
+	}
+	executedTxPDA, _, err := solana.FindProgramAddress([][]byte{executedSubTxSeed, txID[:]}, tb.gatewayAddress)
+	if err != nil {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("failed to derive executed_tx PDA: %w", err)
+	}
+	ceaAuthorityPDA, _, err := solana.FindProgramAddress([][]byte{ceaAuthoritySeed, sender[:]}, tb.gatewayAddress)
+	if err != nil {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("failed to derive cea_authority PDA: %w", err)
+	}
+
+	// Content-addressed stored_ix_data PDA: ["stored_ix_data", sub_tx_id, keccak256(ix_data)]
+	ixDataHashSlice := crypto.Keccak256(ixData)
+	var ixDataHash [32]byte
+	copy(ixDataHash[:], ixDataHashSlice)
+	storedIxDataPDA, err := tb.deriveStoredIxDataPDA(txID, ixDataHash)
+	if err != nil {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("failed to derive stored_ix_data PDA: %w", err)
+	}
+
+	// Resolve store_refund_recipient:
+	//   - If the PDA already exists on-chain (another validator won the store
+	//     race), the contract enforces store_refund_recipient.key() == stored
+	//     value, so we must echo whatever's already stored — not our own key.
+	//   - Otherwise we'll be the one creating the PDA, so our relayer is right.
+	storeRefundRecipient := relayerKeypair.PublicKey()
+	if existing, _ := tb.rpcClient.GetAccountData(ctx, storedIxDataPDA); len(existing) >= storedIxDataRefundRecipientOffset+32 {
+		copy(storeRefundRecipient[:], existing[storedIxDataRefundRecipientOffset:storedIxDataRefundRecipientOffset+32])
+	}
+
+	// --- Build store_execute_ix_data tx (relayer-signed only, no TSS) ---
+
+	recentBlockhash, err := tb.rpcClient.GetRecentBlockhash(ctx)
+	if err != nil {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("failed to get recent blockhash: %w", err)
+	}
+
+	storeData := tb.buildStoreIxDataData(txID, ixDataHash, ixData)
+	storeAccounts := tb.buildStoreIxDataAccounts(relayerKeypair.PublicKey(), storedIxDataPDA)
+	storeInstruction := solana.NewInstruction(tb.gatewayAddress, storeAccounts, storeData)
+
+	storeTx, err := solana.NewTransaction(
+		[]solana.Instruction{storeInstruction},
+		recentBlockhash,
+		solana.TransactionPayer(relayerKeypair.PublicKey()),
+	)
+	if err != nil {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("failed to create store tx: %w", err)
+	}
+	if _, err := storeTx.Sign(func(key solana.PublicKey) *solana.PrivateKey {
+		if key.Equals(relayerKeypair.PublicKey()) {
+			priv := relayerKeypair
+			return &priv
+		}
+		return nil
+	}); err != nil {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("failed to sign store tx: %w", err)
+	}
+
+	// --- Build finalize_universal_tx_with_ix_data_ref tx (TSS-signed) ---
+
+	writableFlags := accountsToWritableFlags(execAccounts)
+	refInstructionData := tb.buildWithdrawAndExecuteRefData(
+		2, // execute
+		txID, universalTxID, amount.Uint64(), sender,
+		ixDataHash,
+		writableFlags,
+		gasFee,
+		data.SigningDeadline,
+		signature, recoveryID, req.SigningHash,
+	)
+
+	refAccounts := tb.buildWithdrawAndExecuteAccounts(
+		relayerKeypair.PublicKey(),
+		configPDA, vaultPDA, ceaAuthorityPDA, tssPDA, executedTxPDA,
+		recipientPubkey, // destination_program (target of CPI)
+		isNative, 2,     // execute
+		recipientPubkey, mintPubkey,
+		execAccounts,
+		storedIxDataPDA, storeRefundRecipient, // ref route: real values
+	)
+
+	refInstruction := solana.NewInstruction(tb.gatewayAddress, refAccounts, refInstructionData)
+	computeLimitIx := tb.buildSetComputeUnitLimitInstruction(defaultComputeUnitLimit)
+
+	instructions := []solana.Instruction{computeLimitIx}
+	needsRecipientATA := !isNative && false // execute mode (id=2) doesn't create recipient ATA; gateway handles cea_ata internally
+	if needsRecipientATA {
+		instructions = append(instructions, tb.buildCreateATAIdempotentInstruction(
+			relayerKeypair.PublicKey(), recipientPubkey, mintPubkey,
+		))
+	}
+	instructions = append(instructions, refInstruction)
+
+	refOpts := []solana.TransactionOption{solana.TransactionPayer(relayerKeypair.PublicKey())}
+	addressTables, altErr := tb.fetchAddressTables(ctx, mintPubkey, isNative)
+	if altErr != nil {
+		tb.logger.Warn().Err(altErr).Msg("failed to fetch ALTs for ref-finalize, falling back to legacy tx")
+	} else if len(addressTables) > 0 {
+		refOpts = append(refOpts, solana.TransactionAddressTables(addressTables))
+	}
+	refTx, err := solana.NewTransaction(instructions, recentBlockhash, refOpts...)
+	if err != nil {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("failed to create ref-finalize tx: %w", err)
+	}
+	if _, err := refTx.Sign(func(key solana.PublicKey) *solana.PrivateKey {
+		if key.Equals(relayerKeypair.PublicKey()) {
+			priv := relayerKeypair
+			return &priv
+		}
+		return nil
+	}); err != nil {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("failed to sign ref-finalize tx: %w", err)
+	}
+
+	return storeTx, refTx, storedIxDataPDA, nil
 }
 
 // =============================================================================
@@ -904,7 +1294,7 @@ func removeHexPrefix(s string) string {
 //
 // Seed: ["final_tss_pda"] — must match the Rust constant TSS_SEED in state.rs
 func (tb *TxBuilder) deriveTSSPDA() (solana.PublicKey, error) {
-	seeds := [][]byte{[]byte("final_tss_pda")}
+	seeds := [][]byte{tssSeed}
 	address, _, err := solana.FindProgramAddress(seeds, tb.gatewayAddress)
 	return address, err
 }
@@ -948,16 +1338,14 @@ func (tb *TxBuilder) fetchTSSChainID(ctx context.Context, tssPDA solana.PublicKe
 //  Instruction ID Mapping
 // =============================================================================
 
-// determineInstructionID maps the Push Chain TxType + asset type to the gateway's instruction ID.
-//
-// The gateway contract uses these IDs in the TSS message and the instruction data:
+// determineInstructionID maps the Push Chain TxType to the gateway's instruction ID.
 //
 //	ID  Function                     When
-//	1   finalize_universal_tx         FUNDS (withdraw mode): send SOL or SPL tokens to a recipient
-//	2   finalize_universal_tx         FUNDS_AND_PAYLOAD or GAS_AND_PAYLOAD (execute mode): call a program
-//	3   revert_universal_tx          INBOUND_REVERT: unified revert for both SOL and SPL
-//	4   rescue_funds                 RESCUE_FUNDS: emergency rescue of locked funds
-func (tb *TxBuilder) determineInstructionID(txType uetypes.TxType, isNative bool) (uint8, error) {
+//	1   finalize_universal_tx        FUNDS (withdraw mode)
+//	2   finalize_universal_tx        FUNDS_AND_PAYLOAD or GAS_AND_PAYLOAD (execute mode)
+//	3   revert_universal_tx          INBOUND_REVERT (unified SOL + SPL)
+//	4   rescue_funds                 RESCUE_FUNDS
+func (tb *TxBuilder) determineInstructionID(txType uetypes.TxType) (uint8, error) {
 	switch txType {
 	case uetypes.TxType_FUNDS:
 		return 1, nil
@@ -1009,6 +1397,7 @@ func (tb *TxBuilder) determineInstructionID(txType uetypes.TxType, isNative bool
 func (tb *TxBuilder) constructTSSMessage(
 	instructionID uint8,
 	chainID string,
+	deadlineUnix int64,
 	amount uint64,
 	txID [32]byte,
 	universalTxID [32]byte,
@@ -1022,9 +1411,15 @@ func (tb *TxBuilder) constructTSSMessage(
 	revertMint [32]byte,
 	revertMsg []byte,
 ) ([]byte, error) {
-	message := []byte("PUSH_CHAIN_SVM")
+	// Wire format expected by the SVM gateway program's validate_message:
+	//   PREFIX || instruction_id || chain_id || deadline(i64 BE) || amount(u64 BE) || additional_data
+	message := append([]byte(nil), tssMessagePrefix...)
 	message = append(message, instructionID)
 	message = append(message, []byte(chainID)...)
+
+	deadlineBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(deadlineBytes, uint64(deadlineUnix))
+	message = append(message, deadlineBytes...)
 
 	amountBytes := make([]byte, 8)
 	binary.BigEndian.PutUint64(amountBytes, amount)
@@ -1174,63 +1569,77 @@ func (tb *TxBuilder) loadRelayerKeypair() (solana.PrivateKey, error) {
 // The payload is built off-chain and encodes the operation type plus any
 // target program data needed for execution:
 //
-//	[u32 BE]         accounts_count — how many accounts the target program needs
-//	[33 bytes] × N   accounts — each is [pubkey(32) + is_writable(1)]
-//	[u32 BE]         ix_data_len — length of the instruction data for the target program
-//	[N bytes]        ix_data — the raw instruction data to pass to the target program
-//	[u8]             instruction_id — 1=withdraw, 2=execute
-//	[32 bytes]       target_program — the Solana program to invoke
+//	bytes [0       ..   4)       accountsCount     u32  — number of CPI accounts (N)
+//	bytes [4       ..   4+33N)   accounts          N × {pubkey[32], isWritable[1]}
+//	bytes [4+33N   ..   8+33N)   ixDataLen         u32  — length of ix_data in bytes (M)
+//	bytes [8+33N   ..   8+33N+M) ixData            M raw bytes for the target program
+//	byte  [8+33N+M]              instructionID    u8   — 1=withdraw, 2=execute
+//	bytes [9+33N+M .. 41+33N+M)  targetProgram    32 bytes — the Solana program to invoke
 //
 // For withdraw (instruction_id=1): accounts_count=0, ix_data_len=0
-// For execute (instruction_id=2): accounts and ix_data contain CPI data
+// For execute  (instruction_id=2): accounts and ix_data contain CPI data
 func decodePayload(payload []byte) ([]GatewayAccountMeta, []byte, uint8, [32]byte, error) {
+	const (
+		sizeAccountsCount = 4
+		sizeAccount       = 33 // 32-byte pubkey + 1-byte is_writable
+		sizeIxDataLen     = 4
+		sizeInstructionID = 1
+		sizeTargetProgram = 32
+
+		minPayloadLen = sizeAccountsCount + sizeIxDataLen + sizeInstructionID + sizeTargetProgram
+	)
+
 	var targetProgram [32]byte
 
-	// Minimum payload: accounts_count(4) + ix_data_len(4) + instruction_id(1) + target_program(32) = 41
-	if len(payload) < 41 {
-		return nil, nil, 0, targetProgram, fmt.Errorf("payload too short: %d bytes (minimum 41)", len(payload))
+	// --- Validate structure and bounds ---
+
+	if len(payload) < minPayloadLen {
+		return nil, nil, 0, targetProgram, fmt.Errorf("payload too short: %d bytes (minimum %d)", len(payload), minPayloadLen)
 	}
 
-	offset := 0
+	accountsCount := binary.BigEndian.Uint32(payload[0:sizeAccountsCount])
 
-	accountsCount := binary.BigEndian.Uint32(payload[offset : offset+4])
-	offset += 4
+	ixDataLenOff := uint64(sizeAccountsCount) + uint64(accountsCount)*sizeAccount
+	if ixDataLenOff+sizeIxDataLen > uint64(len(payload)) {
+		return nil, nil, 0, targetProgram, fmt.Errorf("payload too short for %d accounts: need %d bytes through ix_data length, have %d", accountsCount, ixDataLenOff+sizeIxDataLen, len(payload))
+	}
+	// Past this check ixDataLenOff is bounded by len(payload), so int conversion is safe.
+	ixDataLen := binary.BigEndian.Uint32(payload[ixDataLenOff : ixDataLenOff+sizeIxDataLen])
+
+	// Payload must be consumed exactly — no truncation, no trailing bytes.
+	expectedLen := ixDataLenOff + sizeIxDataLen + uint64(ixDataLen) + sizeInstructionID + sizeTargetProgram
+	switch {
+	case uint64(len(payload)) < expectedLen:
+		return nil, nil, 0, targetProgram, fmt.Errorf("payload too short: expected %d bytes, got %d (accountsCount=%d, ixDataLen=%d)", expectedLen, len(payload), accountsCount, ixDataLen)
+	case uint64(len(payload)) > expectedLen:
+		return nil, nil, 0, targetProgram, fmt.Errorf("payload has %d trailing bytes (expected %d, got %d)", uint64(len(payload))-expectedLen, expectedLen, len(payload))
+	}
+
+	ixDataOff := int(ixDataLenOff) + sizeIxDataLen
+	instrIDOff := ixDataOff + int(ixDataLen)
+	targetOff := instrIDOff + sizeInstructionID
+
+	instructionID := payload[instrIDOff]
+	if instructionID != 1 && instructionID != 2 {
+		return nil, nil, 0, targetProgram, fmt.Errorf("invalid instruction_id %d (expected 1=withdraw or 2=execute)", instructionID)
+	}
+	if instructionID == 1 && (accountsCount != 0 || ixDataLen != 0) {
+		return nil, nil, 0, targetProgram, fmt.Errorf("withdraw payload must have accountsCount=0 and ixDataLen=0, got %d/%d", accountsCount, ixDataLen)
+	}
+
+	// --- Parse validated payload ---
 
 	accounts := make([]GatewayAccountMeta, accountsCount)
-	for i := uint32(0); i < accountsCount; i++ {
-		if offset+33 > len(payload) {
-			return nil, nil, 0, targetProgram, fmt.Errorf("payload too short for account %d", i)
-		}
-		var pubkey [32]byte
-		copy(pubkey[:], payload[offset:offset+32])
-		isWritable := payload[offset+32] == 1
-		accounts[i] = GatewayAccountMeta{Pubkey: pubkey, IsWritable: isWritable}
-		offset += 33
+	for i := range accountsCount {
+		base := sizeAccountsCount + int(i)*sizeAccount
+		copy(accounts[i].Pubkey[:], payload[base:base+32])
+		accounts[i].IsWritable = payload[base+32] == 1
 	}
 
-	if offset+4 > len(payload) {
-		return nil, nil, 0, targetProgram, fmt.Errorf("payload too short for ix_data length")
-	}
-	ixDataLen := binary.BigEndian.Uint32(payload[offset : offset+4])
-	offset += 4
-
-	if offset+int(ixDataLen) > len(payload) {
-		return nil, nil, 0, targetProgram, fmt.Errorf("payload too short for ix_data")
-	}
 	ixData := make([]byte, ixDataLen)
-	copy(ixData, payload[offset:offset+int(ixDataLen)])
-	offset += int(ixDataLen)
+	copy(ixData, payload[ixDataOff:instrIDOff])
 
-	if offset >= len(payload) {
-		return nil, nil, 0, targetProgram, fmt.Errorf("payload too short for instruction_id")
-	}
-	instructionID := payload[offset]
-	offset++
-
-	if offset+32 > len(payload) {
-		return nil, nil, 0, targetProgram, fmt.Errorf("payload too short for target_program")
-	}
-	copy(targetProgram[:], payload[offset:offset+32])
+	copy(targetProgram[:], payload[targetOff:targetOff+sizeTargetProgram])
 
 	return accounts, ixData, instructionID, targetProgram, nil
 }
@@ -1310,6 +1719,7 @@ func (tb *TxBuilder) buildWithdrawAndExecuteData(
 	writableFlags []byte,
 	ixData []byte,
 	gasFee uint64,
+	deadlineUnix int64,
 	signature []byte,
 	recoveryID byte,
 	messageHash []byte,
@@ -1343,6 +1753,10 @@ func (tb *TxBuilder) buildWithdrawAndExecuteData(
 	binary.LittleEndian.PutUint64(gasFeeBytes, gasFee)
 	data = append(data, gasFeeBytes...)
 
+	deadlineBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(deadlineBytes, uint64(deadlineUnix))
+	data = append(data, deadlineBytes...)
+
 	data = append(data, signature...)
 	data = append(data, recoveryID)
 	data = append(data, messageHash...)
@@ -1371,6 +1785,7 @@ func (tb *TxBuilder) buildRevertData(
 	revertRecipient solana.PublicKey,
 	revertMsg []byte,
 	gasFee uint64,
+	deadlineUnix int64,
 	signature []byte,
 	recoveryID byte,
 	messageHash []byte,
@@ -1397,6 +1812,10 @@ func (tb *TxBuilder) buildRevertData(
 	binary.LittleEndian.PutUint64(gasFeeBytes, gasFee)
 	data = append(data, gasFeeBytes...)
 
+	deadlineBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(deadlineBytes, uint64(deadlineUnix))
+	data = append(data, deadlineBytes...)
+
 	data = append(data, signature...)
 	data = append(data, recoveryID)
 	data = append(data, messageHash...)
@@ -1421,6 +1840,7 @@ func (tb *TxBuilder) buildRescueData(
 	universalTxID [32]byte,
 	amount uint64,
 	gasFee uint64,
+	deadlineUnix int64,
 	signature []byte,
 	recoveryID byte,
 	messageHash []byte,
@@ -1439,6 +1859,10 @@ func (tb *TxBuilder) buildRescueData(
 	gasFeeBytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(gasFeeBytes, gasFee)
 	data = append(data, gasFeeBytes...)
+
+	deadlineBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(deadlineBytes, uint64(deadlineUnix))
+	data = append(data, deadlineBytes...)
 
 	data = append(data, signature...)
 	data = append(data, recoveryID)
@@ -1483,11 +1907,19 @@ func (tb *TxBuilder) buildRescueData(
 //	--- Optional rate limit accounts (17-18) ---
 //	17  rate_limit_config      read/None   Rate limit config PDA ["rate_limit_config"] (required when destination=gateway ie CEA path only))
 //	18  token_rate_limit       mut/None    Token rate limit PDA ["rate_limit", mint] (required when destination=gateway ie CEA path only)
+//	--- Optional ref-finalize accounts (19-20) ---
+//	19  stored_ix_data         read/None   StoredIxData PDA (only used by ref-finalize route)
+//	20  store_refund_recipient mut/None    Receives store-tx fee reimbursement (ref route only)
 //	--- Execute-only remaining accounts ---
-//	19+ remaining_accounts     varies      Accounts that the target program needs
+//	21+ remaining_accounts     varies      Accounts that the target program needs
 //
 // For Anchor Option<Account> fields: passing the gateway program's own ID = None.
 // This is Anchor's convention for encoding "this optional account is not provided".
+//
+// storedIxDataPDA and storeRefundRecipient are zero-valued for the direct route
+// (None sentinels emitted) and set to real values for the ref-finalize route.
+// They must always occupy positions 19-20, otherwise remaining_accounts (CPI
+// accounts for execute mode) shift up and Anchor misinterprets them.
 func (tb *TxBuilder) buildWithdrawAndExecuteAccounts(
 	caller solana.PublicKey,
 	configPDA solana.PublicKey,
@@ -1501,6 +1933,8 @@ func (tb *TxBuilder) buildWithdrawAndExecuteAccounts(
 	recipientPubkey solana.PublicKey,
 	mintPubkey solana.PublicKey,
 	execAccounts []GatewayAccountMeta,
+	storedIxDataPDA solana.PublicKey,
+	storeRefundRecipient solana.PublicKey,
 ) []*solana.AccountMeta {
 	// First 8 required accounts (always present)
 	accounts := []*solana.AccountMeta{
@@ -1530,16 +1964,13 @@ func (tb *TxBuilder) buildWithdrawAndExecuteAccounts(
 		}
 	} else {
 		// SPL token flow: derive and pass real ATAs
-		ataProgramID := solana.MustPublicKeyFromBase58("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
-		rentSysvar := solana.MustPublicKeyFromBase58("SysvarRent111111111111111111111111111111111")
-
 		vaultATA, _, _ := solana.FindProgramAddress(
 			[][]byte{accounts[2].PublicKey.Bytes(), solana.TokenProgramID.Bytes(), mintPubkey.Bytes()},
-			ataProgramID,
+			solana.SPLAssociatedTokenAccountProgramID,
 		)
 		ceaATA, _, _ := solana.FindProgramAddress(
 			[][]byte{ceaAuthorityPDA.Bytes(), solana.TokenProgramID.Bytes(), mintPubkey.Bytes()},
-			ataProgramID,
+			solana.SPLAssociatedTokenAccountProgramID,
 		)
 
 		if instructionID == 1 {
@@ -1551,13 +1982,13 @@ func (tb *TxBuilder) buildWithdrawAndExecuteAccounts(
 		accounts = append(accounts, &solana.AccountMeta{PublicKey: ceaATA, IsWritable: true, IsSigner: false})
 		accounts = append(accounts, &solana.AccountMeta{PublicKey: mintPubkey, IsWritable: false, IsSigner: false})
 		accounts = append(accounts, &solana.AccountMeta{PublicKey: solana.TokenProgramID, IsWritable: false, IsSigner: false})
-		accounts = append(accounts, &solana.AccountMeta{PublicKey: rentSysvar, IsWritable: false, IsSigner: false})
-		accounts = append(accounts, &solana.AccountMeta{PublicKey: ataProgramID, IsWritable: false, IsSigner: false})
+		accounts = append(accounts, &solana.AccountMeta{PublicKey: solana.SysVarRentPubkey, IsWritable: false, IsSigner: false})
+		accounts = append(accounts, &solana.AccountMeta{PublicKey: solana.SPLAssociatedTokenAccountProgramID, IsWritable: false, IsSigner: false})
 
 		if instructionID == 1 {
 			recipientATA, _, _ := solana.FindProgramAddress(
 				[][]byte{recipientPubkey.Bytes(), solana.TokenProgramID.Bytes(), mintPubkey.Bytes()},
-				ataProgramID,
+				solana.SPLAssociatedTokenAccountProgramID,
 			)
 			accounts = append(accounts, &solana.AccountMeta{PublicKey: recipientATA, IsWritable: true, IsSigner: false})
 		} else {
@@ -1569,7 +2000,7 @@ func (tb *TxBuilder) buildWithdrawAndExecuteAccounts(
 	// When destination is the gateway itself (CEA→UEA), pass real rate limit PDAs.
 	// Otherwise, pass None (gateway program ID sentinel).
 	if destinationProgram.Equals(tb.gatewayAddress) {
-		rateLimitConfigPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("rate_limit_config")}, tb.gatewayAddress)
+		rateLimitConfigPDA, _, _ := solana.FindProgramAddress([][]byte{rateLimitConfigSeed}, tb.gatewayAddress)
 		accounts = append(accounts, &solana.AccountMeta{PublicKey: rateLimitConfigPDA, IsWritable: false, IsSigner: false})
 
 		// token_rate_limit PDA: seeds = ["rate_limit", token_mint]
@@ -1579,12 +2010,28 @@ func (tb *TxBuilder) buildWithdrawAndExecuteAccounts(
 			rateLimitMint = mintPubkey
 		}
 		// rateLimitMint is zero-value (Pubkey::default()) for native SOL
-		tokenRateLimitPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("rate_limit"), rateLimitMint.Bytes()}, tb.gatewayAddress)
+		tokenRateLimitPDA, _, _ := solana.FindProgramAddress([][]byte{tokenRateLimitSeed, rateLimitMint.Bytes()}, tb.gatewayAddress)
 		accounts = append(accounts, &solana.AccountMeta{PublicKey: tokenRateLimitPDA, IsWritable: true, IsSigner: false})
 	} else {
 		// Not a CEA→UEA flow: rate limit accounts are None
 		accounts = append(accounts, &solana.AccountMeta{PublicKey: tb.gatewayAddress, IsWritable: false, IsSigner: false})
 		accounts = append(accounts, &solana.AccountMeta{PublicKey: tb.gatewayAddress, IsWritable: false, IsSigner: false})
+	}
+
+	// Ref-finalize optional accounts (#19-20):
+	// Always emit these slots so remaining_accounts (execute-mode CPI accounts)
+	// land at the correct position. Direct route passes zero pubkeys → None sentinel.
+	if storedIxDataPDA.IsZero() {
+		accounts = append(accounts, &solana.AccountMeta{PublicKey: tb.gatewayAddress, IsWritable: false, IsSigner: false})
+	} else {
+		// Must be writable — finalize_universal_tx_with_ix_data_ref auto-closes
+		// the PDA on success (the contract declares it `#[account(mut)]`).
+		accounts = append(accounts, &solana.AccountMeta{PublicKey: storedIxDataPDA, IsWritable: true, IsSigner: false})
+	}
+	if storeRefundRecipient.IsZero() {
+		accounts = append(accounts, &solana.AccountMeta{PublicKey: tb.gatewayAddress, IsWritable: false, IsSigner: false})
+	} else {
+		accounts = append(accounts, &solana.AccountMeta{PublicKey: storeRefundRecipient, IsWritable: true, IsSigner: false})
 	}
 
 	// For execute mode: append the target program's accounts as "remaining_accounts".
@@ -1603,46 +2050,6 @@ func (tb *TxBuilder) buildWithdrawAndExecuteAccounts(
 	return accounts
 }
 
-// VerifyBroadcastedTx checks the status of a broadcasted transaction on Solana.
-// Returns (found, confirmations, status, error):
-// - found=false: tx not found or not yet confirmed
-// - found=true: tx exists on-chain
-//   - confirmations: number of slots since the tx was included (0 = just confirmed)
-//   - status: 0 = failed, 1 = success
-func (tb *TxBuilder) VerifyBroadcastedTx(ctx context.Context, txHash string) (found bool, blockHeight uint64, confirmations uint64, status uint8, err error) {
-	sig, sigErr := solana.SignatureFromBase58(txHash)
-	if sigErr != nil {
-		return false, 0, 0, 0, nil
-	}
-
-	tx, txErr := tb.rpcClient.GetTransaction(ctx, sig)
-	if txErr != nil {
-		return false, 0, 0, 0, nil
-	}
-
-	if tx == nil {
-		return false, 0, 0, 0, nil
-	}
-
-	// Calculate confirmations from current slot
-	var confs uint64
-	if tx.Slot > 0 {
-		latestSlot, slotErr := tb.rpcClient.GetLatestSlot(ctx)
-		if slotErr == nil && latestSlot >= tx.Slot {
-			confs = latestSlot - tx.Slot + 1
-		}
-	}
-
-	// Check if transaction had an error
-	if tx.Meta != nil && tx.Meta.Err != nil {
-		return true, tx.Slot, confs, 0, nil
-	}
-
-	return true, tx.Slot, confs, 1, nil
-}
-
-// buildSetComputeUnitLimitInstruction creates a SetComputeUnitLimit instruction for the Compute Budget program
-// Instruction format: [1-byte instruction type (2 = SetComputeUnitLimit)] + [4-byte u32 units]
 // buildRevertAccounts builds the unified accounts list for revert_universal_tx
 // (handles both SOL and SPL).
 //
@@ -1691,14 +2098,13 @@ func (tb *TxBuilder) buildRevertAccounts(
 		}
 	} else {
 		// SPL: derive and pass real ATAs
-		ataProgramID := solana.MustPublicKeyFromBase58("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
 		tokenVaultATA, _, _ := solana.FindProgramAddress(
 			[][]byte{vaultPDA.Bytes(), solana.TokenProgramID.Bytes(), mintPubkey.Bytes()},
-			ataProgramID,
+			solana.SPLAssociatedTokenAccountProgramID,
 		)
 		recipientATA, _, _ := solana.FindProgramAddress(
 			[][]byte{recipient.Bytes(), solana.TokenProgramID.Bytes(), mintPubkey.Bytes()},
-			ataProgramID,
+			solana.SPLAssociatedTokenAccountProgramID,
 		)
 		accounts = append(accounts,
 			&solana.AccountMeta{PublicKey: tokenVaultATA, IsWritable: true, IsSigner: false},
@@ -1746,46 +2152,175 @@ func (tb *TxBuilder) buildRescueAccounts(
 //	Byte 0:    instruction type (2 = SetComputeUnitLimit)
 //	Bytes 1-4: units (u32, little-endian)
 func (tb *TxBuilder) buildSetComputeUnitLimitInstruction(units uint32) solana.Instruction {
-	computeBudgetProgramID := solana.MustPublicKeyFromBase58("ComputeBudget111111111111111111111111111111")
-
 	data := make([]byte, 5)
 	data[0] = 2 // SetComputeUnitLimit
 	binary.LittleEndian.PutUint32(data[1:], units)
 
 	return solana.NewInstruction(
-		computeBudgetProgramID,
+		solana.ComputeBudget,
 		[]*solana.AccountMeta{},
 		data,
 	)
 }
 
 // =============================================================================
-//  ATA Creation
+//  Ref-Finalize Route (Large-Payload 2-Tx Path)
+//
+//  When the direct finalize_universal_tx exceeds Solana's 1232-byte raw tx
+//  limit (typically multi-hop CPI flows with a fat ix_data), we split the
+//  flow into two transactions:
+//
+//    1. store_execute_ix_data — relayer uploads raw ix_data into a content-
+//       addressed PDA. Permissionless, no TSS involvement.
+//    2. finalize_universal_tx_with_ix_data_ref — same logical finalize as the
+//       direct route, but the program loads ix_data from the PDA instead of
+//       taking it inline. Uses the SAME TSS message envelope (raw ix_data),
+//       so constructTSSMessage does NOT branch on route.
+//
+//  On success, finalize_universal_tx_with_ix_data_ref auto-closes the
+//  StoredIxData PDA and returns rent to store_refund_recipient in the same
+//  tx. close_stored_ix_data is only used for the failure / abort tail
+//  (store succeeded but finalize never did).
 // =============================================================================
 
-// buildCreateATAIdempotentInstruction builds a CreateIdempotent instruction for the
-// Associated Token Account (ATA) program. This creates the recipient's ATA if it
-// doesn't exist, or succeeds as a no-op if it already exists.
+// deriveStoredIxDataPDA returns the canonical StoredIxData PDA for a given
+// (sub_tx_id, ix_data_hash). The PDA is content-addressed: any holder of the
+// raw ix_data can compute its hash and derive the same address.
+func (tb *TxBuilder) deriveStoredIxDataPDA(subTxID, ixDataHash [32]byte) (solana.PublicKey, error) {
+	addr, _, err := solana.FindProgramAddress(
+		[][]byte{storedIxDataSeed, subTxID[:], ixDataHash[:]},
+		tb.gatewayAddress,
+	)
+	return addr, err
+}
+
+// buildStoreIxDataData constructs the Borsh-serialized instruction data for
+// store_execute_ix_data.
 //
-// This is needed for SPL withdraw and SPL revert flows because the gateway contract
-// validates that the recipient ATA exists but does NOT create it. The relayer pays
-// the ATA rent (~0.002 SOL) which is reimbursed via the gas_fee.
+//	Offset  Size     Field
+//	0       8        discriminator
+//	8       32       sub_tx_id           [u8; 32]
+//	40      32       ix_data_hash        [u8; 32]
+//	72      4+N      ix_data             Vec<u8> (4-byte LE length + bytes)
+func (tb *TxBuilder) buildStoreIxDataData(subTxID, ixDataHash [32]byte, ixData []byte) []byte {
+	data := make([]byte, 0, 8+32+32+4+len(ixData))
+	data = append(data, discStoreExecuteIxData[:]...)
+	data = append(data, subTxID[:]...)
+	data = append(data, ixDataHash[:]...)
+
+	lenBytes := make([]byte, 4)
+	binary.LittleEndian.PutUint32(lenBytes, uint32(len(ixData)))
+	data = append(data, lenBytes...)
+	data = append(data, ixData...)
+	return data
+}
+
+// buildWithdrawAndExecuteRefData constructs the Borsh-serialized instruction
+// data for finalize_universal_tx_with_ix_data_ref.
 //
-// ATA program instruction indices:
+// Field order DIFFERS from the direct route: ix_data_hash (fixed [u8; 32])
+// comes BEFORE writable_flags (Vec<u8>). This is intentional in the on-chain
+// program — do not swap, or Anchor will fail to decode.
 //
-//	0 = Create (fails if ATA exists)
-//	1 = CreateIdempotent (no-op if ATA exists) ← we use this
+//	Offset  Size     Field
+//	0       8        discriminator
+//	8       1        instruction_id           u8
+//	9       32       sub_tx_id                [u8; 32]
+//	41      32       universal_tx_id          [u8; 32]
+//	73      8        amount                   u64 (LE)
+//	81      20       push_account             [u8; 20]
+//	101     32       ix_data_hash             [u8; 32]          ← swapped vs direct
+//	133     4+N      writable_flags           Vec<u8>           ← swapped vs direct
+//	...     8        gas_fee                  u64 (LE)
+//	...     64       signature                [u8; 64]
+//	...     1        recovery_id              u8
+//	...     32       message_hash             [u8; 32]
+func (tb *TxBuilder) buildWithdrawAndExecuteRefData(
+	instructionID uint8,
+	subTxID [32]byte,
+	universalTxID [32]byte,
+	amount uint64,
+	pushAccount [20]byte,
+	ixDataHash [32]byte,
+	writableFlags []byte,
+	gasFee uint64,
+	deadlineUnix int64,
+	signature []byte,
+	recoveryID byte,
+	messageHash []byte,
+) []byte {
+	data := make([]byte, 0, 256)
+	data = append(data, discFinalizeUniversalTxRef[:]...)
+	data = append(data, instructionID)
+	data = append(data, subTxID[:]...)
+	data = append(data, universalTxID[:]...)
+
+	amountBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(amountBytes, amount)
+	data = append(data, amountBytes...)
+
+	data = append(data, pushAccount[:]...)
+	data = append(data, ixDataHash[:]...)
+
+	wfLen := make([]byte, 4)
+	binary.LittleEndian.PutUint32(wfLen, uint32(len(writableFlags)))
+	data = append(data, wfLen...)
+	data = append(data, writableFlags...)
+
+	gasFeeBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(gasFeeBytes, gasFee)
+	data = append(data, gasFeeBytes...)
+
+	deadlineBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(deadlineBytes, uint64(deadlineUnix))
+	data = append(data, deadlineBytes...)
+
+	data = append(data, signature...)
+	data = append(data, recoveryID)
+	data = append(data, messageHash...)
+	return data
+}
+
+// buildStoreIxDataAccounts builds the accounts list for store_execute_ix_data.
+//
+//	#   Account          Flags
+//	1   caller           signer, mut    Relayer paying for storage
+//	2   stored_ix_data   mut            Canonical StoredIxData PDA (gets init'd)
+//	3   system_program   read-only
+func (tb *TxBuilder) buildStoreIxDataAccounts(caller, storedIxDataPDA solana.PublicKey) []*solana.AccountMeta {
+	return []*solana.AccountMeta{
+		{PublicKey: caller, IsWritable: true, IsSigner: true},
+		{PublicKey: storedIxDataPDA, IsWritable: true, IsSigner: false},
+		{PublicKey: solana.SystemProgramID, IsWritable: false, IsSigner: false},
+	}
+}
+
+// buildCloseStoredIxDataAccounts builds the accounts list for close_stored_ix_data.
+// All four metas required — Anchor's Option<Account> still demands a slot.
+//
+//	1 caller (signer, mut)            2 stored_ix_data (mut)
+//	3 store_refund_recipient (mut)    4 executed_sub_tx (canonical PDA)
+func (tb *TxBuilder) buildCloseStoredIxDataAccounts(caller, storedIxDataPDA, executedSubTxPDA solana.PublicKey) []*solana.AccountMeta {
+	return []*solana.AccountMeta{
+		{PublicKey: caller, IsWritable: true, IsSigner: true},
+		{PublicKey: storedIxDataPDA, IsWritable: true, IsSigner: false},
+		{PublicKey: caller, IsWritable: true, IsSigner: false},
+		{PublicKey: executedSubTxPDA, IsWritable: false, IsSigner: false},
+	}
+}
+
+// buildCreateATAIdempotentInstruction creates the recipient's ATA if absent
+// (no-op if present). Required for SPL withdraw/revert flows because the
+// gateway validates the recipient ATA exists but does NOT create it. Relayer
+// pays the ~0.002 SOL rent, reimbursed via gas_fee.
 func (tb *TxBuilder) buildCreateATAIdempotentInstruction(
 	payer solana.PublicKey,
 	owner solana.PublicKey,
 	mint solana.PublicKey,
 ) solana.Instruction {
-	ataProgramID := solana.MustPublicKeyFromBase58("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
-
-	// Derive the ATA address deterministically from (owner, token_program, mint)
 	ata, _, _ := solana.FindProgramAddress(
 		[][]byte{owner.Bytes(), solana.TokenProgramID.Bytes(), mint.Bytes()},
-		ataProgramID,
+		solana.SPLAssociatedTokenAccountProgramID,
 	)
 
 	accounts := []*solana.AccountMeta{
@@ -1797,16 +2332,19 @@ func (tb *TxBuilder) buildCreateATAIdempotentInstruction(
 		{PublicKey: solana.TokenProgramID, IsWritable: false, IsSigner: false},
 	}
 
-	// Instruction index 1 = CreateIdempotent
-	return solana.NewInstruction(ataProgramID, accounts, []byte{1})
+	// ATA program instruction discriminator: 0 = Create (fails if exists), 1 = CreateIdempotent.
+	return solana.NewInstruction(solana.SPLAssociatedTokenAccountProgramID, accounts, []byte{1})
 }
 
-// GetFundMigrationSigningRequest is not supported for SVM - funds are held by the program, not the TSS key.
+// =============================================================================
+//  Fund Migration (Unsupported on SVM)
+//  SVM funds are held by the gateway program in PDA-controlled vaults, not by TSS
+// =============================================================================
+
 func (tb *TxBuilder) GetFundMigrationSigningRequest(ctx context.Context, data *common.FundMigrationData, nonce uint64) (*common.UnsignedSigningReq, error) {
 	return nil, fmt.Errorf("fund migration not supported for SVM")
 }
 
-// BroadcastFundMigrationTx is not supported for SVM - funds are held by the program, not the TSS key.
 func (tb *TxBuilder) BroadcastFundMigrationTx(ctx context.Context, req *common.UnsignedSigningReq, data *common.FundMigrationData, signature []byte) (string, error) {
 	return "", fmt.Errorf("fund migration not supported for SVM")
 }

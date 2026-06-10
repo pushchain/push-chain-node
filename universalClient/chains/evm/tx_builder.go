@@ -77,7 +77,9 @@ func NewTxBuilder(
 	return tb, nil
 }
 
-// GetOutboundSigningRequest creates a signing request from outbound event data
+// GetOutboundSigningRequest creates a signing request from outbound event data.
+// EVM doesn't consume data.SigningDeadline — deadlines are SVM-only; EVM relies
+// on nonce-based finality.
 func (tb *TxBuilder) GetOutboundSigningRequest(
 	ctx context.Context,
 	data *uetypes.OutboundCreatedEvent,
@@ -439,10 +441,11 @@ func parseGasLimit(gasLimitStr string) (*big.Int, error) {
 	return gasLimit, nil
 }
 
-// IsAlreadyExecuted returns false for EVM. EVM uses nonce-based replay protection,
-// checked via GetNextNonce in the broadcaster.
-func (tb *TxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, error) {
-	return false, nil
+// IsAlreadyExecuted returns (false, 0, nil) for EVM. EVM uses nonce-based
+// replay protection (checked via GetNextNonce in the broadcaster); the
+// cluster-time signal is SVM-only.
+func (tb *TxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, int64, error) {
+	return false, 0, nil
 }
 
 // GetGasFeeUsed returns the gas fee used by a transaction on the EVM chain.

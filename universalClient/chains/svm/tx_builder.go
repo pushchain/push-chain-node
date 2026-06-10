@@ -79,11 +79,10 @@ var (
 // Local policy — universalClient-side routing thresholds and compute budget.
 // Safe to tune in a universalClient release without coordinating with the gateway.
 const (
-	solanaTxMaxBytes                  = 1232            // Solana hard tx-size limit (legacy and v0)
-	maxDirectTxSize                   = 1180            // fall back to ref-route above this; margin absorbs blockhash-encoding variance
-	maxRefRouteIxData                 = 921             // ix_data ceiling — store tx itself must fit under solanaTxMaxBytes
-	defaultComputeUnitLimit           = uint32(400_000) // CU budget per gateway tx; covers all flows including CEA execute
-	storedIxDataRefundRecipientOffset = 72
+	solanaTxMaxBytes        = 1232            // Solana hard tx-size limit (legacy and v0)
+	maxDirectTxSize         = 1180            // fall back to ref-route above this; margin absorbs blockhash-encoding variance
+	maxRefRouteIxData       = 921             // ix_data ceiling — store tx itself must fit under solanaTxMaxBytes
+	defaultComputeUnitLimit = uint32(400_000) // CU budget per gateway tx; covers all flows including CEA execute
 )
 
 // =============================================================================

@@ -2,7 +2,6 @@ package keeper
 
 import (
 	"fmt"
-	"math/big"
 	"sort"
 	"strings"
 	"testing"
@@ -13,6 +12,7 @@ import (
 	"github.com/cosmos/evm/x/vm/statedb"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/holiman/uint256"
 	"github.com/pushchain/push-chain-node/x/uregistry/types"
 	"github.com/stretchr/testify/require"
 )
@@ -60,25 +60,25 @@ func TestIsContractDeployed_RejectsEOAsAndAcceptsRealContracts(t *testing.T) {
 		// This is the case the original predicate failed on.
 		addrA: {
 			Nonce:    0,
-			Balance:  big.NewInt(1_000_000_000_000_000_000), // 1 ETH-equivalent
+			Balance:  uint256.NewInt(1_000_000_000_000_000_000), // 1 ETH-equivalent
 			CodeHash: evmtypes.EmptyCodeHash,
 		},
 		// Untouched-style account with explicit nil CodeHash. Not a contract.
 		addrB: {
 			Nonce:    0,
-			Balance:  big.NewInt(0),
+			Balance:  uint256.NewInt(0),
 			CodeHash: nil,
 		},
 		// Account with empty (zero-length) CodeHash. Not a contract.
 		addrC: {
 			Nonce:    0,
-			Balance:  big.NewInt(0),
+			Balance:  uint256.NewInt(0),
 			CodeHash: []byte{},
 		},
 		// Real contract: CodeHash points to actual code.
 		addrD: {
 			Nonce:    1,
-			Balance:  big.NewInt(0),
+			Balance:  uint256.NewInt(0),
 			CodeHash: realCodeHash.Bytes(),
 		},
 		// addrMissing intentionally omitted from the map → GetAccount returns nil
@@ -164,8 +164,8 @@ func TestDeploySystemContracts_DeploysFullTripleForEveryReservedAddress(t *testi
 
 	expectedOwner := common.HexToAddress(types.PROXY_ADMIN_OWNER_ADDRESS_HEX)
 
-	// Sanity: must have processed all 46 entries (6 explicit + 40 auto-reserved).
-	require.Len(t, types.SYSTEM_CONTRACTS, 46, "SYSTEM_CONTRACTS size drift")
+	// Sanity: must have processed all 47 entries (6 explicit + 41 auto-reserved).
+	require.Len(t, types.SYSTEM_CONTRACTS, 47, "SYSTEM_CONTRACTS size drift")
 
 	for name, addrs := range types.SYSTEM_CONTRACTS {
 		proxy := common.HexToAddress(addrs.Address)

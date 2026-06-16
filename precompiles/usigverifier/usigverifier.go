@@ -26,9 +26,20 @@ var _ vm.PrecompiledContract = &Precompile{}
 //go:embed abi.json
 var f embed.FS
 
+var ABI abi.ABI
+
+func init() {
+	var err error
+	ABI, err = cmn.LoadABI(f, "abi.json")
+	if err != nil {
+		panic(err)
+	}
+}
+
 // Precompile defines the precompile
 type Precompile struct {
 	cmn.Precompile
+	abi.ABI
 }
 
 // return address of the precompile
@@ -42,18 +53,12 @@ func GetAddressV2() common.Address {
 }
 
 func NewPrecompile() (*Precompile, error) {
-	usigverifierABI, err := cmn.LoadABI(f, "abi.json")
-
-	if err != nil {
-		return nil, err
-	}
-
 	p := &Precompile{
 		Precompile: cmn.Precompile{
-			ABI:                  usigverifierABI,
 			KvGasConfig:          storetypes.KVGasConfig(),
 			TransientKVGasConfig: storetypes.TransientGasConfig(),
 		},
+		ABI: ABI,
 	}
 
 	p.SetAddress(GetAddress())
@@ -64,18 +69,12 @@ func NewPrecompile() (*Precompile, error) {
 // NewPrecompileV2 creates a new USigVerifier precompile at the new address (0xEC..01).
 // It provides the same functionality as NewPrecompile but at the reserved address range.
 func NewPrecompileV2() (*Precompile, error) {
-	usigverifierABI, err := cmn.LoadABI(f, "abi.json")
-
-	if err != nil {
-		return nil, err
-	}
-
 	p := &Precompile{
 		Precompile: cmn.Precompile{
-			ABI:                  usigverifierABI,
 			KvGasConfig:          storetypes.KVGasConfig(),
 			TransientKVGasConfig: storetypes.TransientGasConfig(),
 		},
+		ABI: ABI,
 	}
 
 	p.SetAddress(GetAddressV2())
@@ -90,7 +89,7 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 	}
 
 	methodID := input[:4]
-	method, err := p.MethodById(methodID)
+	method, err := p.ABI.MethodById(methodID)
 	if err != nil {
 		return 0
 	}
@@ -111,7 +110,7 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 	methodID := contract.Input[:4]
 	// NOTE: this function iterates over the method map and returns
 	// the method with the given ID
-	method, err := p.MethodById(methodID)
+	method, err := p.ABI.MethodById(methodID)
 	if err != nil {
 		return nil, err
 	}

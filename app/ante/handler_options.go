@@ -53,8 +53,6 @@ type HandlerOptions struct {
 	ExtensionOptionChecker ante.ExtensionOptionChecker
 	SignModeHandler        *txsigning.HandlerMap
 	SigGasConsumer         func(meter storetypes.GasMeter, sig signing.SignatureV2, params authtypes.Params) error
-	TxFeeChecker           ante.TxFeeChecker // safe to be nil
-
 	WasmConfig            *wasmtypes.NodeConfig
 	WasmKeeper            *wasmkeeper.Keeper
 	TXCounterStoreService corestoretypes.KVStoreService
@@ -62,6 +60,7 @@ type HandlerOptions struct {
 	MaxTxGasWanted  uint64
 	FeeMarketKeeper anteinterfaces.FeeMarketKeeper
 	EvmKeeper       anteinterfaces.EVMKeeper
+
 
 	IBCKeeper     *ibckeeper.Keeper
 	CircuitKeeper *circuitkeeper.Keeper
@@ -98,9 +97,6 @@ func (options HandlerOptions) Validate() error {
 		return errorsmod.Wrap(errortypes.ErrLogic, "wasm keeper is required for ante builder")
 	}
 
-	if options.TxFeeChecker == nil {
-		return errorsmod.Wrap(errortypes.ErrLogic, "tx fee checker is required for AnteHandler")
-	}
 	if options.FeeMarketKeeper == nil {
 		return errorsmod.Wrap(errortypes.ErrLogic, "fee market keeper is required for AnteHandler")
 	}

@@ -27,13 +27,17 @@ func (w evmAccountKeeperWrapper) TryAddUnorderedNonce(_ sdk.Context, _ []byte, _
 }
 
 // newMonoEVMAnteHandler creates the sdk.AnteHandler implementation for the EVM transactions.
-func newMonoEVMAnteHandler(options HandlerOptions) sdk.AnteHandler {
+func newMonoEVMAnteHandler(ctx sdk.Context, options HandlerOptions) sdk.AnteHandler {
+	evmParams := options.EvmKeeper.GetParams(ctx)
+	feemarketParams := options.FeeMarketKeeper.GetParams(ctx)
 	return sdk.ChainAnteDecorators(
 		evmante.NewEVMMonoDecorator(
 			evmAccountKeeperWrapper{options.AccountKeeper},
 			options.FeeMarketKeeper,
 			options.EvmKeeper,
 			options.MaxTxGasWanted,
+			&evmParams,
+			&feemarketParams,
 		),
 	)
 }

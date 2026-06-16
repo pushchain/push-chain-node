@@ -17,7 +17,7 @@ replace (
 	cosmossdk.io/x/upgrade => cosmossdk.io/x/upgrade v0.1.4
 	github.com/CosmWasm/wasmd => github.com/CosmWasm/wasmd v0.55.0 // Keep v0.55.0
 	github.com/cosmos/cosmos-sdk => github.com/cosmos/cosmos-sdk v0.50.10 // Use stable v0.50.10
-	github.com/cosmos/evm => github.com/pushchain/evm v1.0.0-rc2.0.20260615153506-b6558d8301a3
+	github.com/cosmos/evm => github.com/pushchain/evm v1.0.0-rc2.0.20260616081105-96231e7a76c0
 	github.com/ethereum/go-ethereum => github.com/cosmos/go-ethereum v0.0.0-20250806193535-2fc7571efa91
 	github.com/spf13/viper => github.com/spf13/viper v1.17.0
 	github.com/strangelove-ventures/tokenfactory => github.com/strangelove-ventures/tokenfactory v0.50.7-wasmvm2

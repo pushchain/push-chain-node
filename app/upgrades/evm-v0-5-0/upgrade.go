@@ -65,15 +65,20 @@ func CreateUpgradeHandler(
 			Symbol:  "PC",
 		})
 
-		// InitEvmCoinInfo is required in v0.5 — chain denom/decimal config is now stored
-		// on-chain rather than derived purely from app options at startup.
-		if err := keepers.EVMKeeper.InitEvmCoinInfo(sdkCtx); err != nil {
-			return nil, fmt.Errorf("InitEvmCoinInfo: %w", err)
-		}
-
+		// Run module migrations FIRST so InitEvmCoinInfo reads already-migrated
+		// vm Params. Inert on this upgrade (evm is already consensusVersion 2, so
+		// no vm migration runs) but it guards a future v2→v3 Params migration from
+		// the InitEvmCoinInfo-reads-stale-Params footgun.
 		versionMap, err := mm.RunMigrations(ctx, configurator, fromVM)
 		if err != nil {
 			return nil, fmt.Errorf("RunMigrations: %w", err)
+		}
+
+		// InitEvmCoinInfo is required in v0.5 — chain denom/decimal config is now
+		// stored on-chain rather than derived purely from app options at startup.
+		// Reads the bank denom metadata set above and the (now-migrated) vm Params.
+		if err := keepers.EVMKeeper.InitEvmCoinInfo(sdkCtx); err != nil {
+			return nil, fmt.Errorf("InitEvmCoinInfo: %w", err)
 		}
 
 		logger.Info("Upgrade complete", "upgrade", UpgradeName)

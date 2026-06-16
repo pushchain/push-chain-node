@@ -29,15 +29,18 @@ func SetupApp(t *testing.T) *app.ChainApp {
 	logger := log.NewTestLogger(t)
 	var wasmOpts []wasmkeeper.Option = nil
 
+	// evm v0.5 keeps the EVM chain-config and coin-info in process-global singletons that
+	// this manual-context harness must manage itself (it never runs the EVM module's
+	// InitGenesis/PreBlock). Clear anything a prior SetupApp call left set — otherwise the
+	// Configure below fails with "coin info already set" (e.g. a test that builds two apps).
+	// Resetting BEFORE NewChainApp is safe: NewChainApp -> NewKeeper re-registers the chain
+	// config afterwards. The cleanup clears both globals again after the test.
+	evmtypes.NewEVMConfigurator().ResetTestConfig()
+
 	pcApp := app.NewChainApp(logger, db, nil, true, simtestutil.NewAppOptionsWithFlagHome(t.TempDir()), wasmOpts, app.EVMAppOptions)
 
-	// v0.5: the EVM coin info is a process-global that EVMAppOptions no longer sets, and this
-	// test path constructs the app without running the EVM module's InitGenesis/PreBlock (which
-	// would set it). Configure just the coin info here so EVM keeper state ops (e.g. uexecutor's
-	// factory deploy -> SetBalance -> GetEVMCoinDenom) don't nil-deref. The chain config is
-	// already set by NewChainApp -> NewKeeper -> SetChainConfig, so we must NOT call
-	// ResetTestConfig before the test (it would null testChainConfig). The cleanup resets both
-	// globals after the test; the next SetupApp's NewChainApp re-sets the chain config.
+	// Set the coin-info global so EVM keeper state ops (e.g. uexecutor's factory deploy ->
+	// SetBalance -> GetEVMCoinDenom) don't nil-deref.
 	require.NoError(t, evmtypes.NewEVMConfigurator().WithEVMCoinInfo(evmtypes.EvmCoinInfo{
 		Denom:         pushtypes.BaseDenom, // must equal ExtendedDenom for 18 decimals
 		ExtendedDenom: pushtypes.BaseDenom,
@@ -147,4 +150,17 @@ func configureEVMParams(app *app.ChainApp, ctx sdk.Context) {
 
 	baseFee := sdkmath.NewInt(1000000000000000000)                  // Int
 	app.FeeMarketKeeper.SetBaseFee(ctx, sdkmath.LegacyDec(baseFee)) // Dec
+
+	// evm v0.5 also keeps the coin denom/decimals in module STATE (GetEvmCoinInfo),
+	// read by GetBaseFee/SetBalance/etc. The SetupApp configurator above sets the
+	// process-global, but this manual-context harness skips InitGenesis, so state is
+	// empty -> Decimals 0 -> ConversionFactor nil -> Mul panic. Write it directly.
+	if err := app.EVMKeeper.SetEvmCoinInfo(ctx, evmtypes.EvmCoinInfo{
+		Denom:         pushtypes.BaseDenom,
+		ExtendedDenom: pushtypes.BaseDenom,
+		DisplayDenom:  pushtypes.DisplayDenom,
+		Decimals:      evmtypes.EighteenDecimals.Uint32(),
+	}); err != nil {
+		panic(fmt.Sprintf("SetEvmCoinInfo (test setup): %v", err))
+	}
 }

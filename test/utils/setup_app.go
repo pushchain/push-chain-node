@@ -13,7 +13,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/pushchain/push-chain-node/app"
+	pushtypes "github.com/pushchain/push-chain-node/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -28,6 +30,21 @@ func SetupApp(t *testing.T) *app.ChainApp {
 	var wasmOpts []wasmkeeper.Option = nil
 
 	pcApp := app.NewChainApp(logger, db, nil, true, simtestutil.NewAppOptionsWithFlagHome(t.TempDir()), wasmOpts, app.EVMAppOptions)
+
+	// v0.5: the EVM coin info is a process-global that EVMAppOptions no longer sets, and this
+	// test path constructs the app without running the EVM module's InitGenesis/PreBlock (which
+	// would set it). Configure just the coin info here so EVM keeper state ops (e.g. uexecutor's
+	// factory deploy -> SetBalance -> GetEVMCoinDenom) don't nil-deref. The chain config is
+	// already set by NewChainApp -> NewKeeper -> SetChainConfig, so we must NOT call
+	// ResetTestConfig before the test (it would null testChainConfig). The cleanup resets both
+	// globals after the test; the next SetupApp's NewChainApp re-sets the chain config.
+	require.NoError(t, evmtypes.NewEVMConfigurator().WithEVMCoinInfo(evmtypes.EvmCoinInfo{
+		Denom:         pushtypes.BaseDenom, // must equal ExtendedDenom for 18 decimals
+		ExtendedDenom: pushtypes.BaseDenom,
+		DisplayDenom:  pushtypes.DisplayDenom,
+		Decimals:      evmtypes.EighteenDecimals.Uint32(),
+	}).Configure())
+	t.Cleanup(func() { evmtypes.NewEVMConfigurator().ResetTestConfig() })
 
 	return pcApp
 }

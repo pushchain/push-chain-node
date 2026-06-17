@@ -138,7 +138,7 @@ func deploySystemContracts(ctx context.Context, evmKeeper types.EVMKeeper, syste
 // EOAs in cosmos/evm carry the keccak256-of-empty-bytes sentinel, so a
 // length-only check would treat any touched EOA as a deployed contract and
 // silently skip the deploy sequence for that slot (F-2026-17025). Compare
-// against the empty-code-hash sentinel via Account.IsContract instead.
+// against the empty-code-hash sentinel via Account.HasCodeHash instead.
 func isContractDeployed(
 	ctx sdk.Context,
 	evmKeeper types.EVMKeeper,
@@ -148,5 +148,5 @@ func isContractDeployed(
 	if acc == nil || len(acc.CodeHash) == 0 {
 		return false
 	}
-	return acc.IsContract()
+	return acc.HasCodeHash()
 }

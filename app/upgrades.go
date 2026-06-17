@@ -26,6 +26,7 @@ import (
 	evmblockscoutfix "github.com/pushchain/push-chain-node/app/upgrades/evm-blockscout-fix"
 	evmrpcfix "github.com/pushchain/push-chain-node/app/upgrades/evm-rpc-fix"
 	evmv040 "github.com/pushchain/push-chain-node/app/upgrades/evm-v0-4-0"
+	evmv050 "github.com/pushchain/push-chain-node/app/upgrades/evm-v0-5-0"
 	feeabs "github.com/pushchain/push-chain-node/app/upgrades/fee-abs"
 	gasoracle "github.com/pushchain/push-chain-node/app/upgrades/gas-oracle"
 	"github.com/pushchain/push-chain-node/app/upgrades/noop"
@@ -78,6 +79,7 @@ var Upgrades = []upgrades.Upgrade{
 	evmparamsmigration.NewUpgrade(),
 	evmchainidffix.NewUpgrade(),
 	evmpreinstalls.NewUpgrade(),
+	evmv050.NewUpgrade(),
 	securityauditfixes.NewUpgrade(),
 }
 

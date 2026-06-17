@@ -120,7 +120,6 @@ func (el *EventListener) Start(ctx context.Context) error {
 	el.wg.Add(1)
 	go el.listen(ctx)
 
-	el.logger.Info().Msg("EVM event listener started")
 	return nil
 }
 
@@ -130,12 +129,11 @@ func (el *EventListener) Stop() error {
 		return nil
 	}
 
-	el.logger.Info().Msg("stopping EVM event listener")
+	el.logger.Debug().Msg("stopping EVM event listener")
 	close(el.stopCh)
 	el.running = false
 
 	el.wg.Wait()
-	el.logger.Info().Msg("EVM event listener stopped")
 	return nil
 }
 
@@ -161,11 +159,11 @@ func (el *EventListener) listen(ctx context.Context) {
 	// Get event topics
 	topics := el.eventTopics
 	if len(topics) == 0 {
-		el.logger.Warn().Msg("no event topics configured, event listener will not process events")
+		el.logger.Error().Msg("no event topics configured, event listener will not process events")
 		return
 	}
 
-	el.logger.Info().
+	el.logger.Debug().
 		Int("topic_count", len(topics)).
 		Uint64("from_block", fromBlock).
 		Dur("poll_interval", pollInterval).
@@ -178,10 +176,10 @@ func (el *EventListener) listen(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			el.logger.Info().Msg("context cancelled, stopping event listener")
+			el.logger.Debug().Msg("context cancelled, stopping event listener")
 			return
 		case <-el.stopCh:
-			el.logger.Info().Msg("stop signal received, stopping event listener")
+			el.logger.Debug().Msg("stop signal received, stopping event listener")
 			return
 		case <-ticker.C:
 			if err := el.processNewBlocks(ctx, &currentBlock, topics); err != nil {
@@ -289,7 +287,7 @@ func (el *EventListener) processBlockChunk(
 
 	// Log when events are found
 	if len(logs) > 0 {
-		el.logger.Info().
+		el.logger.Debug().
 			Uint64("from_block", fromBlock).
 			Uint64("to_block", toBlock).
 			Int("logs_found", len(logs)).

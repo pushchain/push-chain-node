@@ -14,10 +14,50 @@ import (
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 
 	"cosmossdk.io/collections"
+	"cosmossdk.io/collections/indexes"
 	storetypes "cosmossdk.io/core/store"
 	"cosmossdk.io/log"
+	"github.com/pushchain/push-chain-node/utils"
 	"github.com/pushchain/push-chain-node/x/uregistry/types"
 )
+
+// TokenConfigIndexes: PRC20Index maps canonical (EIP-55) PRC20 contract
+// address → token storage key for O(1) GetTokenConfigByPRC20. Rows without
+// NativeRepresentation index under the empty-string sentinel which is never
+// queried. Framework auto-maintains on every Set/Remove.
+type TokenConfigIndexes struct {
+	PRC20Index *indexes.Multi[string, string, types.TokenConfig]
+}
+
+func (t TokenConfigIndexes) IndexesList() []collections.Index[string, types.TokenConfig] {
+	return []collections.Index[string, types.TokenConfig]{t.PRC20Index}
+}
+
+// canonicalPRC20 returns the EIP-55 form of a PRC20 address (PRC20s are EVM).
+// Lenient (falls back to lowercase-trim) so index writes never fail; strict
+// enforcement is in NativeRepresentation.ValidateBasic.
+func canonicalPRC20(addr string) string {
+	canon, err := utils.CanonicalizeEVMAddress(addr)
+	if err != nil {
+		return strings.ToLower(strings.TrimSpace(addr))
+	}
+	return canon
+}
+
+func newTokenConfigIndexes(sb *collections.SchemaBuilder) TokenConfigIndexes {
+	return TokenConfigIndexes{
+		PRC20Index: indexes.NewMulti(
+			sb, types.PRC20IndexKey, types.PRC20IndexName,
+			collections.StringKey, collections.StringKey,
+			func(_ string, v types.TokenConfig) (string, error) {
+				if v.NativeRepresentation == nil || v.NativeRepresentation.ContractAddress == "" {
+					return "", nil // sentinel — non-PRC20 rows
+				}
+				return canonicalPRC20(v.NativeRepresentation.ContractAddress), nil
+			},
+		),
+	}
+}
 
 type Keeper struct {
 	cdc codec.BinaryCodec
@@ -28,7 +68,7 @@ type Keeper struct {
 	// state management
 	Params       collections.Item[types.Params]
 	ChainConfigs collections.Map[string, types.ChainConfig]
-	TokenConfigs collections.Map[string, types.TokenConfig]
+	TokenConfigs *collections.IndexedMap[string, types.TokenConfig, TokenConfigIndexes]
 
 	authority string
 	evmKeeper types.EVMKeeper
@@ -57,7 +97,12 @@ func NewKeeper(
 
 		Params:       collections.NewItem(sb, types.ParamsKey, types.ParamsName, codec.CollValue[types.Params](cdc)),
 		ChainConfigs: collections.NewMap(sb, types.ChainConfigsKey, types.ChainConfigsName, collections.StringKey, codec.CollValue[types.ChainConfig](cdc)),
-		TokenConfigs: collections.NewMap(sb, types.TokenConfigsKey, types.TokenConfigsName, collections.StringKey, codec.CollValue[types.TokenConfig](cdc)),
+		TokenConfigs: collections.NewIndexedMap(
+			sb, types.TokenConfigsKey, types.TokenConfigsName,
+			collections.StringKey,
+			codec.CollValue[types.TokenConfig](cdc),
+			newTokenConfigIndexes(sb),
+		),
 
 		authority: authority,
 		evmKeeper: evmKeeper,
@@ -192,47 +237,42 @@ func (k Keeper) SchemaBuilder() *collections.SchemaBuilder {
 	return k.schemaBuilder
 }
 
+// GetTokenConfigByPRC20 looks up a token config by PRC20 address via the
+// PRC20Index (O(1)). Returns ErrNotFound if the registered chain doesn't match.
 func (k Keeper) GetTokenConfigByPRC20(
 	ctx context.Context,
 	chain string,
 	prc20Addr string,
 ) (types.TokenConfig, error) {
 
-	prc20Addr = strings.ToLower(strings.TrimSpace(prc20Addr))
+	if strings.TrimSpace(prc20Addr) == "" {
+		return types.TokenConfig{}, fmt.Errorf("prc20 address is empty")
+	}
+	// Same canonical form as the index function, so any case variant hits the row.
+	prc20Addr = canonicalPRC20(prc20Addr)
 
-	var found *types.TokenConfig
-
-	err := k.TokenConfigs.Walk(ctx, nil, func(
-		key string,
-		cfg types.TokenConfig,
-	) (bool, error) {
-
-		// chain must match
-		if cfg.Chain != chain {
-			return false, nil
-		}
-
-		if cfg.NativeRepresentation == nil {
-			return false, nil
-		}
-
-		if strings.ToLower(cfg.NativeRepresentation.ContractAddress) == prc20Addr {
-			found = &cfg
-			return true, nil // stop walk
-		}
-
-		return false, nil
-	})
-
+	// PRC20 addresses are globally unique by construction; MatchExact returns at most one.
+	iter, err := k.TokenConfigs.Indexes.PRC20Index.MatchExact(ctx, prc20Addr)
 	if err != nil {
 		return types.TokenConfig{}, err
 	}
+	defer iter.Close()
 
-	if found == nil {
-		return types.TokenConfig{}, collections.ErrNotFound
+	for ; iter.Valid(); iter.Next() {
+		pk, err := iter.PrimaryKey()
+		if err != nil {
+			return types.TokenConfig{}, err
+		}
+		cfg, err := k.TokenConfigs.Get(ctx, pk)
+		if err != nil {
+			return types.TokenConfig{}, err
+		}
+		if cfg.Chain == chain {
+			return cfg, nil
+		}
 	}
 
-	return *found, nil
+	return types.TokenConfig{}, collections.ErrNotFound
 }
 
 func (k Keeper) ReserveUGPC(ctx context.Context) error {

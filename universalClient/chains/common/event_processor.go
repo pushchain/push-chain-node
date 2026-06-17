@@ -73,7 +73,7 @@ func (ep *EventProcessor) Stop() error {
 		return nil
 	}
 
-	ep.logger.Info().Msg("stopping event processor")
+	ep.logger.Debug().Msg("stopping event processor")
 	close(ep.stopCh)
 	ep.running = false
 
@@ -97,10 +97,10 @@ func (ep *EventProcessor) processLoop(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			ep.logger.Info().Msg("context cancelled, stopping event processor")
+			ep.logger.Debug().Msg("context cancelled, stopping event processor")
 			return
 		case <-ep.stopCh:
-			ep.logger.Info().Msg("stop signal received, stopping event processor")
+			ep.logger.Debug().Msg("stop signal received, stopping event processor")
 			return
 		case <-ticker.C:
 			// Fetch 1000 CONFIRMED events and process them
@@ -151,7 +151,7 @@ func (ep *EventProcessor) processConfirmedEvents(ctx context.Context) error {
 
 // processOutboundEvent processes an outbound event by voting on it
 func (ep *EventProcessor) processOutboundEvent(ctx context.Context, event *store.Event) error {
-	ep.logger.Info().
+	ep.logger.Debug().
 		Str("event_id", event.EventID).
 		Msg("processing outbound event")
 
@@ -188,15 +188,16 @@ func (ep *EventProcessor) processOutboundEvent(ctx context.Context, event *store
 
 	ep.logger.Info().
 		Str("event_id", event.EventID).
+		Str("type", event.Type).
 		Str("vote_tx_hash", voteTxHash).
-		Msg("outbound event marked as COMPLETED")
+		Msg("event marked as COMPLETED")
 
 	return nil
 }
 
 // processInboundEvent processes an inbound event by voting on it and confirming it
 func (ep *EventProcessor) processInboundEvent(ctx context.Context, event *store.Event) error {
-	ep.logger.Info().
+	ep.logger.Debug().
 		Str("event_id", event.EventID).
 		Msg("processing inbound event")
 
@@ -228,8 +229,9 @@ func (ep *EventProcessor) processInboundEvent(ctx context.Context, event *store.
 
 	ep.logger.Info().
 		Str("event_id", event.EventID).
+		Str("type", event.Type).
 		Str("vote_tx_hash", voteTxHash).
-		Msg("inbound event marked as COMPLETED")
+		Msg("event marked as COMPLETED")
 
 	return nil
 }

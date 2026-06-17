@@ -26,12 +26,14 @@ import (
 	v2 "github.com/pushchain/push-chain-node/x/uexecutor/migrations/v2"
 	v4 "github.com/pushchain/push-chain-node/x/uexecutor/migrations/v4"
 	v5 "github.com/pushchain/push-chain-node/x/uexecutor/migrations/v5"
+	v7 "github.com/pushchain/push-chain-node/x/uexecutor/migrations/v7"
 )
 
 const (
 	// ConsensusVersion defines the current x/uexecutor module consensus version.
+	// v7: PendingInbounds KeySet → variant-aware Map reshape (F-2026-16642).
 	// Bumped to 6: added PendingOutbounds collection.
-	ConsensusVersion = 6
+	ConsensusVersion = 7
 )
 
 var (
@@ -196,6 +198,11 @@ func (a AppModule) RegisterServices(cfg module.Configurator) {
 	}); err != nil {
 		panic(fmt.Sprintf("failed to migrate %s from version 5 to 6: %v", types.ModuleName, err))
 	}
+
+	// Register migration from version 6 -> 7 (pending-inbound reshape, F-2026-16642)
+	if err := cfg.RegisterMigration(types.ModuleName, 6, a.migrateToV7()); err != nil {
+		panic(fmt.Sprintf("failed to migrate %s from version 6 to 7: %v", types.ModuleName, err))
+	}
 }
 
 func (a AppModule) migrateToV2() module.MigrationHandler {
@@ -226,6 +233,13 @@ func (a AppModule) migrateToV5() module.MigrationHandler {
 	return func(ctx sdk.Context) error {
 		ctx.Logger().Info("🔧 Running uexecutor module migration: v4 → v5 (chain-meta)")
 		return v5.MigrateGasPricesToChainMeta(ctx, &a.keeper)
+	}
+}
+
+func (a AppModule) migrateToV7() module.MigrationHandler {
+	return func(ctx sdk.Context) error {
+		ctx.Logger().Info("🔧 Running uexecutor module migration: v6 → v7 (pending-inbound reshape)")
+		return v7.MigratePendingInbounds(ctx, &a.keeper)
 	}
 }
 

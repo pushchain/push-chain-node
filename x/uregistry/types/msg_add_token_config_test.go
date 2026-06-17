@@ -13,7 +13,7 @@ func TestMsgAddTokenConfig_ValidateBasic(t *testing.T) {
 
 	validTokenConfig := &types.TokenConfig{
 		Chain:        "eip155:1",
-		Address:      "0xabc123",
+		Address:      "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
 		Name:         "USD Coin",
 		Symbol:       "USDC",
 		Decimals:     6,
@@ -28,7 +28,7 @@ func TestMsgAddTokenConfig_ValidateBasic(t *testing.T) {
 
 	invalidTokenConfig := &types.TokenConfig{
 		Chain:        "", // invalid
-		Address:      "0xabc123",
+		Address:      "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
 		Name:         "USD Coin",
 		Symbol:       "USDC",
 		Decimals:     6,
@@ -68,16 +68,27 @@ func TestMsgAddTokenConfig_ValidateBasic(t *testing.T) {
 			},
 			expectErr: true,
 		},
+		{
+			// F-2026-17024: nil nested config used to panic in ValidateBasic.
+			name: "nil token config returns typed error, no panic",
+			msg: &types.MsgAddTokenConfig{
+				Signer:      validSigner,
+				TokenConfig: nil,
+			},
+			expectErr: true,
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			err := tc.msg.ValidateBasic()
-			if tc.expectErr {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-			}
+			require.NotPanics(t, func() {
+				err := tc.msg.ValidateBasic()
+				if tc.expectErr {
+					require.Error(t, err)
+				} else {
+					require.NoError(t, err)
+				}
+			})
 		})
 	}
 }

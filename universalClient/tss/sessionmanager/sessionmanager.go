@@ -97,31 +97,24 @@ func (sm *SessionManager) Start(ctx context.Context) {
 	go sm.startExpiryChecker(ctx)
 }
 
-// HandleIncomingMessage handles an incoming message.
-// peerID: The peer ID of the sender
-// data: The raw message bytes (should be JSON-encoded coordinator.Message)
-func (sm *SessionManager) HandleIncomingMessage(ctx context.Context, peerID string, data []byte) error {
-	// Unmarshal message
-	var msg coordinator.Message
-	if err := json.Unmarshal(data, &msg); err != nil {
-		return fmt.Errorf("failed to unmarshal message: %w", err)
-	}
-
+// HandleIncomingMessage routes a session-manager-bound message
+func (sm *SessionManager) HandleIncomingMessage(ctx context.Context, peerID string, msg *coordinator.Message) error {
 	sm.logger.Debug().
 		Str("peer_id", peerID).
-		Str("type", msg.Type).
+		Str("type", string(msg.Type)).
 		Str("event_id", msg.EventID).
 		Int("participants_count", len(msg.Participants)).
 		Msg("handling incoming message")
 
-	// Route based on message type
 	switch msg.Type {
-	case "setup":
-		return sm.handleSetupMessage(ctx, peerID, &msg)
-	case "begin":
-		return sm.handleBeginMessage(ctx, peerID, &msg)
-	case "step":
-		return sm.handleStepMessage(ctx, peerID, &msg)
+	case coordinator.MessageTypeSetup:
+		return sm.handleSetupMessage(ctx, peerID, msg)
+	case coordinator.MessageTypeBegin:
+		return sm.handleBeginMessage(ctx, peerID, msg)
+	case coordinator.MessageTypeStep:
+		return sm.handleStepMessage(ctx, peerID, msg)
+	case coordinator.MessageTypeSignatureBroadcast:
+		return sm.handleSignatureBroadcast(ctx, peerID, msg)
 	default:
 		return fmt.Errorf("unknown message type: %s", msg.Type)
 	}
@@ -138,13 +131,41 @@ func (sm *SessionManager) handleSetupMessage(ctx context.Context, senderPeerID s
 		return nil
 	}
 
-	// 2. Validate event exists in DB
+	// 2. Validate sender is coordinator
+	isCoord, err := sm.coordinator.IsPeerCoordinator(ctx, senderPeerID)
+	if err != nil {
+		return fmt.Errorf("failed to check if sender is coordinator: %w", err)
+	}
+	if !isCoord {
+		return fmt.Errorf("sender %s is not the coordinator", senderPeerID)
+	}
+
+	// 3. Validate event exists in DB
 	event, err := sm.eventStore.GetEvent(msg.EventID)
 	if err != nil {
 		return fmt.Errorf("event %s not found in database: %w", msg.EventID, err)
 	}
 
-	// 3. Validate event is CONFIRMED and not expired
+	// 3b. Short-circuit: if this event already has signing data persisted from
+	// a prior successful session, respond to setup with an ACK carrying the
+	// signature. The coordinator verifies cryptographically and can skip a
+	// fresh DKLS run
+	signed, signedErr := extractSignedDataFromEvent(event)
+	if signedErr != nil {
+		sm.logger.Warn().Err(signedErr).Str("event_id", msg.EventID).
+			Msg("signing_data on event is corrupt; falling back to normal setup")
+	}
+	if signed != nil {
+		sm.logger.Info().
+			Str("event_id", msg.EventID).
+			Msg("event already has signing data, responding to setup with existing signature")
+		if err := sm.sendACK(ctx, senderPeerID, msg.EventID, signed); err != nil {
+			return fmt.Errorf("failed to send ACK with signed data: %w", err)
+		}
+		return nil
+	}
+
+	// 4. Validate event is CONFIRMED ( Unsigned )
 	if event.Status != store.StatusConfirmed {
 		return fmt.Errorf("event %s is not in confirmed status (got %s)", msg.EventID, event.Status)
 	}
@@ -154,15 +175,6 @@ func (sm *SessionManager) handleSetupMessage(ctx context.Context, senderPeerID s
 	}
 	if event.ExpiryBlockHeight > 0 && event.ExpiryBlockHeight <= currentBlock {
 		return fmt.Errorf("event %s has expired (expiry_block_height %d <= current_block %d)", msg.EventID, event.ExpiryBlockHeight, currentBlock)
-	}
-
-	// 4. Validate sender is coordinator
-	isCoord, err := sm.coordinator.IsPeerCoordinator(ctx, senderPeerID)
-	if err != nil {
-		return fmt.Errorf("failed to check if sender is coordinator: %w", err)
-	}
-	if !isCoord {
-		return fmt.Errorf("sender %s is not the coordinator", senderPeerID)
 	}
 
 	// 5. Validate participants list matches event protocol requirements
@@ -212,8 +224,8 @@ func (sm *SessionManager) handleSetupMessage(ctx context.Context, senderPeerID s
 		Str("protocol", event.Type).
 		Msg("created session from setup message")
 
-	// 10. Send ACK to coordinator
-	if err := sm.sendACK(ctx, senderPeerID, msg.EventID); err != nil {
+	// 10. Send ACK to coordinator (no signed data — fresh session)
+	if err := sm.sendACK(ctx, senderPeerID, msg.EventID, nil); err != nil {
 		sm.logger.Warn().
 			Err(err).
 			Str("event_id", msg.EventID).
@@ -279,35 +291,27 @@ func (sm *SessionManager) processSessionStep(ctx context.Context, eventID string
 		return fmt.Errorf("session for event %s does not exist", eventID)
 	}
 
-	session := state.session
-
-	// Step the session (serialize to prevent concurrent access - DKLS may not be thread-safe)
 	state.stepMu.Lock()
-	messages, finished, err := session.Step()
+	messages, finished, err := state.session.Step()
 	state.stepMu.Unlock()
 
 	if err != nil {
 		return fmt.Errorf("failed to step session %s: %w", eventID, err)
 	}
 
-	// Send output messages
 	for _, dklsMsg := range messages {
-		// Find peerID for receiver partyID
 		peerID, err := sm.coordinator.GetPeerIDFromPartyID(ctx, dklsMsg.Receiver)
 		if err != nil {
-			sm.logger.Warn().
-				Err(err).
+			sm.logger.Warn().Err(err).
 				Str("receiver_party_id", dklsMsg.Receiver).
 				Msg("failed to get peerID for receiver")
 			continue
 		}
 
-		// Create coordinator message
 		coordMsg := coordinator.Message{
-			Type:         "step",
-			EventID:      eventID,
-			Payload:      dklsMsg.Data,
-			Participants: nil, // Participants not needed for step messages
+			Type:    coordinator.MessageTypeStep,
+			EventID: eventID,
+			Payload: dklsMsg.Data,
 		}
 		msgBytes, err := json.Marshal(coordMsg)
 		if err != nil {
@@ -315,10 +319,9 @@ func (sm *SessionManager) processSessionStep(ctx context.Context, eventID string
 			continue
 		}
 
-		// Send message
 		if err := sm.send(ctx, peerID, msgBytes); err != nil {
-			sm.logger.Warn().
-				Err(err).
+			sm.logger.Warn().Err(err).
+				Str("event_id", eventID).
 				Str("receiver", dklsMsg.Receiver).
 				Str("peer_id", peerID).
 				Msg("failed to send step message")
@@ -331,7 +334,6 @@ func (sm *SessionManager) processSessionStep(ctx context.Context, eventID string
 			Msg("sent step message")
 	}
 
-	// If finished, handle result
 	if finished {
 		return sm.handleSessionFinished(ctx, eventID, state)
 	}
@@ -375,13 +377,68 @@ func (sm *SessionManager) handleBeginMessage(ctx context.Context, senderPeerID s
 	return sm.processSessionStep(ctx, msg.EventID)
 }
 
+// handleSignatureBroadcast persists a signature distributed by a signing
+// participant. The sender is NOT trusted: the receiver re-derives the expected
+// hash from local event data, ECDSA-verifies against the correct TSS pubkey
+// (current for SIGN_OUTBOUND, OldTssPubkey for SIGN_FUND_MIGRATE), and only
+// then persists. Idempotent — events already past CONFIRMED are skipped.
+// Implements the F-2026-16965 fix: failure-vote visibility extends from the
+// signing set to every UV.
+func (sm *SessionManager) handleSignatureBroadcast(ctx context.Context, senderPeerID string, msg *coordinator.Message) error {
+	event, err := sm.eventStore.GetEvent(msg.EventID)
+	if err != nil {
+		return fmt.Errorf("event %s not found in database: %w", msg.EventID, err)
+	}
+
+	// Idempotent: if we've already moved past CONFIRMED, the signature is
+	// either already persisted locally (we were a signer or got an earlier
+	// broadcast) or the tx flow has progressed past it.
+	switch event.Status {
+	case store.StatusSigned, store.StatusBroadcasted, store.StatusCompleted, store.StatusReverted:
+		sm.logger.Debug().Str("event_id", msg.EventID).Str("status", event.Status).
+			Msg("signature_broadcast for event already past CONFIRMED, skipping")
+		if sm.coordinator != nil {
+			sm.coordinator.CancelTracking(msg.EventID)
+		}
+		return nil
+	}
+
+	if event.Type != store.EventTypeSignOutbound && event.Type != store.EventTypeSignFundMigrate {
+		return fmt.Errorf("signature_broadcast for non-sign event type %s", event.Type)
+	}
+
+	if err := sm.coordinator.VerifySignedData(ctx, event, msg.SignedData); err != nil {
+		return fmt.Errorf("signature_broadcast: %w", err)
+	}
+
+	// Persist as SIGNED via the same path a local sign-completion uses, so
+	// signing_data lands on event_data in the format txbroadcaster expects.
+	rebuiltReq := &common.UnsignedSigningReq{
+		SigningHash:            msg.SignedData.SigningHash,
+		Nonce:                  msg.SignedData.Nonce,
+		TSSFundMigrationAmount: msg.SignedData.TSSFundMigrationAmount,
+	}
+	if err := sm.handleSigningComplete(ctx, msg.EventID, event.EventData, msg.SignedData.Signature, rebuiltReq); err != nil {
+		return fmt.Errorf("persist signature from broadcast: %w", err)
+	}
+
+	if sm.coordinator != nil {
+		sm.coordinator.CancelTracking(msg.EventID)
+	}
+
+	sm.logger.Debug().Str("event_id", msg.EventID).Str("sender", senderPeerID).
+		Msg("signature_broadcast persisted; event will be broadcast + resolved locally")
+	return nil
+}
+
 // sendACK sends an ACK message to the coordinator after successfully creating a session.
-func (sm *SessionManager) sendACK(ctx context.Context, coordinatorPeerID string, eventID string) error {
+// If signedData is non-nil it is attached to the ACK, telling the coordinator the
+// participant already holds a valid signature so a fresh DKLS run is unnecessary.
+func (sm *SessionManager) sendACK(ctx context.Context, coordinatorPeerID string, eventID string, signedData *coordinator.SignedDataPayload) error {
 	ackMsg := coordinator.Message{
-		Type:         "ack",
-		EventID:      eventID,
-		Payload:      nil, // ACK doesn't need payload
-		Participants: nil, // ACK doesn't need participants
+		Type:       coordinator.MessageTypeACK,
+		EventID:    eventID,
+		SignedData: signedData,
 	}
 	msgBytes, err := json.Marshal(ackMsg)
 	if err != nil {
@@ -392,10 +449,11 @@ func (sm *SessionManager) sendACK(ctx context.Context, coordinatorPeerID string,
 		return fmt.Errorf("failed to send ACK message: %w", err)
 	}
 
-	sm.logger.Debug().
-		Str("event_id", eventID).
-		Str("coordinator", coordinatorPeerID).
-		Msg("sent ACK to coordinator")
+	logEv := sm.logger.Debug().Str("event_id", eventID).Str("coordinator", coordinatorPeerID)
+	if signedData != nil {
+		logEv = logEv.Bool("has_signed_data", true)
+	}
+	logEv.Msg("sent ACK to coordinator")
 
 	return nil
 }
@@ -423,9 +481,12 @@ func (sm *SessionManager) handleSessionFinished(ctx context.Context, eventID str
 func (sm *SessionManager) handleSignFinished(ctx context.Context, eventID string, result *dkls.Result, signingReq *common.UnsignedSigningReq) error {
 	sm.logger.Info().
 		Str("event_id", eventID).
+		Msg("signature generated from sign session")
+	sm.logger.Debug().
+		Str("event_id", eventID).
 		Str("signature", hex.EncodeToString(result.Signature)).
 		Str("public_key", hex.EncodeToString(result.PublicKey)).
-		Msg("signature generated from sign session")
+		Msg("sign session crypto material")
 
 	event, err := sm.eventStore.GetEvent(eventID)
 	if err != nil {
@@ -437,8 +498,59 @@ func (sm *SessionManager) handleSignFinished(ctx context.Context, eventID string
 		return err
 	}
 
+	// Broadcast the signature to all UVs so non-signing nodes also persist as
+	// SIGNED and can vote on failure. Best-effort: failed sends are logged but
+	// do not abort. Recovery via sweeper retry covers any peers we miss.
+	sm.broadcastSignature(ctx, eventID, &coordinator.SignedDataPayload{
+		Signature:              result.Signature,
+		SigningHash:            signingReq.SigningHash,
+		Nonce:                  signingReq.Nonce,
+		TSSFundMigrationAmount: signingReq.TSSFundMigrationAmount,
+	})
+
 	sm.logger.Info().Str("event_id", eventID).Msg("sign session finished successfully")
 	return nil
+}
+
+// broadcastSignature sends a signature_broadcast to every known UV (skipping
+// self). Per-peer send failures are logged at warn; nothing aborts the fanout.
+func (sm *SessionManager) broadcastSignature(ctx context.Context, eventID string, signedData *coordinator.SignedDataPayload) {
+	if sm.coordinator == nil {
+		return
+	}
+	validators := sm.coordinator.Validators()
+	if len(validators) == 0 {
+		sm.logger.Warn().Str("event_id", eventID).Msg("no validators to broadcast signature to")
+		return
+	}
+	msgBytes, err := json.Marshal(coordinator.Message{
+		Type:       coordinator.MessageTypeSignatureBroadcast,
+		EventID:    eventID,
+		SignedData: signedData,
+	})
+	if err != nil {
+		sm.logger.Warn().Err(err).Str("event_id", eventID).Msg("marshal signature_broadcast")
+		return
+	}
+	sent := 0
+	for _, v := range validators {
+		if v.NetworkInfo == nil || v.NetworkInfo.PeerId == "" {
+			continue
+		}
+		if v.IdentifyInfo != nil && v.IdentifyInfo.CoreValidatorAddress == sm.partyID {
+			continue // self
+		}
+		if err := sm.send(ctx, v.NetworkInfo.PeerId, msgBytes); err != nil {
+			sm.logger.Debug().Err(err).
+				Str("event_id", eventID).
+				Str("peer_id", v.NetworkInfo.PeerId).
+				Msg("signature_broadcast send failed")
+			continue
+		}
+		sent++
+	}
+	sm.logger.Debug().Str("event_id", eventID).Int("sent", sent).
+		Msg("signature_broadcast fanout complete")
 }
 
 // handleKeyFinished handles a completed key session (keygen/keyrefresh/quorumchange):
@@ -458,9 +570,12 @@ func (sm *SessionManager) handleKeyFinished(ctx context.Context, eventID, protoc
 		Str("event_id", eventID).
 		Str("protocol", protocolType).
 		Str("storage_id", storageID).
+		Msg("saved keyshare")
+	sm.logger.Debug().
+		Str("event_id", eventID).
 		Str("public_key", hex.EncodeToString(result.PublicKey)).
 		Str("keyshare_hash", hex.EncodeToString(keyshareHash[:])).
-		Msg("saved keyshare")
+		Msg("saved keyshare crypto material")
 
 	// Vote on Push chain
 	var voteTxHash string
@@ -740,18 +855,42 @@ func (sm *SessionManager) checkExpiredSessions(ctx context.Context, blockDelay u
 			// Clean up session
 			sm.cleanSession(eventID, state)
 
-			// Update event: mark as confimed and set new block height (current + delay)
-			newBlockHeight := currentBlock + blockDelay
-			if err := sm.eventStore.Update(eventID, map[string]any{"status": store.StatusConfirmed, "block_height": newBlockHeight}); err != nil {
-				sm.logger.Warn().
-					Err(err).
-					Str("event_id", eventID).
+			// Recovery-at-boundary: if a signature was already persisted (via a
+			// signed-ACK or a sibling's signature_broadcast) but the setup-handler
+			// clobbered status back to IN_PROGRESS, event_data carries
+			// signing_data. Restore SIGNED so the broadcaster picks it up. Otherwise
+			// roll back to CONFIRMED with a deferred block height for retry.
+			event, getErr := sm.eventStore.GetEvent(eventID)
+			if getErr != nil {
+				sm.logger.Warn().Err(getErr).Str("event_id", eventID).
+					Msg("failed to load expired event for recovery")
+				continue
+			}
+			signed, sErr := extractSignedDataFromEvent(event)
+			if sErr != nil {
+				sm.logger.Warn().Err(sErr).Str("event_id", eventID).
+					Msg("signing_data on expired event is corrupt; will retry as CONFIRMED")
+			}
+			var (
+				updates map[string]any
+				logMsg  string
+			)
+			if signed != nil {
+				updates = map[string]any{"status": store.StatusSigned}
+				logMsg = "expired session removed; signing_data present, restored to SIGNED"
+			} else {
+				newBlockHeight := currentBlock + blockDelay
+				updates = map[string]any{
+					"status":       store.StatusConfirmed,
+					"block_height": newBlockHeight,
+				}
+				logMsg = "expired session removed, event marked as pending for retry"
+			}
+			if err := sm.eventStore.Update(eventID, updates); err != nil {
+				sm.logger.Warn().Err(err).Str("event_id", eventID).
 					Msg("failed to update expired session event")
 			} else {
-				sm.logger.Info().
-					Str("event_id", eventID).
-					Uint64("new_block_height", newBlockHeight).
-					Msg("expired session removed, event marked as pending for retry")
+				sm.logger.Info().Str("event_id", eventID).Msg(logMsg)
 			}
 		}
 	}
@@ -959,38 +1098,63 @@ func (sm *SessionManager) handleSigningComplete(_ context.Context, eventID strin
 		return fmt.Errorf("signing request is nil - cannot persist signing data")
 	}
 
-	// Build signing_data to persist alongside the original event data
-	signingData := map[string]any{
-		"signature":    hex.EncodeToString(signature),
-		"signing_hash": hex.EncodeToString(signingReq.SigningHash),
-		"nonce":        signingReq.Nonce,
-	}
-	if signingReq.TSSFundMigrationAmount != nil && signingReq.TSSFundMigrationAmount.Sign() > 0 {
-		signingData["tss_fund_migration_amount"] = signingReq.TSSFundMigrationAmount
-	}
-
-	// Unmarshal original event data, add signing_data, re-marshal
-	var raw map[string]any
-	if err := json.Unmarshal(eventData, &raw); err != nil {
-		return fmt.Errorf("failed to parse event data for signing_data injection: %w", err)
-	}
-	raw["signing_data"] = signingData
-
-	newEventData, err := json.Marshal(raw)
+	persisted, err := sm.eventStore.PersistSignature(
+		eventID,
+		eventData,
+		signature,
+		signingReq.SigningHash,
+		signingReq.Nonce,
+		signingReq.TSSFundMigrationAmount,
+	)
 	if err != nil {
-		return fmt.Errorf("failed to marshal event data with signing_data: %w", err)
+		return fmt.Errorf("failed to persist signing data: %w", err)
 	}
-
-	// Persist enriched event data + mark SIGNED; txBroadcaster will pick it up
-	if err := sm.eventStore.Update(eventID, map[string]any{
-		"event_data": newEventData,
-		"status":     store.StatusSigned,
-	}); err != nil {
-		return fmt.Errorf("failed to update event with signing data: %w", err)
+	if !persisted {
+		sm.logger.Debug().Str("event_id", eventID).
+			Msg("signing data not persisted — event already past CONFIRMED/IN_PROGRESS")
+		return nil
 	}
 
 	sm.logger.Info().
 		Str("event_id", eventID).
 		Msg("signing complete — event marked SIGNED with signing_data for txBroadcaster")
 	return nil
+}
+
+// extractSignedDataFromEvent returns signing data persisted on the event, or
+// (nil, nil) if no signing_data is present. A non-nil error signals corruption
+// (bad JSON or non-hex bytes) and the caller should log; the protocol falls
+// back to normal setup in that case.
+func extractSignedDataFromEvent(event *store.Event) (*coordinator.SignedDataPayload, error) {
+	if event == nil {
+		return nil, nil
+	}
+	var raw struct {
+		SigningData *struct {
+			Signature              string   `json:"signature"`
+			SigningHash            string   `json:"signing_hash"`
+			Nonce                  uint64   `json:"nonce"`
+			TSSFundMigrationAmount *big.Int `json:"tss_fund_migration_amount,omitempty"`
+		} `json:"signing_data,omitempty"`
+	}
+	if err := json.Unmarshal(event.EventData, &raw); err != nil {
+		return nil, fmt.Errorf("unmarshal event_data: %w", err)
+	}
+	if raw.SigningData == nil {
+		return nil, nil
+	}
+	sigBytes, err := hex.DecodeString(raw.SigningData.Signature)
+	if err != nil {
+		return nil, fmt.Errorf("decode signing_data.signature hex: %w", err)
+	}
+	hashBytes, err := hex.DecodeString(raw.SigningData.SigningHash)
+	if err != nil {
+		return nil, fmt.Errorf("decode signing_data.signing_hash hex: %w", err)
+	}
+	return &coordinator.SignedDataPayload{
+		Signature:              sigBytes,
+		SigningHash:            hashBytes,
+		Nonce:                  raw.SigningData.Nonce,
+		TSSFundMigrationAmount: raw.SigningData.TSSFundMigrationAmount,
+	}, nil
 }

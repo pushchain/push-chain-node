@@ -6,6 +6,7 @@ import (
 
 	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/pushchain/push-chain-node/utils"
 	"github.com/pushchain/push-chain-node/x/utss/types"
 )
 
@@ -26,6 +27,13 @@ func (k Keeper) VoteFundMigration(
 	}
 	if migration.Status != types.FundMigrationStatus_FUND_MIGRATION_STATUS_PENDING {
 		return fmt.Errorf("fund migration %d is already finalized (status: %s)", migrationId, migration.Status.String())
+	}
+
+	// Canonicalize the observed txHash for the migration's chain so encoding
+	// variants (case, 0x prefix) from different validators land on one ballot.
+	txHash, err = utils.CanonicalizeTxHashByNamespace(migration.Chain, txHash)
+	if err != nil {
+		return fmt.Errorf("invalid tx hash for chain %s: %w", migration.Chain, err)
 	}
 
 	k.Logger().Info("fund migration vote received",

@@ -11,6 +11,7 @@ import (
 
 	"github.com/pushchain/push-chain-node/app"
 	utils "github.com/pushchain/push-chain-node/test/utils"
+	chainutils "github.com/pushchain/push-chain-node/utils"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 	uvalidatortypes "github.com/pushchain/push-chain-node/x/uvalidator/types"
@@ -348,7 +349,9 @@ func TestInboundGas(t *testing.T) {
 
 		for _, ob := range utx.OutboundTx {
 			if ob.TxType == uexecutortypes.TxType_INBOUND_REVERT {
-				require.Equal(t, inbound.Sender, ob.Recipient,
+				// Stored inbound fields are canonicalized at vote ingress, so the
+				// fallback recipient is the EIP-55 form of the sender.
+				require.Equal(t, chainutils.LenientCanonicalizeEVMAddress(inbound.Sender), ob.Recipient,
 					"revert outbound recipient should fall back to Sender when RevertInstructions is nil")
 				return
 			}

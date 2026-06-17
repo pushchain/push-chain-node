@@ -17,6 +17,9 @@ const (
 	USigVerifierPrecompileAddressV2 = "0xEC00000000000000000000000000000000000001"
 	// VerifyEd25519Gas is the gas cost for verifying an Ed25519 signature.
 	VerifyEd25519Gas uint64 = 4000
+	// VerifyEd25519RawMessageGas matches VerifyEd25519Gas — same Ed25519
+	// verification cost, only the message-prep step differs (no hex encoding).
+	VerifyEd25519RawMessageGas uint64 = 4000
 )
 
 var _ vm.PrecompiledContract = &Precompile{}
@@ -97,6 +100,8 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 	switch method.Name {
 	case VerifyEd25519Method:
 		return VerifyEd25519Gas
+	case VerifyEd25519RawMessageMethod:
+		return VerifyEd25519RawMessageGas
 	default:
 		return p.Precompile.RequiredGas(input, p.IsTransaction(method))
 	}
@@ -124,6 +129,8 @@ func (p Precompile) Run(evm *vm.EVM, contract *vm.Contract, readOnly bool) (bz [
 	switch method.Name {
 	case VerifyEd25519Method:
 		bz, err = p.VerifyEd25519(method, args)
+	case VerifyEd25519RawMessageMethod:
+		bz, err = p.VerifyEd25519RawMessage(method, args)
 	default:
 		return nil, fmt.Errorf(cmn.ErrUnknownMethod, method.Name)
 	}

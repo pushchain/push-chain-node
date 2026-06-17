@@ -6,8 +6,8 @@ import "net/http"
 func (s *Server) setupRoutes() *http.ServeMux {
 	mux := http.NewServeMux()
 
-	// Health check endpoint
-	mux.HandleFunc("/health", s.handleHealth)
+	// Health check endpoint — GET only; other methods return 405 Method Not Allowed.
+	mux.HandleFunc("GET /health", s.handleHealth)
 
 	return mux
 }

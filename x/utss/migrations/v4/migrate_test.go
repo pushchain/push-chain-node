@@ -39,7 +39,7 @@ func (stubUValidatorKeeper) GetEligibleVoters(context.Context) ([]uvalidatortype
 func (stubUValidatorKeeper) GetAllUniversalValidators(context.Context) ([]uvalidatortypes.UniversalValidator, error) {
 	return nil, nil
 }
-func (stubUValidatorKeeper) UpdateValidatorStatus(context.Context, sdk.ValAddress, uvalidatortypes.UVStatus) error {
+func (stubUValidatorKeeper) UpdateValidatorStatus(context.Context, sdk.ValAddress, uvalidatortypes.UVStatus, uvalidatortypes.TransitionReason) error {
 	return nil
 }
 

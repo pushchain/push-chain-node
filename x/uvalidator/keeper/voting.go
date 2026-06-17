@@ -145,6 +145,27 @@ func (k Keeper) VoteOnBallot(
 		return ballot, false, false, errors.Wrap(err, "Error while voting on the ballot")
 	}
 
+	// reject votes on ballots whose nominal expiry has passed
+	currentHeight := sdk.UnwrapSDKContext(ctx).BlockHeight()
+	if ballot.IsExpired(currentHeight) {
+		// Transition PENDING ballots to EXPIRED so subsequent reads see the
+		// canonical status and the secondary indexes stay consistent. Already
+		// non-PENDING ballots fall through to the Status check below for the
+		// existing "already X" error message.
+		if ballot.Status == types.BallotStatus_BALLOT_STATUS_PENDING {
+			if mErr := k.MarkBallotExpired(ctx, id); mErr != nil {
+				return ballot, false, isNew, errors.Wrap(mErr, "failed to mark ballot expired during late-vote rejection")
+			}
+			k.Logger().Warn("late vote rejected, ballot marked expired",
+				"ballot_id", id,
+				"expiry_height", ballot.BlockHeightExpiry,
+				"current_height", currentHeight,
+				"voter", voter,
+			)
+			return ballot, false, isNew, fmt.Errorf("ballot %s expired at height %d (current %d)", id, ballot.BlockHeightExpiry, currentHeight)
+		}
+	}
+
 	if ballot.Status != types.BallotStatus_BALLOT_STATUS_PENDING {
 		k.Logger().Warn("ballot is not in pending state, cannot vote",
 			"ballot_id", id,
@@ -171,22 +192,14 @@ func (k Keeper) VoteOnBallot(
 	if err != nil {
 		return ballot, false, false, err
 	}
-	if isFinalizing {
-		k.Logger().Debug("ballot finalized",
-			"ballot_id", id,
-			"ballot_status", ballot.Status.String(),
-		)
-		if err := k.ActiveBallotIDs.Remove(ctx, id); err != nil {
-			return ballot, false, isNew, errors.Wrap(err, "failed removing from active ballots")
-		}
-		if err := k.FinalizedBallotIDs.Set(ctx, id); err != nil {
-			return ballot, false, isNew, errors.Wrap(err, "failed adding to finalized ballots")
-		}
-	}
 
 	return ballot, isFinalizing, isNew, nil
 }
 
+// CheckIfFinalizingVote inspects whether the just-cast vote pushes the ballot
+// over its threshold and, if so, drives the finalization through
+// MarkBallotFinalized — the single canonical write path for terminal status
+// transitions, which applies CEI-style ordering on the secondary indexes.
 func (k Keeper) CheckIfFinalizingVote(ctx context.Context, b types.Ballot) (types.Ballot, bool, error) {
 	ballot, isFinalizing := b.IsFinalizingVote()
 	if !isFinalizing {
@@ -198,8 +211,13 @@ func (k Keeper) CheckIfFinalizingVote(ctx context.Context, b types.Ballot) (type
 		"ballot_status", ballot.Status.String(),
 	)
 
-	if err := k.SetBallot(ctx, ballot); err != nil {
+	if err := k.MarkBallotFinalized(ctx, ballot.Id, ballot.Status); err != nil {
 		return ballot, false, errors.Wrap(err, "failed updating finalized ballot")
 	}
+
+	k.Logger().Debug("ballot finalized",
+		"ballot_id", ballot.Id,
+		"ballot_status", ballot.Status.String(),
+	)
 	return ballot, true, nil
 }

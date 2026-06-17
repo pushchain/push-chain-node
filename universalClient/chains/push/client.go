@@ -32,6 +32,10 @@ func NewClient(
 	chainID string,
 	logger zerolog.Logger,
 ) (*Client, error) {
+	// Normalize nil config so downstream uses don't need nil guards.
+	if chainConfig == nil {
+		chainConfig = &config.ChainSpecificConfig{}
+	}
 
 	// Create event listener
 	eventListener, err := NewEventListener(
@@ -44,19 +48,13 @@ func NewClient(
 		return nil, fmt.Errorf("failed to create event listener: %w", err)
 	}
 
-	// Create event cleaner if config is provided
-	var eventCleaner *common.EventCleaner
-	if chainConfig != nil && chainConfig.CleanupIntervalSeconds != nil && chainConfig.RetentionPeriodSeconds != nil {
-		cleanupInterval := time.Duration(*chainConfig.CleanupIntervalSeconds) * time.Second
-		retentionPeriod := time.Duration(*chainConfig.RetentionPeriodSeconds) * time.Second
-		eventCleaner = common.NewEventCleaner(
-			database,
-			cleanupInterval,
-			retentionPeriod,
-			chainID,
-			logger,
-		)
-	}
+	eventCleaner := common.NewEventCleaner(
+		database,
+		chainConfig.CleanupIntervalSeconds,
+		chainConfig.RetentionPeriodSeconds,
+		chainID,
+		logger,
+	)
 
 	client := &Client{
 		logger:        logger.With().Str("component", "push_client").Logger(),
@@ -73,7 +71,7 @@ func NewClient(
 func (c *Client) Start(ctx context.Context) error {
 	c.ctx, c.cancel = context.WithCancel(context.Background())
 
-	c.logger.Info().Msg("starting Push chain client")
+	c.logger.Debug().Msg("starting Push chain client")
 
 	// Start event listener
 	if err := c.eventListener.Start(c.ctx); err != nil {
@@ -83,8 +81,7 @@ func (c *Client) Start(ctx context.Context) error {
 	// Start event cleaner if configured
 	if c.eventCleaner != nil {
 		if err := c.eventCleaner.Start(c.ctx); err != nil {
-			c.logger.Warn().Err(err).Msg("failed to start event cleaner")
-			// Don't fail startup if cleaner fails
+			return fmt.Errorf("failed to start event cleaner: %w", err)
 		}
 	}
 
@@ -94,7 +91,7 @@ func (c *Client) Start(ctx context.Context) error {
 
 // Stop gracefully shuts down the Push chain client
 func (c *Client) Stop() error {
-	c.logger.Info().Msg("stopping Push chain client")
+	c.logger.Debug().Msg("stopping Push chain client")
 
 	// Cancel context
 	if c.cancel != nil {
@@ -104,7 +101,7 @@ func (c *Client) Stop() error {
 	// Stop event listener
 	if c.eventListener != nil {
 		if err := c.eventListener.Stop(); err != nil {
-			c.logger.Error().Err(err).Msg("error stopping event listener")
+			c.logger.Error().Err(err).Str("subsystem", "event_listener").Msg("subsystem failed to stop")
 		}
 	}
 

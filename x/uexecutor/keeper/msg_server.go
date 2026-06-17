@@ -7,6 +7,7 @@ import (
 
 	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkErrors "github.com/cosmos/cosmos-sdk/types/errors"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	"github.com/pushchain/push-chain-node/utils"
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
@@ -173,4 +174,41 @@ func (ms msgServer) VoteChainMeta(ctx context.Context, msg *types.MsgVoteChainMe
 		return nil, err
 	}
 	return &types.MsgVoteChainMetaResponse{}, nil
+}
+
+// RevertStuckInbound is the admin escape hatch — see Keeper.RevertStuckInbound.
+func (ms msgServer) RevertStuckInbound(ctx context.Context, msg *types.MsgRevertStuckInbound) (*types.MsgRevertStuckInboundResponse, error) {
+	ms.k.Logger().Info("msg: RevertStuckInbound", "signer", msg.Signer)
+
+	admin, err := ms.k.uvalidatorKeeper.GetAdmin(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read uvalidator admin")
+	}
+	if admin != msg.Signer {
+		return nil, errors.Wrapf(govtypes.ErrInvalidSigner, "invalid admin; expected %s, got %s", admin, msg.Signer)
+	}
+
+	if msg.Inbound == nil {
+		return nil, errors.Wrap(sdkErrors.ErrInvalidRequest, "inbound is required")
+	}
+
+	utxId, outboundId, err := ms.k.RevertStuckInbound(ctx, *msg.Inbound)
+	if err != nil {
+		return nil, err
+	}
+
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+		"inbound_reverted_by_admin",
+		sdk.NewAttribute("admin", msg.Signer),
+		sdk.NewAttribute("utx_id", utxId),
+		sdk.NewAttribute("outbound_id", outboundId),
+		sdk.NewAttribute("source_chain", msg.Inbound.SourceChain),
+		sdk.NewAttribute("amount", msg.Inbound.Amount),
+	))
+
+	return &types.MsgRevertStuckInboundResponse{
+		UtxId:      utxId,
+		OutboundId: outboundId,
+	}, nil
 }

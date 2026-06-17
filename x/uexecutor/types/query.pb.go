@@ -7,6 +7,7 @@ import (
 	context "context"
 	fmt "fmt"
 	query "github.com/cosmos/cosmos-sdk/types/query"
+	_ "github.com/cosmos/gogoproto/gogoproto"
 	grpc1 "github.com/cosmos/gogoproto/grpc"
 	proto "github.com/cosmos/gogoproto/proto"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
@@ -530,8 +531,9 @@ func (m *QueryAllPendingInboundsRequest) GetPagination() *query.PageRequest {
 }
 
 type QueryAllPendingInboundsResponse struct {
-	InboundIds []string            `protobuf:"bytes,1,rep,name=inbound_ids,json=inboundIds,proto3" json:"inbound_ids,omitempty"`
-	Pagination *query.PageResponse `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
+	// Full per-variant audit-trail entries.
+	Entries    []PendingInboundEntry `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries"`
+	Pagination *query.PageResponse   `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
 }
 
 func (m *QueryAllPendingInboundsResponse) Reset()         { *m = QueryAllPendingInboundsResponse{} }
@@ -567,14 +569,111 @@ func (m *QueryAllPendingInboundsResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_QueryAllPendingInboundsResponse proto.InternalMessageInfo
 
-func (m *QueryAllPendingInboundsResponse) GetInboundIds() []string {
+func (m *QueryAllPendingInboundsResponse) GetEntries() []PendingInboundEntry {
 	if m != nil {
-		return m.InboundIds
+		return m.Entries
 	}
 	return nil
 }
 
 func (m *QueryAllPendingInboundsResponse) GetPagination() *query.PageResponse {
+	if m != nil {
+		return m.Pagination
+	}
+	return nil
+}
+
+// Expired Inbounds
+type QueryAllExpiredInboundsRequest struct {
+	Pagination *query.PageRequest `protobuf:"bytes,1,opt,name=pagination,proto3" json:"pagination,omitempty"`
+}
+
+func (m *QueryAllExpiredInboundsRequest) Reset()         { *m = QueryAllExpiredInboundsRequest{} }
+func (m *QueryAllExpiredInboundsRequest) String() string { return proto.CompactTextString(m) }
+func (*QueryAllExpiredInboundsRequest) ProtoMessage()    {}
+func (*QueryAllExpiredInboundsRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_94816af5d57d33a7, []int{12}
+}
+func (m *QueryAllExpiredInboundsRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *QueryAllExpiredInboundsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_QueryAllExpiredInboundsRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *QueryAllExpiredInboundsRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueryAllExpiredInboundsRequest.Merge(m, src)
+}
+func (m *QueryAllExpiredInboundsRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *QueryAllExpiredInboundsRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_QueryAllExpiredInboundsRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QueryAllExpiredInboundsRequest proto.InternalMessageInfo
+
+func (m *QueryAllExpiredInboundsRequest) GetPagination() *query.PageRequest {
+	if m != nil {
+		return m.Pagination
+	}
+	return nil
+}
+
+type QueryAllExpiredInboundsResponse struct {
+	Entries    []ExpiredInboundEntry `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries"`
+	Pagination *query.PageResponse   `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
+}
+
+func (m *QueryAllExpiredInboundsResponse) Reset()         { *m = QueryAllExpiredInboundsResponse{} }
+func (m *QueryAllExpiredInboundsResponse) String() string { return proto.CompactTextString(m) }
+func (*QueryAllExpiredInboundsResponse) ProtoMessage()    {}
+func (*QueryAllExpiredInboundsResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_94816af5d57d33a7, []int{13}
+}
+func (m *QueryAllExpiredInboundsResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *QueryAllExpiredInboundsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_QueryAllExpiredInboundsResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *QueryAllExpiredInboundsResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueryAllExpiredInboundsResponse.Merge(m, src)
+}
+func (m *QueryAllExpiredInboundsResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *QueryAllExpiredInboundsResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_QueryAllExpiredInboundsResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QueryAllExpiredInboundsResponse proto.InternalMessageInfo
+
+func (m *QueryAllExpiredInboundsResponse) GetEntries() []ExpiredInboundEntry {
+	if m != nil {
+		return m.Entries
+	}
+	return nil
+}
+
+func (m *QueryAllExpiredInboundsResponse) GetPagination() *query.PageResponse {
 	if m != nil {
 		return m.Pagination
 	}
@@ -590,7 +689,7 @@ func (m *QueryGetUniversalTxRequest) Reset()         { *m = QueryGetUniversalTxR
 func (m *QueryGetUniversalTxRequest) String() string { return proto.CompactTextString(m) }
 func (*QueryGetUniversalTxRequest) ProtoMessage()    {}
 func (*QueryGetUniversalTxRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_94816af5d57d33a7, []int{12}
+	return fileDescriptor_94816af5d57d33a7, []int{14}
 }
 func (m *QueryGetUniversalTxRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -634,7 +733,7 @@ func (m *QueryGetUniversalTxResponse) Reset()         { *m = QueryGetUniversalTx
 func (m *QueryGetUniversalTxResponse) String() string { return proto.CompactTextString(m) }
 func (*QueryGetUniversalTxResponse) ProtoMessage()    {}
 func (*QueryGetUniversalTxResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_94816af5d57d33a7, []int{13}
+	return fileDescriptor_94816af5d57d33a7, []int{15}
 }
 func (m *QueryGetUniversalTxResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -678,7 +777,7 @@ func (m *QueryAllUniversalTxRequest) Reset()         { *m = QueryAllUniversalTxR
 func (m *QueryAllUniversalTxRequest) String() string { return proto.CompactTextString(m) }
 func (*QueryAllUniversalTxRequest) ProtoMessage()    {}
 func (*QueryAllUniversalTxRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_94816af5d57d33a7, []int{14}
+	return fileDescriptor_94816af5d57d33a7, []int{16}
 }
 func (m *QueryAllUniversalTxRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -723,7 +822,7 @@ func (m *QueryAllUniversalTxResponse) Reset()         { *m = QueryAllUniversalTx
 func (m *QueryAllUniversalTxResponse) String() string { return proto.CompactTextString(m) }
 func (*QueryAllUniversalTxResponse) ProtoMessage()    {}
 func (*QueryAllUniversalTxResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_94816af5d57d33a7, []int{15}
+	return fileDescriptor_94816af5d57d33a7, []int{17}
 }
 func (m *QueryAllUniversalTxResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -766,19 +865,27 @@ func (m *QueryAllUniversalTxResponse) GetPagination() *query.PageResponse {
 	return nil
 }
 
-// Pending outbound index entry
+// Pending outbound index entry. Created by chain code at outbound creation
+// (see create_outbound.go). Removed only when validators reach consensus
+// on an OutboundObservation (see msg_vote_outbound.go). Ballot expiry does
+// NOT remove the entry — operators investigate stuck outbounds via the
+// per-variant audit trail (variants below) plus separate uvalidator ballot
+// queries to see which ballots have terminated. See
+// plan-pending-outbound-cleanup.md for design rationale.
 type PendingOutboundEntry struct {
 	OutboundId      string `protobuf:"bytes,1,opt,name=outbound_id,json=outboundId,proto3" json:"outbound_id,omitempty"`
 	UniversalTxId   string `protobuf:"bytes,2,opt,name=universal_tx_id,json=universalTxId,proto3" json:"universal_tx_id,omitempty"`
 	CreatedAt       int64  `protobuf:"varint,3,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	SigningDeadline int64  `protobuf:"varint,4,opt,name=signing_deadline,json=signingDeadline,proto3" json:"signing_deadline,omitempty"`
+	// Per-variant audit trail, populated as votes arrive (RecordOutboundVote).
+	Variants []OutboundObservationVariant `protobuf:"bytes,5,rep,name=variants,proto3" json:"variants"`
 }
 
 func (m *PendingOutboundEntry) Reset()         { *m = PendingOutboundEntry{} }
 func (m *PendingOutboundEntry) String() string { return proto.CompactTextString(m) }
 func (*PendingOutboundEntry) ProtoMessage()    {}
 func (*PendingOutboundEntry) Descriptor() ([]byte, []int) {
-	return fileDescriptor_94816af5d57d33a7, []int{16}
+	return fileDescriptor_94816af5d57d33a7, []int{18}
 }
 func (m *PendingOutboundEntry) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -835,6 +942,13 @@ func (m *PendingOutboundEntry) GetSigningDeadline() int64 {
 	return 0
 }
 
+func (m *PendingOutboundEntry) GetVariants() []OutboundObservationVariant {
+	if m != nil {
+		return m.Variants
+	}
+	return nil
+}
+
 type QueryGetPendingOutboundRequest struct {
 	OutboundId string `protobuf:"bytes,1,opt,name=outbound_id,json=outboundId,proto3" json:"outbound_id,omitempty"`
 }
@@ -843,7 +957,7 @@ func (m *QueryGetPendingOutboundRequest) Reset()         { *m = QueryGetPendingO
 func (m *QueryGetPendingOutboundRequest) String() string { return proto.CompactTextString(m) }
 func (*QueryGetPendingOutboundRequest) ProtoMessage()    {}
 func (*QueryGetPendingOutboundRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_94816af5d57d33a7, []int{17}
+	return fileDescriptor_94816af5d57d33a7, []int{19}
 }
 func (m *QueryGetPendingOutboundRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -888,7 +1002,7 @@ func (m *QueryGetPendingOutboundResponse) Reset()         { *m = QueryGetPending
 func (m *QueryGetPendingOutboundResponse) String() string { return proto.CompactTextString(m) }
 func (*QueryGetPendingOutboundResponse) ProtoMessage()    {}
 func (*QueryGetPendingOutboundResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_94816af5d57d33a7, []int{18}
+	return fileDescriptor_94816af5d57d33a7, []int{20}
 }
 func (m *QueryGetPendingOutboundResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -939,7 +1053,7 @@ func (m *QueryAllPendingOutboundsRequest) Reset()         { *m = QueryAllPending
 func (m *QueryAllPendingOutboundsRequest) String() string { return proto.CompactTextString(m) }
 func (*QueryAllPendingOutboundsRequest) ProtoMessage()    {}
 func (*QueryAllPendingOutboundsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_94816af5d57d33a7, []int{19}
+	return fileDescriptor_94816af5d57d33a7, []int{21}
 }
 func (m *QueryAllPendingOutboundsRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -985,7 +1099,7 @@ func (m *QueryAllPendingOutboundsResponse) Reset()         { *m = QueryAllPendin
 func (m *QueryAllPendingOutboundsResponse) String() string { return proto.CompactTextString(m) }
 func (*QueryAllPendingOutboundsResponse) ProtoMessage()    {}
 func (*QueryAllPendingOutboundsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_94816af5d57d33a7, []int{20}
+	return fileDescriptor_94816af5d57d33a7, []int{22}
 }
 func (m *QueryAllPendingOutboundsResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1035,6 +1149,224 @@ func (m *QueryAllPendingOutboundsResponse) GetPagination() *query.PageResponse {
 	return nil
 }
 
+// InboundKeys: derive canonical UTX id + inbound ballot id from an inbound.
+type QueryInboundKeysRequest struct {
+	Inbound *Inbound `protobuf:"bytes,1,opt,name=inbound,proto3" json:"inbound,omitempty"`
+}
+
+func (m *QueryInboundKeysRequest) Reset()         { *m = QueryInboundKeysRequest{} }
+func (m *QueryInboundKeysRequest) String() string { return proto.CompactTextString(m) }
+func (*QueryInboundKeysRequest) ProtoMessage()    {}
+func (*QueryInboundKeysRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_94816af5d57d33a7, []int{23}
+}
+func (m *QueryInboundKeysRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *QueryInboundKeysRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_QueryInboundKeysRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *QueryInboundKeysRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueryInboundKeysRequest.Merge(m, src)
+}
+func (m *QueryInboundKeysRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *QueryInboundKeysRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_QueryInboundKeysRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QueryInboundKeysRequest proto.InternalMessageInfo
+
+func (m *QueryInboundKeysRequest) GetInbound() *Inbound {
+	if m != nil {
+		return m.Inbound
+	}
+	return nil
+}
+
+type QueryInboundKeysResponse struct {
+	UtxId            string   `protobuf:"bytes,1,opt,name=utx_id,json=utxId,proto3" json:"utx_id,omitempty"`
+	BallotId         string   `protobuf:"bytes,2,opt,name=ballot_id,json=ballotId,proto3" json:"ballot_id,omitempty"`
+	CanonicalInbound *Inbound `protobuf:"bytes,3,opt,name=canonical_inbound,json=canonicalInbound,proto3" json:"canonical_inbound,omitempty"`
+}
+
+func (m *QueryInboundKeysResponse) Reset()         { *m = QueryInboundKeysResponse{} }
+func (m *QueryInboundKeysResponse) String() string { return proto.CompactTextString(m) }
+func (*QueryInboundKeysResponse) ProtoMessage()    {}
+func (*QueryInboundKeysResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_94816af5d57d33a7, []int{24}
+}
+func (m *QueryInboundKeysResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *QueryInboundKeysResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_QueryInboundKeysResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *QueryInboundKeysResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueryInboundKeysResponse.Merge(m, src)
+}
+func (m *QueryInboundKeysResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *QueryInboundKeysResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_QueryInboundKeysResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QueryInboundKeysResponse proto.InternalMessageInfo
+
+func (m *QueryInboundKeysResponse) GetUtxId() string {
+	if m != nil {
+		return m.UtxId
+	}
+	return ""
+}
+
+func (m *QueryInboundKeysResponse) GetBallotId() string {
+	if m != nil {
+		return m.BallotId
+	}
+	return ""
+}
+
+func (m *QueryInboundKeysResponse) GetCanonicalInbound() *Inbound {
+	if m != nil {
+		return m.CanonicalInbound
+	}
+	return nil
+}
+
+// OutboundBallotKey: derive the canonical outbound ballot id for an observation.
+type QueryOutboundBallotKeyRequest struct {
+	UtxId      string               `protobuf:"bytes,1,opt,name=utx_id,json=utxId,proto3" json:"utx_id,omitempty"`
+	OutboundId string               `protobuf:"bytes,2,opt,name=outbound_id,json=outboundId,proto3" json:"outbound_id,omitempty"`
+	ObservedTx *OutboundObservation `protobuf:"bytes,3,opt,name=observed_tx,json=observedTx,proto3" json:"observed_tx,omitempty"`
+}
+
+func (m *QueryOutboundBallotKeyRequest) Reset()         { *m = QueryOutboundBallotKeyRequest{} }
+func (m *QueryOutboundBallotKeyRequest) String() string { return proto.CompactTextString(m) }
+func (*QueryOutboundBallotKeyRequest) ProtoMessage()    {}
+func (*QueryOutboundBallotKeyRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_94816af5d57d33a7, []int{25}
+}
+func (m *QueryOutboundBallotKeyRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *QueryOutboundBallotKeyRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_QueryOutboundBallotKeyRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *QueryOutboundBallotKeyRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueryOutboundBallotKeyRequest.Merge(m, src)
+}
+func (m *QueryOutboundBallotKeyRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *QueryOutboundBallotKeyRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_QueryOutboundBallotKeyRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QueryOutboundBallotKeyRequest proto.InternalMessageInfo
+
+func (m *QueryOutboundBallotKeyRequest) GetUtxId() string {
+	if m != nil {
+		return m.UtxId
+	}
+	return ""
+}
+
+func (m *QueryOutboundBallotKeyRequest) GetOutboundId() string {
+	if m != nil {
+		return m.OutboundId
+	}
+	return ""
+}
+
+func (m *QueryOutboundBallotKeyRequest) GetObservedTx() *OutboundObservation {
+	if m != nil {
+		return m.ObservedTx
+	}
+	return nil
+}
+
+type QueryOutboundBallotKeyResponse struct {
+	BallotId            string               `protobuf:"bytes,1,opt,name=ballot_id,json=ballotId,proto3" json:"ballot_id,omitempty"`
+	CanonicalObservedTx *OutboundObservation `protobuf:"bytes,2,opt,name=canonical_observed_tx,json=canonicalObservedTx,proto3" json:"canonical_observed_tx,omitempty"`
+}
+
+func (m *QueryOutboundBallotKeyResponse) Reset()         { *m = QueryOutboundBallotKeyResponse{} }
+func (m *QueryOutboundBallotKeyResponse) String() string { return proto.CompactTextString(m) }
+func (*QueryOutboundBallotKeyResponse) ProtoMessage()    {}
+func (*QueryOutboundBallotKeyResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_94816af5d57d33a7, []int{26}
+}
+func (m *QueryOutboundBallotKeyResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *QueryOutboundBallotKeyResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_QueryOutboundBallotKeyResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *QueryOutboundBallotKeyResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueryOutboundBallotKeyResponse.Merge(m, src)
+}
+func (m *QueryOutboundBallotKeyResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *QueryOutboundBallotKeyResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_QueryOutboundBallotKeyResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QueryOutboundBallotKeyResponse proto.InternalMessageInfo
+
+func (m *QueryOutboundBallotKeyResponse) GetBallotId() string {
+	if m != nil {
+		return m.BallotId
+	}
+	return ""
+}
+
+func (m *QueryOutboundBallotKeyResponse) GetCanonicalObservedTx() *OutboundObservation {
+	if m != nil {
+		return m.CanonicalObservedTx
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterType((*QueryGasPriceRequest)(nil), "uexecutor.v1.QueryGasPriceRequest")
 	proto.RegisterType((*QueryGasPriceResponse)(nil), "uexecutor.v1.QueryGasPriceResponse")
@@ -1048,6 +1380,8 @@ func init() {
 	proto.RegisterType((*QueryParamsResponse)(nil), "uexecutor.v1.QueryParamsResponse")
 	proto.RegisterType((*QueryAllPendingInboundsRequest)(nil), "uexecutor.v1.QueryAllPendingInboundsRequest")
 	proto.RegisterType((*QueryAllPendingInboundsResponse)(nil), "uexecutor.v1.QueryAllPendingInboundsResponse")
+	proto.RegisterType((*QueryAllExpiredInboundsRequest)(nil), "uexecutor.v1.QueryAllExpiredInboundsRequest")
+	proto.RegisterType((*QueryAllExpiredInboundsResponse)(nil), "uexecutor.v1.QueryAllExpiredInboundsResponse")
 	proto.RegisterType((*QueryGetUniversalTxRequest)(nil), "uexecutor.v1.QueryGetUniversalTxRequest")
 	proto.RegisterType((*QueryGetUniversalTxResponse)(nil), "uexecutor.v1.QueryGetUniversalTxResponse")
 	proto.RegisterType((*QueryAllUniversalTxRequest)(nil), "uexecutor.v1.QueryAllUniversalTxRequest")
@@ -1057,82 +1391,107 @@ func init() {
 	proto.RegisterType((*QueryGetPendingOutboundResponse)(nil), "uexecutor.v1.QueryGetPendingOutboundResponse")
 	proto.RegisterType((*QueryAllPendingOutboundsRequest)(nil), "uexecutor.v1.QueryAllPendingOutboundsRequest")
 	proto.RegisterType((*QueryAllPendingOutboundsResponse)(nil), "uexecutor.v1.QueryAllPendingOutboundsResponse")
+	proto.RegisterType((*QueryInboundKeysRequest)(nil), "uexecutor.v1.QueryInboundKeysRequest")
+	proto.RegisterType((*QueryInboundKeysResponse)(nil), "uexecutor.v1.QueryInboundKeysResponse")
+	proto.RegisterType((*QueryOutboundBallotKeyRequest)(nil), "uexecutor.v1.QueryOutboundBallotKeyRequest")
+	proto.RegisterType((*QueryOutboundBallotKeyResponse)(nil), "uexecutor.v1.QueryOutboundBallotKeyResponse")
 }
 
 func init() { proto.RegisterFile("uexecutor/v1/query.proto", fileDescriptor_94816af5d57d33a7) }
 
 var fileDescriptor_94816af5d57d33a7 = []byte{
-	// 1117 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x97, 0xcf, 0x6f, 0xe3, 0x44,
-	0x14, 0xc7, 0x3b, 0x29, 0xdb, 0x6d, 0x5e, 0x7f, 0x2c, 0x9a, 0x0d, 0x25, 0x75, 0xdb, 0x34, 0x75,
-	0x97, 0x36, 0xbb, 0xb4, 0xb6, 0xd2, 0x5d, 0x2a, 0x0e, 0x08, 0xa9, 0xbb, 0x40, 0x15, 0x69, 0x11,
-	0x21, 0x5a, 0x2e, 0x5c, 0xa2, 0x49, 0x3c, 0x72, 0x2d, 0x52, 0x3b, 0x9b, 0xb1, 0xab, 0x54, 0x55,
-	0x85, 0x00, 0x71, 0x01, 0x24, 0x40, 0x9c, 0x10, 0x42, 0xdc, 0x40, 0xfc, 0x27, 0x1c, 0x57, 0xe2,
-	0xc2, 0x11, 0x5a, 0xfe, 0x10, 0x94, 0xf1, 0x8c, 0x63, 0x3b, 0xe3, 0x34, 0x42, 0xb9, 0x39, 0x33,
-	0xef, 0xcd, 0xfb, 0x7c, 0xdf, 0xcc, 0xbc, 0x79, 0x81, 0x62, 0x40, 0xfb, 0xb4, 0x1d, 0xf8, 0x5e,
-	0xcf, 0x3c, 0xab, 0x9a, 0xcf, 0x03, 0xda, 0x3b, 0x37, 0xba, 0x3d, 0xcf, 0xf7, 0xf0, 0x62, 0x34,
-	0x63, 0x9c, 0x55, 0xb5, 0x75, 0xdb, 0xf3, 0xec, 0x0e, 0x35, 0x49, 0xd7, 0x31, 0x89, 0xeb, 0x7a,
-	0x3e, 0xf1, 0x1d, 0xcf, 0x65, 0xa1, 0xad, 0x96, 0x5c, 0xc5, 0x3f, 0xef, 0x52, 0x39, 0xb3, 0x9e,
-	0x98, 0xb1, 0x09, 0x6b, 0x76, 0x7b, 0x4e, 0x9b, 0x8a, 0xd9, 0x8d, 0xc4, 0x6c, 0xfb, 0x84, 0x38,
-	0x6e, 0xf3, 0x94, 0xfa, 0x44, 0x4c, 0x3f, 0x68, 0x7b, 0xec, 0xd4, 0x63, 0x66, 0x8b, 0x30, 0x1a,
-	0xb2, 0x99, 0x67, 0xd5, 0x16, 0xf5, 0x49, 0xd5, 0xec, 0x12, 0xdb, 0x71, 0x39, 0x43, 0x68, 0xab,
-	0x57, 0xa1, 0xf0, 0xe1, 0xc0, 0xe2, 0x98, 0xb0, 0xfa, 0x20, 0x42, 0x83, 0x3e, 0x0f, 0x28, 0xf3,
-	0xf1, 0x2a, 0xcc, 0x87, 0xeb, 0x3a, 0x56, 0x11, 0x95, 0x51, 0x25, 0xdf, 0xb8, 0xcd, 0x7f, 0xd7,
-	0x2c, 0xfd, 0x29, 0xbc, 0x92, 0x72, 0x61, 0x5d, 0xcf, 0x65, 0x14, 0x3f, 0x84, 0x7c, 0x44, 0xca,
-	0x9d, 0x16, 0x0e, 0x56, 0x8c, 0x78, 0x3a, 0x8c, 0xc8, 0x65, 0xde, 0x16, 0x5f, 0x7a, 0x0b, 0x8a,
-	0x7c, 0xb5, 0xa3, 0x4e, 0x47, 0xce, 0x32, 0x09, 0xf1, 0x1e, 0xc0, 0x10, 0x58, 0xac, 0xb8, 0x63,
-	0x84, 0xea, 0x8c, 0x81, 0x3a, 0x23, 0xcc, 0xbc, 0x50, 0x67, 0xd4, 0x89, 0x2d, 0x05, 0x34, 0x62,
-	0x9e, 0xfa, 0x4f, 0x08, 0x56, 0x15, 0x41, 0x04, 0xf6, 0x1b, 0x00, 0x11, 0x36, 0x2b, 0xa2, 0xf2,
-	0xec, 0x18, 0xee, 0xbc, 0xe4, 0x66, 0xf8, 0x38, 0x01, 0x97, 0xe3, 0x70, 0xbb, 0x37, 0xc2, 0x85,
-	0x31, 0x13, 0x74, 0x07, 0x22, 0x9f, 0x4f, 0x06, 0xf9, 0x7d, 0x9f, 0xfa, 0x64, 0x82, 0x3d, 0xa8,
-	0xc3, 0x4a, 0xda, 0x47, 0xa8, 0x39, 0x04, 0x18, 0x1e, 0x08, 0x91, 0xb3, 0x57, 0x93, 0x6a, 0x86,
-	0x4e, 0xf9, 0xb6, 0xfc, 0xd4, 0xdb, 0xc3, 0x14, 0x45, 0xf3, 0x53, 0xdf, 0x88, 0x5f, 0x10, 0x68,
-	0xaa, 0x28, 0x82, 0xfd, 0x4d, 0x58, 0x18, 0xb2, 0xcb, 0xad, 0xc8, 0x84, 0x87, 0x08, 0x7e, 0x8a,
-	0x9b, 0x51, 0x00, 0xcc, 0x01, 0xeb, 0xa4, 0x47, 0x4e, 0xa5, 0x7e, 0xfd, 0x09, 0xdc, 0x4d, 0x8c,
-	0x0a, 0xde, 0x3d, 0x98, 0xeb, 0xf2, 0x11, 0x91, 0x92, 0x42, 0x12, 0x55, 0x58, 0x0b, 0x1b, 0xfd,
-	0x04, 0x4a, 0x52, 0x7b, 0x9d, 0xba, 0x96, 0xe3, 0xda, 0x35, 0xb7, 0xe5, 0x05, 0xae, 0x35, 0xf5,
-	0x34, 0x7f, 0x8d, 0x60, 0x33, 0x33, 0x94, 0x60, 0xdf, 0x84, 0x05, 0x27, 0x1c, 0x6b, 0x3a, 0x56,
-	0x98, 0xeb, 0x7c, 0x03, 0xc4, 0x50, 0xcd, 0x9a, 0x62, 0x4a, 0xf7, 0xc4, 0x9e, 0x1f, 0x53, 0xff,
-	0x23, 0xd7, 0x39, 0xa3, 0x3d, 0x46, 0x3a, 0xcf, 0xfa, 0x52, 0xf3, 0x32, 0xe4, 0xa2, 0xe3, 0x9d,
-	0x73, 0x2c, 0x9d, 0xc0, 0x9a, 0xd2, 0x5a, 0x60, 0x3f, 0x86, 0xc5, 0x40, 0x0e, 0x37, 0xfd, 0xbe,
-	0x48, 0xd2, 0x66, 0x32, 0xf1, 0x31, 0xc7, 0xa7, 0xd4, 0x26, 0xed, 0xf3, 0xc6, 0x42, 0x30, 0x1c,
-	0xd2, 0xad, 0xe1, 0x21, 0x54, 0x00, 0x4d, 0x6b, 0x13, 0x7e, 0x45, 0x42, 0x49, 0x3a, 0x8c, 0x50,
-	0xf2, 0x36, 0x2c, 0xc5, 0x95, 0xc8, 0xe3, 0xbe, 0x9a, 0x29, 0xa5, 0xb1, 0x18, 0x13, 0x31, 0xc5,
-	0xfd, 0xf9, 0x1d, 0x41, 0x41, 0x9c, 0x92, 0x0f, 0x02, 0x9f, 0xef, 0xff, 0xbb, 0xae, 0xdf, 0x3b,
-	0x1f, 0x1c, 0x11, 0x4f, 0x0c, 0x0c, 0x4b, 0x10, 0xc8, 0xa1, 0x9a, 0x85, 0x77, 0xe0, 0x4e, 0x5c,
-	0xc2, 0xc0, 0x28, 0xc7, 0x8d, 0x96, 0x62, 0xa4, 0x35, 0x0b, 0x6f, 0x00, 0xb4, 0x7b, 0x94, 0xf8,
-	0xd4, 0x6a, 0x12, 0xbf, 0x38, 0x5b, 0x46, 0x95, 0xd9, 0x46, 0x5e, 0x8c, 0x1c, 0xf9, 0xf8, 0x3e,
-	0xbc, 0xcc, 0x1c, 0xdb, 0x75, 0x5c, 0xbb, 0x69, 0x51, 0x62, 0x75, 0x1c, 0x97, 0x16, 0x5f, 0xe2,
-	0x46, 0x77, 0xc4, 0xf8, 0x3b, 0x62, 0x58, 0x3f, 0x12, 0x77, 0xe8, 0x98, 0xfa, 0x29, 0x64, 0xb9,
-	0x7d, 0x37, 0x41, 0xeb, 0xdf, 0xcb, 0xcb, 0xa1, 0x5a, 0x23, 0x2a, 0x44, 0xb7, 0xe8, 0x20, 0x05,
-	0x62, 0xfb, 0xf5, 0xd4, 0xbd, 0x56, 0x24, 0xab, 0x11, 0x3a, 0xe0, 0x47, 0x30, 0x2f, 0x63, 0x89,
-	0x3d, 0x29, 0x26, 0x9d, 0xa5, 0xd7, 0xb3, 0x7e, 0x23, 0xb2, 0xd4, 0x9d, 0x91, 0xfb, 0x2a, 0xcd,
-	0xa6, 0x5e, 0x1b, 0xfe, 0x41, 0x50, 0xce, 0x8e, 0x25, 0xf4, 0xbf, 0x05, 0xb7, 0x07, 0x72, 0x9c,
-	0xe8, 0x3d, 0x9c, 0x24, 0x03, 0xd2, 0x05, 0x1f, 0x42, 0x5e, 0x2a, 0x63, 0xc5, 0x1c, 0xf7, 0xcf,
-	0x4e, 0xc2, 0xd0, 0x34, 0x75, 0xa2, 0x67, 0xff, 0xf7, 0x89, 0x3e, 0xf8, 0x66, 0x01, 0x6e, 0x71,
-	0x8d, 0xf8, 0x13, 0x98, 0x0b, 0xab, 0x30, 0x2e, 0x27, 0x09, 0x46, 0x8b, 0xbc, 0xb6, 0x35, 0xc6,
-	0x22, 0x0c, 0xa2, 0xaf, 0x7f, 0xfe, 0xe7, 0xbf, 0x3f, 0xe4, 0x56, 0x70, 0xc1, 0x4c, 0x74, 0x60,
-	0x61, 0x81, 0xc7, 0x3f, 0x22, 0xc0, 0xa3, 0x15, 0x17, 0xef, 0x29, 0xd6, 0xcd, 0x7c, 0x03, 0xb4,
-	0xfd, 0x09, 0xad, 0x05, 0xd1, 0x0e, 0x27, 0x2a, 0xe3, 0x52, 0x8a, 0x28, 0x34, 0x6f, 0x3a, 0x12,
-	0xe2, 0x5b, 0x04, 0xcb, 0xc9, 0x92, 0x8a, 0x2b, 0x8a, 0x48, 0xca, 0x1a, 0xad, 0xdd, 0x9f, 0xc0,
-	0x52, 0xf0, 0x54, 0x38, 0x8f, 0x8e, 0xcb, 0x49, 0x9e, 0x44, 0xa5, 0x33, 0x2f, 0x1c, 0xeb, 0x12,
-	0x7f, 0x85, 0x60, 0x39, 0x59, 0x1a, 0x95, 0x44, 0xca, 0x22, 0xad, 0x24, 0x52, 0xd7, 0x59, 0x7d,
-	0x9b, 0x13, 0x6d, 0xe0, 0xb5, 0x31, 0x44, 0xf8, 0x53, 0x98, 0x97, 0x3d, 0x1e, 0xd6, 0x55, 0x6a,
-	0x93, 0xed, 0xb1, 0xb6, 0x3d, 0xd6, 0x46, 0x44, 0x7e, 0xc0, 0x23, 0xdf, 0xc3, 0xba, 0xa9, 0xee,
-	0xe6, 0xcd, 0x0b, 0xd9, 0xde, 0x5d, 0xe2, 0xcf, 0x10, 0x2c, 0xc6, 0xbb, 0x53, 0xbc, 0xa3, 0x56,
-	0x98, 0xee, 0x91, 0xb5, 0xdd, 0x1b, 0xed, 0x04, 0x4d, 0x99, 0xd3, 0x68, 0xb8, 0x98, 0x41, 0xc3,
-	0xf0, 0x17, 0x08, 0xf2, 0x51, 0x7b, 0x85, 0x55, 0x12, 0xd3, 0x2d, 0xaa, 0x76, 0x6f, 0xbc, 0x91,
-	0x08, 0xfd, 0x3a, 0x0f, 0xfd, 0x1a, 0xde, 0x36, 0x33, 0xfe, 0xb8, 0xc4, 0x33, 0xf1, 0x25, 0x82,
-	0xa5, 0x44, 0x7b, 0x88, 0x33, 0x24, 0x8e, 0xb4, 0xa9, 0x5a, 0xe5, 0x66, 0x43, 0x41, 0xb4, 0xc5,
-	0x89, 0xd6, 0xf0, 0x6a, 0x16, 0x11, 0xc3, 0xbf, 0x21, 0xc0, 0xa3, 0x4f, 0x84, 0xf2, 0x36, 0x67,
-	0xbe, 0x46, 0xca, 0xdb, 0x9c, 0xfd, 0xee, 0xe8, 0x8f, 0x38, 0x96, 0x81, 0xf7, 0xd4, 0xb7, 0x59,
-	0x96, 0x4a, 0xf3, 0x22, 0xf6, 0xc4, 0x5d, 0xe2, 0x9f, 0x11, 0xdc, 0x55, 0x54, 0x73, 0x3c, 0xbe,
-	0x94, 0xa4, 0x5f, 0x18, 0xcd, 0x98, 0xd4, 0x5c, 0xc0, 0xee, 0x72, 0xd8, 0x2d, 0xbc, 0x39, 0x1e,
-	0x96, 0x3d, 0xae, 0xff, 0x71, 0x55, 0x42, 0x2f, 0xae, 0x4a, 0xe8, 0xef, 0xab, 0x12, 0xfa, 0xee,
-	0xba, 0x34, 0xf3, 0xe2, 0xba, 0x34, 0xf3, 0xd7, 0x75, 0x69, 0xe6, 0xe3, 0x43, 0xdb, 0xf1, 0x4f,
-	0x82, 0x96, 0xd1, 0xf6, 0x4e, 0xcd, 0x6e, 0xc0, 0x4e, 0x78, 0xfe, 0xf9, 0xd7, 0x3e, 0xff, 0xdc,
-	0x77, 0x3d, 0x8b, 0x9a, 0xfd, 0x58, 0x00, 0xfe, 0x27, 0xb9, 0x35, 0xc7, 0xff, 0xbc, 0x3e, 0xfc,
-	0x2f, 0x00, 0x00, 0xff, 0xff, 0x4d, 0x8b, 0xef, 0x08, 0x87, 0x0f, 0x00, 0x00,
+	// 1448 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x98, 0x4f, 0x6f, 0x13, 0x47,
+	0x14, 0xc0, 0x33, 0x0e, 0x09, 0xf1, 0x4b, 0x08, 0x30, 0x24, 0xe0, 0x6c, 0x88, 0xe3, 0x2c, 0x10,
+	0x02, 0x04, 0xaf, 0x02, 0x14, 0x55, 0x55, 0x55, 0x29, 0xa1, 0x34, 0x0a, 0x50, 0x91, 0x5a, 0xd0,
+	0x43, 0x2f, 0xd6, 0xda, 0x3b, 0xda, 0xac, 0x70, 0x76, 0x8d, 0x77, 0x1d, 0xd9, 0x42, 0xa8, 0x6a,
+	0x51, 0x2f, 0xbd, 0xf4, 0xef, 0xa5, 0x6a, 0xab, 0xde, 0xda, 0x53, 0xbf, 0x07, 0x97, 0x4a, 0x48,
+	0xbd, 0xf4, 0x54, 0xb5, 0xd0, 0xaf, 0xd0, 0x7b, 0xe5, 0xd9, 0x37, 0xbb, 0x3b, 0xeb, 0x59, 0xc7,
+	0xaa, 0xdc, 0xde, 0xd6, 0x33, 0xef, 0xcd, 0xfb, 0xbd, 0x37, 0xf3, 0xde, 0xcc, 0x33, 0x14, 0xda,
+	0xac, 0xc3, 0xea, 0xed, 0xc0, 0x6b, 0x19, 0x07, 0x1b, 0xc6, 0xe3, 0x36, 0x6b, 0x75, 0xcb, 0xcd,
+	0x96, 0x17, 0x78, 0x74, 0x26, 0x9a, 0x29, 0x1f, 0x6c, 0x68, 0x73, 0xb6, 0x67, 0x7b, 0x7c, 0xc2,
+	0xe8, 0x7d, 0x85, 0x32, 0xda, 0x59, 0xdb, 0xf3, 0xec, 0x06, 0x33, 0xcc, 0xa6, 0x63, 0x98, 0xae,
+	0xeb, 0x05, 0x66, 0xe0, 0x78, 0xae, 0x8f, 0xb3, 0xf2, 0xda, 0x41, 0xb7, 0xc9, 0xc4, 0xcc, 0x59,
+	0x69, 0xc6, 0x36, 0xfd, 0x6a, 0xb3, 0xe5, 0xd4, 0x19, 0xce, 0x2e, 0x49, 0xb3, 0xf5, 0x3d, 0xd3,
+	0x71, 0xab, 0xfb, 0x2c, 0x30, 0x71, 0x5a, 0x93, 0xa6, 0x9b, 0xcc, 0xb5, 0x1c, 0xd7, 0xc6, 0xb9,
+	0xcb, 0x75, 0xcf, 0xdf, 0xf7, 0x7c, 0xa3, 0x66, 0xfa, 0x2c, 0xf4, 0xc6, 0x38, 0xd8, 0xa8, 0xb1,
+	0xc0, 0xdc, 0x30, 0x9a, 0xa6, 0xed, 0xb8, 0x9c, 0x2f, 0x94, 0xd5, 0x37, 0x60, 0xee, 0xbd, 0x9e,
+	0xc4, 0xb6, 0xe9, 0xef, 0xf6, 0xac, 0x57, 0xd8, 0xe3, 0x36, 0xf3, 0x03, 0xba, 0x00, 0x53, 0xa1,
+	0x4d, 0xc7, 0x2a, 0x90, 0x12, 0x59, 0xcb, 0x57, 0x8e, 0xf2, 0xdf, 0x3b, 0x96, 0x7e, 0x0f, 0xe6,
+	0x53, 0x2a, 0x7e, 0xd3, 0x73, 0x7d, 0x46, 0xaf, 0x43, 0x3e, 0xf2, 0x82, 0x2b, 0x4d, 0x5f, 0x3b,
+	0x5d, 0x4e, 0x06, 0xb0, 0x1c, 0xa9, 0x4c, 0xd9, 0xf8, 0xa5, 0xd7, 0xa0, 0xc0, 0x57, 0xdb, 0x6c,
+	0x34, 0xc4, 0xac, 0x2f, 0x20, 0xde, 0x01, 0x88, 0x81, 0x71, 0xc5, 0xd5, 0x72, 0xe8, 0x5d, 0xb9,
+	0xe7, 0x5d, 0x39, 0xdc, 0x2b, 0xf4, 0xae, 0xbc, 0x6b, 0xda, 0xc2, 0x81, 0x4a, 0x42, 0x53, 0xff,
+	0x96, 0xc0, 0x82, 0xc2, 0x08, 0x62, 0xbf, 0x06, 0x10, 0x61, 0xfb, 0x05, 0x52, 0x1a, 0x1f, 0xc0,
+	0x9d, 0x17, 0xdc, 0x3e, 0xdd, 0x96, 0xe0, 0x72, 0x1c, 0xee, 0xe2, 0xa1, 0x70, 0xa1, 0x4d, 0x89,
+	0xee, 0x1a, 0xc6, 0xf3, 0x56, 0x2f, 0xbe, 0xef, 0xb2, 0xc0, 0x1c, 0x62, 0x0f, 0x76, 0xe1, 0x74,
+	0x5a, 0x07, 0xbd, 0xb9, 0x09, 0x10, 0x1f, 0x16, 0x8c, 0xd9, 0x19, 0xd9, 0x9b, 0x58, 0x29, 0x5f,
+	0x17, 0x9f, 0x7a, 0x3d, 0x0e, 0x51, 0x34, 0x3f, 0xf2, 0x8d, 0xf8, 0x81, 0x80, 0xa6, 0xb2, 0x82,
+	0xec, 0xaf, 0xc3, 0x74, 0xcc, 0x2e, 0xb6, 0x22, 0x13, 0x1e, 0x22, 0xf8, 0x11, 0x6e, 0xc6, 0x1c,
+	0x50, 0x0e, 0xb8, 0x6b, 0xb6, 0xcc, 0x7d, 0xe1, 0xbf, 0x7e, 0x0b, 0x4e, 0x49, 0xa3, 0xc8, 0xbb,
+	0x0e, 0x93, 0x4d, 0x3e, 0x82, 0x21, 0x99, 0x93, 0x51, 0x51, 0x1a, 0x65, 0xf4, 0x3d, 0x28, 0x0a,
+	0xdf, 0x77, 0xc3, 0x7c, 0xdd, 0x71, 0x6b, 0x5e, 0xdb, 0xb5, 0x46, 0x1e, 0xe6, 0x9f, 0x09, 0x2c,
+	0x67, 0x9a, 0x42, 0xf6, 0x4d, 0x38, 0xca, 0xdc, 0xa0, 0xe5, 0x44, 0x47, 0x7e, 0x25, 0x05, 0x2f,
+	0xe9, 0xdd, 0x76, 0x83, 0x56, 0x77, 0xeb, 0xc8, 0xf3, 0xdf, 0x97, 0xc7, 0x2a, 0x42, 0x6f, 0x74,
+	0x41, 0x4f, 0x44, 0xe6, 0x76, 0xa7, 0xe9, 0xb4, 0x98, 0xf5, 0x7f, 0x44, 0xa6, 0xcf, 0xd4, 0x90,
+	0x91, 0x91, 0xf5, 0xfe, 0xdb, 0xc8, 0xac, 0x63, 0xbe, 0x6c, 0xb3, 0xe0, 0xa1, 0xeb, 0x1c, 0xb0,
+	0x96, 0x6f, 0x36, 0x1e, 0x74, 0x44, 0x54, 0x66, 0x21, 0x17, 0x95, 0x86, 0x9c, 0x63, 0xe9, 0x26,
+	0x2c, 0x2a, 0xa5, 0xd1, 0xb1, 0x2d, 0x98, 0x69, 0x8b, 0xe1, 0x6a, 0xd0, 0xc1, 0x30, 0x2e, 0xcb,
+	0xde, 0x25, 0x14, 0xef, 0x31, 0xdb, 0xac, 0x77, 0x2b, 0xd3, 0xed, 0x78, 0x48, 0xb7, 0xe2, 0x04,
+	0x56, 0x00, 0x8d, 0x6a, 0x9b, 0x7e, 0x24, 0xe8, 0x49, 0xda, 0x0c, 0x7a, 0xf2, 0x16, 0x1c, 0x4b,
+	0x7a, 0x22, 0x36, 0x6a, 0x21, 0xd3, 0x95, 0xca, 0x4c, 0xc2, 0x89, 0x11, 0xee, 0xcf, 0xdf, 0x04,
+	0xe6, 0x30, 0x53, 0xee, 0xb7, 0x83, 0xf8, 0x40, 0xd0, 0x65, 0x98, 0xf6, 0x70, 0x20, 0x2e, 0xdf,
+	0x20, 0x86, 0x76, 0x2c, 0xba, 0x0a, 0xc7, 0x93, 0x2e, 0xf4, 0x84, 0x72, 0x5c, 0xe8, 0x58, 0x82,
+	0x74, 0xc7, 0xa2, 0x4b, 0x00, 0xf5, 0x16, 0x33, 0x03, 0x66, 0x55, 0xcd, 0xa0, 0x30, 0x5e, 0x22,
+	0x6b, 0xe3, 0x95, 0x3c, 0x8e, 0x6c, 0x06, 0xf4, 0x12, 0x9c, 0xf0, 0x1d, 0xdb, 0x75, 0x5c, 0xbb,
+	0x6a, 0x31, 0xd3, 0x6a, 0x38, 0x2e, 0x2b, 0x1c, 0xe1, 0x42, 0xc7, 0x71, 0xfc, 0x6d, 0x1c, 0xa6,
+	0x77, 0x60, 0xea, 0xc0, 0x6c, 0x39, 0xa6, 0x1b, 0xf8, 0x85, 0x09, 0x1e, 0xaf, 0x35, 0x39, 0x5e,
+	0xc2, 0x83, 0xfb, 0x35, 0x9f, 0xb5, 0x0e, 0xb8, 0x83, 0xef, 0x87, 0x0a, 0x78, 0xbe, 0x23, 0x7d,
+	0x7d, 0x13, 0x33, 0x76, 0x9b, 0x05, 0x29, 0xf7, 0xc5, 0x51, 0x38, 0x2c, 0x00, 0xfa, 0x17, 0x22,
+	0x15, 0x55, 0x6b, 0x44, 0x17, 0xc2, 0x44, 0x2f, 0xa5, 0xba, 0x78, 0x94, 0x74, 0x65, 0x89, 0x92,
+	0x02, 0x5f, 0x09, 0x15, 0xe8, 0x0d, 0x98, 0x12, 0xb6, 0x70, 0x7f, 0x0b, 0x6a, 0x67, 0x1f, 0x74,
+	0x2a, 0x91, 0xa4, 0xee, 0xf4, 0xd5, 0x4d, 0x21, 0x36, 0xf2, 0x4a, 0xf4, 0x27, 0x81, 0x52, 0xb6,
+	0x2d, 0xf4, 0xff, 0xcd, 0x74, 0x29, 0x1a, 0x26, 0x02, 0x51, 0x15, 0xba, 0x09, 0x79, 0xe1, 0x99,
+	0x5f, 0xc8, 0x71, 0xfd, 0xec, 0x20, 0xc4, 0xa2, 0xa9, 0xec, 0x18, 0xff, 0xf7, 0xd9, 0x71, 0x07,
+	0xce, 0x70, 0x17, 0xb1, 0x54, 0xde, 0x65, 0xdd, 0x28, 0x8c, 0x06, 0x1c, 0x75, 0xc2, 0x51, 0x8c,
+	0xe1, 0xbc, 0x4c, 0x86, 0x2a, 0x15, 0x21, 0xa5, 0x7f, 0x49, 0xf0, 0xa1, 0x28, 0x2d, 0x86, 0x71,
+	0x9a, 0x87, 0xc9, 0x76, 0x98, 0x43, 0xe1, 0x39, 0x9b, 0x68, 0x07, 0xbd, 0xdc, 0x59, 0x84, 0x7c,
+	0xcd, 0x6c, 0x34, 0xbc, 0x20, 0xce, 0xae, 0xa9, 0x70, 0x60, 0xc7, 0xa2, 0x5b, 0x70, 0xb2, 0x6e,
+	0xba, 0x9e, 0xeb, 0xd4, 0xcd, 0x46, 0x55, 0xb0, 0x8c, 0x0f, 0x62, 0x39, 0x11, 0xc9, 0xe3, 0x48,
+	0xef, 0x61, 0xb9, 0xc4, 0xa1, 0x44, 0x20, 0xb7, 0xf8, 0xea, 0x77, 0x59, 0x57, 0xf8, 0x99, 0x41,
+	0x96, 0xca, 0x8e, 0x5c, 0x5f, 0x79, 0xd8, 0x82, 0x69, 0x8f, 0xa7, 0x21, 0xb3, 0x7a, 0xa5, 0x3a,
+	0xe4, 0x5a, 0x39, 0x34, 0x5f, 0x2b, 0x20, 0xb4, 0x1e, 0x74, 0xf4, 0xaf, 0x09, 0x66, 0xa9, 0x82,
+	0x0e, 0x03, 0x27, 0x45, 0x88, 0xa4, 0x22, 0xf4, 0x10, 0xe6, 0xe3, 0x08, 0x25, 0x69, 0x72, 0xc3,
+	0xd2, 0x9c, 0x8a, 0xf4, 0xef, 0x47, 0x58, 0xd7, 0x7e, 0x99, 0x85, 0x09, 0x8e, 0x45, 0x1f, 0xc1,
+	0x64, 0xf8, 0x46, 0xa2, 0x25, 0x79, 0xad, 0xfe, 0x27, 0x98, 0xb6, 0x32, 0x40, 0x22, 0x74, 0x46,
+	0x3f, 0xfb, 0xf1, 0xaf, 0x7f, 0x7d, 0x95, 0x3b, 0x4d, 0xe7, 0x0c, 0xb9, 0x39, 0x0a, 0x4d, 0x7c,
+	0x43, 0x80, 0xf6, 0xbf, 0x87, 0xe8, 0xba, 0x62, 0xdd, 0xcc, 0x17, 0x9a, 0x76, 0x75, 0x48, 0x69,
+	0x24, 0x5a, 0xe5, 0x44, 0x25, 0x5a, 0x34, 0x54, 0xed, 0x9a, 0x38, 0x75, 0x3e, 0xfd, 0x8c, 0xc0,
+	0xac, 0x7c, 0x69, 0xd3, 0x35, 0x85, 0x25, 0xe5, 0x2b, 0x40, 0xbb, 0x34, 0x84, 0x24, 0xf2, 0xac,
+	0x71, 0x1e, 0x9d, 0x96, 0x64, 0x1e, 0xe9, 0x2e, 0x35, 0x9e, 0x38, 0xd6, 0x53, 0xfa, 0x29, 0x81,
+	0x59, 0xf9, 0xf2, 0x55, 0x12, 0x29, 0x9f, 0x01, 0x4a, 0x22, 0xf5, 0x4d, 0xae, 0x9f, 0xe3, 0x44,
+	0x4b, 0x74, 0x71, 0x00, 0x11, 0xfd, 0x10, 0xa6, 0x44, 0x07, 0x46, 0x75, 0x95, 0xb7, 0x72, 0xf3,
+	0xaa, 0x9d, 0x1b, 0x28, 0x83, 0x96, 0x2f, 0x73, 0xcb, 0xe7, 0xa9, 0x6e, 0xa8, 0xfb, 0x70, 0xe3,
+	0x89, 0x68, 0xbe, 0x9e, 0xd2, 0x8f, 0x08, 0xcc, 0x24, 0x7b, 0x47, 0xba, 0xaa, 0xf6, 0x30, 0xdd,
+	0xc1, 0x6a, 0x17, 0x0f, 0x95, 0x43, 0x9a, 0x12, 0xa7, 0xd1, 0x68, 0x21, 0x83, 0xc6, 0xa7, 0xcf,
+	0x08, 0xe4, 0xa3, 0xe6, 0x87, 0xaa, 0x5c, 0x4c, 0x37, 0x90, 0xda, 0xf9, 0xc1, 0x42, 0x68, 0xfa,
+	0x0a, 0x37, 0x7d, 0x81, 0x9e, 0x33, 0x32, 0xfe, 0x72, 0x48, 0x46, 0xe2, 0x13, 0x02, 0xc7, 0xa4,
+	0xe6, 0x8d, 0x66, 0xb8, 0xd8, 0xd7, 0x44, 0x6a, 0x6b, 0x87, 0x0b, 0x22, 0xd1, 0x0a, 0x27, 0x5a,
+	0xa4, 0x0b, 0x59, 0x44, 0x3e, 0xfd, 0x89, 0x00, 0xed, 0x7f, 0x38, 0x28, 0xb3, 0x39, 0xf3, 0x8d,
+	0xa2, 0xcc, 0xe6, 0xec, 0xd7, 0x88, 0x7e, 0x83, 0x63, 0x95, 0xe9, 0xba, 0x3a, 0x9b, 0x45, 0xf5,
+	0x36, 0x9e, 0x24, 0x4a, 0xfb, 0x53, 0xfa, 0x3d, 0x81, 0x53, 0x8a, 0x3b, 0x9e, 0x0e, 0x2e, 0x25,
+	0xe9, 0x77, 0x87, 0x56, 0x1e, 0x56, 0x1c, 0x61, 0x2f, 0x72, 0xd8, 0x15, 0xba, 0x3c, 0x18, 0x36,
+	0xaa, 0x8b, 0xa9, 0x6e, 0x28, 0xab, 0x2e, 0xaa, 0xfb, 0xb3, 0xac, 0xba, 0x98, 0xd1, 0x62, 0x65,
+	0xd5, 0x45, 0x16, 0x8a, 0xc7, 0x75, 0xf1, 0x19, 0x81, 0xe9, 0xc4, 0x7d, 0x4f, 0x2f, 0x28, 0xcc,
+	0xf4, 0x3f, 0x2e, 0xb4, 0xd5, 0xc3, 0xc4, 0x10, 0xe3, 0x02, 0xc7, 0x58, 0x7e, 0x83, 0x5c, 0xd6,
+	0x35, 0x99, 0x04, 0x09, 0xaa, 0x8f, 0x7a, 0x56, 0xbf, 0x23, 0x70, 0xb2, 0xef, 0x0a, 0xa5, 0x57,
+	0x14, 0x46, 0xb2, 0x9e, 0x01, 0xda, 0xfa, 0x70, 0xc2, 0xc8, 0xb5, 0xce, 0xb9, 0x56, 0x7b, 0x5c,
+	0x2b, 0x32, 0x57, 0x74, 0xb2, 0xf0, 0xd6, 0x7e, 0xc4, 0xba, 0x5b, 0xbb, 0xcf, 0x5f, 0x16, 0xc9,
+	0x8b, 0x97, 0x45, 0xf2, 0xc7, 0xcb, 0x22, 0xf9, 0xfc, 0x55, 0x71, 0xec, 0xc5, 0xab, 0xe2, 0xd8,
+	0x6f, 0xaf, 0x8a, 0x63, 0x1f, 0xdc, 0xb4, 0x9d, 0x60, 0xaf, 0x5d, 0x2b, 0xd7, 0xbd, 0x7d, 0xa3,
+	0xd9, 0xf6, 0xf7, 0x78, 0x02, 0xf1, 0xaf, 0xab, 0xfc, 0xf3, 0xaa, 0xeb, 0x59, 0xcc, 0xe8, 0x24,
+	0x4c, 0xf0, 0xff, 0x27, 0x6b, 0x93, 0xfc, 0xbf, 0xc1, 0xeb, 0xff, 0x04, 0x00, 0x00, 0xff, 0xff,
+	0xc5, 0x9c, 0xf1, 0x29, 0x18, 0x15, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -1167,6 +1526,18 @@ type QueryClient interface {
 	GetPendingOutbound(ctx context.Context, in *QueryGetPendingOutboundRequest, opts ...grpc.CallOption) (*QueryGetPendingOutboundResponse, error)
 	// Get all pending outbounds (paginated)
 	AllPendingOutbounds(ctx context.Context, in *QueryAllPendingOutboundsRequest, opts ...grpc.CallOption) (*QueryAllPendingOutboundsResponse, error)
+	// Queries all expired inbound entries (per-variant audit trail of
+	// inbounds whose ballots all reached EXPIRED/REJECTED without producing
+	// a UniversalTx). Consumed by the future escape-hatch refund flow.
+	AllExpiredInbounds(ctx context.Context, in *QueryAllExpiredInboundsRequest, opts ...grpc.CallOption) (*QueryAllExpiredInboundsResponse, error)
+	// Derives the canonical UTX id and inbound ballot id for a given inbound,
+	// so off-chain validators read the keys from the chain instead of
+	// re-implementing the canonicalization + digest rules.
+	InboundKeys(ctx context.Context, in *QueryInboundKeysRequest, opts ...grpc.CallOption) (*QueryInboundKeysResponse, error)
+	// Derives the canonical outbound ballot id for a given observation. The
+	// observed tx hash is canonicalized against the outbound's destination
+	// chain (looked up by utx_id/outbound_id).
+	OutboundBallotKey(ctx context.Context, in *QueryOutboundBallotKeyRequest, opts ...grpc.CallOption) (*QueryOutboundBallotKeyResponse, error)
 }
 
 type queryClient struct {
@@ -1267,6 +1638,33 @@ func (c *queryClient) AllPendingOutbounds(ctx context.Context, in *QueryAllPendi
 	return out, nil
 }
 
+func (c *queryClient) AllExpiredInbounds(ctx context.Context, in *QueryAllExpiredInboundsRequest, opts ...grpc.CallOption) (*QueryAllExpiredInboundsResponse, error) {
+	out := new(QueryAllExpiredInboundsResponse)
+	err := c.cc.Invoke(ctx, "/uexecutor.v1.Query/AllExpiredInbounds", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) InboundKeys(ctx context.Context, in *QueryInboundKeysRequest, opts ...grpc.CallOption) (*QueryInboundKeysResponse, error) {
+	out := new(QueryInboundKeysResponse)
+	err := c.cc.Invoke(ctx, "/uexecutor.v1.Query/InboundKeys", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) OutboundBallotKey(ctx context.Context, in *QueryOutboundBallotKeyRequest, opts ...grpc.CallOption) (*QueryOutboundBallotKeyResponse, error) {
+	out := new(QueryOutboundBallotKeyResponse)
+	err := c.cc.Invoke(ctx, "/uexecutor.v1.Query/OutboundBallotKey", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // QueryServer is the server API for Query service.
 type QueryServer interface {
 	// Params queries all parameters of the module.
@@ -1289,6 +1687,18 @@ type QueryServer interface {
 	GetPendingOutbound(context.Context, *QueryGetPendingOutboundRequest) (*QueryGetPendingOutboundResponse, error)
 	// Get all pending outbounds (paginated)
 	AllPendingOutbounds(context.Context, *QueryAllPendingOutboundsRequest) (*QueryAllPendingOutboundsResponse, error)
+	// Queries all expired inbound entries (per-variant audit trail of
+	// inbounds whose ballots all reached EXPIRED/REJECTED without producing
+	// a UniversalTx). Consumed by the future escape-hatch refund flow.
+	AllExpiredInbounds(context.Context, *QueryAllExpiredInboundsRequest) (*QueryAllExpiredInboundsResponse, error)
+	// Derives the canonical UTX id and inbound ballot id for a given inbound,
+	// so off-chain validators read the keys from the chain instead of
+	// re-implementing the canonicalization + digest rules.
+	InboundKeys(context.Context, *QueryInboundKeysRequest) (*QueryInboundKeysResponse, error)
+	// Derives the canonical outbound ballot id for a given observation. The
+	// observed tx hash is canonicalized against the outbound's destination
+	// chain (looked up by utx_id/outbound_id).
+	OutboundBallotKey(context.Context, *QueryOutboundBallotKeyRequest) (*QueryOutboundBallotKeyResponse, error)
 }
 
 // UnimplementedQueryServer can be embedded to have forward compatible implementations.
@@ -1324,6 +1734,15 @@ func (*UnimplementedQueryServer) GetPendingOutbound(ctx context.Context, req *Qu
 }
 func (*UnimplementedQueryServer) AllPendingOutbounds(ctx context.Context, req *QueryAllPendingOutboundsRequest) (*QueryAllPendingOutboundsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AllPendingOutbounds not implemented")
+}
+func (*UnimplementedQueryServer) AllExpiredInbounds(ctx context.Context, req *QueryAllExpiredInboundsRequest) (*QueryAllExpiredInboundsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AllExpiredInbounds not implemented")
+}
+func (*UnimplementedQueryServer) InboundKeys(ctx context.Context, req *QueryInboundKeysRequest) (*QueryInboundKeysResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method InboundKeys not implemented")
+}
+func (*UnimplementedQueryServer) OutboundBallotKey(ctx context.Context, req *QueryOutboundBallotKeyRequest) (*QueryOutboundBallotKeyResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method OutboundBallotKey not implemented")
 }
 
 func RegisterQueryServer(s grpc1.Server, srv QueryServer) {
@@ -1510,6 +1929,60 @@ func _Query_AllPendingOutbounds_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Query_AllExpiredInbounds_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryAllExpiredInboundsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).AllExpiredInbounds(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/uexecutor.v1.Query/AllExpiredInbounds",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).AllExpiredInbounds(ctx, req.(*QueryAllExpiredInboundsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_InboundKeys_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryInboundKeysRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).InboundKeys(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/uexecutor.v1.Query/InboundKeys",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).InboundKeys(ctx, req.(*QueryInboundKeysRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_OutboundBallotKey_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryOutboundBallotKeyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).OutboundBallotKey(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/uexecutor.v1.Query/OutboundBallotKey",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).OutboundBallotKey(ctx, req.(*QueryOutboundBallotKeyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _Query_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "uexecutor.v1.Query",
 	HandlerType: (*QueryServer)(nil),
@@ -1553,6 +2026,18 @@ var _Query_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AllPendingOutbounds",
 			Handler:    _Query_AllPendingOutbounds_Handler,
+		},
+		{
+			MethodName: "AllExpiredInbounds",
+			Handler:    _Query_AllExpiredInbounds_Handler,
+		},
+		{
+			MethodName: "InboundKeys",
+			Handler:    _Query_InboundKeys_Handler,
+		},
+		{
+			MethodName: "OutboundBallotKey",
+			Handler:    _Query_OutboundBallotKey_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -1982,11 +2467,100 @@ func (m *QueryAllPendingInboundsResponse) MarshalToSizedBuffer(dAtA []byte) (int
 		i--
 		dAtA[i] = 0x12
 	}
-	if len(m.InboundIds) > 0 {
-		for iNdEx := len(m.InboundIds) - 1; iNdEx >= 0; iNdEx-- {
-			i -= len(m.InboundIds[iNdEx])
-			copy(dAtA[i:], m.InboundIds[iNdEx])
-			i = encodeVarintQuery(dAtA, i, uint64(len(m.InboundIds[iNdEx])))
+	if len(m.Entries) > 0 {
+		for iNdEx := len(m.Entries) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Entries[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintQuery(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *QueryAllExpiredInboundsRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *QueryAllExpiredInboundsRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *QueryAllExpiredInboundsRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Pagination != nil {
+		{
+			size, err := m.Pagination.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintQuery(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *QueryAllExpiredInboundsResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *QueryAllExpiredInboundsResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *QueryAllExpiredInboundsResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Pagination != nil {
+		{
+			size, err := m.Pagination.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintQuery(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Entries) > 0 {
+		for iNdEx := len(m.Entries) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Entries[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintQuery(dAtA, i, uint64(size))
+			}
 			i--
 			dAtA[i] = 0xa
 		}
@@ -2163,6 +2737,20 @@ func (m *PendingOutboundEntry) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
+	if len(m.Variants) > 0 {
+		for iNdEx := len(m.Variants) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Variants[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintQuery(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x2a
+		}
+	}
 	if m.SigningDeadline != 0 {
 		i = encodeVarintQuery(dAtA, i, uint64(m.SigningDeadline))
 		i--
@@ -2365,6 +2953,181 @@ func (m *QueryAllPendingOutboundsResponse) MarshalToSizedBuffer(dAtA []byte) (in
 	return len(dAtA) - i, nil
 }
 
+func (m *QueryInboundKeysRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *QueryInboundKeysRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *QueryInboundKeysRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Inbound != nil {
+		{
+			size, err := m.Inbound.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintQuery(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *QueryInboundKeysResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *QueryInboundKeysResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *QueryInboundKeysResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.CanonicalInbound != nil {
+		{
+			size, err := m.CanonicalInbound.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintQuery(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.BallotId) > 0 {
+		i -= len(m.BallotId)
+		copy(dAtA[i:], m.BallotId)
+		i = encodeVarintQuery(dAtA, i, uint64(len(m.BallotId)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.UtxId) > 0 {
+		i -= len(m.UtxId)
+		copy(dAtA[i:], m.UtxId)
+		i = encodeVarintQuery(dAtA, i, uint64(len(m.UtxId)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *QueryOutboundBallotKeyRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *QueryOutboundBallotKeyRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *QueryOutboundBallotKeyRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.ObservedTx != nil {
+		{
+			size, err := m.ObservedTx.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintQuery(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.OutboundId) > 0 {
+		i -= len(m.OutboundId)
+		copy(dAtA[i:], m.OutboundId)
+		i = encodeVarintQuery(dAtA, i, uint64(len(m.OutboundId)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.UtxId) > 0 {
+		i -= len(m.UtxId)
+		copy(dAtA[i:], m.UtxId)
+		i = encodeVarintQuery(dAtA, i, uint64(len(m.UtxId)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *QueryOutboundBallotKeyResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *QueryOutboundBallotKeyResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *QueryOutboundBallotKeyResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.CanonicalObservedTx != nil {
+		{
+			size, err := m.CanonicalObservedTx.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintQuery(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.BallotId) > 0 {
+		i -= len(m.BallotId)
+		copy(dAtA[i:], m.BallotId)
+		i = encodeVarintQuery(dAtA, i, uint64(len(m.BallotId)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintQuery(dAtA []byte, offset int, v uint64) int {
 	offset -= sovQuery(v)
 	base := offset
@@ -2533,9 +3296,41 @@ func (m *QueryAllPendingInboundsResponse) Size() (n int) {
 	}
 	var l int
 	_ = l
-	if len(m.InboundIds) > 0 {
-		for _, s := range m.InboundIds {
-			l = len(s)
+	if len(m.Entries) > 0 {
+		for _, e := range m.Entries {
+			l = e.Size()
+			n += 1 + l + sovQuery(uint64(l))
+		}
+	}
+	if m.Pagination != nil {
+		l = m.Pagination.Size()
+		n += 1 + l + sovQuery(uint64(l))
+	}
+	return n
+}
+
+func (m *QueryAllExpiredInboundsRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Pagination != nil {
+		l = m.Pagination.Size()
+		n += 1 + l + sovQuery(uint64(l))
+	}
+	return n
+}
+
+func (m *QueryAllExpiredInboundsResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if len(m.Entries) > 0 {
+		for _, e := range m.Entries {
+			l = e.Size()
 			n += 1 + l + sovQuery(uint64(l))
 		}
 	}
@@ -2624,6 +3419,12 @@ func (m *PendingOutboundEntry) Size() (n int) {
 	if m.SigningDeadline != 0 {
 		n += 1 + sovQuery(uint64(m.SigningDeadline))
 	}
+	if len(m.Variants) > 0 {
+		for _, e := range m.Variants {
+			l = e.Size()
+			n += 1 + l + sovQuery(uint64(l))
+		}
+	}
 	return n
 }
 
@@ -2690,6 +3491,78 @@ func (m *QueryAllPendingOutboundsResponse) Size() (n int) {
 	}
 	if m.Pagination != nil {
 		l = m.Pagination.Size()
+		n += 1 + l + sovQuery(uint64(l))
+	}
+	return n
+}
+
+func (m *QueryInboundKeysRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Inbound != nil {
+		l = m.Inbound.Size()
+		n += 1 + l + sovQuery(uint64(l))
+	}
+	return n
+}
+
+func (m *QueryInboundKeysResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.UtxId)
+	if l > 0 {
+		n += 1 + l + sovQuery(uint64(l))
+	}
+	l = len(m.BallotId)
+	if l > 0 {
+		n += 1 + l + sovQuery(uint64(l))
+	}
+	if m.CanonicalInbound != nil {
+		l = m.CanonicalInbound.Size()
+		n += 1 + l + sovQuery(uint64(l))
+	}
+	return n
+}
+
+func (m *QueryOutboundBallotKeyRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.UtxId)
+	if l > 0 {
+		n += 1 + l + sovQuery(uint64(l))
+	}
+	l = len(m.OutboundId)
+	if l > 0 {
+		n += 1 + l + sovQuery(uint64(l))
+	}
+	if m.ObservedTx != nil {
+		l = m.ObservedTx.Size()
+		n += 1 + l + sovQuery(uint64(l))
+	}
+	return n
+}
+
+func (m *QueryOutboundBallotKeyResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.BallotId)
+	if l > 0 {
+		n += 1 + l + sovQuery(uint64(l))
+	}
+	if m.CanonicalObservedTx != nil {
+		l = m.CanonicalObservedTx.Size()
 		n += 1 + l + sovQuery(uint64(l))
 	}
 	return n
@@ -3702,9 +4575,9 @@ func (m *QueryAllPendingInboundsResponse) Unmarshal(dAtA []byte) error {
 		switch fieldNum {
 		case 1:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field InboundIds", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Entries", wireType)
 			}
-			var stringLen uint64
+			var msglen int
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowQuery
@@ -3714,23 +4587,231 @@ func (m *QueryAllPendingInboundsResponse) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
+			if msglen < 0 {
 				return ErrInvalidLengthQuery
 			}
-			postIndex := iNdEx + intStringLen
+			postIndex := iNdEx + msglen
 			if postIndex < 0 {
 				return ErrInvalidLengthQuery
 			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.InboundIds = append(m.InboundIds, string(dAtA[iNdEx:postIndex]))
+			m.Entries = append(m.Entries, PendingInboundEntry{})
+			if err := m.Entries[len(m.Entries)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Pagination", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthQuery
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Pagination == nil {
+				m.Pagination = &query.PageResponse{}
+			}
+			if err := m.Pagination.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipQuery(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *QueryAllExpiredInboundsRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowQuery
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: QueryAllExpiredInboundsRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: QueryAllExpiredInboundsRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Pagination", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthQuery
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Pagination == nil {
+				m.Pagination = &query.PageRequest{}
+			}
+			if err := m.Pagination.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipQuery(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *QueryAllExpiredInboundsResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowQuery
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: QueryAllExpiredInboundsResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: QueryAllExpiredInboundsResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Entries", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthQuery
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Entries = append(m.Entries, ExpiredInboundEntry{})
+			if err := m.Entries[len(m.Entries)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
 			iNdEx = postIndex
 		case 2:
 			if wireType != 2 {
@@ -4294,6 +5375,40 @@ func (m *PendingOutboundEntry) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Variants", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthQuery
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Variants = append(m.Variants, OutboundObservationVariant{})
+			if err := m.Variants[len(m.Variants)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipQuery(dAtA[iNdEx:])
@@ -4735,6 +5850,510 @@ func (m *QueryAllPendingOutboundsResponse) Unmarshal(dAtA []byte) error {
 				m.Pagination = &query.PageResponse{}
 			}
 			if err := m.Pagination.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipQuery(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *QueryInboundKeysRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowQuery
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: QueryInboundKeysRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: QueryInboundKeysRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Inbound", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthQuery
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Inbound == nil {
+				m.Inbound = &Inbound{}
+			}
+			if err := m.Inbound.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipQuery(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *QueryInboundKeysResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowQuery
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: QueryInboundKeysResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: QueryInboundKeysResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field UtxId", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthQuery
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.UtxId = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field BallotId", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthQuery
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.BallotId = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CanonicalInbound", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthQuery
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.CanonicalInbound == nil {
+				m.CanonicalInbound = &Inbound{}
+			}
+			if err := m.CanonicalInbound.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipQuery(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *QueryOutboundBallotKeyRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowQuery
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: QueryOutboundBallotKeyRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: QueryOutboundBallotKeyRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field UtxId", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthQuery
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.UtxId = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field OutboundId", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthQuery
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.OutboundId = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ObservedTx", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthQuery
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.ObservedTx == nil {
+				m.ObservedTx = &OutboundObservation{}
+			}
+			if err := m.ObservedTx.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipQuery(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *QueryOutboundBallotKeyResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowQuery
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: QueryOutboundBallotKeyResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: QueryOutboundBallotKeyResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field BallotId", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthQuery
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.BallotId = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CanonicalObservedTx", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowQuery
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthQuery
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthQuery
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.CanonicalObservedTx == nil {
+				m.CanonicalObservedTx = &OutboundObservation{}
+			}
+			if err := m.CanonicalObservedTx.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex

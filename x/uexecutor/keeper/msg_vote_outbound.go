@@ -3,8 +3,10 @@ package keeper
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/pushchain/push-chain-node/utils"
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
@@ -51,6 +53,12 @@ func (k Keeper) VoteOutbound(
 		return fmt.Errorf("outbound %s not found in UniversalTx %s", outboundId, utxId)
 	}
 
+	// Canonicalize the observed tx hash for the destination chain so encoding
+	// variants of the same observation land on one ballot.
+	observedTx.TxHash = utils.LenientCanonicalizeTxHash(outbound.DestinationChain, observedTx.TxHash)
+	observedTx.GasFeeUsed = strings.TrimSpace(observedTx.GasFeeUsed)
+	observedTx.ErrorMsg = strings.TrimSpace(observedTx.ErrorMsg)
+
 	// Prevent double-finalization
 	if outbound.OutboundStatus != types.Status_PENDING {
 		k.Logger().Warn("vote outbound rejected: outbound already finalized",
@@ -72,6 +80,18 @@ func (k Keeper) VoteOutbound(
 		observedTx,
 	)
 	if err != nil {
+		return err
+	}
+
+	// Step 3b: Record this validator's vote in the per-outbound PendingOutbounds
+	// entry (variant-aware audit trail). Each unique ObservedTx payload becomes
+	// its own variant; multiple variants per outbound_id indicate validator
+	// divergence on the destination-chain observation.
+	ballotKey, err := types.GetOutboundBallotKey(utxId, outboundId, observedTx)
+	if err != nil {
+		return fmt.Errorf("failed to derive outbound ballot key: %w", err)
+	}
+	if err := k.RecordOutboundVote(tmpCtx, outboundId, observedTx, universalValidator.String(), ballotKey); err != nil {
 		return err
 	}
 

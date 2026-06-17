@@ -134,11 +134,19 @@ func deploySystemContracts(ctx context.Context, evmKeeper types.EVMKeeper, syste
 	}
 }
 
+// isContractDeployed reports whether addr already holds executable EVM code.
+// EOAs in cosmos/evm carry the keccak256-of-empty-bytes sentinel, so a
+// length-only check would treat any touched EOA as a deployed contract and
+// silently skip the deploy sequence for that slot (F-2026-17025). Compare
+// against the empty-code-hash sentinel via Account.HasCodeHash instead.
 func isContractDeployed(
 	ctx sdk.Context,
 	evmKeeper types.EVMKeeper,
 	addr common.Address,
 ) bool {
 	acc := evmKeeper.GetAccount(ctx, addr)
-	return acc != nil && acc.CodeHash != nil && len(acc.CodeHash) != 0
+	if acc == nil || len(acc.CodeHash) == 0 {
+		return false
+	}
+	return acc.HasCodeHash()
 }

@@ -150,10 +150,17 @@ func (k *Keeper) InitGenesis(ctx context.Context, data *types.GenesisState) erro
 		}
 	}
 
-	// Restore TssEvents
+	// Restore TssEvents and rebuild the PendingTssEvents derived index for
+	// active process-initiated entries (F-2026-17038).
 	for _, event := range data.TssEvents {
 		if err := k.TssEvents.Set(ctx, event.Id, event); err != nil {
 			return err
+		}
+		if event.EventType == types.TssEventType_TSS_EVENT_PROCESS_INITIATED &&
+			event.Status == types.TssEventStatus_TSS_EVENT_ACTIVE {
+			if err := k.PendingTssEvents.Set(ctx, event.ProcessId, event.Id); err != nil {
+				return err
+			}
 		}
 	}
 

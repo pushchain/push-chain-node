@@ -34,9 +34,15 @@ func TestGenesisExportImportRoundTrip(t *testing.T) {
 	// Init with default state
 	f.k.InitGenesis(f.ctx, &types.GenesisState{Params: types.DefaultParams()})
 
-	// Populate state: PendingInbounds
-	require.NoError(t, f.k.PendingInbounds.Set(f.ctx, "inbound-key-1"))
-	require.NoError(t, f.k.PendingInbounds.Set(f.ctx, "inbound-key-2"))
+	// Populate state: PendingInbounds (variant-aware Map shape).
+	require.NoError(t, f.k.PendingInbounds.Set(f.ctx, "inbound-key-1", types.PendingInboundEntry{
+		UtxKey:          "inbound-key-1",
+		CreatedAtHeight: 1,
+	}))
+	require.NoError(t, f.k.PendingInbounds.Set(f.ctx, "inbound-key-2", types.PendingInboundEntry{
+		UtxKey:          "inbound-key-2",
+		CreatedAtHeight: 1,
+	}))
 
 	// Populate state: UniversalTx
 	utx1 := types.UniversalTx{

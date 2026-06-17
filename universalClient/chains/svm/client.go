@@ -34,8 +34,10 @@ type Client struct {
 	eventListener   *EventListener
 	eventProcessor  *common.EventProcessor
 	eventConfirmer  *EventConfirmer
+	eventCleaner    *common.EventCleaner
 	chainMetaOracle *ChainMetaOracle
 	txBuilder       *TxBuilder
+	rentReclaimer   *RentReclaimer
 
 	// Dependencies
 	pushSigner *pushsigner.Signer
@@ -83,6 +85,14 @@ func NewClient(
 		pushSigner:     pushSigner,
 		nodeHome:       nodeHome,
 	}
+
+	client.eventCleaner = common.NewEventCleaner(
+		database,
+		chainConfig.CleanupIntervalSeconds,
+		chainConfig.RetentionPeriodSeconds,
+		chainIDStr,
+		log,
+	)
 
 	// Initialize components that don't require RPC client
 	if pushSigner != nil {
@@ -154,6 +164,10 @@ func (c *Client) Stop() error {
 
 	if c.chainMetaOracle != nil {
 		c.chainMetaOracle.Stop()
+	}
+
+	if c.eventCleaner != nil {
+		c.eventCleaner.Stop()
 	}
 
 	// Close RPC client last
@@ -266,6 +280,13 @@ func (c *Client) initializeComponents() error {
 			return fmt.Errorf("failed to create txBuilder: %w", err)
 		}
 		c.txBuilder = txBuilder
+
+		c.rentReclaimer = NewRentReclaimer(
+			c.txBuilder,
+			config.rentReclaimSweepInterval,
+			config.rentReclaimMinPDAAge,
+			c.logger,
+		)
 	}
 
 	return nil
@@ -297,6 +318,16 @@ func (c *Client) startComponents() error {
 		}
 	}
 
+	if c.rentReclaimer != nil {
+		c.rentReclaimer.Start(c.ctx)
+	}
+
+	if c.eventCleaner != nil {
+		if err := c.eventCleaner.Start(c.ctx); err != nil {
+			return fmt.Errorf("failed to start event cleaner: %w", err)
+		}
+	}
+
 	return nil
 }
 
@@ -320,20 +351,24 @@ func (c *Client) createRPCClient() error {
 
 // componentConfig holds configuration values for components with defaults applied
 type componentConfig struct {
-	eventPollingInterval  int
-	gasPriceInterval      int
-	gasPriceMarkupPercent int
-	fastConfirmations     uint64
-	standardConfirmations uint64
+	eventPollingInterval     int
+	gasPriceInterval         int
+	gasPriceMarkupPercent    int
+	fastConfirmations        uint64
+	standardConfirmations    uint64
+	rentReclaimSweepInterval time.Duration
+	rentReclaimMinPDAAge     time.Duration
 }
 
 // applyDefaults applies default values to all component configuration
 func (c *Client) applyDefaults() componentConfig {
 	config := componentConfig{
-		eventPollingInterval:  5,  // default
-		gasPriceInterval:      30, // default
-		fastConfirmations:     5,  // Solana fast confirmations
-		standardConfirmations: 12, // Solana standard confirmations
+		eventPollingInterval:     5,  // default
+		gasPriceInterval:         30, // default
+		fastConfirmations:        5,  // Solana fast confirmations
+		standardConfirmations:    12, // Solana standard confirmations
+		rentReclaimSweepInterval: rentReclaimSweepInterval,
+		rentReclaimMinPDAAge:     rentReclaimMinPDAAge,
 	}
 
 	// Apply event polling interval
@@ -349,6 +384,22 @@ func (c *Client) applyDefaults() componentConfig {
 	// Apply gas price markup percent
 	if c.chainConfig != nil && c.chainConfig.GasPriceMarkupPercent != nil && *c.chainConfig.GasPriceMarkupPercent > 0 {
 		config.gasPriceMarkupPercent = *c.chainConfig.GasPriceMarkupPercent
+	}
+
+	// Apply rent-reclaimer overrides
+	if c.chainConfig != nil && c.chainConfig.RentReclaimSweepIntervalSeconds != nil && *c.chainConfig.RentReclaimSweepIntervalSeconds > 0 {
+		config.rentReclaimSweepInterval = time.Duration(*c.chainConfig.RentReclaimSweepIntervalSeconds) * time.Second
+	}
+	if c.chainConfig != nil && c.chainConfig.RentReclaimMinPDAAgeSeconds != nil && *c.chainConfig.RentReclaimMinPDAAgeSeconds > 0 {
+		requested := time.Duration(*c.chainConfig.RentReclaimMinPDAAgeSeconds) * time.Second
+		if requested < rentReclaimMinPDAAgeFloor {
+			c.logger.Warn().
+				Dur("requested", requested).
+				Dur("floor", rentReclaimMinPDAAgeFloor).
+				Msg("rent_reclaim_min_pda_age_seconds below safe floor; clamping to avoid racing in-flight finalize")
+			requested = rentReclaimMinPDAAgeFloor
+		}
+		config.rentReclaimMinPDAAge = requested
 	}
 
 	// Apply confirmation requirements

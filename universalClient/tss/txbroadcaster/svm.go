@@ -2,71 +2,94 @@ package txbroadcaster
 
 import (
 	"context"
+	"time"
 
 	"github.com/pushchain/push-chain-node/universalClient/store"
+	"github.com/pushchain/push-chain-node/universalClient/tss/txflow"
 )
 
-// broadcastSVM broadcasts a signed Solana transaction.
+// broadcastOutboundSVM broadcasts a signed Solana transaction and moves the event to
+// its next state.
 //
-// With the V2 gateway contract, Solana transactions either land atomically or
-// fully revert — there is no partial state. Unlike EVM (where reverted txs still
-// consume nonce and land on-chain), a failed Solana CPI means nothing is created
-// on-chain (no ExecutedTx PDA, no event emitted).
+// Three phases, top to bottom:
 //
-// Flow:
-//  1. Broadcast the signed tx
-//  2. Success → BROADCASTED with tx hash
-//  3. Error → check if ExecutedTx PDA exists on-chain:
-//     - PDA exists (another relayer already processed it) → BROADCASTED
-//     - PDA not found (permanent failure: bad payload, simulation error) → BROADCASTED
-//     with empty tx hash, resolver will verify and REVERT
-//     - PDA check fails (RPC truly down) → stay SIGNED, retry next tick
-func (b *Broadcaster) broadcastSVM(ctx context.Context, event *store.Event, data *SignedOutboundData, chainID string) {
+//  1. If local clock is past the signed deadline, check the cluster's own
+//     clock (latest finalized block time) before giving up. The cluster
+//     clock — not the host clock — is what the gateway program enforces
+//     against, so it's the authoritative cutoff.
+//  2. Broadcast.
+//  3. On broadcast error, check whether a peer landed the same signed tx.
+//
+// The give-up cutoff is exactly `clusterTime > deadline`. The finalized block
+// time lags the on-chain `Clock::unix_timestamp` by ~13s, so by the time our
+// reading crosses the deadline the program has already been rejecting new
+// attempts. Cluster staleness is not handled here: the resolver gates the
+// irreversible REVERT vote on freshness, and falling through to "broadcast"
+// is the safe direction if our cluster view is unreliable.
+//
+// Outcomes:
+//   - BROADCASTED(real-hash)  → broadcast succeeded
+//   - BROADCASTED("")         → peer landed it, or cluster confirmed expiry
+//   - stay SIGNED             → retry next tick
+func (b *Broadcaster) broadcastOutboundSVM(ctx context.Context, event *store.Event, data *txflow.SignedOutboundData, chainID string) {
+	log := b.logger.With().Str("event_id", event.EventID).Str("chain", chainID).Logger()
+
 	client, err := b.chains.GetClient(chainID)
 	if err != nil {
-		b.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to get chain client")
+		log.Warn().Err(err).Msg("failed to get chain client")
 		return
 	}
 	builder, err := client.GetTxBuilder()
 	if err != nil {
-		b.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to get tx builder")
+		log.Warn().Err(err).Msg("failed to get tx builder")
 		return
 	}
-
-	signingReq, signature, err := decodeSigningData(data.SigningData)
+	signingReq, signature, err := txflow.DecodeSigningData(data.SigningData)
 	if err != nil {
-		b.logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to decode signing data")
+		log.Warn().Err(err).Msg("failed to decode signing data")
 		return
 	}
 
 	outboundData := data.OutboundCreatedEvent
-	txHash, broadcastErr := builder.BroadcastOutboundSigningRequest(ctx, signingReq, &outboundData, signature)
+	txID := outboundData.TxID
+	deadline := data.SigningDeadline
+	now := time.Now().Unix()
 
+	// Past local deadline — confirm with the cluster before giving up.
+	if now > deadline {
+		executed, clusterTime, checkErr := builder.IsAlreadyExecuted(ctx, txID)
+		dlog := log.With().Int64("signing_deadline", deadline).Int64("cluster_block_time", clusterTime).Logger()
+
+		switch {
+		case checkErr != nil:
+			dlog.Debug().Err(checkErr).Msg("SVM cluster check failed at deadline, retry next tick")
+			return
+		case executed:
+			dlog.Debug().Msg("SVM tx executed by peer past local deadline, marking BROADCASTED")
+			b.markBroadcasted(event, chainID, "")
+			return
+		case clusterTime > deadline:
+			dlog.Debug().Msg("SVM deadline cluster-confirmed expired, marking BROADCASTED for resolver REVERT")
+			b.markBroadcasted(event, chainID, "")
+			return
+		}
+		// Cluster says still inside the window (or freshness unknown) — broadcast.
+	}
+
+	// Broadcast attempt.
+	txHash, broadcastErr := builder.BroadcastOutboundSigningRequest(ctx, signingReq, &outboundData, signature)
 	if broadcastErr == nil {
 		b.markBroadcasted(event, chainID, txHash)
 		return
 	}
 
-	// Broadcast failed — check PDA to distinguish permanent vs transient failure.
-	executed, execErr := builder.IsAlreadyExecuted(ctx, outboundData.TxID)
-	if execErr != nil {
-		// RPC truly down (both broadcast and PDA check failed) — stay SIGNED, retry next tick.
-		b.logger.Debug().Err(broadcastErr).Str("event_id", event.EventID).Str("chain", chainID).
-			Msg("SVM broadcast failed and PDA check unreachable, will retry next tick")
-		return
-	}
-
-	if executed {
-		// Another relayer already executed this tx.
-		b.logger.Info().Err(broadcastErr).Str("event_id", event.EventID).Str("chain", chainID).
-			Msg("broadcast failed but tx already executed on-chain, marking BROADCASTED")
+	// Race: a peer may have landed the same signed tx in the meantime.
+	if executed, _, _ := builder.IsAlreadyExecuted(ctx, txID); executed {
+		log.Debug().Err(broadcastErr).Msg("SVM broadcast failed but tx executed on chain (race), marking BROADCASTED")
 		b.markBroadcasted(event, chainID, "")
 		return
 	}
 
-	// RPC is reachable but PDA not found — permanent failure (bad payload, simulation error).
-	// Mark BROADCASTED with empty hash so resolver can verify and REVERT.
-	b.logger.Warn().Err(broadcastErr).Str("event_id", event.EventID).Str("chain", chainID).
-		Msg("SVM broadcast failed and PDA not found, marking BROADCASTED for resolver to REVERT")
-	b.markBroadcasted(event, chainID, "")
+	log.Debug().Err(broadcastErr).Int64("signing_deadline", deadline).
+		Msg("SVM broadcast failed, staying SIGNED for next tick")
 }

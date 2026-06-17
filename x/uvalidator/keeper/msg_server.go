@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
@@ -153,4 +154,46 @@ func (ms msgServer) UpdateUniversalValidatorStatus(ctx context.Context, msg *typ
 	}
 
 	return &types.MsgUpdateUniversalValidatorStatusResponse{}, nil
+}
+
+// RecomputeBallotQuorum is an admin escape hatch for stuck ballots — see Keeper.RecomputeBallotQuorum.
+func (ms msgServer) RecomputeBallotQuorum(ctx context.Context, msg *types.MsgRecomputeBallotQuorum) (*types.MsgRecomputeBallotQuorumResponse, error) {
+	ms.k.Logger().Info("msg: RecomputeBallotQuorum", "signer", msg.Signer, "ballot_id", msg.BallotId)
+
+	params, err := ms.k.Params.Get(ctx)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get params")
+	}
+	if params.Admin != msg.Signer {
+		return nil, errors.Wrapf(govtypes.ErrInvalidSigner, "invalid admin; expected %s, got %s", params.Admin, msg.Signer)
+	}
+
+	if msg.BallotId == "" {
+		return nil, errors.Wrap(sdkErrors.ErrInvalidRequest, "ballot_id is required")
+	}
+
+	oldEligible, newEligible, oldThreshold, newThreshold, newStatus, err := ms.k.RecomputeBallotQuorum(ctx, msg.BallotId)
+	if err != nil {
+		return nil, err
+	}
+
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+		"ballot_quorum_recomputed",
+		sdk.NewAttribute("ballot_id", msg.BallotId),
+		sdk.NewAttribute("admin", msg.Signer),
+		sdk.NewAttribute("old_eligible_count", fmt.Sprintf("%d", oldEligible)),
+		sdk.NewAttribute("new_eligible_count", fmt.Sprintf("%d", newEligible)),
+		sdk.NewAttribute("old_voting_threshold", fmt.Sprintf("%d", oldThreshold)),
+		sdk.NewAttribute("new_voting_threshold", fmt.Sprintf("%d", newThreshold)),
+		sdk.NewAttribute("new_status", newStatus.String()),
+	))
+
+	return &types.MsgRecomputeBallotQuorumResponse{
+		OldEligibleCount:   oldEligible,
+		NewEligibleCount:   newEligible,
+		OldVotingThreshold: oldThreshold,
+		NewVotingThreshold: newThreshold,
+		NewStatus:          newStatus,
+	}, nil
 }

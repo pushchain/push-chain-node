@@ -111,12 +111,19 @@ func (k Keeper) VoteTssKeyProcess(
 				return err
 			}
 
+			// Carry the prior reason forward so auto-revival logic can still
+			// distinguish admin- vs hook-driven removals after this transition.
+			priorReason := uvalidatortypes.TransitionReason_TRANSITION_REASON_UNSPECIFIED
+			if h := uv.LifecycleInfo.History; len(h) > 0 {
+				priorReason = h[len(h)-1].Reason
+			}
+
 			// update pending_join validator to active
 			switch uv.LifecycleInfo.CurrentStatus {
 			case uvalidatortypes.UVStatus_UV_STATUS_PENDING_JOIN:
 				if foundInParticipants {
 					uv.LifecycleInfo.CurrentStatus = uvalidatortypes.UVStatus_UV_STATUS_ACTIVE
-					if err := k.uvalidatorKeeper.UpdateValidatorStatus(tmpCtx, valAddr, uvalidatortypes.UVStatus_UV_STATUS_ACTIVE); err != nil {
+					if err := k.uvalidatorKeeper.UpdateValidatorStatus(tmpCtx, valAddr, uvalidatortypes.UVStatus_UV_STATUS_ACTIVE, priorReason); err != nil {
 						return fmt.Errorf("failed to activate universal validator %s: %w", coreValidatorAddress, err)
 					}
 					k.logger.Info("validator activated after tss finalization",
@@ -128,7 +135,7 @@ func (k Keeper) VoteTssKeyProcess(
 			case uvalidatortypes.UVStatus_UV_STATUS_PENDING_LEAVE:
 				if !foundInParticipants {
 					uv.LifecycleInfo.CurrentStatus = uvalidatortypes.UVStatus_UV_STATUS_INACTIVE
-					if err := k.uvalidatorKeeper.UpdateValidatorStatus(tmpCtx, valAddr, uvalidatortypes.UVStatus_UV_STATUS_INACTIVE); err != nil {
+					if err := k.uvalidatorKeeper.UpdateValidatorStatus(tmpCtx, valAddr, uvalidatortypes.UVStatus_UV_STATUS_INACTIVE, priorReason); err != nil {
 						return fmt.Errorf("failed to inactivate universal validator %s: %w", coreValidatorAddress, err)
 					}
 					k.logger.Info("validator deactivated after tss finalization",

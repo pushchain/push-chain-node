@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
+
 	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
@@ -116,6 +118,11 @@ func (k Keeper) DeleteBallot(ctx context.Context, id string) error {
 // active/expired set membership is in its final shape (defensive CEI-style
 // ordering; collections.KeySet.Remove is a no-op on absent keys, so retries
 // remain safe).
+//
+// Fires the BallotHooks terminal callback (if registered) AFTER all writes
+// have committed. Hook errors are logged but do NOT block the terminal
+// transition — the terminal status is the desired outcome regardless of
+// secondary-index side-effect failure.
 func (k Keeper) MarkBallotExpired(ctx context.Context, id string) error {
 	ballot, err := k.Ballots.Get(ctx, id)
 	if err != nil {
@@ -135,12 +142,21 @@ func (k Keeper) MarkBallotExpired(ctx context.Context, id string) error {
 	}
 
 	ballot.Status = types.BallotStatus_BALLOT_STATUS_EXPIRED
-	return k.Ballots.Set(ctx, id, ballot)
+	if err := k.Ballots.Set(ctx, id, ballot); err != nil {
+		return err
+	}
+
+	k.fireBallotTerminalHook(ctx, ballot.Id, ballot.BallotType, types.BallotStatus_BALLOT_STATUS_EXPIRED)
+	return nil
 }
 
 // MarkBallotFinalized moves a ballot from active to finalized (PASSED or REJECTED).
 // Side-effect ordering matches MarkBallotExpired: secondary indexes are
 // updated before the canonical ballot record is rewritten with its final status.
+//
+// Fires the BallotHooks terminal callback (if registered) AFTER all writes
+// have committed. Hook errors are logged but do NOT block the terminal
+// transition.
 func (k Keeper) MarkBallotFinalized(ctx context.Context, id string, status types.BallotStatus) error {
 	if status != types.BallotStatus_BALLOT_STATUS_PASSED && status != types.BallotStatus_BALLOT_STATUS_REJECTED {
 		return fmt.Errorf("invalid finalization status: %v", status)
@@ -164,7 +180,141 @@ func (k Keeper) MarkBallotFinalized(ctx context.Context, id string, status types
 	}
 
 	ballot.Status = status
-	return k.Ballots.Set(ctx, id, ballot)
+	if err := k.Ballots.Set(ctx, id, ballot); err != nil {
+		return err
+	}
+
+	k.fireBallotTerminalHook(ctx, ballot.Id, ballot.BallotType, status)
+	return nil
+}
+
+// fireBallotTerminalHook invokes the registered BallotHooks (if any) and
+// log-swallows any error. Terminal transitions must never be blocked by
+// secondary-index side-effect failure.
+func (k Keeper) fireBallotTerminalHook(
+	ctx context.Context,
+	ballotID string,
+	ballotType types.BallotObservationType,
+	status types.BallotStatus,
+) {
+	if k.ballotHooks == nil {
+		return
+	}
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	if err := k.ballotHooks.AfterBallotTerminal(sdkCtx, ballotID, ballotType, status); err != nil {
+		k.Logger().Warn("ballot terminal hook returned error",
+			"ballot_id", ballotID,
+			"ballot_type", ballotType.String(),
+			"status", status.String(),
+			"err", err.Error(),
+		)
+	}
+}
+
+// GetAdmin returns the Params.Admin address. Used by other modules' admin-gated paths.
+func (k Keeper) GetAdmin(ctx context.Context) (string, error) {
+	params, err := k.Params.Get(ctx)
+	if err != nil {
+		return "", err
+	}
+	return params.Admin, nil
+}
+
+// RecomputeBallotQuorum rebuilds a pending ballot's eligible-voter list and
+// voting threshold against the current eligible-voter set, preserving votes
+// from voters still eligible and dropping votes from voters no longer eligible.
+//
+// If the recomputed eligible count is zero, the ballot is marked EXPIRED (no
+// path to finalization). Otherwise it stays PENDING with the new parameters;
+// downstream UVs must re-vote on the same ballot to trigger finalize+execute
+// via the normal flow.
+//
+// Returns the old/new counts and threshold for the response.
+func (k Keeper) RecomputeBallotQuorum(ctx context.Context, ballotID string) (
+	oldEligibleCount, newEligibleCount, oldThreshold, newThreshold int64,
+	newStatus types.BallotStatus,
+	err error,
+) {
+	ballot, err := k.Ballots.Get(ctx, ballotID)
+	if err != nil {
+		return 0, 0, 0, 0, 0, fmt.Errorf("ballot %s not found: %w", ballotID, err)
+	}
+
+	if ballot.Status != types.BallotStatus_BALLOT_STATUS_PENDING {
+		return 0, 0, 0, 0, 0, fmt.Errorf("ballot %s is not pending (status=%s); only pending ballots can be recomputed", ballotID, ballot.Status.String())
+	}
+
+	oldEligibleCount = int64(len(ballot.EligibleVoters))
+	oldThreshold = ballot.VotingThreshold
+
+	// Build the current eligible-voter set in the same valoper-bech32 format
+	// the ballot already uses. The voting flow (VoteOnInboundBallot/VoteOnOutboundBallot)
+	// passes CoreValidatorAddress strings directly into VoteOnBallot, so the
+	// stored EligibleVoters list contains valoper bech32 addresses.
+	eligibleUVs, err := k.GetEligibleVoters(ctx)
+	if err != nil {
+		return 0, 0, 0, 0, 0, fmt.Errorf("failed to fetch eligible voters: %w", err)
+	}
+
+	newVoters := make([]string, 0, len(eligibleUVs))
+	for _, uv := range eligibleUVs {
+		if uv.IdentifyInfo == nil || uv.IdentifyInfo.CoreValidatorAddress == "" {
+			k.Logger().Warn("recompute: skipping UV with missing identity info")
+			continue
+		}
+		newVoters = append(newVoters, uv.IdentifyInfo.CoreValidatorAddress)
+	}
+	newEligibleCount = int64(len(newVoters))
+
+	// Zero eligible voters: no path to finalization. Mark EXPIRED.
+	if newEligibleCount == 0 {
+		if err := k.MarkBallotExpired(ctx, ballotID); err != nil {
+			return 0, 0, 0, 0, 0, fmt.Errorf("failed to mark ballot expired on zero-eligible recompute: %w", err)
+		}
+		k.Logger().Info("ballot recompute: zero eligible voters → marked expired",
+			"ballot_id", ballotID,
+			"old_eligible", oldEligibleCount,
+		)
+		return oldEligibleCount, 0, oldThreshold, 0, types.BallotStatus_BALLOT_STATUS_EXPIRED, nil
+	}
+
+	// Compute new threshold using the same formula uexecutor's voting flow uses.
+	// We use 2/3 + 1 — matches `(VotesThresholdNumerator * N) / VotesThresholdDenominator + 1`.
+	newThreshold = (2*newEligibleCount)/3 + 1
+
+	// Preserve votes from voters still in the new list; new voters → NOT_YET.
+	oldVotes := make(map[string]types.VoteResult, len(ballot.EligibleVoters))
+	for i, voter := range ballot.EligibleVoters {
+		if i < len(ballot.Votes) {
+			oldVotes[voter] = ballot.Votes[i]
+		}
+	}
+	newVotesArr := make([]types.VoteResult, len(newVoters))
+	for i, voter := range newVoters {
+		if prev, ok := oldVotes[voter]; ok {
+			newVotesArr[i] = prev
+		} else {
+			newVotesArr[i] = types.VoteResult_VOTE_RESULT_NOT_YET_VOTED
+		}
+	}
+
+	ballot.EligibleVoters = newVoters
+	ballot.Votes = newVotesArr
+	ballot.VotingThreshold = newThreshold
+
+	if err := k.Ballots.Set(ctx, ballotID, ballot); err != nil {
+		return 0, 0, 0, 0, 0, fmt.Errorf("failed to persist recomputed ballot: %w", err)
+	}
+
+	k.Logger().Info("ballot recomputed",
+		"ballot_id", ballotID,
+		"old_eligible", oldEligibleCount,
+		"new_eligible", newEligibleCount,
+		"old_threshold", oldThreshold,
+		"new_threshold", newThreshold,
+	)
+
+	return oldEligibleCount, newEligibleCount, oldThreshold, newThreshold, types.BallotStatus_BALLOT_STATUS_PENDING, nil
 }
 
 // ExpireBallotsBeforeHeight checks active ballots and marks expired ones.

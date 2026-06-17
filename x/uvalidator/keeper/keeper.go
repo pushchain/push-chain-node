@@ -40,8 +40,9 @@ type Keeper struct {
 	AuthKeeper         types.AccountKeeper
 	DistributionKeeper types.DistributionKeeper
 
-	authority string
-	hooks     types.UValidatorHooks
+	authority   string
+	hooks       types.UValidatorHooks
+	ballotHooks types.BallotHooks
 }
 
 // NewKeeper creates a new Keeper instance
@@ -250,11 +251,36 @@ func (k Keeper) GetBlockHeight(ctx context.Context) (int64, error) {
 	return sdkCtx.BlockHeight(), nil
 }
 
-func (k *Keeper) SetHooks(h types.UValidatorHooks) *Keeper {
-	if k.hooks != nil {
+// Hooks bundles every external-module callback surface that x/uvalidator
+// exposes. Each field is independently optional — nil means "don't
+// register that surface."
+//
+//   - Validator: validator-lifecycle callbacks (AfterValidatorAdded,
+//     AfterValidatorRemoved, AfterValidatorStatusChanged). Today
+//     consumed by x/utss + x/uexecutor (typically wrapped in a
+//     MultiUValidatorHooks for fan-out).
+//
+//   - Ballot: ballot-lifecycle terminal callbacks (AfterBallotTerminal).
+//     Today consumed by x/uexecutor only — for the F-2026-16642
+//     per-variant audit-trail cleanup. If a future module needs to
+//     react to ballot terminals, introduce a MultiBallotHooks wrapper
+//     following the MultiUValidatorHooks pattern.
+type Hooks struct {
+	Validator types.UValidatorHooks
+	Ballot    types.BallotHooks
+}
+
+// SetHooks registers the external-module hook implementations on this
+// keeper. Each Hooks field is independently optional; nil means the
+// corresponding surface is not registered. Calling SetHooks twice
+// panics — all hook wiring must happen in a single registration call
+// (typically inside app.go after every keeper has been constructed).
+func (k *Keeper) SetHooks(h Hooks) *Keeper {
+	if k.hooks != nil || k.ballotHooks != nil {
 		panic("cannot set uvalidator hooks twice")
 	}
-	k.hooks = h
+	k.hooks = h.Validator
+	k.ballotHooks = h.Ballot
 	return k
 }
 

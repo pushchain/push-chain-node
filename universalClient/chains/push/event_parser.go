@@ -18,11 +18,6 @@ func hashEventID(eventType, rawID string) string {
 	return hex.EncodeToString(h[:])
 }
 
-// DefaultExpiryOffset is the number of blocks after event detection
-// before an event expires (~10 minutes at ~1s block time).
-// Used for outbound and fund migration events.
-const DefaultExpiryOffset = 600
-
 // convertTssEvent converts a gRPC TssEvent to a store.Event.
 func convertTssEvent(tssEvent *utsstypes.TssEvent) (*store.Event, error) {
 	if tssEvent == nil {
@@ -64,7 +59,6 @@ func convertTssEvent(tssEvent *utsstypes.TssEvent) (*store.Event, error) {
 	}, nil
 }
 
-
 // convertFundMigrationEvent converts a FundMigration to a store.Event.
 func convertFundMigrationEvent(migration *utsstypes.FundMigration) (*store.Event, error) {
 	if migration == nil {
@@ -81,6 +75,7 @@ func convertFundMigrationEvent(migration *utsstypes.FundMigration) (*store.Event
 		BlockHeight:      migration.InitiatedBlock,
 		GasPrice:         migration.GasPrice,
 		GasLimit:         migration.GasLimit,
+		L1GasFee:         migration.L1GasFee,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal fund migration event data: %w", err)
@@ -91,7 +86,7 @@ func convertFundMigrationEvent(migration *utsstypes.FundMigration) (*store.Event
 	return &store.Event{
 		EventID:           hashEventID(store.EventTypeSignFundMigrate, fmt.Sprintf("%d", migration.Id)),
 		BlockHeight:       blockHeight,
-		ExpiryBlockHeight: blockHeight + DefaultExpiryOffset,
+		ExpiryBlockHeight: 0, // 0 means no expiry
 		Type:              store.EventTypeSignFundMigrate,
 		ConfirmationType:  store.ConfirmationInstant,
 		Status:            store.StatusConfirmed,
@@ -137,6 +132,7 @@ func convertOutboundToEvent(entry *uexecutortypes.PendingOutboundEntry, outbound
 		PcTxHash:         pcTxHash,
 		LogIndex:         logIndex,
 		RevertMsg:        revertMsg,
+		SigningDeadline:  entry.SigningDeadline,
 	}
 
 	eventData, err := json.Marshal(outboundData)
@@ -147,7 +143,7 @@ func convertOutboundToEvent(entry *uexecutortypes.PendingOutboundEntry, outbound
 	return &store.Event{
 		EventID:           outbound.Id,
 		BlockHeight:       blockHeight,
-		ExpiryBlockHeight: blockHeight + DefaultExpiryOffset,
+		ExpiryBlockHeight: 0, // 0 means no expiry
 		Type:              store.EventTypeSignOutbound,
 		ConfirmationType:  store.ConfirmationInstant,
 		Status:            store.StatusConfirmed,

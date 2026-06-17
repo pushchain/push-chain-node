@@ -13,6 +13,28 @@ import (
 
 const EvmZeroAddress = "0x0000000000000000000000000000000000000000"
 
+// Canonicalize normalizes encoding-variant fields in place (per source-chain
+// namespace) so the same event from any observer is byte-identical across
+// ballot keys, UTX keys and registry lookups. Lenient (unparseable values are
+// kept trimmed, never rejected) because the vote path must always record a
+// UTX — execution-level validation rejects malformed inbounds later.
+func (p *Inbound) Canonicalize() {
+	p.SourceChain = strings.TrimSpace(p.SourceChain)
+	p.TxHash = utils.LenientCanonicalizeTxHash(p.SourceChain, p.TxHash)
+	p.Sender = utils.LenientCanonicalizeAddress(p.SourceChain, p.Sender)
+	p.AssetAddr = utils.LenientCanonicalizeAddress(p.SourceChain, p.AssetAddr)
+	// Recipient lives on Push Chain (EVM) regardless of source chain.
+	p.Recipient = utils.LenientCanonicalizeEVMAddress(p.Recipient)
+	p.LogIndex = strings.TrimSpace(p.LogIndex)
+	p.Amount = strings.TrimSpace(p.Amount)
+	p.RawPayload = utils.CanonicalizeHexBlob(p.RawPayload)
+	p.VerificationData = utils.CanonicalizeHexBlob(p.VerificationData)
+	if p.RevertInstructions != nil {
+		// Refunds return to the source chain.
+		p.RevertInstructions.FundRecipient = utils.LenientCanonicalizeAddress(p.SourceChain, p.RevertInstructions.FundRecipient)
+	}
+}
+
 // NormalizeForTxType zeroes out fields that are irrelevant for the given TxType,
 // and decodes raw_payload into universal_payload for payload types.
 // This should be called by the core module after ballot finalization.

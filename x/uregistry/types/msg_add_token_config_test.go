@@ -13,7 +13,7 @@ func TestMsgAddTokenConfig_ValidateBasic(t *testing.T) {
 
 	validTokenConfig := &types.TokenConfig{
 		Chain:        "eip155:1",
-		Address:      "0xabc123",
+		Address:      "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
 		Name:         "USD Coin",
 		Symbol:       "USDC",
 		Decimals:     6,
@@ -28,7 +28,7 @@ func TestMsgAddTokenConfig_ValidateBasic(t *testing.T) {
 
 	invalidTokenConfig := &types.TokenConfig{
 		Chain:        "", // invalid
-		Address:      "0xabc123",
+		Address:      "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
 		Name:         "USD Coin",
 		Symbol:       "USDC",
 		Decimals:     6,

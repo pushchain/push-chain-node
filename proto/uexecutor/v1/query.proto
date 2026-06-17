@@ -1,10 +1,12 @@
 syntax = "proto3";
 package uexecutor.v1;
 
+import "gogoproto/gogo.proto";
 import "google/api/annotations.proto";
 import "uexecutor/v1/types.proto";
 import "uexecutor/v1/gas_price.proto";
 import "uexecutor/v1/chain_meta.proto";
+import "uexecutor/v1/pending.proto";
 import "cosmos/base/query/v1beta1/pagination.proto";
 
 option go_package = "github.com/pushchain/push-chain-node/x/uexecutor/types";
@@ -59,6 +61,29 @@ service Query {
   // Get all pending outbounds (paginated)
   rpc AllPendingOutbounds(QueryAllPendingOutboundsRequest) returns (QueryAllPendingOutboundsResponse) {
     option (google.api.http).get = "/uexecutor/v1/pending_outbounds";
+  }
+
+  // Queries all expired inbound entries (per-variant audit trail of
+  // inbounds whose ballots all reached EXPIRED/REJECTED without producing
+  // a UniversalTx). Consumed by the future escape-hatch refund flow.
+  rpc AllExpiredInbounds(QueryAllExpiredInboundsRequest) returns (QueryAllExpiredInboundsResponse) {
+    option (google.api.http).get = "/uexecutor/v1/expired_inbounds";
+  }
+
+  // Derives the canonical UTX id and inbound ballot id for a given inbound,
+  // so off-chain validators read the keys from the chain instead of
+  // re-implementing the canonicalization + digest rules.
+  rpc InboundKeys(QueryInboundKeysRequest) returns (QueryInboundKeysResponse) {
+    option (google.api.http).post = "/uexecutor/v1/inbound_keys";
+    option (google.api.http).body = "*";
+  }
+
+  // Derives the canonical outbound ballot id for a given observation. The
+  // observed tx hash is canonicalized against the outbound's destination
+  // chain (looked up by utx_id/outbound_id).
+  rpc OutboundBallotKey(QueryOutboundBallotKeyRequest) returns (QueryOutboundBallotKeyResponse) {
+    option (google.api.http).post = "/uexecutor/v1/outbound_ballot_key";
+    option (google.api.http).body = "*";
   }
 }
 
@@ -119,7 +144,18 @@ message QueryAllPendingInboundsRequest {
 }
 
 message QueryAllPendingInboundsResponse {
-  repeated string inbound_ids = 1;
+  // Full per-variant audit-trail entries.
+  repeated PendingInboundEntry entries = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+// Expired Inbounds
+message QueryAllExpiredInboundsRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+message QueryAllExpiredInboundsResponse {
+  repeated ExpiredInboundEntry entries = 1 [(gogoproto.nullable) = false];
   cosmos.base.query.v1beta1.PageResponse pagination = 2;
 }
 
@@ -141,11 +177,20 @@ message QueryAllUniversalTxResponse {
   cosmos.base.query.v1beta1.PageResponse pagination = 2;
 }
 
-// Pending outbound index entry
+// Pending outbound index entry. Created by chain code at outbound creation
+// (see create_outbound.go). Removed only when validators reach consensus
+// on an OutboundObservation (see msg_vote_outbound.go). Ballot expiry does
+// NOT remove the entry — operators investigate stuck outbounds via the
+// per-variant audit trail (variants below) plus separate uvalidator ballot
+// queries to see which ballots have terminated. See
+// plan-pending-outbound-cleanup.md for design rationale.
 message PendingOutboundEntry {
   string outbound_id     = 1;
   string universal_tx_id = 2;
   int64  created_at      = 3;
+  int64  signing_deadline = 4; // unix timestamp after which the TSS signature expires on the destination chain (0 = no expiry)
+  // Per-variant audit trail, populated as votes arrive (RecordOutboundVote).
+  repeated OutboundObservationVariant variants = 5 [(gogoproto.nullable) = false];
 }
 
 message QueryGetPendingOutboundRequest {
@@ -165,4 +210,27 @@ message QueryAllPendingOutboundsResponse {
   repeated PendingOutboundEntry entries   = 1;
   repeated OutboundTx           outbounds = 2;
   cosmos.base.query.v1beta1.PageResponse pagination = 3;
+}
+
+// InboundKeys: derive canonical UTX id + inbound ballot id from an inbound.
+message QueryInboundKeysRequest {
+  Inbound inbound = 1;
+}
+
+message QueryInboundKeysResponse {
+  string  utx_id            = 1; // canonical UniversalTx key
+  string  ballot_id         = 2; // canonical inbound ballot key
+  Inbound canonical_inbound = 3; // the canonicalized inbound the chain derived the keys from
+}
+
+// OutboundBallotKey: derive the canonical outbound ballot id for an observation.
+message QueryOutboundBallotKeyRequest {
+  string              utx_id      = 1; // UniversalTx the outbound belongs to
+  string              outbound_id = 2; // outbound being observed
+  OutboundObservation observed_tx = 3; // the observation being voted
+}
+
+message QueryOutboundBallotKeyResponse {
+  string              ballot_id            = 1; // canonical outbound ballot key
+  OutboundObservation canonical_observed_tx = 2; // observation after canonicalization
 }

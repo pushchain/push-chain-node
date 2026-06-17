@@ -32,6 +32,10 @@ func NewClient(
 	chainID string,
 	logger zerolog.Logger,
 ) (*Client, error) {
+	// Normalize nil config so downstream uses don't need nil guards.
+	if chainConfig == nil {
+		chainConfig = &config.ChainSpecificConfig{}
+	}
 
 	// Create event listener
 	eventListener, err := NewEventListener(
@@ -44,19 +48,13 @@ func NewClient(
 		return nil, fmt.Errorf("failed to create event listener: %w", err)
 	}
 
-	// Create event cleaner if config is provided
-	var eventCleaner *common.EventCleaner
-	if chainConfig != nil && chainConfig.CleanupIntervalSeconds != nil && chainConfig.RetentionPeriodSeconds != nil {
-		cleanupInterval := time.Duration(*chainConfig.CleanupIntervalSeconds) * time.Second
-		retentionPeriod := time.Duration(*chainConfig.RetentionPeriodSeconds) * time.Second
-		eventCleaner = common.NewEventCleaner(
-			database,
-			cleanupInterval,
-			retentionPeriod,
-			chainID,
-			logger,
-		)
-	}
+	eventCleaner := common.NewEventCleaner(
+		database,
+		chainConfig.CleanupIntervalSeconds,
+		chainConfig.RetentionPeriodSeconds,
+		chainID,
+		logger,
+	)
 
 	client := &Client{
 		logger:        logger.With().Str("component", "push_client").Logger(),
@@ -83,8 +81,7 @@ func (c *Client) Start(ctx context.Context) error {
 	// Start event cleaner if configured
 	if c.eventCleaner != nil {
 		if err := c.eventCleaner.Start(c.ctx); err != nil {
-			c.logger.Warn().Err(err).Msg("failed to start event cleaner")
-			// Don't fail startup if cleaner fails
+			return fmt.Errorf("failed to start event cleaner: %w", err)
 		}
 	}
 

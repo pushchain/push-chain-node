@@ -315,7 +315,7 @@ func (s *Signer) signTxWithSequence(ctx context.Context, txBuilder client.TxBuil
 			Msg("Local sequence behind chain, adopting chain's sequence")
 		s.lastSequence = chainSequence
 	} else if s.lastSequence > chainSequence {
-		s.log.Warn().
+		s.log.Debug().
 			Uint64("chain_sequence", chainSequence).
 			Uint64("cached_sequence", s.lastSequence).
 			Msg("Local sequence ahead of chain query, keeping local to avoid reuse")

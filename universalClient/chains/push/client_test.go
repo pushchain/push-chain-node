@@ -38,7 +38,7 @@ func TestNewClient(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, client)
 		assert.NotNil(t, client.eventListener)
-		assert.Nil(t, client.eventCleaner)
+		assert.NotNil(t, client.eventCleaner)
 	})
 
 	t.Run("success with event cleaner config", func(t *testing.T) {
@@ -161,48 +161,41 @@ func TestClient_StartStopLifecycleMultiple(t *testing.T) {
 	}
 }
 
-func TestNewClient_PartialCleanerConfig(t *testing.T) {
+// TestNewClient_CleanerAlwaysWired locks in the invariant that the event
+// cleaner is created unconditionally — missing or partial config falls back
+// to package defaults rather than silently disabling cleanup (the
+// misconfiguration trap that let DBs grow unbounded).
+func TestNewClient_CleanerAlwaysWired(t *testing.T) {
 	logger := zerolog.Nop()
 	database := newTestDB(t)
 	pc := newTestPushCoreClient()
 
-	t.Run("only cleanup interval set, no retention", func(t *testing.T) {
-		cleanup := 60
-		cfg := &config.ChainSpecificConfig{
-			CleanupIntervalSeconds: &cleanup,
-		}
-		client, err := NewClient(database, cfg, pc, "push-chain", logger)
-		require.NoError(t, err)
-		assert.Nil(t, client.eventCleaner, "event cleaner should be nil when retention is missing")
-	})
-
-	t.Run("only retention set, no cleanup interval", func(t *testing.T) {
-		retention := 3600
-		cfg := &config.ChainSpecificConfig{
-			RetentionPeriodSeconds: &retention,
-		}
-		client, err := NewClient(database, cfg, pc, "push-chain", logger)
-		require.NoError(t, err)
-		assert.Nil(t, client.eventCleaner, "event cleaner should be nil when cleanup interval is missing")
-	})
-
-	t.Run("empty config, no cleaner fields", func(t *testing.T) {
-		cfg := &config.ChainSpecificConfig{}
-		client, err := NewClient(database, cfg, pc, "push-chain", logger)
-		require.NoError(t, err)
-		assert.Nil(t, client.eventCleaner)
-	})
-
-	t.Run("config with poll interval but no cleaner", func(t *testing.T) {
-		poll := 5
-		cfg := &config.ChainSpecificConfig{
-			EventPollingIntervalSeconds: &poll,
-		}
-		client, err := NewClient(database, cfg, pc, "push-chain", logger)
-		require.NoError(t, err)
-		assert.Nil(t, client.eventCleaner)
-		assert.NotNil(t, client.eventListener)
-	})
+	cases := []struct {
+		name string
+		cfg  *config.ChainSpecificConfig
+	}{
+		{"nil config", nil},
+		{"empty config", &config.ChainSpecificConfig{}},
+		{"only cleanup interval set", func() *config.ChainSpecificConfig {
+			v := 60
+			return &config.ChainSpecificConfig{CleanupIntervalSeconds: &v}
+		}()},
+		{"only retention set", func() *config.ChainSpecificConfig {
+			v := 3600
+			return &config.ChainSpecificConfig{RetentionPeriodSeconds: &v}
+		}()},
+		{"unrelated field only", func() *config.ChainSpecificConfig {
+			v := 5
+			return &config.ChainSpecificConfig{EventPollingIntervalSeconds: &v}
+		}()},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			client, err := NewClient(database, tc.cfg, pc, "push-chain", logger)
+			require.NoError(t, err)
+			require.NotNil(t, client.eventCleaner, "cleaner must always be wired up")
+		})
+	}
 }
 
 func TestNewClient_NegativePollInterval(t *testing.T) {

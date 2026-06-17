@@ -86,13 +86,19 @@ func wrapAsLog(data []byte) string {
 	return "Program data: " + base64.StdEncoding.EncodeToString(data)
 }
 
-// buildOutboundPayload builds the minimum 80-byte outbound event data.
-func buildOutboundPayload(txID [32]byte, universalTxID [32]byte, gasFee uint64) []byte {
-	data := make([]byte, 80)
+// buildOutboundPayload builds the minimum 97-byte outbound event data.
+// The audited finalize event surfaces gas_used (offset 80..88) as the value
+// the parser reports as GasFeeUsed; gas_fee (offset 72..80) is the prepaid
+// budget and is skipped. Tests pass `gasUsed` to match what the parser will
+// extract; gas_fee in the payload is left zero.
+func buildOutboundPayload(txID [32]byte, universalTxID [32]byte, gasUsed uint64) []byte {
+	data := make([]byte, 97)
 	// discriminator (8 bytes, zeroed is fine)
 	copy(data[8:40], txID[:])
 	copy(data[40:72], universalTxID[:])
-	binary.LittleEndian.PutUint64(data[72:80], gasFee)
+	// gas_fee at 72..80 (prepaid budget, left zero in tests)
+	binary.LittleEndian.PutUint64(data[80:88], gasUsed)
+	// gas_to_refund at 88..96 (left zero); ata_created at 96 (left zero)
 	return data
 }
 
@@ -406,20 +412,21 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 	})
 
 	t.Run("returns nil for data too short", func(t *testing.T) {
-		shortData := make([]byte, 72) // needs 80
+		shortData := make([]byte, 96) // needs 97
 		event := ParseEvent(wrapAsLog(shortData), signature, 12345, 0, EventTypeFinalizeUniversalTx, chainID, logger)
 		assert.Nil(t, event)
 	})
 
-	t.Run("parses minimum valid data (exactly 80 bytes)", func(t *testing.T) {
-		data := make([]byte, 80)
+	t.Run("parses minimum valid data (exactly 97 bytes)", func(t *testing.T) {
+		data := make([]byte, 97)
 		for i := 8; i < 40; i++ {
 			data[i] = 0x11
 		}
 		for i := 40; i < 72; i++ {
 			data[i] = 0x22
 		}
-		binary.LittleEndian.PutUint64(data[72:80], 12345)
+		// gas_used at 80..88
+		binary.LittleEndian.PutUint64(data[80:88], 12345)
 
 		event := ParseEvent(wrapAsLog(data), signature, 100, 0, EventTypeFinalizeUniversalTx, chainID, logger)
 		require.NotNil(t, event)
@@ -431,7 +438,7 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 		assert.Equal(t, "12345", outbound.GasFeeUsed)
 	})
 
-	t.Run("handles data longer than 80 bytes", func(t *testing.T) {
+	t.Run("handles data longer than 97 bytes", func(t *testing.T) {
 		var txID, utxID [32]byte
 		for i := range txID {
 			txID[i] = 0xAA

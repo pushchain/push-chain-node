@@ -2,10 +2,15 @@ package integrationtest
 
 import (
 	"fmt"
+	"math/big"
 	"strconv"
+	"strings"
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 
 	"github.com/pushchain/push-chain-node/app"
@@ -18,12 +23,84 @@ import (
 
 const testChain = "eip155:11155111"
 
+// universalCoreSetupABI exposes the admin methods needed to configure
+// per-chain mappings during test setup. These are intentionally kept out of
+// the production ABI (x/uexecutor/types/abi.go) — Go-side keeper code never
+// calls them; only tests do.
+const universalCoreSetupABI = `[
+    {
+      "type": "function",
+      "name": "grantRole",
+      "inputs": [
+        { "name": "role",    "type": "bytes32", "internalType": "bytes32" },
+        { "name": "account", "type": "address", "internalType": "address" }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setL1GasFeeByChain",
+      "inputs": [
+        { "name": "chainNamespace", "type": "string",  "internalType": "string" },
+        { "name": "l1GasFee",       "type": "uint256", "internalType": "uint256" }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setTssFundMigrationGasLimitByChain",
+      "inputs": [
+        { "name": "chainNamespace", "type": "string",  "internalType": "string" },
+        { "name": "gasLimit",       "type": "uint256", "internalType": "uint256" }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    }
+]`
+
+// seedFundMigrationChainValues grants MANAGER_ROLE to the admin and seeds the
+// per-chain tss-fund-migration gas limit and L1 gas fee on UniversalCore.
+// InitiateFundMigration rejects a zero gas limit, so without this seeding the
+// keeper read returns 0 and the migration fails validation.
+func seedFundMigrationChainValues(
+	t *testing.T,
+	chainApp *app.ChainApp,
+	ctx sdk.Context,
+	admin common.Address,
+	chain string,
+	gasLimit, l1GasFee *big.Int,
+) {
+	t.Helper()
+
+	handlerAddr := utils.GetDefaultAddresses().HandlerAddr
+	setupABI, err := abi.JSON(strings.NewReader(universalCoreSetupABI))
+	require.NoError(t, err)
+
+	managerRole := crypto.Keccak256Hash([]byte("MANAGER_ROLE"))
+	var roleArg [32]byte
+	copy(roleArg[:], managerRole.Bytes())
+
+	_, err = chainApp.EVMKeeper.CallEVM(ctx, setupABI, admin, handlerAddr, true, "grantRole", roleArg, admin)
+	require.NoError(t, err, "grant MANAGER_ROLE")
+
+	_, err = chainApp.EVMKeeper.CallEVM(ctx, setupABI, admin, handlerAddr, true, "setTssFundMigrationGasLimitByChain", chain, gasLimit)
+	require.NoError(t, err, "seed tss fund migration gas limit")
+
+	_, err = chainApp.EVMKeeper.CallEVM(ctx, setupABI, admin, handlerAddr, true, "setL1GasFeeByChain", chain, l1GasFee)
+	require.NoError(t, err, "seed l1 gas fee")
+}
+
 // setupFundMigrationTest initializes app with validators, a finalized keygen key, and a chain config.
 // Returns app, ctx, validator addresses, and the finalized key ID.
 func setupFundMigrationTest(t *testing.T, numVals int, outboundEnabled bool) (*app.ChainApp, sdk.Context, []string, string) {
 	t.Helper()
 
-	app, ctx, _, validators := utils.SetAppWithMultipleValidators(t, numVals)
+	app, ctx, baseAccounts, validators := utils.SetAppWithMultipleValidators(t, numVals)
+
+	admin := common.BytesToAddress(baseAccounts[0].GetAddress().Bytes())
+	seedFundMigrationChainValues(t, app, ctx, admin, testChain, big.NewInt(21000), big.NewInt(150))
 
 	// Register universal validators
 	universalVals := make([]string, len(validators))
@@ -129,7 +206,10 @@ func TestInitiateFundMigration(t *testing.T) {
 		require.Equal(t, utsstypes.FundMigrationStatus_FUND_MIGRATION_STATUS_PENDING, migration.Status)
 		require.Equal(t, oldKeyId, migration.OldKeyId)
 		require.Equal(t, testChain, migration.Chain)
+		// GasLimit and L1GasFee come from UniversalCore's per-chain mappings,
+		// seeded by seedFundMigrationChainValues.
 		require.Equal(t, uint64(21000), migration.GasLimit)
+		require.Equal(t, "150", migration.L1GasFee)
 		require.NotEmpty(t, migration.GasPrice)
 
 		// Verify pending index
@@ -192,7 +272,7 @@ func TestVoteFundMigration(t *testing.T) {
 		migrationId, err := app.UtssKeeper.InitiateFundMigration(ctx, oldKeyId, testChain)
 		require.NoError(t, err)
 
-		txHash := "0xdeadbeef1234567890"
+		txHash := "0xdeadbeef12345678deadbeef12345678deadbeef12345678deadbeef12345678"
 
 		// Vote with all validators (2/3 quorum needed, so 3 votes for 3 validators)
 		for i, val := range universalVals {
@@ -240,7 +320,7 @@ func TestVoteFundMigration(t *testing.T) {
 		migrationId, err := app.UtssKeeper.InitiateFundMigration(ctx, oldKeyId, testChain)
 		require.NoError(t, err)
 
-		txHash := "0xfailedtx"
+		txHash := ""
 
 		// Vote failure with all validators
 		for _, val := range universalVals {
@@ -258,7 +338,7 @@ func TestVoteFundMigration(t *testing.T) {
 		app, ctx, universalVals, _ := setupFundMigrationTest(t, 3, false)
 
 		valAddr, _ := sdk.ValAddressFromBech32(universalVals[0])
-		err := app.UtssKeeper.VoteFundMigration(ctx, valAddr, 999, "0xtx", true)
+		err := app.UtssKeeper.VoteFundMigration(ctx, valAddr, 999, "0x1111111111111111111111111111111111111111111111111111111111111111", true)
 		require.ErrorContains(t, err, "not found")
 	})
 
@@ -271,12 +351,12 @@ func TestVoteFundMigration(t *testing.T) {
 		// Finalize it first
 		for _, val := range universalVals {
 			valAddr, _ := sdk.ValAddressFromBech32(val)
-			_ = app.UtssKeeper.VoteFundMigration(ctx, valAddr, migrationId, "0xtx", true)
+			_ = app.UtssKeeper.VoteFundMigration(ctx, valAddr, migrationId, "0x1111111111111111111111111111111111111111111111111111111111111111", true)
 		}
 
 		// Try to vote again
 		valAddr, _ := sdk.ValAddressFromBech32(universalVals[0])
-		err = app.UtssKeeper.VoteFundMigration(ctx, valAddr, migrationId, "0xtx2", true)
+		err = app.UtssKeeper.VoteFundMigration(ctx, valAddr, migrationId, "0x2222222222222222222222222222222222222222222222222222222222222222", true)
 		require.ErrorContains(t, err, "already finalized")
 	})
 }
@@ -311,7 +391,7 @@ func TestFundMigrationQueries(t *testing.T) {
 		// Finalize it
 		for _, val := range universalVals {
 			valAddr, _ := sdk.ValAddressFromBech32(val)
-			_ = app.UtssKeeper.VoteFundMigration(ctx, valAddr, migrationId, "0xtx", true)
+			_ = app.UtssKeeper.VoteFundMigration(ctx, valAddr, migrationId, "0x1111111111111111111111111111111111111111111111111111111111111111", true)
 		}
 
 		// Should be removed from pending
@@ -322,4 +402,54 @@ func TestFundMigrationQueries(t *testing.T) {
 		})
 		require.Equal(t, 0, pendingCount)
 	})
+}
+
+// TestVoteFundMigration_EquivalentHashEncodingsConverge is the F-2026-17041
+// regression: three validators submit the SAME migration tx hash in three
+// different encodings (EIP-55-style mixed case, lowercase, no 0x prefix).
+// Canonicalization in VoteFundMigration must land all votes on ONE ballot,
+// finalizing the migration — pre-fix each encoding produced its own ballot
+// and quorum never formed.
+func TestVoteFundMigration_EquivalentHashEncodingsConverge(t *testing.T) {
+	app, ctx, universalVals, oldKeyId := setupFundMigrationTest(t, 3, false)
+
+	migrationId, err := app.UtssKeeper.InitiateFundMigration(ctx, oldKeyId, testChain)
+	require.NoError(t, err)
+
+	canonical := "0xb28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd"
+	encodings := []string{
+		"0xB28F49668E7E76DC96D7AABE5B7F63FECFBD1C3574774C05E8204E749FD96FBD", // uppercase
+		"0xb28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd", // lowercase
+		"b28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd",   // no prefix
+	}
+	require.Len(t, universalVals, 3)
+
+	for i, val := range universalVals {
+		valAddr, err := sdk.ValAddressFromBech32(val)
+		require.NoError(t, err)
+		require.NoError(t, app.UtssKeeper.VoteFundMigration(ctx, valAddr, migrationId, encodings[i], true),
+			"vote %d with encoding %q must be accepted", i, encodings[i])
+	}
+
+	// All three encodings converged on one ballot → quorum reached → COMPLETED.
+	migration, err := app.UtssKeeper.FundMigrations.Get(ctx, migrationId)
+	require.NoError(t, err)
+	require.Equal(t, utsstypes.FundMigrationStatus_FUND_MIGRATION_STATUS_COMPLETED, migration.Status,
+		"equivalent encodings must aggregate on one ballot and finalize")
+	require.Equal(t, canonical, migration.TxHash,
+		"stored tx hash must be the canonical 0x-lowercase form")
+}
+
+// TestVoteFundMigration_MalformedHashRejected: strict per-namespace
+// validation rejects garbage hashes for EVM chains instead of keying a
+// ballot off them.
+func TestVoteFundMigration_MalformedHashRejected(t *testing.T) {
+	app, ctx, universalVals, oldKeyId := setupFundMigrationTest(t, 3, false)
+
+	migrationId, err := app.UtssKeeper.InitiateFundMigration(ctx, oldKeyId, testChain)
+	require.NoError(t, err)
+
+	valAddr, _ := sdk.ValAddressFromBech32(universalVals[0])
+	err = app.UtssKeeper.VoteFundMigration(ctx, valAddr, migrationId, "0xnot-a-real-hash", true)
+	require.ErrorContains(t, err, "invalid tx hash")
 }

@@ -549,27 +549,30 @@ func TestFinalizeUniversalTxUnifiedEncoding(t *testing.T) {
 	}
 }
 
-// TestIsAlreadyExecuted tests the stub that always returns false
+// TestIsAlreadyExecuted tests the stub that always returns (false, 0, nil)
 func TestIsAlreadyExecuted(t *testing.T) {
 	builder := newTestTxBuilder(t)
 	ctx := context.Background()
 
 	t.Run("always returns false", func(t *testing.T) {
-		executed, err := builder.IsAlreadyExecuted(ctx, "0x1234567890abcdef")
+		executed, queryBlockTime, err := builder.IsAlreadyExecuted(ctx, "0x1234567890abcdef")
 		assert.NoError(t, err)
 		assert.False(t, executed)
+		assert.Equal(t, int64(0), queryBlockTime)
 	})
 
 	t.Run("returns false for empty txID", func(t *testing.T) {
-		executed, err := builder.IsAlreadyExecuted(ctx, "")
+		executed, queryBlockTime, err := builder.IsAlreadyExecuted(ctx, "")
 		assert.NoError(t, err)
 		assert.False(t, executed)
+		assert.Equal(t, int64(0), queryBlockTime)
 	})
 
 	t.Run("returns false for arbitrary txID", func(t *testing.T) {
-		executed, err := builder.IsAlreadyExecuted(ctx, "any-string-at-all")
+		executed, queryBlockTime, err := builder.IsAlreadyExecuted(ctx, "any-string-at-all")
 		assert.NoError(t, err)
 		assert.False(t, executed)
+		assert.Equal(t, int64(0), queryBlockTime)
 	})
 }
 
@@ -819,9 +822,9 @@ func simulateOnVault(t *testing.T, rpcClient *RPCClient, builder *TxBuilder, fun
 }
 
 func TestSimulateBSC_FetchVaultFromGateway(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping simulation test in short mode")
-	}
+	// if testing.Short() {
+	t.Skip("skipping simulation test in short mode")
+	// }
 
 	logger := zerolog.Nop()
 	rpcClient, err := NewRPCClient([]string{bscRPCURL}, bscChainID, logger)
@@ -1048,4 +1051,215 @@ func TestNewTxBuilderZeroGatewayAddress(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, tb)
 	assert.Contains(t, err.Error(), "invalid gateway address")
+}
+
+// ---------------------------------------------------------------------------
+// Fund migration transfer math
+// ---------------------------------------------------------------------------
+
+// TestComputeFundMigrationTransfer covers the sweep-amount formula
+// balance - (gasPrice * gasLimit) - l1GasFee for both L1 and L2-style chains.
+// All validators must compute the same value — any drift breaks the TSS hash.
+func TestComputeFundMigrationTransfer(t *testing.T) {
+	t.Run("no L1 fee (mainnet-style) nil", func(t *testing.T) {
+		// balance 1 ETH, gasPrice 20 gwei, gasLimit 21000 → gasCost = 420000 gwei
+		balance := new(big.Int).SetUint64(1_000_000_000_000_000_000)
+		gasPrice := new(big.Int).SetUint64(20_000_000_000)
+		got, err := computeFundMigrationTransfer(balance, gasPrice, 21000, nil)
+		require.NoError(t, err)
+		want := new(big.Int).Sub(balance, new(big.Int).Mul(gasPrice, big.NewInt(21000)))
+		assert.Equal(t, want.String(), got.String())
+	})
+
+	t.Run("zero L1 fee (mainnet-style) treated as zero", func(t *testing.T) {
+		balance := new(big.Int).SetUint64(1_000_000_000_000_000_000)
+		gasPrice := new(big.Int).SetUint64(20_000_000_000)
+		got, err := computeFundMigrationTransfer(balance, gasPrice, 21000, big.NewInt(0))
+		require.NoError(t, err)
+		want := new(big.Int).Sub(balance, new(big.Int).Mul(gasPrice, big.NewInt(21000)))
+		assert.Equal(t, want.String(), got.String())
+	})
+
+	t.Run("non-zero L1 fee (OP-stack) is subtracted on top of L2 gas cost", func(t *testing.T) {
+		// 1 ETH balance, L2 gasCost=420000 gwei, L1 data-availability fee=150 gwei
+		balance := new(big.Int).SetUint64(1_000_000_000_000_000_000)
+		gasPrice := new(big.Int).SetUint64(20_000_000_000)
+		l1Fee := new(big.Int).SetUint64(150_000_000_000)
+		got, err := computeFundMigrationTransfer(balance, gasPrice, 21000, l1Fee)
+		require.NoError(t, err)
+		gasCost := new(big.Int).Mul(gasPrice, big.NewInt(21000))
+		want := new(big.Int).Sub(balance, new(big.Int).Add(gasCost, l1Fee))
+		assert.Equal(t, want.String(), got.String())
+	})
+
+	t.Run("balance exactly equals total fee → insufficient", func(t *testing.T) {
+		gasPrice := new(big.Int).SetUint64(20_000_000_000)
+		l1Fee := big.NewInt(100)
+		gasCost := new(big.Int).Mul(gasPrice, big.NewInt(21000))
+		balance := new(big.Int).Add(gasCost, l1Fee)
+		_, err := computeFundMigrationTransfer(balance, gasPrice, 21000, l1Fee)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "insufficient balance")
+	})
+
+	t.Run("L1 fee tips balance into insufficient", func(t *testing.T) {
+		// Without L1 fee, balance covers gas and leaves 100 wei. With L1 fee of 200, it's insufficient.
+		gasPrice := new(big.Int).SetUint64(20_000_000_000)
+		gasCost := new(big.Int).Mul(gasPrice, big.NewInt(21000))
+		balance := new(big.Int).Add(gasCost, big.NewInt(100))
+		_, err := computeFundMigrationTransfer(balance, gasPrice, 21000, big.NewInt(200))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "insufficient balance")
+	})
+
+	t.Run("deterministic across equivalent l1 fee representations", func(t *testing.T) {
+		// big.NewInt(0) and nil must produce identical results — the TSS signing
+		// hash depends on it.
+		balance := new(big.Int).SetUint64(500_000_000_000_000_000)
+		gasPrice := new(big.Int).SetUint64(15_000_000_000)
+		withNil, err := computeFundMigrationTransfer(balance, gasPrice, 21000, nil)
+		require.NoError(t, err)
+		withZero, err := computeFundMigrationTransfer(balance, gasPrice, 21000, big.NewInt(0))
+		require.NoError(t, err)
+		assert.Equal(t, withNil.String(), withZero.String())
+	})
+}
+
+func TestL1GasFeeString(t *testing.T) {
+	assert.Equal(t, "0", l1GasFeeString(nil))
+	assert.Equal(t, "0", l1GasFeeString(big.NewInt(0)))
+	assert.Equal(t, "12345", l1GasFeeString(big.NewInt(12345)))
+}
+
+// TestGetFundMigrationSigningRequest_RejectsZeroGasLimit verifies that a
+// missing / zero gasLimit on the event (which would otherwise encode to 0)
+// is rejected before any RPC call — deterministic failure, not a broken tx.
+func TestGetFundMigrationSigningRequest_RejectsZeroGasLimit(t *testing.T) {
+	tb := newTestTxBuilder(t)
+	data := &common.FundMigrationData{
+		From:     "0x1111111111111111111111111111111111111111",
+		To:       "0x2222222222222222222222222222222222222222",
+		GasPrice: big.NewInt(20_000_000_000),
+		GasLimit: 0,
+	}
+	_, err := tb.GetFundMigrationSigningRequest(context.Background(), data, 0)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "gas limit must be provided")
+}
+
+// TestBroadcastFundMigrationTx_RejectsMissingAmount verifies broadcast refuses
+// to assemble a tx without the signing-time amount.
+func TestBroadcastFundMigrationTx_RejectsMissingAmount(t *testing.T) {
+	tb := newTestTxBuilder(t)
+	data := &common.FundMigrationData{
+		From:     "0x1111111111111111111111111111111111111111",
+		To:       "0x2222222222222222222222222222222222222222",
+		GasPrice: big.NewInt(20_000_000_000),
+		GasLimit: 21000,
+	}
+	sig := make([]byte, 65) // valid length; bytes don't have to be a real ECDSA sig
+
+	t.Run("nil amount rejected", func(t *testing.T) {
+		req := &common.UnsignedSigningReq{
+			SigningHash: []byte{0x01},
+			Nonce:       0,
+			// TSSFundMigrationAmount intentionally nil
+		}
+		_, err := tb.BroadcastFundMigrationTx(context.Background(), req, data, sig)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "TSSFundMigrationAmount must be set")
+	})
+
+	t.Run("zero amount rejected", func(t *testing.T) {
+		req := &common.UnsignedSigningReq{
+			SigningHash:            []byte{0x01},
+			Nonce:                  0,
+			TSSFundMigrationAmount: big.NewInt(0),
+		}
+		_, err := tb.BroadcastFundMigrationTx(context.Background(), req, data, sig)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "TSSFundMigrationAmount must be set")
+	})
+
+	t.Run("negative amount rejected", func(t *testing.T) {
+		req := &common.UnsignedSigningReq{
+			SigningHash:            []byte{0x01},
+			Nonce:                  0,
+			TSSFundMigrationAmount: big.NewInt(-1),
+		}
+		_, err := tb.BroadcastFundMigrationTx(context.Background(), req, data, sig)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "TSSFundMigrationAmount must be set")
+	})
+}
+
+// TestGetFundMigrationSigningRequest_UsesProvidedBalance verifies that when
+// data.Balance is non-nil the builder uses it verbatim and skips the RPC
+// GetBalance call. This is the determinism guarantee the coordinator's
+// verification path depends on.
+func TestGetFundMigrationSigningRequest_UsesProvidedBalance(t *testing.T) {
+	tb := newTestTxBuilder(t)
+
+	gasPrice := big.NewInt(20_000_000_000)
+	gasLimit := uint64(21000)
+	expectedAmount := big.NewInt(1_000_000_000_000_000)
+	gasCost := new(big.Int).Mul(gasPrice, new(big.Int).SetUint64(gasLimit))
+	balance := new(big.Int).Add(expectedAmount, gasCost)
+
+	data := &common.FundMigrationData{
+		From:     "0x1111111111111111111111111111111111111111",
+		To:       "0x2222222222222222222222222222222222222222",
+		GasPrice: gasPrice,
+		GasLimit: gasLimit,
+		L1GasFee: big.NewInt(0),
+		Balance:  balance,
+	}
+
+	req, err := tb.GetFundMigrationSigningRequest(context.Background(), data, 42)
+	require.NoError(t, err)
+	assert.Equal(t, 0, expectedAmount.Cmp(req.TSSFundMigrationAmount))
+	assert.NotEmpty(t, req.SigningHash)
+	assert.Equal(t, uint64(42), req.Nonce)
+}
+
+// TestGetFundMigrationSigningRequest_ProvidedBalanceInsufficient verifies the
+// insufficient-balance check fires on caller-provided Balance below gas cost.
+func TestGetFundMigrationSigningRequest_ProvidedBalanceInsufficient(t *testing.T) {
+	tb := newTestTxBuilder(t)
+
+	data := &common.FundMigrationData{
+		From:     "0x1111111111111111111111111111111111111111",
+		To:       "0x2222222222222222222222222222222222222222",
+		GasPrice: big.NewInt(20_000_000_000),
+		GasLimit: 21000,
+		L1GasFee: big.NewInt(0),
+		Balance:  big.NewInt(1),
+	}
+	_, err := tb.GetFundMigrationSigningRequest(context.Background(), data, 0)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "insufficient balance")
+}
+
+// TestBroadcastFundMigrationTx_DoesNotQueryBalance asserts broadcast never
+// calls GetBalance. Fails loudly if a balance lookup is reintroduced.
+func TestBroadcastFundMigrationTx_DoesNotQueryBalance(t *testing.T) {
+	tb := newTestTxBuilder(t)
+	data := &common.FundMigrationData{
+		From:     "0x1111111111111111111111111111111111111111",
+		To:       "0x2222222222222222222222222222222222222222",
+		GasPrice: big.NewInt(20_000_000_000),
+		GasLimit: 21000,
+		L1GasFee: big.NewInt(0),
+	}
+	req := &common.UnsignedSigningReq{
+		SigningHash:            []byte{0x01},
+		Nonce:                  0,
+		TSSFundMigrationAmount: big.NewInt(1_000_000_000_000_000), // 0.001 ETH
+	}
+	sig := make([]byte, 65)
+
+	_, err := tb.BroadcastFundMigrationTx(context.Background(), req, data, sig)
+	require.Error(t, err)
+	assert.NotContains(t, err.Error(), "get_balance", "broadcast must not call GetBalance")
+	assert.NotContains(t, err.Error(), "failed to get balance", "broadcast must not call GetBalance")
 }

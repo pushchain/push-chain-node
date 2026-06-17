@@ -35,8 +35,17 @@ type Keeper struct {
 	uregistryKeeper  types.UregistryKeeper
 	uvalidatorKeeper types.UValidatorKeeper
 
-	// Inbound trackers
-	PendingInbounds collections.KeySet[string]
+	// PendingInbounds tracks in-flight inbounds with full per-variant
+	// audit trail (which validators voted what payload, terminal status
+	// per variant). Created on first vote (RecordInboundVote), removed
+	// when all variants reach a terminal state (BallotHooks impl).
+	// See plan-pending-inbound-cleanup.md.
+	PendingInbounds collections.Map[string, types.PendingInboundEntry]
+
+	// ExpiredInbounds preserves the per-variant audit trail of inbounds
+	// whose ballots all reached EXPIRED/REJECTED without producing a UTX.
+	// Consumed by the future escape-hatch refund flow.
+	ExpiredInbounds collections.Map[string, types.ExpiredInboundEntry]
 
 	// UniversalTx collection
 	UniversalTx collections.Map[string, types.UniversalTx]
@@ -91,11 +100,20 @@ func NewKeeper(
 		uregistryKeeper:  uregistryKeeper,
 		uvalidatorKeeper: uvalidatorKeeper,
 
-		PendingInbounds: collections.NewKeySet(
+		PendingInbounds: collections.NewMap(
 			sb,
-			types.InboundsKey,
-			types.InboundsName,
+			types.PendingInboundsKey,
+			types.PendingInboundsName,
 			collections.StringKey,
+			codec.CollValue[types.PendingInboundEntry](cdc),
+		),
+
+		ExpiredInbounds: collections.NewMap(
+			sb,
+			types.ExpiredInboundsKey,
+			types.ExpiredInboundsName,
+			collections.StringKey,
+			codec.CollValue[types.ExpiredInboundEntry](cdc),
 		),
 
 		UniversalTx: collections.NewMap(
@@ -162,9 +180,16 @@ func (k *Keeper) InitGenesis(ctx context.Context, data *types.GenesisState) erro
 		return err
 	}
 
-	// Restore PendingInbounds
-	for _, key := range data.PendingInbounds {
-		if err := k.PendingInbounds.Set(ctx, key); err != nil {
+	// Restore PendingInbounds (variant-aware Map at the new prefix).
+	for _, entry := range data.PendingInbounds {
+		if err := k.PendingInbounds.Set(ctx, entry.UtxKey, entry); err != nil {
+			return err
+		}
+	}
+
+	// Restore ExpiredInbounds.
+	for _, entry := range data.ExpiredInbounds {
+		if err := k.ExpiredInbounds.Set(ctx, entry.UtxKey, entry); err != nil {
 			return err
 		}
 	}
@@ -214,10 +239,20 @@ func (k *Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 		panic(err)
 	}
 
-	// Export PendingInbounds
-	var pendingInbounds []string
-	err = k.PendingInbounds.Walk(ctx, nil, func(key string) (bool, error) {
-		pendingInbounds = append(pendingInbounds, key)
+	// Export PendingInbounds (variant-aware Map).
+	var pendingInbounds []types.PendingInboundEntry
+	err = k.PendingInbounds.Walk(ctx, nil, func(_ string, value types.PendingInboundEntry) (bool, error) {
+		pendingInbounds = append(pendingInbounds, value)
+		return false, nil
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	// Export ExpiredInbounds.
+	var expiredInbounds []types.ExpiredInboundEntry
+	err = k.ExpiredInbounds.Walk(ctx, nil, func(_ string, value types.ExpiredInboundEntry) (bool, error) {
+		expiredInbounds = append(expiredInbounds, value)
 		return false, nil
 	})
 	if err != nil {
@@ -276,6 +311,7 @@ func (k *Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 	return &types.GenesisState{
 		Params:             params,
 		PendingInbounds:    pendingInbounds,
+		ExpiredInbounds:    expiredInbounds,
 		UniversalTxs:       universalTxs,
 		ModuleAccountNonce: moduleAccountNonce,
 		GasPrices:          gasPrices,

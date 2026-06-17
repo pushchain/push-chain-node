@@ -53,9 +53,9 @@ func (m *coordMockTxBuilder) VerifyBroadcastedTx(ctx context.Context, txHash str
 	return args.Bool(0), args.Get(1).(uint64), args.Get(2).(uint64), args.Get(3).(uint8), args.Error(4)
 }
 
-func (m *coordMockTxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, error) {
+func (m *coordMockTxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, int64, error) {
 	args := m.Called(ctx, txID)
-	return args.Bool(0), args.Error(1)
+	return args.Bool(0), args.Get(1).(int64), args.Error(2)
 }
 
 func (m *coordMockTxBuilder) GetGasFeeUsed(ctx context.Context, txHash string) (string, error) {
@@ -672,6 +672,7 @@ func TestAssignSignNonce_SubsequentEventUsesCache(t *testing.T) {
 
 func TestAssignSignNonce_SubsequentEventCapReached(t *testing.T) {
 	coord, _, _ := setupTestCoordinator(t)
+	coord.chains = newTestChainsForCoordinator(t, "eip155:1", uregistrytypes.VmType_EVM, &coordMockChainClient{builder: &coordMockTxBuilder{}})
 
 	nonceByChain := map[string]uint64{"eip155:1": 10}
 	inFlightPerChain := map[string]int{"eip155:1": PerChainCap}
@@ -690,6 +691,7 @@ func TestAssignSignNonce_SubsequentEventCapReached(t *testing.T) {
 
 func TestAssignSignNonce_FirstEventWithInFlight_SkipsUntilThreshold(t *testing.T) {
 	coord, _, _ := setupTestCoordinator(t)
+	coord.chains = newTestChainsForCoordinator(t, "eip155:1", uregistrytypes.VmType_EVM, &coordMockChainClient{builder: &coordMockTxBuilder{}})
 
 	inFlightPerChain := map[string]int{"eip155:1": 1}
 	nonceByChain := map[string]uint64{}
@@ -709,6 +711,63 @@ func TestAssignSignNonce_FirstEventWithInFlight_SkipsUntilThreshold(t *testing.T
 
 	coord.chainWaitMu.Lock()
 	assert.Equal(t, 1, coord.consecutiveWaitPerChain["eip155:1"])
+	coord.chainWaitMu.Unlock()
+}
+
+// TestAssignSignNonce_SVM_BypassesPerChainCap verifies that SVM chains aren't
+// subject to the EVM-only PerChainCap. Solana has no nonce-based ordering, so
+// in-flight count creates no operational pressure.
+func TestAssignSignNonce_SVM_BypassesPerChainCap(t *testing.T) {
+	coord, _, _ := setupTestCoordinator(t)
+	coord.chains = newTestChainsForCoordinator(t, "solana:mainnet", uregistrytypes.VmType_SVM, &coordMockChainClient{builder: &coordMockTxBuilder{}})
+
+	// Subsequent-event branch with in-flight at the cap. On EVM this would
+	// return (0, false); on SVM we should pass through and assign.
+	nonceByChain := map[string]uint64{"solana:mainnet": 0}
+	inFlightPerChain := map[string]int{"solana:mainnet": PerChainCap}
+
+	nonce, ok := coord.assignSignNonce(
+		context.Background(),
+		store.Event{EventID: "e1"},
+		"solana:mainnet",
+		inFlightPerChain,
+		nonceByChain,
+		map[string]bool{},
+	)
+	assert.True(t, ok, "SVM should bypass PerChainCap")
+	assert.Equal(t, uint64(1), nonce)
+	assert.Equal(t, PerChainCap+1, inFlightPerChain["solana:mainnet"])
+}
+
+// TestAssignSignNonce_SVM_BypassesInFlightSkip verifies that SVM chains
+// bypass the EVM-only wait-counter/skippedChains machinery. Even with
+// in-flight events, the chain must NOT be marked as skipped and the
+// consecutive-wait counter must NOT increment.
+//
+// The downstream getNextNonceForChain call still tries to fetch a TSS
+// address (which fails in the test fixture, so ok=false here). That's
+// orthogonal to what we're testing — the gate is observed via the absence
+// of side-effects on skippedChains / consecutiveWaitPerChain.
+func TestAssignSignNonce_SVM_BypassesInFlightSkip(t *testing.T) {
+	coord, _, _ := setupTestCoordinator(t)
+	coord.chains = newTestChainsForCoordinator(t, "solana:mainnet", uregistrytypes.VmType_SVM, &coordMockChainClient{builder: &coordMockTxBuilder{}})
+
+	inFlightPerChain := map[string]int{"solana:mainnet": 5}
+	nonceByChain := map[string]uint64{}
+	skippedChains := map[string]bool{}
+
+	_, _ = coord.assignSignNonce(
+		context.Background(),
+		store.Event{EventID: "e1"},
+		"solana:mainnet",
+		inFlightPerChain,
+		nonceByChain,
+		skippedChains,
+	)
+
+	assert.False(t, skippedChains["solana:mainnet"], "SVM chain must not be marked as skipped on in-flight events")
+	coord.chainWaitMu.Lock()
+	assert.Equal(t, 0, coord.consecutiveWaitPerChain["solana:mainnet"], "SVM chain must not advance the consecutive-wait counter")
 	coord.chainWaitMu.Unlock()
 }
 
@@ -791,67 +850,6 @@ func TestGetMultiAddrsFromPeerID(t *testing.T) {
 		_, err := coord.GetMultiAddrsFromPeerID(ctx, "unknown-peer")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "not found")
-	})
-}
-
-func TestHandleACK(t *testing.T) {
-	coord, _, _ := setupTestCoordinator(t)
-	ctx := context.Background()
-
-	t.Run("ack for untracked event is ignored", func(t *testing.T) {
-		err := coord.HandleACK(ctx, "peer1", "unknown-event")
-		assert.NoError(t, err)
-	})
-
-	t.Run("ack tracking with registered event", func(t *testing.T) {
-		coord.ackMu.Lock()
-		coord.ackTracking["test-event"] = &ackState{
-			participants: []string{"validator1", "validator2", "validator3"},
-			ackedBy:      make(map[string]bool),
-			ackCount:     0,
-		}
-		coord.ackMu.Unlock()
-
-		// First ACK
-		err := coord.HandleACK(ctx, "peer1", "test-event")
-		assert.NoError(t, err)
-
-		coord.ackMu.RLock()
-		state := coord.ackTracking["test-event"]
-		assert.Equal(t, 1, state.ackCount)
-		assert.True(t, state.ackedBy["peer1"])
-		coord.ackMu.RUnlock()
-
-		// Duplicate ACK from same peer should not increment
-		err = coord.HandleACK(ctx, "peer1", "test-event")
-		assert.NoError(t, err)
-
-		coord.ackMu.RLock()
-		assert.Equal(t, 1, coord.ackTracking["test-event"].ackCount)
-		coord.ackMu.RUnlock()
-
-		// ACK from second peer
-		err = coord.HandleACK(ctx, "peer2", "test-event")
-		assert.NoError(t, err)
-
-		coord.ackMu.RLock()
-		assert.Equal(t, 2, coord.ackTracking["test-event"].ackCount)
-		coord.ackMu.RUnlock()
-	})
-
-	t.Run("ack from non-participant is rejected", func(t *testing.T) {
-		coord.ackMu.Lock()
-		coord.ackTracking["restricted-event"] = &ackState{
-			participants: []string{"validator1"},
-			ackedBy:      make(map[string]bool),
-			ackCount:     0,
-		}
-		coord.ackMu.Unlock()
-
-		// peer2 maps to validator2 which is not in participants
-		err := coord.HandleACK(ctx, "peer2", "restricted-event")
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "not a participant")
 	})
 }
 
@@ -1009,57 +1007,6 @@ func TestGetMultiAddrsFromPeerID_NilNetworkInfo(t *testing.T) {
 	_, err := coord.GetMultiAddrsFromPeerID(ctx, "any-peer")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
-}
-
-func TestHandleACK_UnknownPeerID(t *testing.T) {
-	coord, _, _ := setupTestCoordinator(t)
-	ctx := context.Background()
-
-	coord.ackMu.Lock()
-	coord.ackTracking["evt-unknown-peer"] = &ackState{
-		participants: []string{"validator1"},
-		ackedBy:      make(map[string]bool),
-		ackCount:     0,
-	}
-	coord.ackMu.Unlock()
-
-	err := coord.HandleACK(ctx, "totally-unknown-peer", "evt-unknown-peer")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to get partyID")
-}
-
-func TestHandleACK_AllACKsTriggersBEGIN(t *testing.T) {
-	coord, _, _ := setupTestCoordinator(t)
-	ctx := context.Background()
-
-	var sentMessages []string
-	coord.send = func(_ context.Context, peerID string, _ []byte) error {
-		sentMessages = append(sentMessages, peerID)
-		return nil
-	}
-
-	coord.ackMu.Lock()
-	coord.ackTracking["evt-begin"] = &ackState{
-		participants: []string{"validator1", "validator2"},
-		ackedBy:      map[string]bool{"peer1": true},
-		ackCount:     1,
-	}
-	coord.ackMu.Unlock()
-
-	// Second ACK completes the set
-	err := coord.HandleACK(ctx, "peer2", "evt-begin")
-	require.NoError(t, err)
-
-	// BEGIN should have been sent to both participants
-	assert.Len(t, sentMessages, 2)
-	assert.Contains(t, sentMessages, "peer1")
-	assert.Contains(t, sentMessages, "peer2")
-
-	// ACK tracking should be cleaned up
-	coord.ackMu.RLock()
-	_, exists := coord.ackTracking["evt-begin"]
-	coord.ackMu.RUnlock()
-	assert.False(t, exists, "ack tracking should be removed after all ACKs received")
 }
 
 func TestGetActiveParticipants(t *testing.T) {

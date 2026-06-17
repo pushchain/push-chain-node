@@ -100,13 +100,6 @@ func (s *keyrefreshSession) Step() ([]Message, bool, error) {
 				break
 			}
 
-			if receiver == s.partyID {
-				if err := s.InputMessage(msgData); err != nil {
-					return nil, false, fmt.Errorf("failed to queue local message: %w", err)
-				}
-				continue
-			}
-
 			messages = append(messages, Message{
 				Receiver: receiver,
 				Data:     msgData,
@@ -117,7 +110,6 @@ func (s *keyrefreshSession) Step() ([]Message, bool, error) {
 	return messages, false, nil
 }
 
-// InputMessage processes an incoming protocol message.
 func (s *keyrefreshSession) InputMessage(data []byte) error {
 	buf := make([]byte, len(data))
 	copy(buf, data)

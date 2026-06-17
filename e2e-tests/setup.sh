@@ -41,6 +41,7 @@ SVM_BROADCASTER_BACKUP_FILE=""
 SVM_TX_BUILDER_BACKUP_FILE=""
 SVM_EVENT_PARSER_BACKUP_FILE=""
 REPLACE_ADDRESSES_BACKUP_DIR=""
+EVM_CHAINID_BACKUP_FILE=""
 LOCAL_SVM_PAYLOAD_EXECUTOR_PID=""
 
 : "${E2E_PARENT_DIR:=../}"
@@ -954,6 +955,36 @@ sdk_sync_localnet_uea_proxy_impl() {
   fi
 
   log_ok "Synced PUSH_NETWORK.LOCALNET UEA proxy to $uea_impl"
+}
+
+# LOCAL EVM chain id override: the e2e SDK and deployed contracts expect EVM
+# chain id 42101. Some branches ship app/app.go with EVMChainID=9000; force 42101
+# for the local build, then restore app.go after `make build` (same backup/restore
+# pattern as replace-addresses, so the branch source stays unchanged).
+step_set_local_evm_chain_id() {
+  local appgo="$PUSH_CHAIN_DIR/app/app.go"
+  if [[ ! -f "$appgo" ]]; then
+    log_warn "app/app.go not found at $appgo; skipping EVM chain id override"
+    return 0
+  fi
+  EVM_CHAINID_BACKUP_FILE="$(mktemp)"
+  cp "$appgo" "$EVM_CHAINID_BACKUP_FILE"
+  perl -0pi -e 's/(ChainID[ \t]*=[ \t]*)"[^"]*"([ \t]*\r?\n[ \t]*EVMChainID[ \t]*=[ \t]*uint64\()\d+(\))/${1}"push_42101-1"${2}42101${3}/' "$appgo"
+  local got
+  got="$(grep -oE 'EVMChainID[[:space:]]*=[[:space:]]*uint64\([0-9]+\)' "$appgo" | head -1)"
+  if [[ "$got" == *"uint64(42101)"* ]]; then
+    log_ok "Forced local EVM chain id to 42101 for build ($got)"
+  else
+    log_warn "EVM chain id override may not have applied (found: ${got:-none})"
+  fi
+}
+
+step_restore_local_evm_chain_id() {
+  [[ -n "$EVM_CHAINID_BACKUP_FILE" && -f "$EVM_CHAINID_BACKUP_FILE" ]] || return 0
+  cp "$EVM_CHAINID_BACKUP_FILE" "$PUSH_CHAIN_DIR/app/app.go"
+  rm -f "$EVM_CHAINID_BACKUP_FILE"
+  EVM_CHAINID_BACKUP_FILE=""
+  log_info "Restored app/app.go after EVM chain id override"
 }
 
 step_patch_local_svm_broadcaster_for_build() {
@@ -4808,11 +4839,14 @@ cmd_all() {
     return 1
   fi
   step_patch_local_svm_broadcaster_for_build
+  step_set_local_evm_chain_id
   if ! (cd "$PUSH_CHAIN_DIR" && make build); then
+    step_restore_local_evm_chain_id
     step_restore_local_svm_broadcaster_after_build
     step_restore_local_replace_addresses_sources
     return 1
   fi
+  step_restore_local_evm_chain_id
   step_restore_local_svm_broadcaster_after_build
   step_restore_local_replace_addresses_sources
   step_update_env_fund_to_address

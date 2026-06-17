@@ -102,7 +102,7 @@ func TestIsContractDeployed_RejectsEOAsAndAcceptsRealContracts(t *testing.T) {
 // test can assert which addresses got the triple.
 type trackerEVMKeeper struct {
 	accounts map[common.Address]statedb.Account
-	code     map[string][]byte                       // hex(codeHash) -> bytecode
+	code     map[string][]byte // hex(codeHash) -> bytecode
 	state    map[common.Address]map[common.Hash]common.Hash
 }
 
@@ -265,11 +265,6 @@ func TestDeploySystemContracts_AllReservedSlotsInABCRangeAreCovered(t *testing.T
 
 	// Slots in A/B/C that uregistry does NOT own:
 	//   0xAA — uexecutor PROXY_ADMIN (deployed by uexecutor's own genesis)
-	// 0xCA hosts the USigVerifier legacy precompile (testnet-live, removed on
-	// mainnet; the new address is 0xE1). It IS auto-reserved here: while the
-	// precompile is active the bytecode is shadowed by dispatch, but reserving
-	// the slot keeps the EOA-squatting protection (F-2026-17025) in effect
-	// once the precompile is removed on mainnet.
 	uregistryDoesNotOwn := map[byte]bool{0xAA: true}
 
 	for _, hi := range []byte{0xA, 0xB, 0xC} {

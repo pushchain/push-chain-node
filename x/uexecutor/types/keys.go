@@ -125,8 +125,15 @@ func GetInboundBallotKey(inbound Inbound) (string, error) {
 	), nil
 }
 
+// GetPcUniversalTxKey: UTX identity for a Push-origin (outbound) tx, from the
+// canonical (pc_caip, tx_hash). The tx_hash is EVM-minted (receipt.Hash, already
+// 0x-lowercase), so canonicalization is a no-op today — but it is applied here so
+// the identity is robust by contract, not by convention, mirroring
+// GetInboundUniversalTxKey. Canonicalizes locals; caller's pc is not mutated.
 func GetPcUniversalTxKey(pcCaip string, pc PCTx) string {
-	data := fmt.Sprintf("%s:%s", pcCaip, pc.TxHash)
+	chain := strings.TrimSpace(pcCaip)
+	txHash := utils.LenientCanonicalizeTxHash(chain, pc.TxHash)
+	data := fmt.Sprintf("%s:%s", chain, txHash)
 	hash := sha256.Sum256([]byte(data))
 	return hex.EncodeToString(hash[:])
 }

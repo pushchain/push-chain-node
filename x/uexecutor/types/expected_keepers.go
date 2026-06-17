@@ -35,6 +35,7 @@ type EVMKeeper interface {
 		abi abi.ABI,
 		from, contract common.Address,
 		commit bool,
+		gasCap *big.Int,
 		method string,
 		args ...interface{},
 	) (*types.MsgEthereumTxResponse, error)

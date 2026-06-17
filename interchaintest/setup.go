@@ -69,6 +69,21 @@ var (
 		cosmos.NewGenesisKV("app_state.feemarket.params.base_fee", "0.000000000000000000"),
 		cosmos.NewGenesisKV("app_state.evm.params.evm_denom", Denom),
 		cosmos.NewGenesisKV("app_state.evm.params.active_static_precompiles", Precompiles),
+		// cosmos/evm v0.5 derives EVM coin info from bank denom metadata at
+		// InitGenesis (LoadEvmCoinInfo). pchaind init produces no metadata for
+		// the EVM denom, so inject it here or the node panics on startup with
+		// "denom metadata upc could not be found".
+		cosmos.NewGenesisKV("app_state.bank.denom_metadata", []map[string]interface{}{{
+			"description": "Native token of Push Chain",
+			"denom_units": []map[string]interface{}{
+				{"denom": Denom, "exponent": 0, "aliases": []string{}},
+				{"denom": "pushchain", "exponent": 18, "aliases": []string{}},
+			},
+			"base":    Denom,
+			"display": "pushchain",
+			"name":    "Push Chain",
+			"symbol":  "PC",
+		}}),
 	}
 
 	DefaultChainConfig = ibc.ChainConfig{

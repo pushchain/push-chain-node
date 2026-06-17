@@ -1,5 +1,6 @@
 package types
 
 var (
-	BaseDenom = "upc"
+	BaseDenom    = "upc"
+	DisplayDenom = "pushchain"
 )

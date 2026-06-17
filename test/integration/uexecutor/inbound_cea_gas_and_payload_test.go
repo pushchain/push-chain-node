@@ -472,6 +472,7 @@ func TestInboundCEAGasAndPayload(t *testing.T) {
 			ueModuleAccAddress,
 			prc20Address,
 			false,
+			nil,
 			"balanceOf",
 			ueaAddrHex,
 		)

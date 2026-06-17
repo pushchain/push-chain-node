@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"sync"
+	"time"
 
 	autocliv1 "cosmossdk.io/api/cosmos/autocli/v1"
 	reflectionv1 "cosmossdk.io/api/cosmos/reflection/v1"
@@ -53,6 +54,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/server/config"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/cosmos-sdk/types/msgservice"
 	signingtype "github.com/cosmos/cosmos-sdk/types/tx/signing"
@@ -106,10 +108,9 @@ import (
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	cosmosevmante "github.com/cosmos/evm/ante"
-	cosmosevmevmante "github.com/cosmos/evm/ante/evm"
+	antetypes "github.com/cosmos/evm/ante/types"
 	cosmosevmencoding "github.com/cosmos/evm/encoding"
 	srvflags "github.com/cosmos/evm/server/flags"
-	cosmosevmtypes "github.com/cosmos/evm/types"
 	cosmosevmutils "github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/erc20"
 	erc20keeper "github.com/cosmos/evm/x/erc20/keeper"
@@ -154,6 +155,7 @@ import (
 	ibctm "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
 
 	// "github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/common"
 	cosmoscorevm "github.com/ethereum/go-ethereum/core/vm"
 	chainante "github.com/pushchain/push-chain-node/app/ante"
 
@@ -185,7 +187,8 @@ const (
 	NodeDir      = ".pchain"
 	Bech32Prefix = "push"
 
-	ChainID = "localchain_9000-1"
+	ChainID    = "localchain_9000-1"
+	EVMChainID = uint64(9000)
 )
 
 var (
@@ -197,6 +200,20 @@ var (
 		"token_factory",
 	}
 )
+
+// authKeeperEVMWrapper adapts cosmos-sdk v0.50.x AccountKeeper to satisfy the
+// cosmos/evm AccountKeeper interfaces, which require unordered-tx methods not
+// present in sdk v0.50. Stubs are safe no-ops because this chain does not
+// enable unordered transactions.
+type authKeeperEVMWrapper struct {
+	authkeeper.AccountKeeper
+}
+
+func (w authKeeperEVMWrapper) UnorderedTransactionsEnabled() bool               { return false }
+func (w authKeeperEVMWrapper) RemoveExpiredUnorderedNonces(_ sdk.Context) error { return nil }
+func (w authKeeperEVMWrapper) TryAddUnorderedNonce(_ sdk.Context, _ []byte, _ time.Time) error {
+	return nil
+}
 
 func init() {
 	// manually update the power reduction based on the base denom unit (10^18 [evm] or 10^6 [cosmos])
@@ -215,7 +232,7 @@ var (
 	BaseDenomUnit int64 = 18
 
 	BaseDenom    = pushtypes.BaseDenom
-	DisplayDenom = "MY_DENOM_DISPLAY" // TODO: ?
+	DisplayDenom = pushtypes.DisplayDenom
 
 	// Bech32PrefixAccAddr defines the Bech32 prefix of an account's address
 	Bech32PrefixAccAddr = Bech32Prefix
@@ -269,10 +286,12 @@ type PacketDataUnmarshaler interface {
 // ChainApp extended ABCI application
 type ChainApp struct {
 	*baseapp.BaseApp
-	legacyAmino       *codec.LegacyAmino
-	appCodec          codec.Codec
-	txConfig          client.TxConfig
-	interfaceRegistry types.InterfaceRegistry
+	legacyAmino        *codec.LegacyAmino
+	appCodec           codec.Codec
+	txConfig           client.TxConfig
+	interfaceRegistry  types.InterfaceRegistry
+	clientCtx          client.Context
+	pendingTxListeners []func(common.Hash)
 
 	// keys to access the substores
 	keys    map[string]*storetypes.KVStoreKey
@@ -345,7 +364,7 @@ func NewChainApp(
 
 	// TODO: verify
 
-	encodingConfig := cosmosevmencoding.MakeConfig()
+	encodingConfig := cosmosevmencoding.MakeConfig(EVMChainID)
 	interfaceRegistry := encodingConfig.InterfaceRegistry
 	appCodec := encodingConfig.Codec
 	legacyAmino := encodingConfig.Amino
@@ -679,12 +698,15 @@ func NewChainApp(
 		appCodec,
 		keys[evmtypes.StoreKey],
 		tkeys[evmtypes.TransientKey],
+		keys,
 		authtypes.NewModuleAddress(govtypes.ModuleName),
-		app.AccountKeeper,
+		authKeeperEVMWrapper{app.AccountKeeper},
 		app.BankKeeper,
 		app.StakingKeeper,
 		app.FeeMarketKeeper,
+		&app.ConsensusParamsKeeper,
 		&app.Erc20Keeper,
+		EVMChainID,
 		tracer,
 	)
 
@@ -777,13 +799,12 @@ func NewChainApp(
 		*app.StakingKeeper,
 		app.DistrKeeper,
 		app.BankKeeper,
-		app.Erc20Keeper,
-		app.TransferKeeper,
+		&app.Erc20Keeper,
+		&app.TransferKeeper,
 		app.IBCKeeper.ChannelKeeper,
-		app.EVMKeeper,
 		app.GovKeeper,
 		app.SlashingKeeper,
-		app.EvidenceKeeper,
+		appCodec,
 	)
 
 	// usigverifier precompile (0xEC..01) — core precompile range
@@ -833,7 +854,6 @@ func NewChainApp(
 	app.TransferKeeper = ibctransferkeeper.NewKeeper(
 		appCodec,
 		runtime.NewKVStoreService(keys[ibctransfertypes.StoreKey]),
-		app.GetSubspace(ibctransfertypes.ModuleName),
 		app.RatelimitKeeper, // ICS4Wrapper
 		//app.IBCFeeKeeper,
 		app.IBCKeeper.ChannelKeeper,
@@ -1026,7 +1046,7 @@ func NewChainApp(
 		packetforward.NewAppModule(app.PacketForwardKeeper, app.GetSubspace(packetforwardtypes.ModuleName)),
 		wasmlc.NewAppModule(app.WasmClientKeeper),
 		ratelimit.NewAppModule(appCodec, app.RatelimitKeeper),
-		vm.NewAppModule(app.EVMKeeper, app.AccountKeeper),
+		vm.NewAppModule(app.EVMKeeper, authKeeperEVMWrapper{app.AccountKeeper}, app.BankKeeper, app.AccountKeeper.AddressCodec()),
 		feemarket.NewAppModule(app.FeeMarketKeeper),
 		erc20.NewAppModule(app.Erc20Keeper, app.AccountKeeper),
 		uexecutor.NewAppModule(appCodec, app.UexecutorKeeper, app.EVMKeeper, app.FeeMarketKeeper, app.BankKeeper, app.AccountKeeper, app.UregistryKeeper, app.UvalidatorKeeper),
@@ -1050,7 +1070,8 @@ func NewChainApp(
 	// NOTE: upgrade module is required to be prioritized
 	app.ModuleManager.SetOrderPreBlockers(
 		upgradetypes.ModuleName,
-		authtypes.ModuleName, // NEW
+		authtypes.ModuleName,
+		evmtypes.ModuleName,
 	)
 	// During begin block slashing happens after distr.BeginBlocker so that
 	// there is nothing left over in the validator fee pool, so as to keep the
@@ -1219,10 +1240,9 @@ func NewChainApp(
 		CircuitKeeper:         &app.CircuitKeeper,
 
 		EvmKeeper:              app.EVMKeeper,
-		ExtensionOptionChecker: cosmosevmtypes.HasDynamicFeeExtensionOption,
+		ExtensionOptionChecker: antetypes.HasDynamicFeeExtensionOption,
 		SigGasConsumer:         cosmosevmante.SigVerificationGasConsumer,
 		MaxTxGasWanted:         cast.ToUint64(appOpts.Get(srvflags.EVMMaxTxGasWanted)),
-		TxFeeChecker:           cosmosevmevmante.NewDynamicFeeChecker(app.FeeMarketKeeper),
 	})
 
 	// must be before Loading version
@@ -1356,7 +1376,7 @@ func (a *ChainApp) Configurator() module.Configurator {
 // InitChainer application update at chain initialization
 func (app *ChainApp) InitChainer(ctx sdk.Context, req *abci.RequestInitChain) (*abci.ResponseInitChain, error) {
 
-	var genesisState cosmosevmtypes.GenesisState
+	var genesisState map[string]json.RawMessage
 	if err := json.Unmarshal(req.AppStateBytes, &genesisState); err != nil {
 		panic(err)
 	}
@@ -1428,15 +1448,34 @@ func (a *ChainApp) DefaultGenesis() map[string]json.RawMessage {
 	mintGenState.Params.MintDenom = BaseDenom
 	genesis[minttypes.ModuleName] = a.appCodec.MustMarshalJSON(mintGenState)
 
+	// Register bank denom metadata for the EVM base denom. In cosmos/evm v0.5
+	// the EVM module's InitGenesis derives coin info (decimals/display) from this
+	// metadata via LoadEvmCoinInfo, so a fresh chain must carry it in genesis.
+	var bankGenState banktypes.GenesisState
+	a.appCodec.MustUnmarshalJSON(genesis[banktypes.ModuleName], &bankGenState)
+	bankGenState.DenomMetadata = append(bankGenState.DenomMetadata, banktypes.Metadata{
+		Description: "Native token of Push Chain",
+		DenomUnits: []*banktypes.DenomUnit{
+			{Denom: BaseDenom, Exponent: 0},
+			{Denom: DisplayDenom, Exponent: 18},
+		},
+		Base:    BaseDenom,
+		Display: DisplayDenom,
+		Name:    "Push Chain",
+		Symbol:  "PC",
+	})
+	genesis[banktypes.ModuleName] = a.appCodec.MustMarshalJSON(&bankGenState)
+
 	evmGenState := evmtypes.DefaultGenesisState()
 	evmGenState.Params.ActiveStaticPrecompiles = evmtypes.AvailableStaticPrecompiles
+	evmGenState.Params.EvmDenom = BaseDenom
 	genesis[evmtypes.ModuleName] = a.appCodec.MustMarshalJSON(evmGenState)
 
 	// NOTE: for the example chain implementation we are also adding a default token pair,
 	// which is the base denomination of the chain (i.e. the WTOKEN contract)
 	erc20GenState := erc20types.DefaultGenesisState()
 	erc20GenState.TokenPairs = ExampleTokenPairs
-	erc20GenState.Params.NativePrecompiles = append(erc20GenState.Params.NativePrecompiles, WTokenContractMainnet)
+	erc20GenState.NativePrecompiles = append(erc20GenState.NativePrecompiles, WTokenContractMainnet)
 	genesis[erc20types.ModuleName] = a.appCodec.MustMarshalJSON(erc20GenState)
 
 	return genesis
@@ -1528,6 +1567,22 @@ func (app *ChainApp) RegisterTendermintService(clientCtx client.Context) {
 
 func (app *ChainApp) RegisterNodeService(clientCtx client.Context, cfg config.Config) {
 	nodeservice.RegisterNodeService(clientCtx, app.GRPCQueryRouter(), cfg)
+}
+
+// SetClientCtx sets the client context on the app (required by evmserver.Application).
+func (app *ChainApp) SetClientCtx(clientCtx client.Context) {
+	app.clientCtx = clientCtx
+}
+
+// RegisterPendingTxListener registers a listener for pending EVM transactions (required by evmserver.Application).
+func (app *ChainApp) RegisterPendingTxListener(listener func(common.Hash)) {
+	app.pendingTxListeners = append(app.pendingTxListeners, listener)
+}
+
+// GetMempool returns nil — push-chain does not use the EVM experimental mempool.
+// This satisfies the evmserver.Application interface added in cosmos/evm v0.5.
+func (app *ChainApp) GetMempool() sdkmempool.ExtMempool {
+	return nil
 }
 
 // GetMaccPerms returns a copy of the module account permissions

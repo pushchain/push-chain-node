@@ -14,8 +14,10 @@ import (
 	cosmosante "github.com/pushchain/push-chain-node/app/cosmos"
 )
 
-// newCosmosAnteHandler creates the default ante handler for Cosmos transactions
-func NewCosmosAnteHandler(options HandlerOptions) sdk.AnteHandler {
+// NewCosmosAnteHandler creates the default ante handler for Cosmos transactions
+func NewCosmosAnteHandler(ctx sdk.Context, options HandlerOptions) sdk.AnteHandler {
+	feemarketParams := options.FeeMarketKeeper.GetParams(ctx)
+	txFeeChecker := evmante.NewDynamicFeeChecker(&feemarketParams)
 
 	return sdk.ChainAnteDecorators(
 		cosmosevmcosmosante.NewRejectMessagesDecorator(), // reject MsgEthereumTxs
@@ -35,9 +37,9 @@ func NewCosmosAnteHandler(options HandlerOptions) sdk.AnteHandler {
 		ante.NewValidateMemoDecorator(options.AccountKeeper),
 		cosmosante.NewMinGasPriceDecorator(options.FeeMarketKeeper, options.EvmKeeper),
 		ante.NewConsumeGasForTxSizeDecorator(options.AccountKeeper),
-		NewDeductFeeDecorator(options.AccountKeeper, options.BankKeeper, options.FeegrantKeeper, options.TxFeeChecker),
+		NewDeductFeeDecorator(options.AccountKeeper, options.BankKeeper, options.FeegrantKeeper, txFeeChecker),
 		ibcante.NewRedundantRelayDecorator(options.IBCKeeper),
-		evmante.NewGasWantedDecorator(options.EvmKeeper, options.FeeMarketKeeper),
+		evmante.NewGasWantedDecorator(options.EvmKeeper, options.FeeMarketKeeper, &feemarketParams),
 		// NewAccountInitDecorator must be called before all signature verification decorators and SetPubKeyDecorator
 		// - this
 		// 1. generates the account for the new accounts only for gasless transactions,

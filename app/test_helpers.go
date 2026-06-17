@@ -45,6 +45,7 @@ import (
 
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
 
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 	uvalidatortypes "github.com/pushchain/push-chain-node/x/uvalidator/types"
@@ -126,6 +127,9 @@ func setup(
 		bam.SetChainID(chainID),
 		bam.SetSnapshot(snapshotStore, snapshottypes.SnapshotOptions{KeepRecent: 2}),
 	)
+	// Reset test-mode EVM configurator globals after the test so the next test
+	// can re-initialize them without "already set" panics.
+	t.Cleanup(func() { evmtypes.NewEVMConfigurator().ResetTestConfig() })
 	if withGenesis {
 		return app, injectTestAdminIntoGenesis(app.AppCodec(), app.DefaultGenesis())
 	}
@@ -159,6 +163,7 @@ func NewChainAppWithCustomOptions(t *testing.T, isCheckTx bool, options SetupOpt
 		options.WasmOpts,
 		EVMAppOptions,
 	)
+	t.Cleanup(func() { evmtypes.NewEVMConfigurator().ResetTestConfig() })
 	genesisState := injectTestAdminIntoGenesis(app.AppCodec(), app.DefaultGenesis())
 	genesisState, err = GenesisStateWithValSet(app.AppCodec(), genesisState, valSet, []authtypes.GenesisAccount{acc}, balance)
 	require.NoError(t, err)
@@ -470,7 +475,19 @@ func GenesisStateWithValSet(
 	}
 
 	// update total supply
-	bankGenesis := banktypes.NewGenesisState(banktypes.DefaultGenesisState().Params, balances, totalSupply, []banktypes.Metadata{}, []banktypes.SendEnabled{})
+	// Include denom metadata for the EVM base denom so InitEvmCoinInfo can read it during InitGenesis.
+	evmDenomMetadata := banktypes.Metadata{
+		Description: "Native 18-decimal denom for push chain",
+		Base:        BaseDenom,
+		DenomUnits: []*banktypes.DenomUnit{
+			{Denom: BaseDenom, Exponent: 0},
+			{Denom: DisplayDenom, Exponent: 18},
+		},
+		Name:    "Push Chain",
+		Symbol:  "PC",
+		Display: DisplayDenom,
+	}
+	bankGenesis := banktypes.NewGenesisState(banktypes.DefaultGenesisState().Params, balances, totalSupply, []banktypes.Metadata{evmDenomMetadata}, []banktypes.SendEnabled{})
 	genesisState[banktypes.ModuleName] = codec.MustMarshalJSON(bankGenesis)
 
 	return genesisState, nil

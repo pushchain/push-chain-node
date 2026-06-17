@@ -2,7 +2,6 @@ package keeper
 
 import (
 	"fmt"
-	"math/big"
 	"sort"
 	"strings"
 	"testing"
@@ -13,6 +12,7 @@ import (
 	"github.com/cosmos/evm/x/vm/statedb"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/holiman/uint256"
 	"github.com/pushchain/push-chain-node/x/uregistry/types"
 	"github.com/stretchr/testify/require"
 )
@@ -60,25 +60,25 @@ func TestIsContractDeployed_RejectsEOAsAndAcceptsRealContracts(t *testing.T) {
 		// This is the case the original predicate failed on.
 		addrA: {
 			Nonce:    0,
-			Balance:  big.NewInt(1_000_000_000_000_000_000), // 1 ETH-equivalent
+			Balance:  uint256.NewInt(1_000_000_000_000_000_000), // 1 ETH-equivalent
 			CodeHash: evmtypes.EmptyCodeHash,
 		},
 		// Untouched-style account with explicit nil CodeHash. Not a contract.
 		addrB: {
 			Nonce:    0,
-			Balance:  big.NewInt(0),
+			Balance:  new(uint256.Int),
 			CodeHash: nil,
 		},
 		// Account with empty (zero-length) CodeHash. Not a contract.
 		addrC: {
 			Nonce:    0,
-			Balance:  big.NewInt(0),
+			Balance:  new(uint256.Int),
 			CodeHash: []byte{},
 		},
 		// Real contract: CodeHash points to actual code.
 		addrD: {
 			Nonce:    1,
-			Balance:  big.NewInt(0),
+			Balance:  new(uint256.Int),
 			CodeHash: realCodeHash.Bytes(),
 		},
 		// addrMissing intentionally omitted from the map → GetAccount returns nil

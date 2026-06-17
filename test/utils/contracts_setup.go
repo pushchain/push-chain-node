@@ -93,6 +93,7 @@ func setupHandlerContract(
 		owner,
 		handlerAddr,
 		true,
+		nil,
 		"initialize",
 		common.HexToAddress(WPCAddress),
 		common.HexToAddress(UniswapV3FactoryAddress),
@@ -115,16 +116,16 @@ func setupFactoryContract(
 	owner := common.BytesToAddress(accounts.DefaultAccount.GetAddress().Bytes())
 
 	// Check initial factory owner
-	ownerResult, err := app.EVMKeeper.CallEVM(ctx, factoryABI, owner, factoryAddr, true, "owner")
+	ownerResult, err := app.EVMKeeper.CallEVM(ctx, factoryABI, owner, factoryAddr, true, nil, "owner")
 	require.NoError(t, err)
 	t.Logf("Factory owner after genesis: %s", common.BytesToAddress(ownerResult.Ret).Hex())
 
 	// Initialize factory with owner
-	_, err = app.EVMKeeper.CallEVM(ctx, factoryABI, owner, factoryAddr, true, "initialize", owner)
+	_, err = app.EVMKeeper.CallEVM(ctx, factoryABI, owner, factoryAddr, true, nil, "initialize", owner)
 	require.NoError(t, err)
 
 	// Verify owner is set
-	ownerResult, err = app.EVMKeeper.CallEVM(ctx, factoryABI, owner, factoryAddr, true, "owner")
+	ownerResult, err = app.EVMKeeper.CallEVM(ctx, factoryABI, owner, factoryAddr, true, nil, "owner")
 	require.NoError(t, err)
 	t.Logf("Factory owner after initialization: %s", common.BytesToAddress(ownerResult.Ret).Hex())
 
@@ -144,6 +145,7 @@ func setupFactoryContract(
 		owner,
 		factoryAddr,
 		true,
+		nil,
 		"setUEAProxyImplementation",
 		ProxyAddress,
 	)
@@ -180,6 +182,7 @@ func setupPrc20Contract(
 		ueModuleAccAddress,
 		prc20Addr,
 		true,
+		nil,
 		"updateHandlerContract",
 		opts.Addresses.HandlerAddr,
 	)
@@ -219,6 +222,7 @@ func registerEVMChainAndUEA(
 		owner,
 		factoryAddr,
 		true,
+		nil,
 		"registerNewChain",
 		ChainHashEVM,
 		EVMHash,
@@ -249,6 +253,7 @@ func registerEVMChainAndUEA(
 		owner,
 		factoryAddr,
 		true,
+		nil,
 		"registerUEA",
 		ChainHashEVM,
 		EVMHash,
@@ -263,6 +268,7 @@ func registerEVMChainAndUEA(
 		owner,
 		factoryAddr,
 		true,
+		nil,
 		"getUEA",
 		ChainHashEVM,
 	)

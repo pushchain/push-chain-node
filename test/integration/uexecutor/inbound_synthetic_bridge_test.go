@@ -183,6 +183,7 @@ func TestInboundSyntheticBridge(t *testing.T) {
 			ueModuleAccAddress, // "from" (doesn't matter for view)
 			prc20Address,       // contract address
 			false,              // commit = false (read-only)
+			nil,
 			"balanceOf",
 			recipient,
 		)
@@ -260,7 +261,7 @@ func TestInboundSyntheticBridge(t *testing.T) {
 		recipient := common.HexToAddress(inbound.Recipient)
 
 		// check initial balance == 0
-		res, err := app.EVMKeeper.CallEVM(ctx, prc20ABI, ueModuleAccAddress, prc20Address, false, "balanceOf", recipient)
+		res, err := app.EVMKeeper.CallEVM(ctx, prc20ABI, ueModuleAccAddress, prc20Address, false, nil, "balanceOf", recipient)
 		require.NoError(t, err)
 		balances, _ := prc20ABI.Unpack("balanceOf", res.Ret)
 		balance := balances[0].(*big.Int)
@@ -277,7 +278,7 @@ func TestInboundSyntheticBridge(t *testing.T) {
 		}
 
 		// balance should equal inbound amount
-		res, err = app.EVMKeeper.CallEVM(ctx, prc20ABI, ueModuleAccAddress, prc20Address, false, "balanceOf", recipient)
+		res, err = app.EVMKeeper.CallEVM(ctx, prc20ABI, ueModuleAccAddress, prc20Address, false, nil, "balanceOf", recipient)
 		require.NoError(t, err)
 		balances, _ = prc20ABI.Unpack("balanceOf", res.Ret)
 		expected := new(big.Int)
@@ -314,7 +315,7 @@ func TestInboundSyntheticBridge(t *testing.T) {
 		}
 
 		// balance should equal 2 * inbound.Amount
-		res, err := app.EVMKeeper.CallEVM(ctx, prc20ABI, ueModuleAccAddress, prc20Address, false, "balanceOf", recipient)
+		res, err := app.EVMKeeper.CallEVM(ctx, prc20ABI, ueModuleAccAddress, prc20Address, false, nil, "balanceOf", recipient)
 		require.NoError(t, err)
 		balances, _ := prc20ABI.Unpack("balanceOf", res.Ret)
 

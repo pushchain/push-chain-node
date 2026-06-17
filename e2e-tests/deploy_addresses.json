@@ -1,0 +1,70 @@
+{
+  "generatedAt": "2026-06-17T12:54:45Z",
+  "contracts": {
+    "WPC": "0x7fd62fe2Aba9af8bF4d08a6cce49beA8c8Ca6d97",
+    "Factory": "0x484aC6ED747090fe8C82c5F10427ccC2F2998930",
+    "SwapRouter": "0xAC1645b69D7F04044B4057F9326461c05455e62d",
+    "QuoterV2": "0xa64913E35Bd9BA6b623c3C8923a298229747BeE2",
+    "PositionManager": "0x6F030f96Edb6CC73D8b1752E8D4571283c014056",
+    "COUNTER_ADDRESS_PAYABLE": "0x4340c4F56571002fDeB22EF587D143bD19E2b34A",
+    "UEA_PROXY_IMPLEMENTATION": "0x2C297101b7d3e0911296b9A64d106684a161b4C9"
+  },
+  "tokens": [
+    {
+      "name": "pETH.eth",
+      "symbol": "pETH",
+      "address": "0x3C188a50B73D83C81d6c37275CbFB58b0eC5fB53",
+      "source": "core-contracts",
+      "decimals": 18
+    },
+    {
+      "name": "USDT.eth",
+      "symbol": "USDT.eth",
+      "address": "0xdBdFEB7A79868Cb4A4e9e57D7d28C84AE77AC4BC",
+      "source": "core-contracts",
+      "decimals": 6
+    },
+    {
+      "name": "pETH.base",
+      "symbol": "pETH.base",
+      "address": "0xf1ef93F6130e6d0669C681Ab0D0A2C2c416ec24C",
+      "source": "core-contracts",
+      "decimals": 18
+    },
+    {
+      "name": "pETH.arb",
+      "symbol": "pETH.arb",
+      "address": "0x465E4Fe46692206d8658127e225880d8856dC5d4",
+      "source": "core-contracts",
+      "decimals": 18
+    },
+    {
+      "name": "pBNB",
+      "symbol": "pBNB",
+      "address": "0x01C034d1bF1B18C0f4A21CEaEe4d827b71E1996B",
+      "source": "core-contracts",
+      "decimals": 18
+    },
+    {
+      "name": "pSOL",
+      "symbol": "pSOL",
+      "address": "0x1bafcf6624A6d084Dd71FFccC55E1DE0dBA84AA6",
+      "source": "core-contracts",
+      "decimals": 9
+    },
+    {
+      "name": "USDT.bsc",
+      "symbol": "USDT.bsc",
+      "address": "0x057931Df99f61caB5e5DbDb6224D7003E64F659e",
+      "source": "core-contracts",
+      "decimals": 6
+    },
+    {
+      "name": "USDT.sol",
+      "symbol": "USDT.sol",
+      "address": "0x140b9f84fCbccB4129AC6F32b1243ea808d18261",
+      "source": "e2e-local",
+      "decimals": 6
+    }
+  ]
+}

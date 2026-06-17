@@ -29,6 +29,28 @@ get_tss_port() {
     echo $((39000 + $1 - 1))
 }
 
+# Helper: wait for a TX to be included in a block, check its result code
+wait_for_tx() {
+    local txhash="$1" max_attempts="${2:-30}" i=0
+    while [ $i -lt $max_attempts ]; do
+        sleep 2
+        local code
+        code=$(curl -s "http://127.0.0.1:26657/tx?hash=0x${txhash}" 2>/dev/null \
+            | jq -r '.result.tx_result.code // empty' 2>/dev/null)
+        [ "$code" = "0" ] && return 0
+        if [ -n "$code" ] && [ "$code" != "null" ]; then
+            local log
+            log=$(curl -s "http://127.0.0.1:26657/tx?hash=0x${txhash}" 2>/dev/null \
+                | jq -r '.result.tx_result.log // ""' 2>/dev/null)
+            echo "   ❌ TX failed (code=$code): $log" >&2
+            return 1
+        fi
+        i=$((i + 1))
+    done
+    echo "   ⚠️ TX not confirmed after $((max_attempts * 2))s" >&2
+    return 1
+}
+
 echo "🔧 Setting up Universal Validators..."
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
@@ -63,7 +85,9 @@ echo ""
 echo "📝 Registering Universal Validators..."
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-for i in 1 2 3 4; do
+# Only register 2 UVs for local devnet — UV1↔UV3 libp2p noise handshake is incompatible
+NUM_UV=${NUM_UV:-2}
+for i in $(seq 1 $NUM_UV); do
     echo ""
     echo "📋 Registering universal-validator-$i"
     
@@ -103,22 +127,24 @@ for i in 1 2 3 4; do
     
     if echo "$RESULT" | grep -q '"txhash"'; then
         TX_HASH=$(echo "$RESULT" | jq -r '.txhash' 2>/dev/null)
-        echo "   ✅ Registered! TX: $TX_HASH"
+        if wait_for_tx "$TX_HASH"; then
+            echo "   ✅ Registered! TX: $TX_HASH"
+        else
+            echo "   ⚠️ Registration TX failed on-chain"
+        fi
     else
         echo "   ⚠️ Registration may have failed"
     fi
-    
-    sleep 2  # Wait between registrations
 done
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# CREATE AUTHZ GRANTS (batched - 4 grants per transaction)
+# CREATE AUTHZ GRANTS (batched, with confirmation)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 echo ""
 echo "🔐 Setting up AuthZ grants (batched)..."
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "📋 Creating grants: validator-N → hotkey-N (4 msg types per tx)"
+echo "📋 Creating grants: validator-N → hotkey-N"
 
 # Disable exit on error for authz commands (some may already exist)
 set +e
@@ -128,12 +154,15 @@ TEMP_DIR=$(mktemp -d)
 
 MSG_TYPES=(
     "/uexecutor.v1.MsgVoteInbound"
-    "/uexecutor.v1.MsgVoteGasPrice"
+    "/uexecutor.v1.MsgVoteChainMeta"
     "/uexecutor.v1.MsgVoteOutbound"
     "/utss.v1.MsgVoteTssKeyProcess"
+    "/utss.v1.MsgVoteFundMigration"
 )
 
-for i in 1 2 3 4; do
+EXPECTED_GRANTS=$((${NUM_UV:-2} * ${#MSG_TYPES[@]}))
+
+for i in $(seq 1 ${NUM_UV:-2}); do
     HOTKEY_ADDR=$(jq -r ".[$((i-1))].address" "$HOTKEYS_FILE")
     VALIDATOR_ADDR=$("$PCHAIND_BIN" keys show "validator-$i" -a --keyring-backend "$KEYRING" --home "$HOME_DIR" 2>/dev/null)
     
@@ -143,16 +172,16 @@ for i in 1 2 3 4; do
     fi
     
     echo ""
-    echo "📋 validator-$i → hotkey-$i (4 grants in 1 tx)"
+    echo "📋 validator-$i → hotkey-$i"
     echo "   Granter: $VALIDATOR_ADDR"
     echo "   Grantee: $HOTKEY_ADDR"
     
-    # Generate unsigned txs for all 4 message types
+    BATCH_OK=false
+    
+    # Attempt batch: all grants in one TX
     MESSAGES="[]"
     for j in "${!MSG_TYPES[@]}"; do
         MSG_TYPE="${MSG_TYPES[$j]}"
-        
-        # Generate unsigned tx
         UNSIGNED_TX=$("$PCHAIND_BIN" tx authz grant "$HOTKEY_ADDR" generic \
             --msg-type="$MSG_TYPE" \
             --from "validator-$i" \
@@ -163,16 +192,16 @@ for i in 1 2 3 4; do
             --gas=50000 \
             --gas-prices="1000000000upc" \
             --generate-only 2>/dev/null)
-        
-        # Extract the message and add to array
         MSG=$(echo "$UNSIGNED_TX" | jq -c '.body.messages[0]' 2>/dev/null)
         if [ -n "$MSG" ] && [ "$MSG" != "null" ]; then
             MESSAGES=$(echo "$MESSAGES" | jq --argjson msg "$MSG" '. + [$msg]')
         fi
     done
     
-    # Create combined transaction with all 4 messages
-    COMBINED_TX=$(cat <<EOF
+    MSG_COUNT=$(echo "$MESSAGES" | jq 'length' 2>/dev/null || echo "0")
+    
+    if [ "${MSG_COUNT}" = "${#MSG_TYPES[@]}" ]; then
+        COMBINED_TX=$(cat <<EOF
 {
   "body": {
     "messages": $MESSAGES,
@@ -184,8 +213,8 @@ for i in 1 2 3 4; do
   "auth_info": {
     "signer_infos": [],
     "fee": {
-      "amount": [{"denom": "upc", "amount": "400000000000000"}],
-      "gas_limit": "400000",
+      "amount": [{"denom": "upc", "amount": "600000000000000"}],
+      "gas_limit": "600000",
       "payer": "",
       "granter": ""
     },
@@ -195,32 +224,36 @@ for i in 1 2 3 4; do
 }
 EOF
 )
-    
-    # Save combined tx
-    echo "$COMBINED_TX" > "$TEMP_DIR/combined_tx_$i.json"
-    
-    # Sign the combined transaction
-    SIGNED_TX=$("$PCHAIND_BIN" tx sign "$TEMP_DIR/combined_tx_$i.json" \
-        --from "validator-$i" \
-        --chain-id "$CHAIN_ID" \
-        --keyring-backend "$KEYRING" \
-        --home "$HOME_DIR" \
-        --node="$RPC_NODE" \
-        --output-document="$TEMP_DIR/signed_tx_$i.json" 2>&1)
-    
-    # Broadcast the signed transaction
-    BROADCAST_RESULT=$("$PCHAIND_BIN" tx broadcast "$TEMP_DIR/signed_tx_$i.json" \
-        --node="$RPC_NODE" \
-        --broadcast-mode sync 2>&1)
-    
-    # Check result
-    if echo "$BROADCAST_RESULT" | grep -q "txhash"; then
-        TX_HASH=$(echo "$BROADCAST_RESULT" | grep -o 'txhash: [A-F0-9]*' | cut -d' ' -f2 || echo "$BROADCAST_RESULT" | jq -r '.txhash' 2>/dev/null)
-        echo "   ✅ 4 grants created! TX: ${TX_HASH:0:16}..."
-        TOTAL_GRANTS=$((TOTAL_GRANTS + 4))
+        echo "$COMBINED_TX" > "$TEMP_DIR/combined_tx_$i.json"
+        
+        "$PCHAIND_BIN" tx sign "$TEMP_DIR/combined_tx_$i.json" \
+            --from "validator-$i" \
+            --chain-id "$CHAIN_ID" \
+            --keyring-backend "$KEYRING" \
+            --home "$HOME_DIR" \
+            --node="$RPC_NODE" \
+            --output-document="$TEMP_DIR/signed_tx_$i.json" 2>/dev/null
+        
+        BROADCAST_RESULT=$("$PCHAIND_BIN" tx broadcast "$TEMP_DIR/signed_tx_$i.json" \
+            --node="$RPC_NODE" \
+            --broadcast-mode sync 2>&1)
+        
+        TX_HASH=$(echo "$BROADCAST_RESULT" | jq -r '.txhash // empty' 2>/dev/null)
+        [ -z "$TX_HASH" ] && TX_HASH=$(echo "$BROADCAST_RESULT" | grep -o 'txhash: [A-F0-9]*' | awk '{print $2}')
+        
+        if [ -n "$TX_HASH" ] && wait_for_tx "$TX_HASH" 30; then
+            echo "   ✅ Batch grant confirmed (TX: ${TX_HASH:0:16}...)"
+            TOTAL_GRANTS=$((TOTAL_GRANTS + ${#MSG_TYPES[@]}))
+            BATCH_OK=true
+        else
+            echo "   ⚠️ Batch TX failed or unconfirmed, trying individual grants..."
+        fi
     else
-        echo "   ⚠️ Batch may have failed, trying individual grants..."
-        # Fallback to individual grants
+        echo "   ⚠️ Could not build batch TX (got $MSG_COUNT messages), trying individual grants..."
+    fi
+    
+    # Fallback: individual grants with per-TX confirmation
+    if [ "$BATCH_OK" = "false" ]; then
         for MSG_TYPE in "${MSG_TYPES[@]}"; do
             MSG_NAME=$(basename "$MSG_TYPE")
             GRANT_RESULT=$("$PCHAIND_BIN" tx authz grant "$HOTKEY_ADDR" generic \
@@ -230,19 +263,19 @@ EOF
                 --keyring-backend "$KEYRING" \
                 --home "$HOME_DIR" \
                 --node="$RPC_NODE" \
-                --gas=auto \
-                --gas-adjustment=1.5 \
-                --gas-prices="1000000000upc" \
-                --yes 2>&1)
+                --gas 300000 \
+                --gas-prices "1000000000upc" \
+                --yes --output json 2>&1)
             
-            if echo "$GRANT_RESULT" | grep -q "txhash"; then
+            GRANT_TX_HASH=$(echo "$GRANT_RESULT" | jq -r '.txhash // empty' 2>/dev/null)
+            if [ -n "$GRANT_TX_HASH" ] && wait_for_tx "$GRANT_TX_HASH" 15; then
+                echo "   ✅ Granted $MSG_NAME"
                 TOTAL_GRANTS=$((TOTAL_GRANTS + 1))
+            else
+                echo "   ⚠️ Failed to grant $MSG_NAME"
             fi
-            sleep 2
         done
     fi
-    
-    sleep 2  # Wait between validators
 done
 
 # Cleanup
@@ -252,12 +285,12 @@ set -e
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "📊 Total AuthZ grants created: $TOTAL_GRANTS/16"
+echo "📊 Total AuthZ grants created: $TOTAL_GRANTS/$EXPECTED_GRANTS"
 
-if [ "$TOTAL_GRANTS" -ge 16 ]; then
+if [ "$TOTAL_GRANTS" -ge "$EXPECTED_GRANTS" ]; then
     echo "✅ All grants created successfully!"
 else
-    echo "⚠️ Some grants may be missing"
+    echo "⚠️ Some grants may be missing ($TOTAL_GRANTS/$EXPECTED_GRANTS)"
 fi
 
 echo ""

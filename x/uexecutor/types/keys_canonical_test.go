@@ -291,3 +291,51 @@ func lowercase(s string) string {
 	}
 	return string(out)
 }
+
+// GetPcUniversalTxKey identifies a Push-origin (outbound) UTX from the Push-chain
+// tx hash. The hash is EVM-minted (receipt.Hash, already 0x-lowercase), but the
+// key canonicalizes it so identity is robust by contract, not by convention —
+// mirroring the inbound UTX-key path.
+
+func TestPcUniversalTxKey_CanonicalizesEvmTxHash(t *testing.T) {
+	const pcCaip = "eip155:42101"
+	canonicalHash := "0xb28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd"
+	want := types.GetPcUniversalTxKey(pcCaip, types.PCTx{TxHash: canonicalHash})
+
+	// Encoding variants of the same Push-chain tx hash must all converge.
+	variants := []string{
+		"0xB28F49668E7E76DC96D7AABE5B7F63FECFBD1C3574774C05E8204E749FD96FBD",     // uppercase
+		"0Xb28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd",     // 0X prefix
+		"b28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd",       // no 0x
+		"  0xb28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd  ", // padded
+	}
+	for n, v := range variants {
+		require.Equal(t, want, types.GetPcUniversalTxKey(pcCaip, types.PCTx{TxHash: v}),
+			"variant %d must produce the same Pc UTX key as the canonical hash", n)
+	}
+	require.Len(t, want, 64, "key is a hex-encoded sha256 digest")
+}
+
+func TestPcUniversalTxKey_DistinctInputsDiverge(t *testing.T) {
+	const hash = "0xb28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd"
+	base := types.GetPcUniversalTxKey("eip155:42101", types.PCTx{TxHash: hash})
+
+	require.NotEqual(t, base,
+		types.GetPcUniversalTxKey("eip155:42101", types.PCTx{TxHash: "0x" + strings.Repeat("11", 32)}),
+		"a different tx hash must yield a different key")
+	require.NotEqual(t, base,
+		types.GetPcUniversalTxKey("eip155:1", types.PCTx{TxHash: hash}),
+		"a different pc_caip must yield a different key (scoping)")
+}
+
+func TestPcUniversalTxKey_Recipe(t *testing.T) {
+	const pcCaip = "eip155:42101"
+	pc := types.PCTx{TxHash: "0xb28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd"}
+
+	got := types.GetPcUniversalTxKey(pcCaip, pc)
+
+	// key = hex(sha256( pcCaip : canonical(txHash) )); fields here are already canonical.
+	sum := sha256.Sum256([]byte(pcCaip + ":" + pc.TxHash))
+	require.Equal(t, hex.EncodeToString(sum[:]), got, "production key must equal the documented recipe")
+	require.Len(t, got, 64)
+}

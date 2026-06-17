@@ -28,6 +28,10 @@ mkdir -p "$(dirname "$LOG_FILE")"
 
 "$PCHAIND_BIN" init "$MONIKER" --chain-id "$CHAIN_ID" --default-denom "$DENOM" --home "$HOME_DIR"
 
+update_genesis() {
+    cat "$HOME_DIR/config/genesis.json" | jq "$1" > "$HOME_DIR/config/tmp_genesis.json" && mv "$HOME_DIR/config/tmp_genesis.json" "$HOME_DIR/config/genesis.json"
+}
+
 # Load accounts
 GENESIS_ACCOUNTS_FILE="$ACCOUNTS_DIR/genesis_accounts.json"
 VALIDATORS_FILE="$ACCOUNTS_DIR/validators.json"
@@ -86,6 +90,11 @@ echo "💰 Funding contract deployer..."
 CONTRACT_DEPLOYER="push1w7xnyp3hf79vyetj3cvw8l32u6unun8yr6zn60"
 "$PCHAIND_BIN" genesis add-genesis-account "$CONTRACT_DEPLOYER" "${TWO_BILLION}${DENOM}" --home "$HOME_DIR"
 
+# Set admin addresses before gentx (gentx validates genesis state internally)
+update_genesis ".app_state[\"uregistry\"][\"params\"][\"admin\"]=\"$GENESIS_ADDR1\""
+update_genesis ".app_state[\"utss\"][\"params\"][\"admin\"]=\"$GENESIS_ADDR1\""
+update_genesis ".app_state[\"uvalidator\"][\"params\"][\"admin\"]=\"$GENESIS_ADDR1\""
+
 # Create gentx
 echo "📝 Creating gentx..."
 "$PCHAIND_BIN" genesis gentx validator-1 "${VALIDATOR_STAKE}${DENOM}" \
@@ -95,26 +104,23 @@ echo "📝 Creating gentx..."
     --gas-prices "1000000000${DENOM}"
 
 "$PCHAIND_BIN" genesis collect-gentxs --home "$HOME_DIR"
-"$PCHAIND_BIN" genesis validate-genesis --home "$HOME_DIR"
 
-# Update genesis parameters
+# Update remaining genesis parameters
 echo "🛠️ Updating genesis parameters..."
-update_genesis() {
-    cat "$HOME_DIR/config/genesis.json" | jq "$1" > "$HOME_DIR/config/tmp_genesis.json" && mv "$HOME_DIR/config/tmp_genesis.json" "$HOME_DIR/config/genesis.json"
-}
-
 update_genesis '.consensus["params"]["block"]["time_iota_ms"]="1000"'
 update_genesis ".app_state[\"gov\"][\"params\"][\"min_deposit\"]=[{\"denom\":\"$DENOM\",\"amount\":\"1000000\"}]"
 update_genesis '.app_state["gov"]["params"]["max_deposit_period"]="300s"'
 update_genesis '.app_state["gov"]["params"]["voting_period"]="300s"'
+update_genesis '.app_state["gov"]["params"]["expedited_voting_period"]="60s"'
 update_genesis ".app_state[\"evm\"][\"params\"][\"evm_denom\"]=\"$DENOM\""
-update_genesis ".app_state[\"evm\"][\"params\"][\"chain_config\"][\"chain_id\"]=$EVM_CHAIN_ID"
+update_genesis '.app_state["evm"]["params"]["active_static_precompiles"]=["0x00000000000000000000000000000000000000CB","0x00000000000000000000000000000000000000ca","0x0000000000000000000000000000000000000100","0x0000000000000000000000000000000000000400","0x0000000000000000000000000000000000000800","0x0000000000000000000000000000000000000801","0x0000000000000000000000000000000000000802","0x0000000000000000000000000000000000000803","0x0000000000000000000000000000000000000804","0x0000000000000000000000000000000000000805"]'
 update_genesis ".app_state[\"staking\"][\"params\"][\"bond_denom\"]=\"$DENOM\""
 update_genesis ".app_state[\"mint\"][\"params\"][\"mint_denom\"]=\"$DENOM\""
-update_genesis ".app_state[\"uregistry\"][\"params\"][\"admin\"]=\"$GENESIS_ADDR1\""
-update_genesis ".app_state[\"utss\"][\"params\"][\"admin\"]=\"$GENESIS_ADDR1\""
-update_genesis ".app_state[\"uvalidator\"][\"params\"][\"admin\"]=\"$GENESIS_ADDR1\""
 update_genesis '.consensus["params"]["abci"]["vote_extensions_enable_height"]="2"'
+# cosmos-evm requires bank denom metadata for the EVM denom to be present at genesis
+update_genesis '.app_state["bank"]["denom_metadata"] = [{"description":"Native token of Push Chain","denom_units":[{"denom":"upc","exponent":0,"aliases":[]},{"denom":"push","exponent":18,"aliases":[]}],"base":"upc","display":"push","name":"Push Chain","symbol":"PC"}]'
+
+"$PCHAIND_BIN" genesis validate-genesis --home "$HOME_DIR"
 
 # Config patches
 echo "⚙️ Configuring network..."
@@ -125,6 +131,8 @@ sed -i.bak 's/cors_allowed_origins = \[\]/cors_allowed_origins = \["\*"\]/g' "$H
 sed -i.bak "s/address = \"tcp:\/\/localhost:1317\"/address = \"tcp:\/\/0.0.0.0:${REST_PORT}\"/g" "$HOME_DIR/config/app.toml"
 sed -i.bak 's/enable = false/enable = true/g' "$HOME_DIR/config/app.toml"
 sed -i.bak "s/address = \"localhost:9090\"/address = \"0.0.0.0:${GRPC_PORT}\"/g" "$HOME_DIR/config/app.toml"
+sed -i.bak "s/evm-chain-id = [0-9]*/evm-chain-id = ${EVM_CHAIN_ID}/g" "$HOME_DIR/config/app.toml"
+sed -i.bak 's/enable-indexer = false/enable-indexer = true/g' "$HOME_DIR/config/app.toml"
 sed -i.bak 's/timeout_commit = "5s"/timeout_commit = "1s"/g' "$HOME_DIR/config/config.toml"
 
 # Copy genesis for other validators

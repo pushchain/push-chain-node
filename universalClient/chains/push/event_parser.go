@@ -18,11 +18,6 @@ func hashEventID(eventType, rawID string) string {
 	return hex.EncodeToString(h[:])
 }
 
-// DefaultExpiryOffset is the number of blocks after event detection
-// before an event expires (~10 minutes at ~1s block time).
-// Used for outbound and fund migration events.
-const DefaultExpiryOffset = 600
-
 // convertTssEvent converts a gRPC TssEvent to a store.Event.
 func convertTssEvent(tssEvent *utsstypes.TssEvent) (*store.Event, error) {
 	if tssEvent == nil {
@@ -91,7 +86,7 @@ func convertFundMigrationEvent(migration *utsstypes.FundMigration) (*store.Event
 	return &store.Event{
 		EventID:           hashEventID(store.EventTypeSignFundMigrate, fmt.Sprintf("%d", migration.Id)),
 		BlockHeight:       blockHeight,
-		ExpiryBlockHeight: blockHeight + DefaultExpiryOffset,
+		ExpiryBlockHeight: 0, // 0 means no expiry
 		Type:              store.EventTypeSignFundMigrate,
 		ConfirmationType:  store.ConfirmationInstant,
 		Status:            store.StatusConfirmed,
@@ -148,7 +143,7 @@ func convertOutboundToEvent(entry *uexecutortypes.PendingOutboundEntry, outbound
 	return &store.Event{
 		EventID:           outbound.Id,
 		BlockHeight:       blockHeight,
-		ExpiryBlockHeight: blockHeight + DefaultExpiryOffset,
+		ExpiryBlockHeight: 0, // 0 means no expiry
 		Type:              store.EventTypeSignOutbound,
 		ConfirmationType:  store.ConfirmationInstant,
 		Status:            store.StatusConfirmed,

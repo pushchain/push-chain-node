@@ -69,7 +69,7 @@ func NewTxBuilder(
 		logger:         logger.With().Str("component", "evm_tx_builder").Str("chain", chainID).Logger(),
 	}
 
-	tb.logger.Info().
+	tb.logger.Debug().
 		Str("vault", vaultAddress.Hex()).
 		Str("gateway", gwAddr.Hex()).
 		Msg("tx builder initialized")
@@ -448,6 +448,7 @@ func (tb *TxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, 
 	return false, 0, nil
 }
 
+
 // GetGasFeeUsed returns the gas fee used by a transaction on the EVM chain.
 // Fetches the receipt for gasUsed and the transaction for gasPrice, then returns
 // gasUsed * gasPrice as a decimal string. Returns "0" if not found.
@@ -489,9 +490,15 @@ func (tb *TxBuilder) GetFundMigrationSigningRequest(ctx context.Context, data *c
 		return nil, fmt.Errorf("gas limit must be provided for fund migration")
 	}
 
-	balance, err := tb.rpcClient.GetBalance(ctx, fromAddr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get balance of %s: %w", data.From, err)
+	var balance *big.Int
+	if data.Balance != nil {
+		balance = new(big.Int).Set(data.Balance)
+	} else {
+		queried, err := tb.rpcClient.GetBalance(ctx, fromAddr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get balance of %s: %w", data.From, err)
+		}
+		balance = queried
 	}
 
 	maxTransfer, err := computeFundMigrationTransfer(balance, data.GasPrice, data.GasLimit, data.L1GasFee)
@@ -499,7 +506,7 @@ func (tb *TxBuilder) GetFundMigrationSigningRequest(ctx context.Context, data *c
 		return nil, err
 	}
 
-	tb.logger.Info().
+	tb.logger.Debug().
 		Str("from", data.From).
 		Str("to", data.To).
 		Str("balance", balance.String()).
@@ -531,9 +538,7 @@ func (tb *TxBuilder) GetFundMigrationSigningRequest(ctx context.Context, data *c
 }
 
 // BroadcastFundMigrationTx assembles and broadcasts a signed fund migration transaction.
-// The sweep amount must be recomputed here using the same formula as signing
-// (balance - gasPrice*gasLimit - l1GasFee); otherwise the broadcast tx hash
-// diverges from the signed hash.
+// Uses req.TSSFundMigrationAmount fixed at signing time — do not re-query balance.
 func (tb *TxBuilder) BroadcastFundMigrationTx(ctx context.Context, req *common.UnsignedSigningReq, data *common.FundMigrationData, signature []byte) (string, error) {
 	if len(signature) != 65 {
 		return "", fmt.Errorf("signature must be 65 bytes [r(32)|s(32)|v(1)], got %d", len(signature))
@@ -577,9 +582,6 @@ func (tb *TxBuilder) BroadcastFundMigrationTx(ctx context.Context, req *common.U
 
 	tb.logger.Info().
 		Str("tx_hash", txHashStr).
-		Str("from", data.From).
-		Str("to", data.To).
-		Str("amount", maxTransfer.String()).
 		Msg("fund migration tx broadcast successfully")
 
 	return txHashStr, nil

@@ -236,33 +236,35 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 		pushSigner:                 cfg.PushSigner,
 		stopCh:                     make(chan struct{}),
 		registeredPeers:            make(map[string]bool),
-		txResolver: txresolver.NewResolver(txresolver.Config{
-			EventStore:    evtStore,
-			Chains:        cfg.Chains,
-			PushSigner:    cfg.PushSigner,
-			CheckInterval: sessionExpiryCheckInterval,
-			Logger:        logger,
-		}),
 	}
 
-	// Create broadcaster after node so the closure can capture `node`.
+	getTSSAddress := func(ctx context.Context) (string, error) {
+		if node.coordinator == nil {
+			return "", fmt.Errorf("coordinator not initialized")
+		}
+		return node.coordinator.GetTSSAddress(ctx)
+	}
+
+	node.txResolver = txresolver.NewResolver(txresolver.Config{
+		EventStore:    evtStore,
+		Chains:        cfg.Chains,
+		PushSigner:    cfg.PushSigner,
+		CheckInterval: sessionExpiryCheckInterval,
+		Logger:        logger,
+		GetTSSAddress: getTSSAddress,
+	})
+
 	node.txBroadcaster = txbroadcaster.NewBroadcaster(txbroadcaster.Config{
 		EventStore:    evtStore,
 		Chains:        cfg.Chains,
 		CheckInterval: sessionExpiryCheckInterval,
 		Logger:        logger,
-		GetTSSAddress: func(ctx context.Context) (string, error) {
-			if node.coordinator == nil {
-				return "", fmt.Errorf("coordinator not initialized")
-			}
-			return node.coordinator.GetTSSAddress(ctx)
-		},
+		GetTSSAddress: getTSSAddress,
 	})
 
 	node.expirySweeper = expirysweeper.NewSweeper(expirysweeper.Config{
 		EventStore:    evtStore,
 		PushCore:      cfg.PushCore,
-		PushSigner:    cfg.PushSigner,
 		CheckInterval: sessionExpiryCheckInterval,
 		Logger:        logger,
 	})
@@ -281,7 +283,7 @@ func (n *Node) Start(ctx context.Context) error {
 	n.ctx = ctx
 	n.mu.Unlock()
 
-	n.logger.Info().Msg("starting TSS node")
+	n.logger.Debug().Msg("starting TSS node")
 
 	// Start libp2p network
 	net, err := libp2pnet.New(ctx, n.networkCfg, n.logger)
@@ -296,21 +298,18 @@ func (n *Node) Start(ctx context.Context) error {
 		return fmt.Errorf("failed to register message handler: %w", err)
 	}
 
-	n.logger.Info().
-		Str("peer_id", net.ID()).
-		Strs("addrs", net.ListenAddrs()).
-		Msg("libp2p network started")
-
-	// Reset all IN_PROGRESS events to PENDING on startup
-	// This handles cases where the node crashed while events were in progress,
-	// causing sessions to be lost from memory but events remaining in IN_PROGRESS state
-	resetCount, err := n.eventStore.ResetInProgressEventsToConfirmed()
+	// Recover IN_PROGRESS events on startup. Two-pass:
+	//   1. Rows whose event_data already carries signing_data → SIGNED
+	//      (signature was persisted but status got clobbered by a race).
+	//   2. Remaining IN_PROGRESS → CONFIRMED (genuine mid-session crashes).
+	signedRecovered, confirmedReset, err := n.eventStore.RecoverInProgressEvents()
 	if err != nil {
-		n.logger.Warn().Err(err).Msg("failed to reset IN_PROGRESS events to PENDING, continuing anyway")
-	} else if resetCount > 0 {
+		n.logger.Warn().Err(err).Msg("failed to recover IN_PROGRESS events, continuing anyway")
+	} else if signedRecovered > 0 || confirmedReset > 0 {
 		n.logger.Info().
-			Int64("reset_count", resetCount).
-			Msg("reset IN_PROGRESS events to PENDING on node startup")
+			Int64("signed_recovered", signedRecovered).
+			Int64("confirmed_reset", confirmedReset).
+			Msg("recovered IN_PROGRESS events on node startup")
 	}
 
 	// Create coordinator with send function using node's Send method
@@ -386,7 +385,7 @@ func (n *Node) Stop() error {
 	close(n.stopCh)
 	n.mu.Unlock()
 
-	n.logger.Info().Msg("stopping TSS node")
+	n.logger.Debug().Msg("stopping TSS node")
 
 	// Stop coordinator
 	n.coordinator.Stop()
@@ -468,46 +467,25 @@ func (n *Node) Send(ctx context.Context, peerID string, data []byte) error {
 	return n.network.Send(ctx, peerID, data)
 }
 
-// onReceive handles incoming messages from p2p network.
-// It passes raw data directly to sessionManager.
+// onReceive routes an incoming p2p message
 func (n *Node) onReceive(peerID string, data []byte) {
-	ctx := n.ctx
-
-	// Unmarshal to check message type
 	var msg coordinator.Message
-	if err := json.Unmarshal(data, &msg); err == nil {
-		// If it's an ACK message, route it to coordinator only (not session manager)
-		if msg.Type == "ack" {
-			if err := n.HandleACKMessage(ctx, peerID, &msg); err != nil {
-				n.logger.Warn().
-					Err(err).
-					Str("peer_id", peerID).
-					Str("event_id", msg.EventID).
-					Msg("failed to handle ACK message")
-			}
-			return // ACK messages are handled by coordinator only
-		}
+	if err := json.Unmarshal(data, &msg); err != nil {
+		n.logger.Warn().Err(err).Str("peer_id", peerID).Msg("failed to unmarshal incoming message")
+		return
 	}
 
-	// Pass non-ACK messages to session manager
-	if err := n.sessionManager.HandleIncomingMessage(ctx, peerID, data); err != nil {
-		n.logger.Warn().
-			Err(err).
-			Str("peer_id", peerID).
-			Int("data_len", len(data)).
+	var err error
+	switch msg.Type {
+	case coordinator.MessageTypeACK:
+		err = n.coordinator.HandleIncomingMessage(n.ctx, peerID, &msg)
+	default:
+		err = n.sessionManager.HandleIncomingMessage(n.ctx, peerID, &msg)
+	}
+	if err != nil {
+		n.logger.Warn().Err(err).Str("peer_id", peerID).Str("event_id", msg.EventID).
 			Msg("failed to handle incoming message")
 	}
-}
-
-// HandleACKMessage handles ACK messages and forwards them to coordinator.
-// This allows coordinator to track ACKs even when it's not a participant.
-func (n *Node) HandleACKMessage(ctx context.Context, senderPeerID string, msg *coordinator.Message) error {
-	if n.coordinator == nil {
-		return fmt.Errorf("coordinator not initialized")
-	}
-
-	// Forward ACK to coordinator for tracking
-	return n.coordinator.HandleACK(ctx, senderPeerID, msg.EventID)
 }
 
 // PeerID returns the libp2p peer ID (helper function).

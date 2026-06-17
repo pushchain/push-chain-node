@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"path/filepath"
 
@@ -84,12 +83,6 @@ func startCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("failed to load config: %w", err)
 			}
-
-			configJSON, err := json.MarshalIndent(loadedCfg, "", "  ")
-			if err != nil {
-				return fmt.Errorf("failed to marshal config: %w", err)
-			}
-			fmt.Printf("\n=== Loaded Configuration ===\n%s\n===========================\n\n", string(configJSON))
 
 			ctx := context.Background()
 			client, err := core.NewUniversalClient(ctx, &loadedCfg)

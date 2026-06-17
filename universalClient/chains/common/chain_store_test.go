@@ -440,3 +440,35 @@ func TestChainStore_DeleteTerminalEvents(t *testing.T) {
 	assert.Len(t, events, 1)
 	assert.Equal(t, "active-1", events[0].EventID)
 }
+
+// TestChainStore_DeleteTerminalEvents_IsHardDelete locks in the invariant that
+// DeleteTerminalEvents actually frees DB space — not just sets deleted_at.
+// The Unscoped() query sees soft-deleted rows; if the row is still there with
+// deleted_at set, the cleaner has a silent bloat bug.
+func TestChainStore_DeleteTerminalEvents_IsHardDelete(t *testing.T) {
+	cs := newTestChainStore(t)
+
+	evt := &storemodels.Event{
+		EventID:          "to-be-purged",
+		BlockHeight:      1,
+		Type:             storemodels.EventTypeInbound,
+		ConfirmationType: storemodels.ConfirmationStandard,
+		Status:           storemodels.StatusCompleted,
+	}
+	_, err := cs.InsertEventIfNotExists(evt)
+	require.NoError(t, err)
+
+	deleted, err := cs.DeleteTerminalEvents("2099-01-01")
+	require.NoError(t, err)
+	require.Equal(t, int64(1), deleted)
+
+	// Unscoped sees ALL rows, including soft-deleted ones. After a HARD delete,
+	// this count must be 0. If the cleaner does a soft delete, this would be 1.
+	var rawCount int64
+	require.NoError(t, cs.database.Client().Unscoped().
+		Model(&storemodels.Event{}).
+		Where("event_id = ?", "to-be-purged").
+		Count(&rawCount).Error)
+	assert.Equal(t, int64(0), rawCount,
+		"DeleteTerminalEvents must hard-delete; soft delete defeats the cleaner's purpose")
+}

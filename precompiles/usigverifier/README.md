@@ -6,17 +6,14 @@ The only EVM precompile Push Chain ships on top of the cosmos-evm baseline. Veri
 
 | Address | Why it exists |
 |---|---|
-| `0x00000000000000000000000000000000000000ca` | Original "legacy" address. Hardcoded into contracts deployed before the address-range cleanup. |
-| `0xEC00000000000000000000000000000000000001` | New address in the reserved Push precompile range (`0xEC...`). |
+| `0xEC00000000000000000000000000000000000001` | Reserved Push precompile range (`0xEC...`). |
 
-Both addresses are registered simultaneously and point at the **same** implementation. Backward compatibility for previously-deployed contracts is the only reason the legacy address still exists. New code should target `0xEC00000000000000000000000000000000000001`.
+Registered at `0xEC00000000000000000000000000000000000001`.
 
-Wired into `app/app.go:781-795`:
+Wired into `app/app.go`:
 
 ```go
-usigverifierPrecompile, _   := usigverifierprecompile.NewPrecompile()
-usigverifierPrecompileV2, _ := usigverifierprecompile.NewPrecompileV2()
-corePrecompiles[usigverifierPrecompile.Address()]   = usigverifierPrecompile
+usigverifierPrecompileV2, _ := usigverifierprecompile.NewPrecompile()
 corePrecompiles[usigverifierPrecompileV2.Address()] = usigverifierPrecompileV2
 ```
 
@@ -26,7 +23,6 @@ corePrecompiles[usigverifierPrecompileV2.Address()] = usigverifierPrecompileV2
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.18;
 
-address constant USigVerifier_PRECOMPILE_ADDRESS    = 0x00000000000000000000000000000000000000ca;
 address constant USigVerifier_PRECOMPILE_ADDRESS_V2 = 0xEC00000000000000000000000000000000000001;
 
 interface IUSigVerifier {
@@ -104,8 +100,7 @@ The Go binary embeds `abi.json` via `//go:embed`, so a fresh `make build` will p
 ```bash
 # Make sure the precompile is enabled in the EVM params:
 # app_state["evm"]["params"]["active_static_precompiles"] must include
-# 0x00000000000000000000000000000000000000ca and/or 0xEC00000000000000000000000000000000000001
-# (test_node.sh installs the legacy address by default).
+# 0xEC00000000000000000000000000000000000001
 
 cast call 0xEC00000000000000000000000000000000000001 \
     "verifyEd25519(bytes,bytes32,bytes)" \

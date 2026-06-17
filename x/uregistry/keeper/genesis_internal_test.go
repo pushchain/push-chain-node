@@ -102,7 +102,7 @@ func TestIsContractDeployed_RejectsEOAsAndAcceptsRealContracts(t *testing.T) {
 // test can assert which addresses got the triple.
 type trackerEVMKeeper struct {
 	accounts map[common.Address]statedb.Account
-	code     map[string][]byte                       // hex(codeHash) -> bytecode
+	code     map[string][]byte // hex(codeHash) -> bytecode
 	state    map[common.Address]map[common.Hash]common.Hash
 }
 
@@ -151,7 +151,7 @@ func (t *trackerEVMKeeper) SetCode(_ sdk.Context, codeHash, code []byte) {
 //  3. The implementation address has non-empty CodeHash.
 //  4. The ProxyAdmin's storage slot 0 (Ownable.owner) is set to
 //     PROXY_ADMIN_OWNER_ADDRESS_HEX (the F-2026-16998 EOA owner — same for all
-//     46 ProxyAdmins). This is the load-bearing assertion for the
+//     47 ProxyAdmins). This is the load-bearing assertion for the
 //     "single owner controls every system-contract upgrade" trust assumption.
 //  5. The proxy's EIP-1967 admin slot points to the right ProxyAdmin
 //     (PROXY_ADMIN_SLOT) and impl slot points to the right implementation
@@ -164,7 +164,7 @@ func TestDeploySystemContracts_DeploysFullTripleForEveryReservedAddress(t *testi
 
 	expectedOwner := common.HexToAddress(types.PROXY_ADMIN_OWNER_ADDRESS_HEX)
 
-	// Sanity: must have processed all 46 entries (6 explicit + 40 auto-reserved).
+	// Sanity: must have processed all 47 entries (6 explicit + 41 auto-reserved).
 	require.Len(t, types.SYSTEM_CONTRACTS, 47, "SYSTEM_CONTRACTS size drift")
 
 	for name, addrs := range types.SYSTEM_CONTRACTS {

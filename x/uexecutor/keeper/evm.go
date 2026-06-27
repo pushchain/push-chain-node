@@ -30,10 +30,12 @@ func (k Keeper) CallFactoryToGetUEAAddressForOrigin(
 
 	receipt, err := k.evmKeeper.CallEVM(
 		ctx,
+		k.evmKeeper.NewStateDB(ctx),
 		abi,
 		from,
 		factoryAddr,
 		false, // commit
+		false, // callFromPrecompile
 		nil,
 		"getUEAForOrigin",
 		abiUniversalAccount,
@@ -66,10 +68,12 @@ func (k Keeper) CallFactoryGetOriginForUEA(
 
 	receipt, err := k.evmKeeper.CallEVM(
 		ctx,
+		k.evmKeeper.NewStateDB(ctx),
 		abi,
 		from,
 		factoryAddr,
 		false, // commit
+		false, // callFromPrecompile
 		nil,
 		"getOriginForUEA",
 		ueaAddr,
@@ -238,10 +242,12 @@ func (k Keeper) CallUEADomainSeparator(
 	// Call the view function domainSeparator()
 	res, err := k.evmKeeper.CallEVM(
 		ctx,
+		k.evmKeeper.NewStateDB(ctx),
 		abi,
 		from,
 		ueaAddr,
 		false, // commit = false (static call)
+		false, // callFromPrecompile
 		nil,
 		"domainSeparator",
 	)
@@ -357,7 +363,7 @@ func (k Keeper) GetGasPriceByChain(ctx sdk.Context, chainNamespace string) (*big
 
 	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
 
-	receipt, err := k.evmKeeper.CallEVM(ctx, abi, ueModuleAccAddress, handlerAddr, false, nil, "gasPriceByChainNamespace", chainNamespace)
+	receipt, err := k.evmKeeper.CallEVM(ctx, k.evmKeeper.NewStateDB(ctx), abi, ueModuleAccAddress, handlerAddr, false, false, nil,"gasPriceByChainNamespace", chainNamespace)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to call gasPriceByChainNamespace")
 	}
@@ -382,7 +388,7 @@ func (k Keeper) GetL1GasFeeByChain(ctx sdk.Context, chainNamespace string) (*big
 
 	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
 
-	receipt, err := k.evmKeeper.CallEVM(ctx, abi, ueModuleAccAddress, handlerAddr, false, nil, "l1GasFeeByChainNamespace", chainNamespace)
+	receipt, err := k.evmKeeper.CallEVM(ctx, k.evmKeeper.NewStateDB(ctx), abi, ueModuleAccAddress, handlerAddr, false, false, nil,"l1GasFeeByChainNamespace", chainNamespace)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to call l1GasFeeByChainNamespace")
 	}
@@ -406,7 +412,7 @@ func (k Keeper) GetTssFundMigrationGasLimitByChain(ctx sdk.Context, chainNamespa
 
 	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
 
-	receipt, err := k.evmKeeper.CallEVM(ctx, abi, ueModuleAccAddress, handlerAddr, false, nil, "tssFundMigrationGasLimitByChainNamespace", chainNamespace)
+	receipt, err := k.evmKeeper.CallEVM(ctx, k.evmKeeper.NewStateDB(ctx), abi, ueModuleAccAddress, handlerAddr, false, false, nil,"tssFundMigrationGasLimitByChainNamespace", chainNamespace)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to call tssFundMigrationGasLimitByChainNamespace")
 	}
@@ -430,7 +436,7 @@ func (k Keeper) GetUniversalCoreQuoterAddress(ctx sdk.Context) (common.Address, 
 
 	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
 
-	receipt, err := k.evmKeeper.CallEVM(ctx, abi, ueModuleAccAddress, handlerAddr, false, nil, "uniswapV3Quoter")
+	receipt, err := k.evmKeeper.CallEVM(ctx, k.evmKeeper.NewStateDB(ctx), abi, ueModuleAccAddress, handlerAddr, false, false, nil,"uniswapV3Quoter")
 	if err != nil {
 		return common.Address{}, errors.Wrap(err, "failed to call uniswapV3Quoter")
 	}
@@ -454,7 +460,7 @@ func (k Keeper) GetUniversalCoreWPCAddress(ctx sdk.Context) (common.Address, err
 
 	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
 
-	receipt, err := k.evmKeeper.CallEVM(ctx, abi, ueModuleAccAddress, handlerAddr, false, nil, "WPC")
+	receipt, err := k.evmKeeper.CallEVM(ctx, k.evmKeeper.NewStateDB(ctx), abi, ueModuleAccAddress, handlerAddr, false, false, nil,"WPC")
 	if err != nil {
 		return common.Address{}, errors.Wrap(err, "failed to call WPC")
 	}
@@ -478,7 +484,7 @@ func (k Keeper) GetDefaultFeeTierForToken(ctx sdk.Context, prc20Address common.A
 
 	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
 
-	receipt, err := k.evmKeeper.CallEVM(ctx, abi, ueModuleAccAddress, handlerAddr, false, nil, "defaultFeeTier", prc20Address)
+	receipt, err := k.evmKeeper.CallEVM(ctx, k.evmKeeper.NewStateDB(ctx), abi, ueModuleAccAddress, handlerAddr, false, false, nil,"defaultFeeTier", prc20Address)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to call defaultFeeTier")
 	}
@@ -519,7 +525,7 @@ func (k Keeper) GetSwapQuote(
 		SqrtPriceLimitX96: big.NewInt(0),
 	}
 
-	receipt, err := k.evmKeeper.CallEVM(ctx, quoterABI, ueModuleAccAddress, quoterAddr, false, nil, "quoteExactInputSingle", params)
+	receipt, err := k.evmKeeper.CallEVM(ctx, k.evmKeeper.NewStateDB(ctx), quoterABI, ueModuleAccAddress, quoterAddr, false, false, nil, "quoteExactInputSingle", params)
 	if err != nil {
 		return nil, errors.Wrap(err, "QuoterV2 quoteExactInputSingle failed")
 	}

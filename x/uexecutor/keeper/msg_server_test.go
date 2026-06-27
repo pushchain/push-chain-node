@@ -143,7 +143,8 @@ func TestMsgServer_ExecutePayload(t *testing.T) {
 
 		f.mockUregistryKeeper.EXPECT().GetChainConfig(gomock.Any(), "eip155:11155111").Return(chainConfigTest, nil)
 
-		f.mockEVMKeeper.EXPECT().CallEVM(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("CallFactoryToComputeUEAAddress Failed"))
+		f.mockEVMKeeper.EXPECT().NewStateDB(gomock.Any()).Return(nil).AnyTimes()
+		f.mockEVMKeeper.EXPECT().CallEVM(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("CallFactoryToComputeUEAAddress Failed"))
 
 		_, err := f.msgServer.ExecutePayload(f.ctx, msg)
 		require.ErrorContains(t, err, "CallFactoryToComputeUEAAddress Failed")
@@ -257,7 +258,8 @@ func TestMsgServer_MigrateUEA(t *testing.T) {
 
 		f.mockUregistryKeeper.EXPECT().GetChainConfig(gomock.Any(), "eip155:11155111").Return(chainConfigTest, nil)
 
-		f.mockEVMKeeper.EXPECT().CallEVM(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("CallFactoryToComputeUEAAddress Failed")).AnyTimes()
+		f.mockEVMKeeper.EXPECT().NewStateDB(gomock.Any()).Return(nil).AnyTimes()
+		f.mockEVMKeeper.EXPECT().CallEVM(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("CallFactoryToComputeUEAAddress Failed")).AnyTimes()
 
 		_, err := f.msgServer.MigrateUEA(f.ctx, msg)
 		require.ErrorContains(t, err, "CallFactoryToComputeUEAAddress Failed")

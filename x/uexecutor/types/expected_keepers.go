@@ -30,11 +30,15 @@ type UregistryKeeper interface {
 
 // EVMKeeper defines the expected interface for the EVM module.
 type EVMKeeper interface {
+	// NewStateDB returns a fresh StateDB (empty TxConfig) to pass into CallEVM,
+	// which since cosmos/evm v0.6.0 requires a non-nil StateDB.
+	NewStateDB(ctx sdk.Context) *statedb.StateDB
 	CallEVM(
 		ctx sdk.Context,
+		stateDB *statedb.StateDB,
 		abi abi.ABI,
 		from, contract common.Address,
-		commit bool,
+		commit, callFromPrecompile bool,
 		gasCap *big.Int,
 		method string,
 		args ...interface{},

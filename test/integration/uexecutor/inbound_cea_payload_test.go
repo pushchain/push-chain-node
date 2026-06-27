@@ -27,9 +27,9 @@ func setupInboundCEAPayloadTest(t *testing.T, numVals int) (*app.ChainApp, sdk.C
 	chainApp, ctx, _, validators := utils.SetAppWithMultipleValidators(t, numVals)
 
 	chainConfigTest := uregistrytypes.ChainConfig{
-		Chain:        "eip155:11155111",
-		VmType:       uregistrytypes.VmType_EVM,
-		PublicRpcUrl: "https://sepolia.drpc.org",
+		Chain:          "eip155:11155111",
+		VmType:         uregistrytypes.VmType_EVM,
+		PublicRpcUrl:   "https://sepolia.drpc.org",
 		GatewayAddress: "0x28E0F09bE2321c1420Dc60Ee146aACbD68B335Fe",
 		BlockConfirmation: &uregistrytypes.BlockConfirmation{
 			FastInbound:     5,
@@ -227,9 +227,11 @@ func TestInboundCEAFundsAndPayload(t *testing.T) {
 		// Check that PRC20 was deposited into the UEA (recipient)
 		res, err := chainApp.EVMKeeper.CallEVM(
 			ctx,
+			chainApp.EVMKeeper.NewStateDB(ctx),
 			prc20ABI,
 			ueModuleAccAddress,
 			prc20Address,
+			false,
 			false,
 			nil,
 			"balanceOf",
@@ -597,7 +599,7 @@ func TestInboundCEAFundsAndPayload(t *testing.T) {
 		ceaInbound := &uexecutortypes.Inbound{
 			SourceChain:      "eip155:11155111",
 			TxHash:           "0xcea07",
-			Sender:           personBSender, // person B — no UEA
+			Sender:           personBSender,       // person B — no UEA
 			Recipient:        ueaAddrHex.String(), // person A's UEA
 			Amount:           "1000000",
 			AssetAddr:        usdcAddress.String(),
@@ -633,9 +635,11 @@ func TestInboundCEAFundsAndPayload(t *testing.T) {
 		// Confirm the PRC20 balance landed at the explicitly passed recipient (person A's UEA)
 		res, err := chainApp.EVMKeeper.CallEVM(
 			ctx,
+			chainApp.EVMKeeper.NewStateDB(ctx),
 			prc20ABI,
 			ueModuleAccAddress,
 			prc20Address,
+			false,
 			false,
 			nil,
 			"balanceOf",
@@ -726,7 +730,7 @@ func TestInboundCEAFundsAndPayload(t *testing.T) {
 		chainApp.UregistryKeeper.AddChainConfig(ctx, &uregistrytypes.ChainConfig{
 			Chain:          "eip155:97",
 			VmType:         uregistrytypes.VmType_EVM,
-			PublicRpcUrl:    "https://data-seed-prebsc-1-s1.binance.org:8545",
+			PublicRpcUrl:   "https://data-seed-prebsc-1-s1.binance.org:8545",
 			GatewayAddress: "0x0000000000000000000000000000000000000000",
 			BlockConfirmation: &uregistrytypes.BlockConfirmation{
 				FastInbound:     5,

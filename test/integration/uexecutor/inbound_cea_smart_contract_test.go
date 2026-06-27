@@ -239,9 +239,11 @@ func TestInboundCEASmartContractRecipient(t *testing.T) {
 
 		res, err := chainApp.EVMKeeper.CallEVM(
 			ctx,
+			chainApp.EVMKeeper.NewStateDB(ctx),
 			prc20ABI,
 			ueModuleAccAddress,
 			prc20Address,
+			false,
 			false,
 			nil,
 			"balanceOf",
@@ -455,7 +457,7 @@ func TestInboundCEASmartContractRecipient(t *testing.T) {
 		ueModuleAccAddress, _ := chainApp.UexecutorKeeper.GetUeModuleAddress(ctx)
 
 		res, err := chainApp.EVMKeeper.CallEVM(
-			ctx, prc20ABI, ueModuleAccAddress, prc20Address, false, nil, "balanceOf", recipientAddr,
+			ctx, chainApp.EVMKeeper.NewStateDB(ctx), prc20ABI, ueModuleAccAddress, prc20Address, false, false, nil, "balanceOf", recipientAddr,
 		)
 		require.NoError(t, err)
 		balances, err := prc20ABI.Unpack("balanceOf", res.Ret)

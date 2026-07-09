@@ -8,39 +8,40 @@ import (
 	"github.com/pushchain/push-chain-node/app/upgrades"
 	aiauditfixes "github.com/pushchain/push-chain-node/app/upgrades/ai-audit-fixes"
 	aiauditfixes2 "github.com/pushchain/push-chain-node/app/upgrades/ai-audit-fixes-2"
-	purgeexpiredoutbounds "github.com/pushchain/push-chain-node/app/upgrades/purge-expired-outbounds"
-	removeutxverifier "github.com/pushchain/push-chain-node/app/upgrades/remove-utxverifier"
-	securityauditfixes "github.com/pushchain/push-chain-node/app/upgrades/security-audit-fixes"
-	tssfundmigrationfixes "github.com/pushchain/push-chain-node/app/upgrades/tss-fund-migration-fixes"
-	tssmigration "github.com/pushchain/push-chain-node/app/upgrades/tss-migration"
-	ueamigration "github.com/pushchain/push-chain-node/app/upgrades/uea-migration"
 	ceagasandpayload "github.com/pushchain/push-chain-node/app/upgrades/cea-gas-and-payload"
 	ceapayloadverificationfix "github.com/pushchain/push-chain-node/app/upgrades/cea-payload-verification-fix"
 	chainmeta "github.com/pushchain/push-chain-node/app/upgrades/chain-meta"
 	chainmetavotegasless "github.com/pushchain/push-chain-node/app/upgrades/chain-meta-vote-gasless"
 	contractauditchanges "github.com/pushchain/push-chain-node/app/upgrades/contract-audit-changes"
-	evmparamsmigration "github.com/pushchain/push-chain-node/app/upgrades/evm-params-migration"
-	evmchainidffix "github.com/pushchain/push-chain-node/app/upgrades/evm-chainid-fix"
-	evmpreinstalls "github.com/pushchain/push-chain-node/app/upgrades/evm-preinstalls"
 	ethhashfix "github.com/pushchain/push-chain-node/app/upgrades/eth-hash-fix"
 	evmblockscoutfix "github.com/pushchain/push-chain-node/app/upgrades/evm-blockscout-fix"
+	evmchainidffix "github.com/pushchain/push-chain-node/app/upgrades/evm-chainid-fix"
+	evmparamsmigration "github.com/pushchain/push-chain-node/app/upgrades/evm-params-migration"
+	evmpreinstalls "github.com/pushchain/push-chain-node/app/upgrades/evm-preinstalls"
 	evmrpcfix "github.com/pushchain/push-chain-node/app/upgrades/evm-rpc-fix"
 	evmv040 "github.com/pushchain/push-chain-node/app/upgrades/evm-v0-4-0"
 	evmv050 "github.com/pushchain/push-chain-node/app/upgrades/evm-v0-5-0"
+	evmv060 "github.com/pushchain/push-chain-node/app/upgrades/evm-v0-6-0"
 	feeabs "github.com/pushchain/push-chain-node/app/upgrades/fee-abs"
 	gasoracle "github.com/pushchain/push-chain-node/app/upgrades/gas-oracle"
 	"github.com/pushchain/push-chain-node/app/upgrades/noop"
 	outbound "github.com/pushchain/push-chain-node/app/upgrades/outbound"
 	pcmintcap "github.com/pushchain/push-chain-node/app/upgrades/pc-mint-cap"
 	proxybytecodefix "github.com/pushchain/push-chain-node/app/upgrades/proxy-bytecode-fix"
+	purgeexpiredoutbounds "github.com/pushchain/push-chain-node/app/upgrades/purge-expired-outbounds"
 	removefeeabsv1 "github.com/pushchain/push-chain-node/app/upgrades/remove-fee-abs-v1"
+	removeutxverifier "github.com/pushchain/push-chain-node/app/upgrades/remove-utxverifier"
+	securityauditfixes "github.com/pushchain/push-chain-node/app/upgrades/security-audit-fixes"
 	solanafix "github.com/pushchain/push-chain-node/app/upgrades/solana-fix"
 	supplyburn "github.com/pushchain/push-chain-node/app/upgrades/supply-burn"
 	supplyslash "github.com/pushchain/push-chain-node/app/upgrades/supply-slash"
 	tsscore "github.com/pushchain/push-chain-node/app/upgrades/tss-core"
 	tsscoreevmparamsfix "github.com/pushchain/push-chain-node/app/upgrades/tss-core-evm-params-fix"
 	tsscorefix "github.com/pushchain/push-chain-node/app/upgrades/tss-core-fix"
+	tssfundmigrationfixes "github.com/pushchain/push-chain-node/app/upgrades/tss-fund-migration-fixes"
+	tssmigration "github.com/pushchain/push-chain-node/app/upgrades/tss-migration"
 	tssvotegasless "github.com/pushchain/push-chain-node/app/upgrades/tss-vote-gasless"
+	ueamigration "github.com/pushchain/push-chain-node/app/upgrades/uea-migration"
 	universaltxv1 "github.com/pushchain/push-chain-node/app/upgrades/universal-tx-v1"
 )
 
@@ -81,6 +82,8 @@ var Upgrades = []upgrades.Upgrade{
 	evmpreinstalls.NewUpgrade(),
 	evmv050.NewUpgrade(),
 	securityauditfixes.NewUpgrade(),
+	// cosmos/evm v0.6.0 — runs the standard transfer module v5->v6 migration
+	evmv060.NewUpgrade(),
 }
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers
@@ -103,10 +106,10 @@ func (app *ChainApp) RegisterUpgradeHandlers() {
 		BankKeeper:            app.BankKeeper,
 
 		// Module keepers
-		UExecutorKeeper:   &app.UexecutorKeeper,
-		URegistryKeeper:   &app.UregistryKeeper,
-		UValidatorKeeper:  &app.UvalidatorKeeper,
-		UTssKeeper:        &app.UtssKeeper,
+		UExecutorKeeper:  &app.UexecutorKeeper,
+		URegistryKeeper:  &app.UregistryKeeper,
+		UValidatorKeeper: &app.UvalidatorKeeper,
+		UTssKeeper:       &app.UtssKeeper,
 	}
 
 	// register all upgrade handlers

@@ -46,7 +46,6 @@ import (
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
 
 	evmtypes "github.com/cosmos/evm/x/vm/types"
-
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 	uvalidatortypes "github.com/pushchain/push-chain-node/x/uvalidator/types"

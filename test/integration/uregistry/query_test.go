@@ -5,7 +5,6 @@ import (
 
 	"cosmossdk.io/collections"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/codec"
 	sdkquery "github.com/cosmos/cosmos-sdk/types/query"
 	"github.com/stretchr/testify/require"
 
@@ -375,89 +374,4 @@ func TestGetTokenConfigByPRC20_ResolvesViaIndex(t *testing.T) {
 	// as the prior Walk-based behaviour.
 	_, err = chainApp.UregistryKeeper.GetTokenConfigByPRC20(ctx, chainB, prc20A)
 	require.ErrorIs(t, err, collections.ErrNotFound)
-}
-
-// TestRebuildPRC20Index_BeforeAndAfterMigration (F-2026-17035 migration,
-// integration level): the user's specific ask — exercise the migration
-// against the full chain app with pre-upgrade storage state and verify the
-// observable behaviour change.
-//
-// Pre-upgrade state is simulated by writing TokenConfigs through a parallel
-// plain collections.Map at the same TokenConfigsKey prefix, bypassing the
-// IndexedMap framework. This produces exactly the on-disk bytes a pre-upgrade
-// validator would have written (TokenConfigs primary store populated,
-// PRC20Index entirely empty).
-func TestRebuildPRC20Index_BeforeAndAfterMigration(t *testing.T) {
-	chainApp, ctx, _, _ := utils.SetAppWithMultipleValidators(t, 1)
-
-	const chainEth = "eip155:1"
-	const chainPol = "eip155:137"
-	const chainSvm = "solana:mainnet"
-
-	legacy := []struct {
-		chain, address, prc20 string
-	}{
-		{chainEth, "0xUSDC_eth", "0xPrc20_eth_usdc"},
-		{chainEth, "0xUSDT_eth", "0xPrc20_eth_usdt"},
-		{chainPol, "0xUSDC_pol", "0xPrc20_pol_usdc"},
-		{chainSvm, "USDCsvm", "0xPrc20_svm_usdc"},
-	}
-
-	// Pre-upgrade state: write directly through a plain Map at the same
-	// prefix, bypassing IndexedMap so PRC20Index stays empty.
-	legacyMap := collections.NewMap(
-		chainApp.UregistryKeeper.SchemaBuilder(),
-		uregistrytypes.TokenConfigsKey,
-		uregistrytypes.TokenConfigsName,
-		collections.StringKey,
-		codec.CollValue[uregistrytypes.TokenConfig](chainApp.AppCodec()),
-	)
-	for _, l := range legacy {
-		cfg := sampleTokenConfig(l.chain, l.address, l.prc20)
-		require.NoError(t, legacyMap.Set(
-			ctx, uregistrytypes.GetTokenConfigsStorageKey(l.chain, l.address), cfg))
-	}
-
-	// --- BEFORE migration ---
-	// Primary store reads still work (the IndexedMap reads the same prefix).
-	gotPre, err := chainApp.UregistryKeeper.GetTokenConfig(ctx, chainEth, "0xUSDC_eth")
-	require.NoError(t, err, "pre-upgrade: primary store has the row")
-	require.Equal(t, "0xPrc20_eth_usdc", gotPre.NativeRepresentation.ContractAddress)
-
-	// But GetTokenConfigByPRC20 fails — PRC20Index is empty for every legacy
-	// entry. This is exactly the symptom a pre-upgrade testnet would exhibit
-	// against the new code: outbound flows that call GetTokenConfigByPRC20
-	// would fail to resolve known-good tokens.
-	for _, l := range legacy {
-		_, err := chainApp.UregistryKeeper.GetTokenConfigByPRC20(ctx, l.chain, l.prc20)
-		require.ErrorIs(t, err, collections.ErrNotFound,
-			"pre-upgrade: %s on %s must return NotFound (index empty)", l.prc20, l.chain)
-	}
-
-	// --- RUN MIGRATION ---
-	require.NoError(t, chainApp.UregistryKeeper.RebuildPRC20Index(ctx))
-
-	// --- AFTER migration ---
-	// Every legacy entry is now resolvable via the index.
-	for _, l := range legacy {
-		got, err := chainApp.UregistryKeeper.GetTokenConfigByPRC20(ctx, l.chain, l.prc20)
-		require.NoError(t, err,
-			"post-upgrade: %s on %s must resolve after RebuildPRC20Index", l.prc20, l.chain)
-		require.Equal(t, l.address, got.Address,
-			"post-upgrade: %s should map to %s", l.prc20, l.address)
-		require.Equal(t, l.chain, got.Chain)
-	}
-
-	// Wrong-chain lookups still return NotFound (the index doesn't paper
-	// over the chain mismatch).
-	_, err = chainApp.UregistryKeeper.GetTokenConfigByPRC20(ctx, chainPol, "0xPrc20_eth_usdc")
-	require.ErrorIs(t, err, collections.ErrNotFound,
-		"post-upgrade: cross-chain lookups still return NotFound")
-
-	// Re-running the migration is idempotent.
-	require.NoError(t, chainApp.UregistryKeeper.RebuildPRC20Index(ctx))
-	for _, l := range legacy {
-		_, err := chainApp.UregistryKeeper.GetTokenConfigByPRC20(ctx, l.chain, l.prc20)
-		require.NoError(t, err, "second RebuildPRC20Index must remain safe")
-	}
 }

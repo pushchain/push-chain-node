@@ -15,7 +15,6 @@ import (
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	consensusparamkeeper "github.com/cosmos/cosmos-sdk/x/consensus/keeper"
 	paramskeeper "github.com/cosmos/cosmos-sdk/x/params/keeper"
-	erc20keeper "github.com/cosmos/evm/x/erc20/keeper"
 	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
 	uexecutorkeeper "github.com/pushchain/push-chain-node/x/uexecutor/keeper"
 	uregistrykeeper "github.com/pushchain/push-chain-node/x/uregistry/keeper"
@@ -32,7 +31,6 @@ type AppKeepers struct {
 	CapabilityKeeper      *capabilitykeeper.Keeper
 	IBCKeeper             *ibckeeper.Keeper
 	EVMKeeper             *evmkeeper.Keeper
-	Erc20Keeper           *erc20keeper.Keeper
 	BankKeeper            bankkeeper.BaseKeeper
 
 	// Module keepers

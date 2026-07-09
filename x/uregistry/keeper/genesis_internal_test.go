@@ -66,19 +66,19 @@ func TestIsContractDeployed_RejectsEOAsAndAcceptsRealContracts(t *testing.T) {
 		// Untouched-style account with explicit nil CodeHash. Not a contract.
 		addrB: {
 			Nonce:    0,
-			Balance:  uint256.NewInt(0),
+			Balance:  new(uint256.Int),
 			CodeHash: nil,
 		},
 		// Account with empty (zero-length) CodeHash. Not a contract.
 		addrC: {
 			Nonce:    0,
-			Balance:  uint256.NewInt(0),
+			Balance:  new(uint256.Int),
 			CodeHash: []byte{},
 		},
 		// Real contract: CodeHash points to actual code.
 		addrD: {
 			Nonce:    1,
-			Balance:  uint256.NewInt(0),
+			Balance:  new(uint256.Int),
 			CodeHash: realCodeHash.Bytes(),
 		},
 		// addrMissing intentionally omitted from the map → GetAccount returns nil
@@ -102,7 +102,7 @@ func TestIsContractDeployed_RejectsEOAsAndAcceptsRealContracts(t *testing.T) {
 // test can assert which addresses got the triple.
 type trackerEVMKeeper struct {
 	accounts map[common.Address]statedb.Account
-	code     map[string][]byte                       // hex(codeHash) -> bytecode
+	code     map[string][]byte // hex(codeHash) -> bytecode
 	state    map[common.Address]map[common.Hash]common.Hash
 }
 
@@ -151,7 +151,7 @@ func (t *trackerEVMKeeper) SetCode(_ sdk.Context, codeHash, code []byte) {
 //  3. The implementation address has non-empty CodeHash.
 //  4. The ProxyAdmin's storage slot 0 (Ownable.owner) is set to
 //     PROXY_ADMIN_OWNER_ADDRESS_HEX (the F-2026-16998 EOA owner — same for all
-//     46 ProxyAdmins). This is the load-bearing assertion for the
+//     47 ProxyAdmins). This is the load-bearing assertion for the
 //     "single owner controls every system-contract upgrade" trust assumption.
 //  5. The proxy's EIP-1967 admin slot points to the right ProxyAdmin
 //     (PROXY_ADMIN_SLOT) and impl slot points to the right implementation
@@ -265,8 +265,7 @@ func TestDeploySystemContracts_AllReservedSlotsInABCRangeAreCovered(t *testing.T
 
 	// Slots in A/B/C that uregistry does NOT own:
 	//   0xAA — uexecutor PROXY_ADMIN (deployed by uexecutor's own genesis)
-	//   0xCA — USigVerifier legacy precompile (precompile dispatch beats EVM state)
-	uregistryDoesNotOwn := map[byte]bool{0xAA: true, 0xCA: true}
+	uregistryDoesNotOwn := map[byte]bool{0xAA: true}
 
 	for _, hi := range []byte{0xA, 0xB, 0xC} {
 		for lo := byte(0); lo < 0x10; lo++ {

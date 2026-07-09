@@ -148,10 +148,9 @@ Push Chain ships exactly one custom precompile:
 
 | Address | Name | Purpose |
 |---|---|---|
-| `0x00000000000000000000000000000000000000ca` | `usigverifier` (legacy) | Ed25519 signature verification (Solana signatures over `bytes32` digests) |
-| `0xEC00000000000000000000000000000000000001` | `usigverifier` (v2) | Same implementation, registered at the reserved Push range |
+| `0xEC00000000000000000000000000000000000001` | `usigverifier` | Ed25519 signature verification (Solana signatures over `bytes32` digests), registered at the reserved Push range |
 
-Both addresses are registered simultaneously for backward compatibility with deployed contracts that have the legacy address hardcoded. Gas cost: `4000` per `verifyEd25519` call. See [`precompiles/usigverifier/README.md`](../precompiles/usigverifier/README.md).
+Gas cost: `4000` per `verifyEd25519` call. See [`precompiles/usigverifier/README.md`](../precompiles/usigverifier/README.md).
 
 The baseline EVM precompiles (`bech32`, `p256`, `staking`, `distribution`, `ics20`, `bank`, `gov`, `slashing`, `evidence`) are wired in via `app/precompiles.go:NewAvailableStaticPrecompiles`.
 

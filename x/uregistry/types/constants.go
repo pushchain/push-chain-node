@@ -142,7 +142,7 @@ func reservedProxyBytecode(slotByte byte) []byte {
 // Range policy:
 //   - 0xA0-0xAF: Proxy Admins / low-level modules (0xAA pre-occupied by uexecutor)
 //   - 0xB0-0xBF: Utility contracts (0xB0/B1/B2 = RESERVED_0/1/2; 0xBC = UNIVERSAL_BATCH_CALL)
-//   - 0xC0-0xCF: Chain abstraction (0xC0 = UNIVERSAL_CORE; 0xC1 = UNIVERSAL_GATEWAY_PC; 0xCA = USigVerifier legacy precompile)
+//   - 0xC0-0xCF: Chain abstraction (0xC0 = UNIVERSAL_CORE; 0xC1 = UNIVERSAL_GATEWAY_PC)
 //   - 0xD0-0xFF: NOT reserved — left to other chains / future debug use
 //
 // Choice of full triples (vs bytecode-only): future activation of a reserved

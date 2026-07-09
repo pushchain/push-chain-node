@@ -1,4 +1,4 @@
-package evmrpcfix
+package inbound
 
 import (
 	"context"

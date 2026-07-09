@@ -160,7 +160,7 @@ func TestClientStartStop(t *testing.T) {
 			bodyStr := string(body)
 
 			if strings.Contains(bodyStr, "eth_call") {
-				// Return a mock vault address for vault() call
+				// Return a mock vault address for VAULT() call
 				w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":"` + mockVaultResult + `"}`))
 			} else {
 				// Default: eth_chainId response

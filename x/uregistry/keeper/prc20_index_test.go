@@ -7,7 +7,6 @@ import (
 	"cosmossdk.io/log"
 	storetypes "cosmossdk.io/store/types"
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
-	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/runtime"
 	"github.com/cosmos/cosmos-sdk/testutil/integration"
 	moduletestutil "github.com/cosmos/cosmos-sdk/types/module/testutil"
@@ -24,8 +23,7 @@ import (
 )
 
 // F-2026-17035 regression suite for the IndexedMap-backed TokenConfigs
-// (PRC20 reverse index) and the migration that rebuilds it for pre-upgrade
-// state.
+// (PRC20 reverse index).
 
 const (
 	tcChainA = "eip155:1"
@@ -74,25 +72,6 @@ func makeTokenCfg(chain, address, prc20 string) types.TokenConfig {
 		}
 	}
 	return cfg
-}
-
-// seedLegacyTokens writes TokenConfigs through a parallel plain collections.Map
-// at the same storage prefix, bypassing the IndexedMap framework. Simulates
-// pre-upgrade state where TokenConfigs has entries but PRC20Index is empty —
-// exactly the testnet upgrade scenario. Mirrors the v3 migration test pattern.
-func seedLegacyTokens(t *testing.T, ctx sdk.Context, k *keeper.Keeper, cdc codec.BinaryCodec, cfgs []types.TokenConfig) {
-	t.Helper()
-	legacyMap := collections.NewMap(
-		k.SchemaBuilder(),
-		types.TokenConfigsKey,
-		types.TokenConfigsName,
-		collections.StringKey,
-		codec.CollValue[types.TokenConfig](cdc),
-	)
-	for _, cfg := range cfgs {
-		key := types.GetTokenConfigsStorageKey(cfg.Chain, cfg.Address)
-		require.NoError(t, legacyMap.Set(ctx, key, cfg))
-	}
 }
 
 // TestGetTokenConfigByPRC20_LookupViaIndex covers the happy path: the
@@ -233,77 +212,4 @@ func TestGetTokenConfigByPRC20_RemoveDropsIndexEntry(t *testing.T) {
 
 	_, err = k.GetTokenConfigByPRC20(ctx, tcChainA, "0xPRC20")
 	require.ErrorIs(t, err, collections.ErrNotFound, "remove must drop the index entry")
-}
-
-// TestRebuildPRC20Index_FillsGapForLegacyEntries is THE migration test.
-// Simulates the testnet upgrade scenario: writes TokenConfigs through a
-// parallel plain Map (matching what an old node wrote pre-upgrade, when no
-// PRC20Index existed). Verifies GetTokenConfigByPRC20 returns NotFound for
-// those legacy entries. Then runs RebuildPRC20Index. Verifies every PRC20-
-// bearing entry is now resolvable.
-func TestRebuildPRC20Index_FillsGapForLegacyEntries(t *testing.T) {
-	ctx, k, encCfg := setupPRC20Keeper(t)
-
-	legacy := []types.TokenConfig{
-		makeTokenCfg(tcChainA, "0xUSDC_eth", "0xPRC20_eth_usdc"),
-		makeTokenCfg(tcChainA, "0xUSDT_eth", "0xPRC20_eth_usdt"),
-		makeTokenCfg(tcChainB, "0xUSDC_pol", "0xPRC20_pol_usdc"),
-		makeTokenCfg(tcChainC, "USDCsvm", "0xPRC20_svm_usdc"),
-		makeTokenCfg(tcChainA, "0xNativeOnly", ""), // no PRC20 — never indexed
-	}
-
-	// Write directly to the underlying primary map at the TokenConfigs prefix,
-	// bypassing the IndexedMap framework. This produces the exact storage
-	// state a pre-upgrade node would have.
-	seedLegacyTokens(t, ctx, &k, encCfg.Codec, legacy)
-
-	// Pre-rebuild: TokenConfigs.Get works (reads from primary store), but
-	// GetTokenConfigByPRC20 returns NotFound because PRC20Index is empty.
-	cfg, err := k.GetTokenConfig(ctx, tcChainA, "0xUSDC_eth")
-	require.NoError(t, err, "primary store has the row")
-	require.Equal(t, "0xPRC20_eth_usdc", cfg.NativeRepresentation.ContractAddress)
-
-	_, err = k.GetTokenConfigByPRC20(ctx, tcChainA, "0xPRC20_eth_usdc")
-	require.ErrorIs(t, err, collections.ErrNotFound,
-		"pre-rebuild: PRC20Index is empty even though TokenConfigs has the row")
-
-	// Run the migration.
-	require.NoError(t, k.RebuildPRC20Index(ctx))
-
-	// Post-rebuild: every PRC20-bearing legacy entry is now resolvable.
-	for _, cfg := range legacy {
-		if cfg.NativeRepresentation == nil {
-			// No-NativeRepresentation tokens stay unreachable by PRC20 — by design.
-			continue
-		}
-		got, err := k.GetTokenConfigByPRC20(ctx, cfg.Chain, cfg.NativeRepresentation.ContractAddress)
-		require.NoError(t, err,
-			"PRC20 %q on chain %q should resolve after RebuildPRC20Index",
-			cfg.NativeRepresentation.ContractAddress, cfg.Chain)
-		require.Equal(t, cfg.Address, got.Address)
-	}
-}
-
-// TestRebuildPRC20Index_IsIdempotent confirms re-running the migration on
-// already-populated state is a safe no-op.
-func TestRebuildPRC20Index_IsIdempotent(t *testing.T) {
-	ctx, k, _ := setupPRC20Keeper(t)
-
-	require.NoError(t, k.TokenConfigs.Set(ctx,
-		types.GetTokenConfigsStorageKey(tcChainA, "0xUSDC"),
-		makeTokenCfg(tcChainA, "0xUSDC", "0xPRC20")))
-
-	require.NoError(t, k.RebuildPRC20Index(ctx))
-	require.NoError(t, k.RebuildPRC20Index(ctx))
-
-	got, err := k.GetTokenConfigByPRC20(ctx, tcChainA, "0xPRC20")
-	require.NoError(t, err)
-	require.Equal(t, "0xUSDC", got.Address)
-}
-
-// TestRebuildPRC20Index_EmptyStateIsNoOp confirms the migration handles a
-// fresh chain with no tokens registered.
-func TestRebuildPRC20Index_EmptyStateIsNoOp(t *testing.T) {
-	ctx, k, _ := setupPRC20Keeper(t)
-	require.NoError(t, k.RebuildPRC20Index(ctx))
 }

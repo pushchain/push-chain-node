@@ -118,8 +118,6 @@ import (
 	"github.com/cosmos/evm/x/feemarket"
 	feemarketkeeper "github.com/cosmos/evm/x/feemarket/keeper"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
-	transfer "github.com/cosmos/evm/x/ibc/transfer"
-	ibctransferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
 	"github.com/cosmos/evm/x/vm"
 
 	// _ "github.com/ethereum/go-ethereum/core/tracers/js"
@@ -145,6 +143,8 @@ import (
 	icahostkeeper "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts/host/keeper"
 	icahosttypes "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts/host/types"
 	icatypes "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts/types"
+	transfer "github.com/cosmos/ibc-go/v10/modules/apps/transfer"
+	ibctransferkeeper "github.com/cosmos/ibc-go/v10/modules/apps/transfer/keeper"
 	ibctransfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	ibc "github.com/cosmos/ibc-go/v10/modules/core"
 	ibcclienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types" //nolint:staticcheck
@@ -850,17 +850,21 @@ func NewChainApp(
 		app.IBCKeeper.ChannelKeeper, // Use ChannelKeeper as ICS4Wrapper
 	)
 
-	// Create Transfer Keepers : upgraded for ibc-go v10
+	// Create Transfer Keepers : upgraded for ibc-go v10.
+	// cosmos/evm v0.6.0 removed its custom x/ibc/transfer wrapper, so this now uses
+	// the standard ibc-go transfer keeper. ERC-20<>IBC conversion that the custom
+	// keeper used to perform (it took an Erc20Keeper arg) is now done by the
+	// erc20 IBC middleware wrapped around the transfer stack below.
 	app.TransferKeeper = ibctransferkeeper.NewKeeper(
 		appCodec,
 		runtime.NewKVStoreService(keys[ibctransfertypes.StoreKey]),
+		nil, // legacySubspace (no params subspace)
 		app.RatelimitKeeper, // ICS4Wrapper
 		//app.IBCFeeKeeper,
 		app.IBCKeeper.ChannelKeeper,
 		app.MsgServiceRouter(),
 		app.AccountKeeper,
 		app.BankKeeper,
-		app.Erc20Keeper,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 	)
 
@@ -961,6 +965,10 @@ func NewChainApp(
 	// Create Transfer Stack
 	var transferStack porttypes.IBCModule
 	transferStack = transfer.NewIBCModule(app.TransferKeeper)
+	// ERC-20 middleware converts IBC vouchers to/from ERC-20 tokens. In cosmos/evm
+	// v0.6.0 this replaced the ERC-20 conversion that the removed custom
+	// x/ibc/transfer keeper performed in its OnRecvPacket/msg-server override.
+	transferStack = erc20.NewIBCMiddleware(app.Erc20Keeper, transferStack)
 	// callbacks wraps the transfer stack as its base app, and uses PacketForwardKeeper as the ICS4Wrapper
 	// i.e. packet-forward-middleware is higher on the stack and sits between callbacks and the ibc channel keeper
 	// Since this is the lowest level middleware of the transfer stack, it should be the first entrypoint for transfer keeper's

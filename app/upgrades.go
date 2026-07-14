@@ -6,16 +6,11 @@ import (
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 
 	"github.com/pushchain/push-chain-node/app/upgrades"
-	evmv060 "github.com/pushchain/push-chain-node/app/upgrades/evm-v0-6-0"
 	"github.com/pushchain/push-chain-node/app/upgrades/noop"
 )
 
 // Upgrades list of chain upgrades
-var Upgrades = []upgrades.Upgrade{
-	// cosmos/evm v0.6.0 upgrade — runs the standard transfer module v5->v6
-	// migration after push-chain-evm was upgraded to cosmos/evm v0.6.0.
-	evmv060.NewUpgrade(),
-}
+var Upgrades = []upgrades.Upgrade{}
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers
 func (app *ChainApp) RegisterUpgradeHandlers() {

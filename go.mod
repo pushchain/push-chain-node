@@ -6,17 +6,21 @@ toolchain go1.24.3
 
 // overrides
 replace (
-	cosmossdk.io/api => cosmossdk.io/api v0.7.5
-	cosmossdk.io/client/v2 => cosmossdk.io/client/v2 v2.0.0-beta.4
-	cosmossdk.io/collections => cosmossdk.io/collections v0.4.0
-	cosmossdk.io/core => cosmossdk.io/core v0.11.1
-	cosmossdk.io/store => cosmossdk.io/store v1.1.1
-	cosmossdk.io/x/evidence => cosmossdk.io/x/evidence v0.1.1
-	cosmossdk.io/x/feegrant => cosmossdk.io/x/feegrant v0.1.1
-	cosmossdk.io/x/tx => cosmossdk.io/x/tx v0.13.3
-	cosmossdk.io/x/upgrade => cosmossdk.io/x/upgrade v0.1.4
+	cosmossdk.io/api => cosmossdk.io/api v0.9.2
+
+	// cosmossdk.io/api v0.9.x (required by cosmos-sdk 0.53) removed the cosmos/orm/*
+	// API packages that cosmossdk.io/orm still needs; re-provide them locally.
+	cosmossdk.io/api/cosmos/orm => ./compat/orm-api
+	cosmossdk.io/client/v2 => cosmossdk.io/client/v2 v2.0.0-beta.11
+	cosmossdk.io/collections => cosmossdk.io/collections v1.3.1
+	cosmossdk.io/core => cosmossdk.io/core v0.11.3
+	cosmossdk.io/store => cosmossdk.io/store v1.1.2
+	cosmossdk.io/x/evidence => cosmossdk.io/x/evidence v0.2.0
+	cosmossdk.io/x/feegrant => cosmossdk.io/x/feegrant v0.2.0
+	cosmossdk.io/x/tx => cosmossdk.io/x/tx v0.14.0
+	cosmossdk.io/x/upgrade => cosmossdk.io/x/upgrade v0.2.0
 	github.com/CosmWasm/wasmd => github.com/CosmWasm/wasmd v0.55.0 // Keep v0.55.0
-	github.com/cosmos/cosmos-sdk => github.com/cosmos/cosmos-sdk v0.50.10 // Use stable v0.50.10
+	github.com/cosmos/cosmos-sdk => github.com/cosmos/cosmos-sdk v0.53.7 // Use stable v0.53.7
 	github.com/cosmos/evm => github.com/pushchain/evm v1.0.0-rc2.0.20260627105801-6c22ba0b1e9e
 	github.com/ethereum/go-ethereum => github.com/cosmos/go-ethereum v0.0.0-20250806193535-2fc7571efa91
 	github.com/spf13/viper => github.com/spf13/viper v1.17.0
@@ -91,6 +95,7 @@ require (
 )
 
 require (
+	cosmossdk.io/api/cosmos/orm v0.0.0-00010101000000-000000000000
 	github.com/CosmWasm/wasmvm/v2 v2.2.4
 	github.com/libp2p/go-libp2p v0.32.0
 	github.com/multiformats/go-multiaddr v0.12.0
@@ -100,6 +105,7 @@ require (
 require (
 	cel.dev/expr v0.24.0 // indirect
 	cloud.google.com/go/monitoring v1.24.2 // indirect
+	cosmossdk.io/schema v1.1.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.29.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric v0.50.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.50.0 // indirect
@@ -146,6 +152,7 @@ require (
 	github.com/libp2p/go-reuseport v0.4.0 // indirect
 	github.com/libp2p/go-yamux/v4 v4.0.1 // indirect
 	github.com/marten-seemann/tcp v0.0.0-20210406111302-dfbc87cc63fd // indirect
+	github.com/mdp/qrterminal/v3 v3.2.1 // indirect
 	github.com/miekg/dns v1.1.56 // indirect
 	github.com/mikioh/tcpinfo v0.0.0-20190314235526-30a79bb1804b // indirect
 	github.com/mikioh/tcpopt v0.0.0-20190314235656-172688c1accc // indirect
@@ -191,6 +198,7 @@ require (
 	golang.org/x/mod v0.27.0 // indirect
 	golang.org/x/tools v0.36.0 // indirect
 	lukechampine.com/blake3 v1.2.1 // indirect
+	rsc.io/qr v0.2.0 // indirect
 )
 
 require (
@@ -314,7 +322,7 @@ require (
 	github.com/lib/pq v1.10.9 // indirect
 	github.com/linxGnu/grocksdb v1.10.1 // indirect
 	github.com/logrusorgru/aurora v2.0.3+incompatible // indirect
-	github.com/magiconair/properties v1.8.7 // indirect
+	github.com/magiconair/properties v1.8.10 // indirect
 	github.com/manifoldco/promptui v0.9.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect

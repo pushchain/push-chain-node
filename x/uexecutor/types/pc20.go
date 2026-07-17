@@ -17,14 +17,17 @@ const PC20Selector = "50433230"
 // (4 bytes -> 8 hex characters).
 const pc20SelectorHexLen = len(PC20Selector)
 
-// IsPC20Payload reports whether payload begins with the PC20 selector.
+// IsPC20Payload reports whether payload begins with the PC20 selector, which is
+// how the chain routes a gateway event to the PC20 path (lock/mint) versus the
+// PRC20 path without needing a new event or TxType.
 //
 // payload is a gateway event payload as decoded by the event decoders — a
 // 0x-prefixed, lower-hex string (e.g. "0x50433230..."). Matching is done on the
-// hex text (case-insensitively) so it never has to allocate a decoded byte
-// slice, and an empty or malformed payload simply reports false. A PRC20
-// funds-only payload is empty and a PRC20 call payload is an ABI tuple that
-// starts with 0x00000020..., so neither collides with the selector.
+// hex text (case-insensitively) so it never allocates a decoded byte slice, and
+// an empty or too-short payload reports false. Anything not prefixed with the
+// PC20 selector (an empty PRC20 funds-only payload, a PRC20 call, or a distinct
+// PRC20 selector prefix) reports false and takes the PRC20 path, so routing is
+// correct as long as the PC20 and PRC20 selectors differ.
 func IsPC20Payload(payload string) bool {
 	p := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(payload)), "0x")
 	if len(p) < pc20SelectorHexLen {

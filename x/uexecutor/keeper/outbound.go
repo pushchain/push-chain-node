@@ -193,13 +193,17 @@ func (k Keeper) handleSuccessfulOutbound(ctx sdk.Context, utxId string, outbound
 	return k.UpdateOutbound(ctx, utxId, outbound)
 }
 
-// flipPC20WrapperDeployed records, in UniversalCore's registry, that the PC20
-// wrapper for (source asset, destination chain) is deployed — so subsequent
-// exports skip the one-time wrapper-deploy gas. It is best-effort: the flag only
-// affects the next export's gas quote (which self-refunds if stale), never
-// correctness, so any failure is logged and does not fail the outbound. It is a
-// no-op when the settlement observation did not carry a wrapper address (e.g.
-// the wrapper already existed on the destination).
+// flipPC20WrapperDeployed records, in UniversalCore's registry, the deployed
+// wrapper for (source asset, destination chain). This mapping backs two things:
+// the export gas-gate (repeat exports skip the one-time deploy overhead) and the
+// wrapper->source reverse lookup the PC20 return path relies on to resolve which
+// locked token to unlock. setWrapperDeployed is idempotent, unpaused and
+// module-gated, so it does not fail under correct config/bytecode; a failure
+// therefore signals a deployment/config bug (e.g. UniversalCore missing the
+// method) rather than a transient error, so it is logged at Error and not
+// retried — a deterministic bug will not self-heal. It is a no-op when the
+// settlement observation carried no wrapper address (the wrapper already existed
+// on the destination, so the mapping was set by the first export).
 func (k Keeper) flipPC20WrapperDeployed(ctx sdk.Context, outbound *types.OutboundTx, obs *types.OutboundObservation) {
 	if obs.Pc20WrapperAddress == "" {
 		return
@@ -211,7 +215,7 @@ func (k Keeper) flipPC20WrapperDeployed(ctx sdk.Context, outbound *types.Outboun
 		common.HexToAddress(obs.Pc20WrapperAddress),
 	)
 	if err != nil {
-		k.Logger().Warn("PC20 setWrapperDeployed failed (non-fatal)",
+		k.Logger().Error("PC20 setWrapperDeployed failed — wrapper->source mapping not recorded",
 			"outbound_id", outbound.Id,
 			"source_asset", outbound.Pc20ContractAddress,
 			"dest_chain", outbound.DestinationChain,

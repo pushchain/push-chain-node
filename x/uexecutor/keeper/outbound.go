@@ -101,9 +101,11 @@ func (k Keeper) FinalizeOutbound(ctx context.Context, utxId string, outbound typ
 // then attempts to refund any excess gas (gasFee - gasFeeUsed) just like a
 // successful outbound would. Both operations are recorded on the outbound.
 func (k Keeper) handleFailedOutbound(ctx sdk.Context, utxId string, outbound types.OutboundTx, obs *types.OutboundObservation) error {
-	// Only revert bridged funds for funds-related tx types
-	if outbound.TxType == types.TxType_FUNDS || outbound.TxType == types.TxType_GAS_AND_PAYLOAD ||
-		outbound.TxType == types.TxType_FUNDS_AND_PAYLOAD {
+	// Revert bridged funds for funds-related tx types. A PC20 export always locks
+	// native funds in VaultPC20, so it must be released on failure regardless of
+	// TxType — never leave locked custody stranded on a gate assumption.
+	if outbound.IsPc20 || outbound.TxType == types.TxType_FUNDS ||
+		outbound.TxType == types.TxType_GAS_AND_PAYLOAD || outbound.TxType == types.TxType_FUNDS_AND_PAYLOAD {
 
 		// Decide revert recipient safely
 		recipient := outbound.Sender

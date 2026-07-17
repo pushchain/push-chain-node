@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
@@ -96,6 +97,27 @@ func TestBuildOutboundFromEvent_PRC20UnregisteredErrors(t *testing.T) {
 	out, err := f.k.TestBuildOutboundFromEvent(f.ctx, outboundEvent("0x", prc20), "0xdeadbeef", 1)
 	require.Error(t, err)
 	require.Nil(t, out)
+}
+
+// The PC20 revert path depends on VaultPC20 being registered as a system
+// contract. Until that wiring lands, CallVaultPC20RevertExport must fail fast
+// with a clear error (before any EVM call) rather than silently calling the
+// zero address.
+func TestCallVaultPC20RevertExport_UnregisteredErrors(t *testing.T) {
+	f := SetupTest(t)
+
+	_, ok := uregistrytypes.SYSTEM_CONTRACTS["VAULT_PC20"]
+	require.False(t, ok, "precondition: VAULT_PC20 not yet registered")
+
+	_, err := f.k.CallVaultPC20RevertExport(
+		f.ctx,
+		common.HexToHash("0x00000000000000000000000000000000000000000000000000000000000000ab"),
+		common.HexToAddress("0xdAC17F958D2ee523a2206206994597C13D831ec7"),
+		common.HexToAddress("0x1111111111111111111111111111111111111111"),
+		big.NewInt(1000),
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "VAULT_PC20")
 }
 
 func trim0x(s string) string {

@@ -1,8 +1,10 @@
 package types_test
 
 import (
+	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
@@ -32,4 +34,35 @@ func TestIsPC20Payload(t *testing.T) {
 			require.Equal(t, tc.want, types.IsPC20Payload(tc.payload))
 		})
 	}
+}
+
+// The VaultPC20 ABI must parse and pack revertExport with the exact argument
+// types the on-Push vault expects (bytes32, address, uint256, address).
+func TestVaultPC20ABI_RevertExportPacks(t *testing.T) {
+	a, err := types.ParseVaultPC20ABI()
+	require.NoError(t, err)
+
+	_, err = a.Pack(
+		"revertExport",
+		common.HexToHash("0x00000000000000000000000000000000000000000000000000000000000000ab"),
+		common.HexToAddress("0xdAC17F958D2ee523a2206206994597C13D831ec7"),
+		big.NewInt(1000),
+		common.HexToAddress("0x1111111111111111111111111111111111111111"),
+	)
+	require.NoError(t, err)
+}
+
+// The setWrapperDeployed method added to the UniversalCore ABI must pack with
+// (address, string, address).
+func TestUniversalCoreABI_SetWrapperDeployedPacks(t *testing.T) {
+	a, err := types.ParseUniversalCoreABI()
+	require.NoError(t, err)
+
+	_, err = a.Pack(
+		"setWrapperDeployed",
+		common.HexToAddress("0xdAC17F958D2ee523a2206206994597C13D831ec7"),
+		"eip155:11155111",
+		common.HexToAddress("0x1111111111111111111111111111111111111111"),
+	)
+	require.NoError(t, err)
 }

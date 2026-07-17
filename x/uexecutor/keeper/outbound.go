@@ -6,6 +6,7 @@ import (
 	"math/big"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
@@ -116,7 +117,25 @@ func (k Keeper) handleFailedOutbound(ctx sdk.Context, utxId string, outbound typ
 		if !ok {
 			return fmt.Errorf("invalid amount: %s", outbound.Amount)
 		}
-		receipt, err := k.CallPRC20Deposit(ctx, common.HexToAddress(outbound.Prc20AssetAddr), common.HexToAddress(recipient), amount)
+		var (
+			receipt *evmtypes.MsgEthereumTxResponse
+			err     error
+		)
+		if outbound.IsPc20 {
+			// PC20 export failed to settle: the funds are locked in VaultPC20
+			// (not minted), so release them to the revert recipient on Push via
+			// revertExport rather than minting a PRC20. subTxId = the export id,
+			// which is the vault's single-shot replay guard.
+			receipt, err = k.CallVaultPC20RevertExport(
+				ctx,
+				common.HexToHash(outbound.Id),
+				common.HexToAddress(outbound.Pc20ContractAddress),
+				common.HexToAddress(recipient),
+				amount,
+			)
+		} else {
+			receipt, err = k.CallPRC20Deposit(ctx, common.HexToAddress(outbound.Prc20AssetAddr), common.HexToAddress(recipient), amount)
+		}
 
 		pcTx := types.PCTx{
 			Sender:      outbound.Sender,
@@ -167,8 +186,47 @@ func (k Keeper) handleSuccessfulOutbound(ctx sdk.Context, utxId string, outbound
 		"outbound_id", outbound.Id,
 		"dest_chain", outbound.DestinationChain,
 	)
+	if outbound.IsPc20 {
+		k.flipPC20WrapperDeployed(ctx, &outbound, obs)
+	}
 	k.applyGasRefund(ctx, &outbound, obs)
 	return k.UpdateOutbound(ctx, utxId, outbound)
+}
+
+// flipPC20WrapperDeployed records, in UniversalCore's registry, that the PC20
+// wrapper for (source asset, destination chain) is deployed — so subsequent
+// exports skip the one-time wrapper-deploy gas. It is best-effort: the flag only
+// affects the next export's gas quote (which self-refunds if stale), never
+// correctness, so any failure is logged and does not fail the outbound. It is a
+// no-op when the settlement observation did not carry a wrapper address (e.g.
+// the wrapper already existed on the destination).
+func (k Keeper) flipPC20WrapperDeployed(ctx sdk.Context, outbound *types.OutboundTx, obs *types.OutboundObservation) {
+	if obs.Pc20WrapperAddress == "" {
+		return
+	}
+	resp, err := k.CallUniversalCoreSetWrapperDeployed(
+		ctx,
+		common.HexToAddress(outbound.Pc20ContractAddress),
+		outbound.DestinationChain,
+		common.HexToAddress(obs.Pc20WrapperAddress),
+	)
+	if err != nil {
+		k.Logger().Warn("PC20 setWrapperDeployed failed (non-fatal)",
+			"outbound_id", outbound.Id,
+			"source_asset", outbound.Pc20ContractAddress,
+			"dest_chain", outbound.DestinationChain,
+			"wrapper", obs.Pc20WrapperAddress,
+			"error", err.Error(),
+		)
+		return
+	}
+	k.Logger().Info("PC20 wrapper deploy flag set",
+		"outbound_id", outbound.Id,
+		"source_asset", outbound.Pc20ContractAddress,
+		"dest_chain", outbound.DestinationChain,
+		"wrapper", obs.Pc20WrapperAddress,
+		"tx_hash", resp.Hash,
+	)
 }
 
 // applyGasRefund computes the excess gas (gasFee - gasFeeUsed) and, if positive,

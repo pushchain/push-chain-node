@@ -545,6 +545,105 @@ func (k Keeper) GetSwapQuote(
 
 // Calls Handler Contract to deposit prc20 tokens with auto-swap.
 // fee and minPCOut must be pre-computed by the caller (see GetDefaultFeeTierForToken / GetSwapQuote).
+// CallVaultPC20RevertExport releases a Push-native PC20 token that was locked in
+// VaultPC20 during export back to revertRecipient, when the destination-chain
+// settlement failed. It is the PC20 analogue of a failed-outbound re-mint: for a
+// PC20 export the funds are locked in a vault (not minted), so a failed
+// settlement must unlock, not deposit. subTxId (the export id) is the vault's
+// single-shot replay guard. The uexecutor module account is the authorized
+// caller.
+func (k Keeper) CallVaultPC20RevertExport(
+	ctx sdk.Context,
+	subTxId common.Hash,
+	token, revertRecipient common.Address,
+	amount *big.Int,
+) (*evmtypes.MsgEthereumTxResponse, error) {
+	vaultAddr := uregistrytypes.SYSTEM_CONTRACTS["VAULT_PC20"].Address
+	if vaultAddr == "" {
+		return nil, fmt.Errorf("VAULT_PC20 system contract is not registered")
+	}
+
+	abi, err := types.ParseVaultPC20ABI()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse VaultPC20 ABI")
+	}
+
+	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
+
+	nonce, err := k.GetModuleAccountNonce(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := k.IncrementModuleAccountNonce(ctx); err != nil {
+		return nil, err
+	}
+
+	return k.evmKeeper.DerivedEVMCall(
+		ctx,
+		abi,
+		ueModuleAccAddress,             // sender: module account
+		common.HexToAddress(vaultAddr), // destination: VaultPC20
+		big.NewInt(0),
+		nil,
+		true,   // commit
+		false,  // gasless = false (gas emitted in receipt)
+		true,   // module sender
+		&nonce, // manual nonce of module
+		"revertExport",
+		subTxId,
+		token,
+		amount,
+		revertRecipient,
+	)
+}
+
+// CallUniversalCoreSetWrapperDeployed flips the PC20 deploy flag for
+// (sourceAsset, destChain) in UniversalCore's registry after a confirmed export
+// settlement, so subsequent exports skip the one-time wrapper-deploy gas. The
+// contract write is idempotent, and this is best-effort: the flag only affects
+// the next export's gas quote (which self-refunds if stale), never correctness.
+// wrapper is the destination wrapper address observed at settlement.
+func (k Keeper) CallUniversalCoreSetWrapperDeployed(
+	ctx sdk.Context,
+	sourceAsset common.Address,
+	destChain string,
+	wrapper common.Address,
+) (*evmtypes.MsgEthereumTxResponse, error) {
+	handlerAddr := common.HexToAddress(uregistrytypes.SYSTEM_CONTRACTS["UNIVERSAL_CORE"].Address)
+
+	abi, err := types.ParseUniversalCoreABI()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse UniversalCore ABI")
+	}
+
+	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
+
+	nonce, err := k.GetModuleAccountNonce(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := k.IncrementModuleAccountNonce(ctx); err != nil {
+		return nil, err
+	}
+
+	return k.evmKeeper.DerivedEVMCall(
+		ctx,
+		abi,
+		ueModuleAccAddress, // sender: module account
+		handlerAddr,        // destination: UniversalCore
+		big.NewInt(0),
+		nil,
+		true,   // commit
+		false,  // gasless = false (gas emitted in receipt)
+		true,   // module sender
+		&nonce, // manual nonce of module
+		"setWrapperDeployed",
+		sourceAsset,
+		destChain,
+		wrapper,
+	)
+}
+
 func (k Keeper) CallPRC20DepositAutoSwap(
 	ctx sdk.Context,
 	prc20Address, to common.Address,

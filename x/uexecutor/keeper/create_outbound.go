@@ -417,10 +417,12 @@ func (k Keeper) attachOutboundsToUtx(
 				GasPrice:         outbound.GasPrice,
 				GasToken:         outbound.GasToken,
 				TxType:           outbound.TxType.String(),
-				PcTxHash:         pcTxHash,
-				LogIndex:         logIndex,
-				RevertMsg:        revertMsg,
-				SigningDeadline:  signingDeadline,
+				PcTxHash:            pcTxHash,
+				LogIndex:            logIndex,
+				RevertMsg:           revertMsg,
+				SigningDeadline:     signingDeadline,
+				IsPc20:              outbound.IsPc20,
+				Pc20ContractAddress: outbound.Pc20ContractAddress,
 			})
 			if err == nil {
 				ctx.EventManager().EmitEvent(evt)

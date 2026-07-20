@@ -274,6 +274,14 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 		return nil, fmt.Errorf("invalid sender length: expected 20 bytes, got %d", len(senderBytes))
 	}
 
+	// PC20 export: selector-prefixed payload routes to finalize_universal_tx id=5.
+	// Must branch before token parsing — asset_addr carries the 20-byte Push source asset.
+	if txType != uetypes.TxType_INBOUND_REVERT && txType != uetypes.TxType_RESCUE_FUNDS {
+		if pb := decodeHexPayload(data.Payload); isPC20Payload(pb) {
+			return tb.getPC20ExportSigningRequest(data, nonce, chainID, amount.Uint64(), txID, universalTxID, sender, pb)
+		}
+	}
+
 	// token: 32-byte Solana pubkey of the SPL token mint. All zeros = native SOL (Pubkey::default())
 	var token [32]byte
 	if !isNative {
@@ -338,6 +346,28 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 		if instructionID == 3 {
 			if decoded, decErr := hex.DecodeString(removeHexPrefix(data.RevertMsg)); decErr == nil {
 				revertMsg = decoded
+			}
+		}
+
+		// PC20 remint: token is a canonical wrapped mint — the signed message carries
+		// the "PC20" || source_asset domain suffix (revert.rs / rescue.rs PC20 branch).
+		if !isNative {
+			sourceAsset, saErr := tb.fetchPC20SourceAsset(ctx, solana.PublicKeyFromBytes(token[:]))
+			if saErr != nil {
+				return nil, fmt.Errorf("failed to resolve pc20 state: %w", saErr)
+			}
+			if sourceAsset != nil {
+				messageHash, msgErr := constructPC20RemintTSSMessage(
+					instructionID, chainID, data.SigningDeadline, amount.Uint64(),
+					txID, universalTxID, token, revertRecipient, gasFee, revertMsg, *sourceAsset,
+				)
+				if msgErr != nil {
+					return nil, msgErr
+				}
+				return &common.UnsignedSigningReq{
+					SigningHash: messageHash,
+					Nonce:       nonce,
+				}, nil
 			}
 		}
 	} else {
@@ -747,6 +777,13 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 		return nil, 0, fmt.Errorf("invalid sender length: expected 20 bytes, got %d", len(senderBytes))
 	}
 
+	// PC20 export: mirror of the signing-path branch — must rebuild the exact signed inputs.
+	if txType != uetypes.TxType_INBOUND_REVERT && txType != uetypes.TxType_RESCUE_FUNDS {
+		if pb := decodeHexPayload(data.Payload); isPC20Payload(pb) {
+			return tb.buildPC20ExportTransaction(ctx, req, data, relayerKeypair, signature, recoveryID, txID, universalTxID, sender, amount.Uint64(), pb)
+		}
+	}
+
 	var token [32]byte
 	var mintPubkey solana.PublicKey
 	if !isNative {
@@ -850,6 +887,15 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 	var instructionData []byte
 	var accounts []*solana.AccountMeta
 
+	// PC20 remint detection for revert/rescue — different account shape, same instruction data.
+	var pc20SourceAsset *[20]byte
+	if (instructionID == 3 || instructionID == 4) && !isNative {
+		pc20SourceAsset, err = tb.fetchPC20SourceAsset(ctx, mintPubkey)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to resolve pc20 state: %w", err)
+		}
+	}
+
 	switch {
 	case instructionID == 1 || instructionID == 2:
 		// ---- finalize_universal_tx (unified function) ----
@@ -895,11 +941,21 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 			recipientPubkey, revertMsgBytes, gasFee, data.SigningDeadline,
 			signature, recoveryID, req.SigningHash,
 		)
-		accounts = tb.buildRevertAccounts(
-			configPDA, vaultPDA, feeVaultPDA, tssPDA, recipientPubkey,
-			executedTxPDA, relayerKeypair.PublicKey(),
-			isNative, mintPubkey,
-		)
+		if pc20SourceAsset != nil {
+			accounts, err = tb.buildPC20RemintAccounts(
+				configPDA, vaultPDA, feeVaultPDA, tssPDA, recipientPubkey,
+				executedTxPDA, relayerKeypair.PublicKey(), mintPubkey,
+			)
+			if err != nil {
+				return nil, 0, err
+			}
+		} else {
+			accounts = tb.buildRevertAccounts(
+				configPDA, vaultPDA, feeVaultPDA, tssPDA, recipientPubkey,
+				executedTxPDA, relayerKeypair.PublicKey(),
+				isNative, mintPubkey,
+			)
+		}
 
 	case instructionID == 4:
 		// ---- rescue_funds ----
@@ -907,11 +963,21 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 			txID, universalTxID, amount.Uint64(), gasFee, data.SigningDeadline,
 			signature, recoveryID, req.SigningHash,
 		)
-		accounts = tb.buildRescueAccounts(
-			configPDA, vaultPDA, feeVaultPDA, tssPDA, recipientPubkey,
-			executedTxPDA, relayerKeypair.PublicKey(),
-			isNative, mintPubkey,
-		)
+		if pc20SourceAsset != nil {
+			accounts, err = tb.buildPC20RemintAccounts(
+				configPDA, vaultPDA, feeVaultPDA, tssPDA, recipientPubkey,
+				executedTxPDA, relayerKeypair.PublicKey(), mintPubkey,
+			)
+			if err != nil {
+				return nil, 0, err
+			}
+		} else {
+			accounts = tb.buildRescueAccounts(
+				configPDA, vaultPDA, feeVaultPDA, tssPDA, recipientPubkey,
+				executedTxPDA, relayerKeypair.PublicKey(),
+				isNative, mintPubkey,
+			)
+		}
 	}
 
 	// --- Assemble the Solana transaction ---
@@ -933,7 +999,8 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 	// Build the instruction list.
 	instructions := []solana.Instruction{computeLimitIx}
 
-	needsRecipientATA := (instructionID == 1 && !isNative) || ((instructionID == 3 || instructionID == 4) && !isNative)
+	// PC20 remint skips the pre-ix — the gateway creates the recipient ATA itself.
+	needsRecipientATA := ((instructionID == 1 && !isNative) || ((instructionID == 3 || instructionID == 4) && !isNative)) && pc20SourceAsset == nil
 	if needsRecipientATA {
 		createATAInstruction := tb.buildCreateATAIdempotentInstruction(
 			relayerKeypair.PublicKey(),

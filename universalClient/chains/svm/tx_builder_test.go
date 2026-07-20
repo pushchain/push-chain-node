@@ -2506,6 +2506,34 @@ func TestSimulate_Rescue_SPLToken(t *testing.T) {
 	requireSimulationSuccess(t, result)
 }
 
+// newDevnetPC20Export builds a PC20 export outbound: AssetAddr carries the 20-byte
+// Push source asset and Payload is core's canonical vault-ready form
+// selector || abi.encode(name, symbol, decimals, userData).
+func newDevnetPC20Export(t *testing.T, sourceAsset [20]byte, amount string, meta *pc20ExportMeta) (*uetypes.OutboundCreatedEvent, *ecdsa.PrivateKey) {
+	t.Helper()
+	require.NoError(t, pc20ExportABIErr)
+	encoded, err := pc20ExportABIArgs.Pack(meta.Name, meta.Symbol, meta.Decimals, meta.UserData)
+	require.NoError(t, err)
+	payload := "0x" + hex.EncodeToString(append(append([]byte{}, pc20Selector[:]...), encoded...))
+
+	data, evmKey := newDevnetOutbound(t, amount, "0x"+hex.EncodeToString(sourceAsset[:]), payload, "", "FUNDS_AND_PAYLOAD")
+	return data, evmKey
+}
+
+func TestSimulate_PC20Export_Direct(t *testing.T) {
+	rpcClient, builder := setupDevnetSimulation(t)
+	defer rpcClient.Close()
+
+	sourceAsset := makeSender(0x44)
+	meta := &pc20ExportMeta{Name: "Devnet PC20", Symbol: "dPC20", Decimals: 6}
+
+	data, evmKey := newDevnetPC20Export(t, sourceAsset, "10000000", meta)
+
+	result, err := buildAndSimulate(t, rpcClient, builder, data, evmKey)
+	require.NoError(t, err)
+	requireSimulationSuccess(t, result)
+}
+
 // buildAndSimulateRefRoute drives the ref-finalize pipeline through
 // simulation only — no broadcasts, no state changes, no SOL spent.
 //
@@ -2717,4 +2745,145 @@ func TestSimulate_RefRoute_Execute(t *testing.T) {
 	storeSim, _, err := buildAndSimulateRefRoute(t, rpcClient, builder, data, evmKey)
 	require.NoError(t, err)
 	requireSimulationSuccess(t, storeSim)
+}
+
+// =============================================================================
+//  Frozen vectors against the devnet dummy gateway program
+//  (contracts/svm-gateway/app/gateway-test.ts §17 — devnetGatewayAddress)
+// =============================================================================
+
+// newDummyGatewayBuilder returns an offline builder targeting the devnet dummy
+// gateway program — PDA derivations match the deployed dummy without RPC.
+func newDummyGatewayBuilder(t *testing.T) *TxBuilder {
+	t.Helper()
+	builder, err := NewTxBuilder(&RPCClient{}, "solana:"+devnetGenesisHash, devnetGatewayAddress, "/tmp", zerolog.Nop(), nil)
+	require.NoError(t, err)
+	return builder
+}
+
+func TestPC20DummyGateway_PDAGoldens(t *testing.T) {
+	tb := newDummyGatewayBuilder(t)
+	sourceAsset := makeSender(0x44)
+	pushAccount := makeSender(0x33)
+	txID := makeTxID(0x11)
+	recipient := solana.MustPublicKeyFromBase58("Vote111111111111111111111111111111111111111")
+
+	mint, err := tb.derivePC20MintPDA(sourceAsset)
+	require.NoError(t, err)
+	state, err := tb.derivePC20StatePDA(mint)
+	require.NoError(t, err)
+
+	derive := func(seeds ...[]byte) solana.PublicKey {
+		pda, _, dErr := solana.FindProgramAddress(seeds, tb.gatewayAddress)
+		require.NoError(t, dErr)
+		return pda
+	}
+
+	// Golden addresses — any change here means the derivation drifted from the
+	// deployed dummy gateway and on-chain validation would fail.
+	assert.Equal(t, "BCwdEfbVJtt47ukvdX7jW5kzAUKZhjyXveSZvQL3MF8", mint.String())
+	assert.Equal(t, "7G5dx7WgVyxvzstv3ZS6ohrb1w17qAkXFXaYyoCewzL1", state.String())
+	assert.Equal(t, "7QAS73zgRm7KMt85XMGWbWDnmhZR1UyTULhhxR254YYR", derive(configSeed).String())
+	assert.Equal(t, "4sQLizYQ1ZJjc2doLqTQsk1Kj8XVS5uviJykpHNNMSi5", derive(vaultSeed).String())
+	assert.Equal(t, "ETqvwz5YExaFnQH6E6gHZ374wSP8NBnQ5emLcMUyhMA5", derive(feeVaultSeed).String())
+	assert.Equal(t, "FDxeNn8YT8DoWrJ5GzqNTW8rjx8cLFNFBgHpBTMifeYJ", derive(tssSeed).String())
+	assert.Equal(t, "8FEnaGzyfin7A7MPBKHPbXrvTdAH1ZSCfArZUtMhbHKS", derive(executedSubTxSeed, txID[:]).String())
+	assert.Equal(t, "ERuuJZgVBKi3VmvcHqkubJzHcsjJooiBwG1WDLwYksUr", derive(ceaAuthoritySeed, pushAccount[:]).String())
+
+	recipientATA, _, err := solana.FindProgramAddress(
+		[][]byte{recipient.Bytes(), solana.TokenProgramID.Bytes(), mint.Bytes()},
+		solana.SPLAssociatedTokenAccountProgramID,
+	)
+	require.NoError(t, err)
+	assert.Equal(t, "E5BLLSpQAiyuzw1K6bp4MA2HzHkeKXjwAnvYWPFK8jD4", recipientATA.String())
+}
+
+func TestPC20DummyGateway_ExportBuild(t *testing.T) {
+	// Mirrors gateway-test.ts §17.1: direct export via finalize_universal_tx id=5,
+	// signature verified end-to-end against the message the dummy program rebuilds.
+	tb := newDummyGatewayBuilder(t)
+	evmKey, tssAddr, _ := generateTestEVMKey(t)
+
+	chainID := "devnet"
+	deadline := int64(1_800_000_000)
+	amount := uint64(10_000_000)
+	gasFee := uint64(6_000_000)
+	txID := makeTxID(0x11)
+	utxID := makeTxID(0x22)
+	pushAccount := makeSender(0x33)
+	sourceAsset := makeSender(0x44)
+	recipient := solana.MustPublicKeyFromBase58("Vote111111111111111111111111111111111111111")
+	meta := &pc20ExportMeta{Name: "Devnet PC20", Symbol: "dPC20", Decimals: 6}
+
+	msgHash := constructPC20ExportTSSMessage(chainID, deadline, amount, txID, utxID, pushAccount, sourceAsset, recipient, meta, gasFee)
+	sig, recoveryID := signMessageHash(t, evmKey, msgHash)
+
+	// Recovered address must match — same check validate_message does on-chain.
+	recovered, err := crypto.SigToPub(msgHash, append(append([]byte{}, sig...), recoveryID))
+	require.NoError(t, err)
+	assert.Equal(t, tssAddr[:], crypto.PubkeyToAddress(*recovered).Bytes())
+
+	ixData := buildPC20ExportIxData(sourceAsset, meta)
+	instrData := tb.buildWithdrawAndExecuteData(
+		pc20FinalizeInstructionID, txID, utxID, amount, pushAccount,
+		[]byte{}, ixData, gasFee, deadline, sig, recoveryID, msgHash,
+	)
+
+	// Layout: disc(8) + id(1) + txid(32) + utxid(32) + amount(8) + sender(20)
+	//       + wf(4+0) + ix(4+N) + gas(8) + deadline(8) + sig(64) + recov(1) + hash(32)
+	assert.Equal(t, anchorDiscriminator("finalize_universal_tx"), instrData[:8])
+	assert.Equal(t, byte(5), instrData[8])
+	hashOff := 8 + 1 + 32 + 32 + 8 + 20 + 4 + 4 + len(ixData) + 8 + 8 + 64 + 1
+	assert.Equal(t, msgHash, instrData[hashOff:hashOff+32])
+
+	mint, err := tb.derivePC20MintPDA(sourceAsset)
+	require.NoError(t, err)
+	state, err := tb.derivePC20StatePDA(mint)
+	require.NoError(t, err)
+	cea, _, err := solana.FindProgramAddress([][]byte{ceaAuthoritySeed, pushAccount[:]}, tb.gatewayAddress)
+	require.NoError(t, err)
+	configPDA, _, _ := solana.FindProgramAddress([][]byte{configSeed}, tb.gatewayAddress)
+	vaultPDA, _, _ := solana.FindProgramAddress([][]byte{vaultSeed}, tb.gatewayAddress)
+	tssPDA, _, _ := solana.FindProgramAddress([][]byte{tssSeed}, tb.gatewayAddress)
+	executedTxPDA, _, _ := solana.FindProgramAddress([][]byte{executedSubTxSeed, txID[:]}, tb.gatewayAddress)
+
+	accounts, err := tb.buildPC20ExportAccounts(
+		recipient, configPDA, vaultPDA, cea, tssPDA, executedTxPDA,
+		solana.SystemProgramID, recipient, mint, state, false, nil,
+	)
+	require.NoError(t, err)
+	require.Len(t, accounts, 23)
+
+	// Remaining accounts hit the frozen dummy-gateway addresses.
+	assert.Equal(t, "7G5dx7WgVyxvzstv3ZS6ohrb1w17qAkXFXaYyoCewzL1", accounts[20].PublicKey.String())
+	assert.Equal(t, "BCwdEfbVJtt47ukvdX7jW5kzAUKZhjyXveSZvQL3MF8", accounts[21].PublicKey.String())
+	assert.Equal(t, "E5BLLSpQAiyuzw1K6bp4MA2HzHkeKXjwAnvYWPFK8jD4", accounts[22].PublicKey.String())
+}
+
+func TestPC20DummyGateway_RemintMessage(t *testing.T) {
+	// Mirrors gateway-test.ts §17.3: revert after burn — remint signature domain.
+	evmKey, tssAddr, _ := generateTestEVMKey(t)
+	tb := newDummyGatewayBuilder(t)
+
+	sourceAsset := makeSender(0x44)
+	mintPDA, err := tb.derivePC20MintPDA(sourceAsset)
+	require.NoError(t, err)
+	var mint [32]byte
+	copy(mint[:], mintPDA.Bytes())
+	var recipient [32]byte
+	copy(recipient[:], solana.MustPublicKeyFromBase58("Vote111111111111111111111111111111111111111").Bytes())
+
+	msgHash, err := constructPC20RemintTSSMessage(3, "devnet", 1_800_000_000, 2_000_000, makeTxID(0x55), makeTxID(0x66), mint, recipient, 1_000_000, nil, sourceAsset)
+	require.NoError(t, err)
+
+	sig, recoveryID := signMessageHash(t, evmKey, msgHash)
+	recovered, err := crypto.SigToPub(msgHash, append(append([]byte{}, sig...), recoveryID))
+	require.NoError(t, err)
+	assert.Equal(t, tssAddr[:], crypto.PubkeyToAddress(*recovered).Bytes())
+
+	// Domain separation: the same inputs WITHOUT the PC20 suffix (normal SPL revert)
+	// must produce a different hash — a normal revert signature can't be replayed as remint.
+	splMsg, err := tb.constructTSSMessage(3, "devnet", 1_800_000_000, 2_000_000, makeTxID(0x55), makeTxID(0x66), [20]byte{}, [32]byte{}, 1_000_000, [32]byte{}, nil, nil, recipient, mint, nil)
+	require.NoError(t, err)
+	assert.NotEqual(t, splMsg, msgHash)
 }

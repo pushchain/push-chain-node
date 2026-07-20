@@ -16,9 +16,8 @@ import (
 
 // Event type constants matching gateway method names in chain config.
 const (
-	EventTypeSendFunds          = "sendFunds"
-	EventTypeExecuteUniversalTx = "executeUniversalTx"
-	EventTypeRevertUniversalTx  = "revertUniversalTx"
+	EventTypeSendFunds         = "sendFunds"
+	EventTypeRevertUniversalTx = "revertUniversalTx"
 )
 
 // Vault event type constants matching vault method names in chain config.
@@ -28,7 +27,7 @@ const (
 )
 
 // ParseEvent parses a log into a store.Event based on the event type.
-// eventType should be one of: sendFunds, executeUniversalTx, revertUniversalTx.
+// eventType should be one of: sendFunds, revertUniversalTx, finalizeUniversalTx, fundsRescued.
 func ParseEvent(log *types.Log, eventType string, chainID string, logger zerolog.Logger) *store.Event {
 	if len(log.Topics) == 0 {
 		return nil
@@ -37,7 +36,7 @@ func ParseEvent(log *types.Log, eventType string, chainID string, logger zerolog
 	switch eventType {
 	case EventTypeSendFunds:
 		return parseSendFundsEvent(log, chainID, logger)
-	case EventTypeExecuteUniversalTx, EventTypeRevertUniversalTx, EventTypeFinalizeUniversalTx, EventTypeFundsRescued:
+	case EventTypeRevertUniversalTx, EventTypeFinalizeUniversalTx, EventTypeFundsRescued:
 		// All share the same topic layout: Topics[1]=txID, Topics[2]=universalTxID.
 		return parseOutboundObservationEvent(log, chainID, logger)
 	default:
@@ -278,5 +277,3 @@ func parseUniversalTx(event *store.Event, log *types.Log, dataOffset uint64, pay
 
 	finalizeEvent(event, payload, logger)
 }
-
-

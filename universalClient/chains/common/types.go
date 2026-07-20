@@ -111,8 +111,12 @@ type UniversalTx struct {
 // - txID at 1st indexed position (bytes32)
 // - universalTxID at 2nd indexed position (bytes32)
 type OutboundEvent struct {
-	TxID          string `json:"tx_id"`                      // bytes32 hex-encoded (0x...)
-	UniversalTxID string `json:"universal_tx_id"`            // bytes32 hex-encoded (0x...)
-	GasFeeUsed    string `json:"gas_fee_used,omitempty"`     // gas fee used in wei (decimal string)
+	TxID          string `json:"tx_id"`                  // bytes32 hex-encoded (0x...)
+	UniversalTxID string `json:"universal_tx_id"`        // bytes32 hex-encoded (0x...)
+	GasFeeUsed    string `json:"gas_fee_used,omitempty"` // gas fee used in wei (decimal string)
+	// PC20 export only: wrapper token address deployed/minted on the destination
+	// at settlement (observed in the finalize event). Core uses it to flip the
+	// PC20 deploy flag; empty for non-PC20 settlements.
+	Pc20WrapperAddress string `json:"pc20_wrapper_address,omitempty"`
 }
 

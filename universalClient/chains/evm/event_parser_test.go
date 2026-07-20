@@ -220,6 +220,7 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 					eventSignature,     // Topics[0]: event signature
 					txIDBytes,          // Topics[1]: txID (bytes32)
 					universalTxIDBytes, // Topics[2]: universalTxID (bytes32)
+					{},                 // Topics[3]: 3rd indexed field (wrapper/token/recipient)
 				},
 				Data:        []byte{},
 				TxHash:      ethcommon.HexToHash("0xabc123def456"),
@@ -246,12 +247,13 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 			},
 		},
 		{
-			name: "returns nil for log with insufficient topics (only 2)",
+			name: "returns nil for log with only 3 topics (missing 3rd indexed field)",
 			log: &types.Log{
 				Topics: []ethcommon.Hash{
 					eventSignature,
 					txIDBytes,
-					// Missing universalTxID
+					universalTxIDBytes,
+					// Missing 4th topic (3rd indexed field)
 				},
 				Data:        []byte{},
 				TxHash:      ethcommon.HexToHash("0xdef789"),
@@ -288,6 +290,7 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 					eventSignature,
 					ethcommon.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000001"), // txID = 1
 					ethcommon.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000002"), // universalTxID = 2
+					{}, // Topics[3]: 3rd indexed field
 				},
 				Data:        []byte{},
 				TxHash:      ethcommon.HexToHash("0x555666"),
@@ -323,6 +326,46 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 	}
 }
 
+func TestParseOutboundObservation_PC20Wrapper(t *testing.T) {
+	logger := zerolog.New(nil).Level(zerolog.Disabled)
+	chainID := "eip155:1"
+	sig := ethcommon.HexToHash("0xabcd")
+	txID := ethcommon.HexToHash("0x01")
+	utxID := ethcommon.HexToHash("0x02")
+	wrapper := ethcommon.HexToAddress("0xdAC17F958D2ee523a2206206994597C13D831ec7")
+	wrapperTopic := ethcommon.BytesToHash(wrapper.Bytes()) // address left-padded to 32 bytes
+
+	wrapperOf := func(t *testing.T, e *store.Event) string {
+		t.Helper()
+		var ob common.OutboundEvent
+		require.NoError(t, json.Unmarshal(e.EventData, &ob))
+		return ob.Pc20WrapperAddress
+	}
+
+	t.Run("finalize: Topics[3] reported as wrapper", func(t *testing.T) {
+		log := &types.Log{Topics: []ethcommon.Hash{sig, txID, utxID, wrapperTopic}, TxHash: sig}
+		e := ParseEvent(log, EventTypeFinalizeUniversalTx, chainID, logger)
+		require.NotNil(t, e)
+		assert.Equal(t, wrapper.Hex(), wrapperOf(t, e))
+	})
+
+	t.Run("finalize with zero wrapper (PRC20): empty", func(t *testing.T) {
+		log := &types.Log{Topics: []ethcommon.Hash{sig, txID, utxID, {}}, TxHash: sig}
+		e := ParseEvent(log, EventTypeFinalizeUniversalTx, chainID, logger)
+		require.NotNil(t, e)
+		assert.Empty(t, wrapperOf(t, e))
+	})
+
+	t.Run("revert/rescue: Topics[3] (token/to) not treated as wrapper", func(t *testing.T) {
+		log := &types.Log{Topics: []ethcommon.Hash{sig, txID, utxID, wrapperTopic}, TxHash: sig}
+		for _, et := range []string{EventTypeRevertUniversalTx, EventTypeFundsRescued} {
+			e := ParseEvent(log, et, chainID, logger)
+			require.NotNil(t, e)
+			assert.Empty(t, wrapperOf(t, e), et)
+		}
+	})
+}
+
 func TestParseGatewayEvent_OutboundObservation(t *testing.T) {
 	gatewayAddr := ethcommon.HexToAddress("0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb7")
 	outboundTopic := ethcommon.HexToHash("0x9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba")
@@ -348,6 +391,7 @@ func TestParseGatewayEvent_OutboundObservation(t *testing.T) {
 				outboundTopic,
 				ethcommon.HexToHash("0xaaaa000000000000000000000000000000000000000000000000000000000001"), // txID
 				ethcommon.HexToHash("0xbbbb000000000000000000000000000000000000000000000000000000000002"), // universalTxID
+				{}, // 3rd indexed field
 			},
 			Data:        []byte{},
 			TxHash:      ethcommon.HexToHash("0xoutbound123"),

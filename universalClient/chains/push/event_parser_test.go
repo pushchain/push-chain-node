@@ -295,6 +295,49 @@ func TestConvertOutboundToEvent(t *testing.T) {
 	})
 }
 
+func TestConvertOutboundToEvent_PC20AssetAddr(t *testing.T) {
+	entry := &uexecutortypes.PendingOutboundEntry{UniversalTxId: "0xutx"}
+	source := "0xdAC17F958D2ee523a2206206994597C13D831ec7"
+
+	t.Run("PC20 export: asset_addr surfaces the source (mirrors core)", func(t *testing.T) {
+		outbound := &uexecutortypes.OutboundTx{
+			Id:                  "0xexport",
+			DestinationChain:    "eip155:1",
+			Amount:              "1000",
+			ExternalAssetAddr:   "", // empty for PC20 until settlement
+			IsPc20:              true,
+			Pc20ContractAddress: source,
+			TxType:              uexecutortypes.TxType_FUNDS_AND_PAYLOAD,
+		}
+		result, err := convertOutboundToEvent(entry, outbound)
+		require.NoError(t, err)
+
+		var data uexecutortypes.OutboundCreatedEvent
+		require.NoError(t, json.Unmarshal(result.EventData, &data))
+		assert.Equal(t, source, data.AssetAddr, "PC20 asset_addr = source token")
+		assert.True(t, data.IsPc20)
+		assert.Equal(t, source, data.Pc20ContractAddress)
+	})
+
+	t.Run("PRC20: asset_addr stays the external asset", func(t *testing.T) {
+		outbound := &uexecutortypes.OutboundTx{
+			Id:                "0xprc20",
+			DestinationChain:  "eip155:1",
+			Amount:            "1000",
+			ExternalAssetAddr: "0xexternaltoken",
+			IsPc20:            false,
+			TxType:            uexecutortypes.TxType_FUNDS,
+		}
+		result, err := convertOutboundToEvent(entry, outbound)
+		require.NoError(t, err)
+
+		var data uexecutortypes.OutboundCreatedEvent
+		require.NoError(t, json.Unmarshal(result.EventData, &data))
+		assert.Equal(t, "0xexternaltoken", data.AssetAddr)
+		assert.False(t, data.IsPc20)
+	})
+}
+
 func TestConvertFundMigrationEvent(t *testing.T) {
 	t.Run("nil migration returns error", func(t *testing.T) {
 		result, err := convertFundMigrationEvent(nil)

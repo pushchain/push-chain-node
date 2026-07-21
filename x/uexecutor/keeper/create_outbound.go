@@ -306,22 +306,34 @@ func (k Keeper) AttachRescueOutboundFromReceipt(
 			}
 		}
 
-		// Resolve external asset address from PRC20 → token config for the source chain.
-		tokenCfg, err := k.uregistryKeeper.GetTokenConfigByPRC20(
-			ctx,
-			originalUtx.InboundTx.SourceChain,
-			event.PRC20,
-		)
-		if err != nil {
-			return fmt.Errorf("rescue: token config not found for PRC20 %s on %s: %w",
-				event.PRC20, originalUtx.InboundTx.SourceChain, err)
-		}
-
 		// Rescued funds go to the original revert recipient (or the sender as fallback).
 		recipient := originalUtx.InboundTx.Sender
 		if originalUtx.InboundTx.RevertInstructions != nil &&
 			originalUtx.InboundTx.RevertInstructions.FundRecipient != "" {
 			recipient = originalUtx.InboundTx.RevertInstructions.FundRecipient
+		}
+
+		// Resolve the external asset the rescue outbound carries as its token:
+		//   - PC20 return: the external wrapper. Vault.rescueFunds detects it via
+		//     _isPC20Wrapper(token) and re-mints the burnt wrapper, so no PRC20
+		//     registry lookup is needed (and it would fail for a wrapper). Detection
+		//     is on the original inbound's is_pc20, not the rescue event.
+		//   - PRC20: the external source token, resolved from the PRC20 token config.
+		var externalAssetAddr, prc20AssetAddr string
+		if originalUtx.InboundTx.IsPc20 {
+			externalAssetAddr = originalUtx.InboundTx.AssetAddr
+		} else {
+			tokenCfg, err := k.uregistryKeeper.GetTokenConfigByPRC20(
+				ctx,
+				originalUtx.InboundTx.SourceChain,
+				event.PRC20,
+			)
+			if err != nil {
+				return fmt.Errorf("rescue: token config not found for PRC20 %s on %s: %w",
+					event.PRC20, originalUtx.InboundTx.SourceChain, err)
+			}
+			externalAssetAddr = tokenCfg.Address
+			prc20AssetAddr = event.PRC20
 		}
 
 		logIndex := fmt.Sprintf("%d", lg.Index)
@@ -330,8 +342,8 @@ func (k Keeper) AttachRescueOutboundFromReceipt(
 			DestinationChain:  originalUtx.InboundTx.SourceChain,
 			Recipient:         recipient,
 			Amount:            originalUtx.InboundTx.Amount,
-			ExternalAssetAddr: tokenCfg.Address,
-			Prc20AssetAddr:    event.PRC20,
+			ExternalAssetAddr: externalAssetAddr,
+			Prc20AssetAddr:    prc20AssetAddr,
 			Sender:            event.Sender,
 			GasFee:            event.GasFee.String(),
 			GasPrice:          event.GasPrice.String(),
@@ -404,19 +416,19 @@ func (k Keeper) attachOutboundsToUtx(
 			}
 
 			evt, err := types.NewOutboundCreatedEvent(types.OutboundCreatedEvent{
-				UniversalTxId:    utxId,
-				TxID:             outbound.Id,
-				DestinationChain: outbound.DestinationChain,
-				Recipient:        outbound.Recipient,
-				Amount:           outbound.Amount,
-				AssetAddr:        outbound.ExternalAssetAddr,
-				Sender:           outbound.Sender,
-				Payload:          outbound.Payload,
-				GasFee:           outbound.GasFee,
-				GasLimit:         outbound.GasLimit,
-				GasPrice:         outbound.GasPrice,
-				GasToken:         outbound.GasToken,
-				TxType:           outbound.TxType.String(),
+				UniversalTxId:       utxId,
+				TxID:                outbound.Id,
+				DestinationChain:    outbound.DestinationChain,
+				Recipient:           outbound.Recipient,
+				Amount:              outbound.Amount,
+				AssetAddr:           outbound.ExternalAssetAddr,
+				Sender:              outbound.Sender,
+				Payload:             outbound.Payload,
+				GasFee:              outbound.GasFee,
+				GasLimit:            outbound.GasLimit,
+				GasPrice:            outbound.GasPrice,
+				GasToken:            outbound.GasToken,
+				TxType:              outbound.TxType.String(),
 				PcTxHash:            pcTxHash,
 				LogIndex:            logIndex,
 				RevertMsg:           revertMsg,

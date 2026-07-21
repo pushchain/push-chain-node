@@ -597,6 +597,93 @@ func (k Keeper) CallVaultPC20RevertExport(
 	)
 }
 
+// CallVaultPC20Unlock releases locked Push-native tokens from VaultPC20 to the
+// recipient on a PC20 return (the wrapper was burned on the source chain). It is
+// the inbound counterpart of CallVaultPC20RevertExport: same custody vault, but
+// unlock (return) rather than revertExport (failed export). subTxId is the
+// universal tx id — VaultPC20's single-shot replay guard.
+func (k Keeper) CallVaultPC20Unlock(
+	ctx sdk.Context,
+	subTxId common.Hash,
+	token, recipient common.Address,
+	amount *big.Int,
+) (*evmtypes.MsgEthereumTxResponse, error) {
+	vaultAddr := uregistrytypes.SYSTEM_CONTRACTS["VAULT_PC20"].Address
+	if vaultAddr == "" {
+		return nil, fmt.Errorf("VAULT_PC20 system contract is not registered")
+	}
+
+	abi, err := types.ParseVaultPC20ABI()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse VaultPC20 ABI")
+	}
+
+	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
+
+	nonce, err := k.GetModuleAccountNonce(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := k.IncrementModuleAccountNonce(ctx); err != nil {
+		return nil, err
+	}
+
+	return k.evmKeeper.DerivedEVMCall(
+		ctx,
+		abi,
+		ueModuleAccAddress,             // sender: module account
+		common.HexToAddress(vaultAddr), // destination: VaultPC20
+		big.NewInt(0),
+		nil,
+		true,   // commit
+		false,  // gasless = false (gas emitted in receipt)
+		true,   // module sender
+		&nonce, // manual nonce of module
+		"unlock",
+		subTxId,
+		token,
+		amount,
+		recipient,
+	)
+}
+
+// CallUniversalCoreGetPC20Source resolves the Push-native source asset for a PC20
+// wrapper on a given destination chain via UniversalCore's reverse registry
+// (pc20SourceByWrapper, populated by setWrapperDeployed on export). It is a view
+// call. known is false when Push never recorded a wrapper for that pair, in which
+// case the return cannot be resolved and must be reverted.
+func (k Keeper) CallUniversalCoreGetPC20Source(
+	ctx sdk.Context,
+	wrapper common.Address,
+	destChain string,
+) (source common.Address, known bool, err error) {
+	handlerAddr := common.HexToAddress(uregistrytypes.SYSTEM_CONTRACTS["UNIVERSAL_CORE"].Address)
+
+	abi, err := types.ParseUniversalCoreABI()
+	if err != nil {
+		return common.Address{}, false, errors.Wrap(err, "failed to parse UniversalCore ABI")
+	}
+
+	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
+
+	receipt, err := k.evmKeeper.CallEVM(ctx, k.evmKeeper.NewStateDB(ctx), abi, ueModuleAccAddress, handlerAddr, false, false, nil, "getPC20Source", wrapper, destChain)
+	if err != nil {
+		return common.Address{}, false, errors.Wrap(err, "failed to call getPC20Source")
+	}
+
+	results, err := abi.Methods["getPC20Source"].Outputs.Unpack(receipt.Ret)
+	if err != nil {
+		return common.Address{}, false, errors.Wrap(err, "failed to unpack getPC20Source result")
+	}
+	if len(results) != 2 {
+		return common.Address{}, false, fmt.Errorf("unexpected getPC20Source result arity: %d", len(results))
+	}
+
+	source = results[0].(common.Address)
+	known = results[1].(bool)
+	return source, known, nil
+}
+
 // CallUniversalCoreSetWrapperDeployed flips the PC20 deploy flag for
 // (sourceAsset, destChain) in UniversalCore's registry after a confirmed export
 // settlement, so subsequent exports skip the one-time wrapper-deploy gas. The

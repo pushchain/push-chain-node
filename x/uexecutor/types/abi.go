@@ -265,6 +265,19 @@ const UNIVERSAL_CORE_ABI = `[
     },
     {
       "type": "function",
+      "name": "getPC20Source",
+      "inputs": [
+        { "name": "wrapper", "type": "address", "internalType": "address" },
+        { "name": "destChain", "type": "string", "internalType": "string" }
+      ],
+      "outputs": [
+        { "name": "sourceAsset", "type": "address", "internalType": "address" },
+        { "name": "known", "type": "bool", "internalType": "bool" }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "depositPRC20WithAutoSwap",
       "inputs": [
         { "name": "prc20", "type": "address", "internalType": "address" },
@@ -891,6 +904,18 @@ const VAULT_PC20_ABI = `[
         { "name": "token", "type": "address", "internalType": "address" },
         { "name": "amount", "type": "uint256", "internalType": "uint256" },
         { "name": "revertRecipient", "type": "address", "internalType": "address" }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "unlock",
+      "inputs": [
+        { "name": "subTxId", "type": "bytes32", "internalType": "bytes32" },
+        { "name": "token", "type": "address", "internalType": "address" },
+        { "name": "amount", "type": "uint256", "internalType": "uint256" },
+        { "name": "recipient", "type": "address", "internalType": "address" }
       ],
       "outputs": [],
       "stateMutability": "nonpayable"

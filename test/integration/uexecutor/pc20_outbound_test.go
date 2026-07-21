@@ -265,7 +265,8 @@ func TestPC20Export_OutboundCreation(t *testing.T) {
 		}
 		require.NotNil(t, attrs, "expected an outbound_created event flagged is_pc20")
 		require.Equal(t, pc20SourceAsset.Hex(), attrs["pc20_contract_address"])
-		require.Empty(t, attrs["asset_addr"])
+		// asset_addr surfaces the PC20 source in the event (the wrapper isn't known yet).
+		require.Equal(t, pc20SourceAsset.Hex(), attrs["asset_addr"])
 	})
 
 	t.Run("one receipt with both a PC20 and a PRC20 log routes each independently", func(t *testing.T) {

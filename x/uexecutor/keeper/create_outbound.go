@@ -415,13 +415,21 @@ func (k Keeper) attachOutboundsToUtx(
 				logIndex = outbound.PcTx.LogIndex
 			}
 
+			// For a PC20 export the destination wrapper isn't known until settlement, so
+			// external_asset_addr is empty; surface the Push-native source
+			// (pc20_contract_address) as the event's asset_addr. PRC20 keeps its external asset.
+			assetAddr := outbound.ExternalAssetAddr
+			if outbound.IsPc20 {
+				assetAddr = outbound.Pc20ContractAddress
+			}
+
 			evt, err := types.NewOutboundCreatedEvent(types.OutboundCreatedEvent{
 				UniversalTxId:       utxId,
 				TxID:                outbound.Id,
 				DestinationChain:    outbound.DestinationChain,
 				Recipient:           outbound.Recipient,
 				Amount:              outbound.Amount,
-				AssetAddr:           outbound.ExternalAssetAddr,
+				AssetAddr:           assetAddr,
 				Sender:              outbound.Sender,
 				Payload:             outbound.Payload,
 				GasFee:              outbound.GasFee,

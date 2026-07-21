@@ -210,6 +210,12 @@ func (k Keeper) flipPC20WrapperDeployed(ctx sdk.Context, outbound *types.Outboun
 	if obs.Pc20WrapperAddress == "" {
 		return
 	}
+	// Record the destination wrapper as the settled outbound's external asset.
+	// asset_addr was empty at creation because the wrapper address is not known
+	// until settlement; for a PC20 export it is the destination-chain asset. Done
+	// before the best-effort setWrapperDeployed call so the backfill persists even
+	// if that registry write reverts.
+	outbound.ExternalAssetAddr = obs.Pc20WrapperAddress
 	resp, err := k.CallUniversalCoreSetWrapperDeployed(
 		ctx,
 		common.HexToAddress(outbound.Pc20ContractAddress),

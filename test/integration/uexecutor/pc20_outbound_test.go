@@ -551,6 +551,9 @@ func TestPC20Export_SuccessfulSettlement(t *testing.T) {
 		require.Equal(t, uexecutortypes.Status_OBSERVED, got.OutboundStatus)
 		require.NotNil(t, got.ObservedTx)
 		require.True(t, got.ObservedTx.Success)
+		// The destination wrapper is backfilled into asset_addr on settlement, even
+		// though the best-effort setWrapperDeployed call reverts on the 0xC0 handler.
+		require.Equal(t, "0x00000000000000000000000000000000deadbeef", got.ExternalAssetAddr)
 	})
 
 	t.Run("repeat export with no new wrapper settles cleanly (setWrapperDeployed skipped)", func(t *testing.T) {
@@ -570,5 +573,8 @@ func TestPC20Export_SuccessfulSettlement(t *testing.T) {
 		require.Equal(t, uexecutortypes.Status_OBSERVED, got.OutboundStatus)
 		require.NotNil(t, got.ObservedTx)
 		require.True(t, got.ObservedTx.Success)
+		// No wrapper in the observation, so nothing to backfill: asset_addr stays
+		// empty (mutateSeededOutboundToPC20 cleared it).
+		require.Empty(t, got.ExternalAssetAddr)
 	})
 }

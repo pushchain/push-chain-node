@@ -50,6 +50,16 @@ func (p *Inbound) NormalizeForTxType() error {
 		// Core validator decodes from raw_payload.
 		p.UniversalPayload = nil
 
+		// Route by the leading magic selector before decoding: a PC20 return (burn
+		// wrapper on the source chain -> unlock the locked native on Push) is flagged
+		// here and its selector stripped, so only the user payload is decoded and
+		// executed. An unrecognised/absent selector takes the PRC20 path unchanged.
+		if p.RawPayload != "" {
+			isPC20, userPayload := RouteInboundPayload(p.RawPayload)
+			p.IsPc20 = isPC20
+			p.RawPayload = userPayload
+		}
+
 		// Decode raw_payload → universal_payload
 		if p.RawPayload != "" {
 			decoded, err := DecodeRawPayload(p.RawPayload, p.SourceChain)

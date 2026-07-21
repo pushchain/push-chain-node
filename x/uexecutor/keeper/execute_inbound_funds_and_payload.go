@@ -9,6 +9,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pushchain/push-chain-node/utils"
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
@@ -195,7 +196,11 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 		var prc20Addr common.Address
 		var resolveErr error
 		if utx.InboundTx.IsPc20 {
-			source, known, srcErr := k.CallUniversalCoreGetPC20Source(sdkCtx, common.HexToAddress(utx.InboundTx.AssetAddr), utx.InboundTx.SourceChain)
+			wrapper, wErr := utils.AddressToBytes32(utx.InboundTx.SourceChain, utx.InboundTx.AssetAddr)
+			source, known, srcErr := common.Address{}, false, wErr
+			if wErr == nil {
+				source, known, srcErr = k.CallUniversalCoreGetPC20Source(sdkCtx, wrapper, utx.InboundTx.SourceChain)
+			}
 			switch {
 			case srcErr != nil:
 				resolveErr = fmt.Errorf("PC20 source lookup failed: %w", srcErr)

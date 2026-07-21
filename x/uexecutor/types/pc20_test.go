@@ -54,7 +54,7 @@ func TestVaultPC20ABI_RevertExportPacks(t *testing.T) {
 }
 
 // The setWrapperDeployed method added to the UniversalCore ABI must pack with
-// (address, string, address).
+// (address sourceAsset, string destChain, bytes32 wrapper).
 func TestUniversalCoreABI_SetWrapperDeployedPacks(t *testing.T) {
 	a, err := types.ParseUniversalCoreABI()
 	require.NoError(t, err)
@@ -63,7 +63,7 @@ func TestUniversalCoreABI_SetWrapperDeployedPacks(t *testing.T) {
 		"setWrapperDeployed",
 		common.HexToAddress("0xdAC17F958D2ee523a2206206994597C13D831ec7"),
 		"eip155:11155111",
-		common.HexToAddress("0x1111111111111111111111111111111111111111"),
+		common.HexToHash("0x0000000000000000000000001111111111111111111111111111111111111111"),
 	)
 	require.NoError(t, err)
 }
@@ -116,7 +116,7 @@ func TestVaultPC20ABI_UnlockPacks(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// getPC20Source must pack its inputs (address wrapper, string destChain) and
+// getPC20Source must pack its inputs (bytes32 wrapper, string destChain) and
 // round-trip its outputs (address sourceAsset, bool known).
 func TestUniversalCoreABI_GetPC20SourcePacks(t *testing.T) {
 	a, err := types.ParseUniversalCoreABI()
@@ -124,7 +124,7 @@ func TestUniversalCoreABI_GetPC20SourcePacks(t *testing.T) {
 
 	_, err = a.Pack(
 		"getPC20Source",
-		common.HexToAddress("0x2222222222222222222222222222222222222222"),
+		common.HexToHash("0x0000000000000000000000002222222222222222222222222222222222222222"),
 		"eip155:11155111",
 	)
 	require.NoError(t, err)

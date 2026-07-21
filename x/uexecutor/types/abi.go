@@ -258,7 +258,7 @@ const UNIVERSAL_CORE_ABI = `[
       "inputs": [
         { "name": "sourceAsset", "type": "address", "internalType": "address" },
         { "name": "destChain", "type": "string", "internalType": "string" },
-        { "name": "wrapper", "type": "address", "internalType": "address" }
+        { "name": "wrapper", "type": "bytes32", "internalType": "bytes32" }
       ],
       "outputs": [],
       "stateMutability": "nonpayable"
@@ -267,7 +267,7 @@ const UNIVERSAL_CORE_ABI = `[
       "type": "function",
       "name": "getPC20Source",
       "inputs": [
-        { "name": "wrapper", "type": "address", "internalType": "address" },
+        { "name": "wrapper", "type": "bytes32", "internalType": "bytes32" },
         { "name": "destChain", "type": "string", "internalType": "string" }
       ],
       "outputs": [

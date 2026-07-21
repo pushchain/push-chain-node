@@ -8,6 +8,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pushchain/push-chain-node/utils"
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
@@ -216,11 +217,26 @@ func (k Keeper) flipPC20WrapperDeployed(ctx sdk.Context, outbound *types.Outboun
 	// before the best-effort setWrapperDeployed call so the backfill persists even
 	// if that registry write reverts.
 	outbound.ExternalAssetAddr = obs.Pc20WrapperAddress
+
+	// The wrapper lives on the destination chain (EVM or SVM); encode it to the
+	// bytes32 key UniversalCore stores. A malformed wrapper is a settlement/observation
+	// bug, so log and skip — best-effort, like a setWrapperDeployed revert.
+	wrapper, err := utils.AddressToBytes32(outbound.DestinationChain, obs.Pc20WrapperAddress)
+	if err != nil {
+		k.Logger().Error("PC20 setWrapperDeployed skipped — invalid wrapper address",
+			"outbound_id", outbound.Id,
+			"dest_chain", outbound.DestinationChain,
+			"wrapper", obs.Pc20WrapperAddress,
+			"error", err.Error(),
+		)
+		return
+	}
+
 	resp, err := k.CallUniversalCoreSetWrapperDeployed(
 		ctx,
 		common.HexToAddress(outbound.Pc20ContractAddress),
 		outbound.DestinationChain,
-		common.HexToAddress(obs.Pc20WrapperAddress),
+		wrapper,
 	)
 	if err != nil {
 		k.Logger().Error("PC20 setWrapperDeployed failed — wrapper->source mapping not recorded",

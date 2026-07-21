@@ -7,6 +7,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	vmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pushchain/push-chain-node/utils"
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
@@ -61,7 +62,14 @@ func (k Keeper) unlockPC20(
 	amountStr string,
 	universalTxId string,
 ) (*vmtypes.MsgEthereumTxResponse, error) {
-	source, known, err := k.CallUniversalCoreGetPC20Source(ctx, common.HexToAddress(wrapperAddr), sourceChain)
+	// The wrapper arrives in the source chain's native format (EVM hex / SVM base58);
+	// encode it to the bytes32 key UniversalCore uses for the reverse lookup.
+	wrapper, err := utils.AddressToBytes32(sourceChain, wrapperAddr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid PC20 wrapper %s on %s: %w", wrapperAddr, sourceChain, err)
+	}
+
+	source, known, err := k.CallUniversalCoreGetPC20Source(ctx, wrapper, sourceChain)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve PC20 source for %s on %s: %w", wrapperAddr, sourceChain, err)
 	}

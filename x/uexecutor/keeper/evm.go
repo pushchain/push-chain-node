@@ -654,7 +654,7 @@ func (k Keeper) CallVaultPC20Unlock(
 // case the return cannot be resolved and must be reverted.
 func (k Keeper) CallUniversalCoreGetPC20Source(
 	ctx sdk.Context,
-	wrapper common.Address,
+	wrapper common.Hash,
 	destChain string,
 ) (source common.Address, known bool, err error) {
 	handlerAddr := common.HexToAddress(uregistrytypes.SYSTEM_CONTRACTS["UNIVERSAL_CORE"].Address)
@@ -694,7 +694,7 @@ func (k Keeper) CallUniversalCoreSetWrapperDeployed(
 	ctx sdk.Context,
 	sourceAsset common.Address,
 	destChain string,
-	wrapper common.Address,
+	wrapper common.Hash,
 ) (*evmtypes.MsgEthereumTxResponse, error) {
 	handlerAddr := common.HexToAddress(uregistrytypes.SYSTEM_CONTRACTS["UNIVERSAL_CORE"].Address)
 

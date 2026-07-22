@@ -8,6 +8,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/require"
 
 	"github.com/pushchain/push-chain-node/app"
@@ -222,4 +223,177 @@ func TestPC20Roundtrip_UnlockReplayGuard(t *testing.T) {
 		require.True(t, resp2.Failed(), "replayed unlock must revert (isExecuted guard)")
 	}
 	require.Equal(t, amount, erc20BalanceOf(t, chainApp, ctx, pc20SourceAsset, recipient), "replay must not transfer again")
+}
+
+// TestPC20Roundtrip_FullExportThenReturn is the crown-jewel end-to-end: one app drives
+// a real PC20 export settlement (which writes the wrapper->source mapping into the real
+// UniversalCore via the settlement path) and then a real return that resolves *that*
+// recorded mapping through getPC20Source and releases the locked token via VaultPC20.unlock.
+// The return consumes exactly what the export wrote — not a directly-seeded mapping.
+func TestPC20Roundtrip_FullExportThenReturn(t *testing.T) {
+	chainApp, ctx, vals, inbound, coreVals, ueaAddr := setupInboundInitiatedOutboundTest(t, 4)
+
+	// 1) Settle the seeded inbound with the DEFAULT UniversalCore (its PRC20 deposit needs
+	// the stock 0xC0), producing the export outbound we will convert to PC20.
+	for i := 0; i < 3; i++ {
+		valAddr, err := sdk.ValAddressFromBech32(coreVals[i].OperatorAddress)
+		require.NoError(t, err)
+		require.NoError(t, utils.ExecVoteInbound(t, ctx, chainApp, vals[i], sdk.AccAddress(valAddr).String(), inbound))
+	}
+	utxId := uexecutortypes.GetInboundUniversalTxKey(*inbound)
+	utx, found, err := chainApp.UexecutorKeeper.GetUniversalTx(ctx, utxId)
+	require.NoError(t, err)
+	require.True(t, found)
+	require.NotEmpty(t, utx.OutboundTx, "seeded inbound must have created an export outbound")
+	ob := utx.OutboundTx[0]
+
+	// 2) Swap in the real PC20 UniversalCore + a funded VaultPC20 for the export settlement
+	// and the return.
+	deployUniversalCorePC20(t, chainApp, ctx)
+	vault := registerAndDeployVaultPC20(t, chainApp, ctx)
+	amount, ok := new(big.Int).SetString(inbound.Amount, 10)
+	require.True(t, ok)
+	fundVaultForPC20(t, chainApp, ctx, vault, pc20SourceAsset, amount)
+
+	// 3) EXPORT settlement records the wrapper->source mapping through the real chain path
+	// (handleSuccessfulOutbound -> flipPC20WrapperDeployed -> setWrapperDeployed).
+	const wrapper = "0x00000000000000000000000000000000cafeBabe"
+	mutateSeededOutboundToPC20(t, chainApp, ctx, utxId, ob, uexecutortypes.TxType_FUNDS_AND_PAYLOAD)
+	castPC20SettlementVotes(t, ctx, chainApp, vals, coreVals, utxId, ob, true, wrapper)
+
+	wrapperB32, err := chainutils.AddressToBytes32(ob.DestinationChain, wrapper)
+	require.NoError(t, err)
+	src, known, err := chainApp.UexecutorKeeper.CallUniversalCoreGetPC20Source(ctx, wrapperB32, ob.DestinationChain)
+	require.NoError(t, err)
+	require.True(t, known, "the export settlement must have recorded the wrapper->source mapping")
+	require.Equal(t, pc20SourceAsset, src)
+
+	// 4) RETURN reads THAT recorded mapping and unlocks to the UEA. Same owner as the export
+	// leg -> same already-deployed UEA; a fresh tx hash -> a distinct inbound ballot.
+	ret := &uexecutortypes.Inbound{
+		SourceChain:        ob.DestinationChain,
+		TxHash:             "0xpc20fullroundtripreturn01",
+		Sender:             inbound.Sender,
+		Recipient:          inbound.Sender,
+		Amount:             inbound.Amount,
+		AssetAddr:          wrapper,
+		LogIndex:           "0",
+		TxType:             uexecutortypes.TxType_FUNDS_AND_PAYLOAD,
+		RawPayload:         pc20SelectorPrefixed(t),
+		RevertInstructions: &uexecutortypes.RevertInstructions{FundRecipient: inbound.Sender},
+	}
+	pre := erc20BalanceOf(t, chainApp, ctx, pc20SourceAsset, ueaAddr)
+	for i := 0; i < 3; i++ {
+		valAddr, err := sdk.ValAddressFromBech32(coreVals[i].OperatorAddress)
+		require.NoError(t, err)
+		require.NoError(t, utils.ExecVoteInbound(t, ctx, chainApp, vals[i], sdk.AccAddress(valAddr).String(), ret))
+	}
+	rutx, found, err := chainApp.UexecutorKeeper.GetUniversalTx(ctx, uexecutortypes.GetInboundUniversalTxKey(*ret))
+	require.NoError(t, err)
+	require.True(t, found)
+	require.True(t, rutx.InboundTx.IsPc20, "return must be flagged PC20")
+	require.Nil(t, hasInboundRevert(rutx), "resolving the export-recorded mapping must unlock, not revert")
+
+	post := erc20BalanceOf(t, chainApp, ctx, pc20SourceAsset, ueaAddr)
+	require.Equal(t, amount, new(big.Int).Sub(post, pre),
+		"return must release the source token to the UEA from the export-recorded mapping")
+}
+
+// TestPC20Roundtrip_InboundUnknownWrapperReverts proves the real-contract negative path:
+// a PC20 return for a wrapper the real UniversalCore has no mapping for -> getPC20Source
+// returns known=false -> unlockPC20 errors -> an INBOUND_REVERT is created.
+func TestPC20Roundtrip_InboundUnknownWrapperReverts(t *testing.T) {
+	chainApp, ctx, vals, inbound, coreVals, _ := setupInboundInitiatedOutboundTest(t, 4)
+	deployUniversalCorePC20(t, chainApp, ctx)
+	// No mapping seeded and no vault funded: getPC20Source fails before unlock is reached.
+
+	inbound.AssetAddr = "0x00000000000000000000000000000000feedFace"
+	inbound.IsCEA = false
+	inbound.UniversalPayload = nil
+	inbound.RawPayload = pc20SelectorPrefixed(t)
+
+	for i := 0; i < 3; i++ {
+		valAddr, err := sdk.ValAddressFromBech32(coreVals[i].OperatorAddress)
+		require.NoError(t, err)
+		require.NoError(t, utils.ExecVoteInbound(t, ctx, chainApp, vals[i], sdk.AccAddress(valAddr).String(), inbound))
+	}
+
+	utx, found, err := chainApp.UexecutorKeeper.GetUniversalTx(ctx, uexecutortypes.GetInboundUniversalTxKey(*inbound))
+	require.NoError(t, err)
+	require.True(t, found)
+	require.True(t, utx.InboundTx.IsPc20, "return must be flagged PC20")
+	require.NotNil(t, hasInboundRevert(utx),
+		"an unmapped wrapper (getPC20Source known=false) must produce an INBOUND_REVERT")
+}
+
+// TestPC20Roundtrip_CEAInboundUnlockReleases proves the CEA return path: when the recipient
+// is a UEA, a PC20 return resolves the source and unlocks the locked token to that recipient
+// UEA — the CEA branch of creditInboundFunds, end to end against the real contracts.
+func TestPC20Roundtrip_CEAInboundUnlockReleases(t *testing.T) {
+	chainApp, ctx, vals, inbound, coreVals, ueaAddr := setupInboundInitiatedOutboundTest(t, 4)
+	deployUniversalCorePC20(t, chainApp, ctx)
+	vault := registerAndDeployVaultPC20(t, chainApp, ctx)
+
+	const wrapper = "0x00000000000000000000000000000000cafeBabe"
+	amount, ok := new(big.Int).SetString(inbound.Amount, 10)
+	require.True(t, ok)
+	fundVaultForPC20(t, chainApp, ctx, vault, pc20SourceAsset, amount)
+
+	wrapperB32, err := chainutils.AddressToBytes32(inbound.SourceChain, wrapper)
+	require.NoError(t, err)
+	_, err = chainApp.UexecutorKeeper.CallUniversalCoreSetWrapperDeployed(ctx, pc20SourceAsset, inbound.SourceChain, wrapperB32)
+	require.NoError(t, err)
+
+	// CEA return addressed directly to the deployed UEA.
+	inbound.AssetAddr = wrapper
+	inbound.IsCEA = true
+	inbound.Recipient = ueaAddr.Hex()
+	inbound.UniversalPayload = nil
+	inbound.RawPayload = pc20SelectorPrefixed(t)
+
+	pre := erc20BalanceOf(t, chainApp, ctx, pc20SourceAsset, ueaAddr)
+	for i := 0; i < 3; i++ {
+		valAddr, err := sdk.ValAddressFromBech32(coreVals[i].OperatorAddress)
+		require.NoError(t, err)
+		require.NoError(t, utils.ExecVoteInbound(t, ctx, chainApp, vals[i], sdk.AccAddress(valAddr).String(), inbound))
+	}
+
+	utx, found, err := chainApp.UexecutorKeeper.GetUniversalTx(ctx, uexecutortypes.GetInboundUniversalTxKey(*inbound))
+	require.NoError(t, err)
+	require.True(t, found)
+	require.True(t, utx.InboundTx.IsPc20, "CEA return must be flagged PC20")
+
+	post := erc20BalanceOf(t, chainApp, ctx, pc20SourceAsset, ueaAddr)
+	require.Equal(t, amount, new(big.Int).Sub(post, pre),
+		"CEA PC20 return must unlock the source token to the recipient UEA")
+}
+
+// TestPC20Roundtrip_SVMWrapperMapping proves the Solana wrapper path against the real
+// UniversalCore: a 32-byte SVM pubkey (base58, the format uv sends) is converted to bytes32
+// by the chain, stored via setWrapperDeployed, and resolves back to the source via
+// getPC20Source — verifying the real contract round-trips the full 32-byte SVM key.
+func TestPC20Roundtrip_SVMWrapperMapping(t *testing.T) {
+	chainApp, ctx := pc20AppWithOutbound(t, true)
+	deployUniversalCorePC20(t, chainApp, ctx)
+
+	const solChain = "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"
+
+	// A 32-byte Solana pubkey in the base58 form uv reports.
+	raw := make([]byte, 32)
+	for i := range raw {
+		raw[i] = byte(i + 1)
+	}
+	b58wrapper := base58.Encode(raw)
+
+	wrapperB32, err := chainutils.AddressToBytes32(solChain, b58wrapper)
+	require.NoError(t, err)
+	require.Equal(t, raw, wrapperB32.Bytes(), "SVM wrapper must map to the full 32-byte pubkey")
+
+	_, err = chainApp.UexecutorKeeper.CallUniversalCoreSetWrapperDeployed(ctx, pc20SourceAsset, solChain, wrapperB32)
+	require.NoError(t, err)
+
+	src, known, err := chainApp.UexecutorKeeper.CallUniversalCoreGetPC20Source(ctx, wrapperB32, solChain)
+	require.NoError(t, err)
+	require.True(t, known, "the real UniversalCore must store/return the 32-byte SVM wrapper key")
+	require.Equal(t, pc20SourceAsset, src, "SVM wrapper must resolve back to the exported source")
 }

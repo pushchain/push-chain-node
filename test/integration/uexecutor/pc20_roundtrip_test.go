@@ -71,8 +71,6 @@ func fundVaultForPC20(t *testing.T, chainApp *app.ChainApp, ctx sdk.Context, vau
 // mapping, getPC20Source actually resolves it, and VaultPC20.unlock actually releases
 // the locked token.
 
-const pc20VaultAddr = "0x00000000000000000000000000000000000000C2"
-
 // deployUniversalCorePC20 SetCodes the real UniversalCore (PC20 methods) over 0xC0.
 func deployUniversalCorePC20(t *testing.T, chainApp *app.ChainApp, ctx sdk.Context) {
 	t.Helper()
@@ -80,14 +78,12 @@ func deployUniversalCorePC20(t *testing.T, chainApp *app.ChainApp, ctx sdk.Conte
 	utils.DeployContract(t, chainApp, ctx, coreAddr, utils.UNIVERSAL_CORE_PC20_BYTECODE)
 }
 
-// registerAndDeployVaultPC20 registers VAULT_PC20 in SYSTEM_CONTRACTS test-only (with
-// cleanup, so production stays fail-fast and other tests still see it unregistered)
-// and SetCodes the real VaultPC20 there.
+// registerAndDeployVaultPC20 SetCodes the real VaultPC20 at its registered
+// system-contract address (VAULT_PC20 = 0xB1). The registration already lives in
+// SYSTEM_CONTRACTS, so this only installs the bytecode there.
 func registerAndDeployVaultPC20(t *testing.T, chainApp *app.ChainApp, ctx sdk.Context) common.Address {
 	t.Helper()
-	vault := common.HexToAddress(pc20VaultAddr)
-	uregistrytypes.SYSTEM_CONTRACTS["VAULT_PC20"] = uregistrytypes.ContractAddresses{Address: vault.Hex()}
-	t.Cleanup(func() { delete(uregistrytypes.SYSTEM_CONTRACTS, "VAULT_PC20") })
+	vault := common.HexToAddress(uregistrytypes.SYSTEM_CONTRACTS["VAULT_PC20"].Address)
 	utils.DeployContract(t, chainApp, ctx, vault, utils.VAULT_PC20_TEST_BYTECODE)
 	return vault
 }

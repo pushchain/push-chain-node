@@ -137,13 +137,13 @@ func TestReservedSlots_AdminAddressFormatStringIsExactly20Bytes(t *testing.T) {
 }
 
 // TestReservedSlots_BytecodeIsCaseInsensitiveAcrossSlots is the answer to the
-// "did the F2 vs f2 mixed casing in RESERVED_0 / RESERVED_1 cause a checksum
+// "did the F2 vs f2 mixed casing in VAULT_PC / VAULT_PC20 cause a checksum
 // problem?" question. EVM bytecode is raw bytes; hex case is a source-text
-// convention only. This test proves it by re-encoding RESERVED_0's PROXY_RUNTIME
+// convention only. This test proves it by re-encoding VAULT_PC's PROXY_RUNTIME
 // in three different cases (lower, upper, mixed) and asserting they all decode
 // to byte-identical slices and produce identical keccak256 hashes.
 func TestReservedSlots_BytecodeIsCaseInsensitiveAcrossSlots(t *testing.T) {
-	src := BYTECODE["RESERVED_0"].PROXY_RUNTIME
+	src := BYTECODE["VAULT_PC"].PROXY_RUNTIME
 	require.NotEmpty(t, src)
 
 	lowerHex := strings.ToLower(common.Bytes2Hex(src))

@@ -474,9 +474,15 @@ func castPC20SettlementVotes(
 }
 
 func TestPC20Export_FailedSettlement(t *testing.T) {
-	t.Run("PC20 failed vote releases via revertExport and aborts on missing VaultPC20", func(t *testing.T) {
+	t.Run("PC20 failed vote releases the locked native via revertExport (REVERTED, not re-mint)", func(t *testing.T) {
 		chainApp, ctx, vals, utxId, ob, coreVals := setupOutboundVotingTest(t, 4)
+		deployUniversalCorePC20(t, chainApp, ctx)
+		vault := registerAndDeployVaultPC20(t, chainApp, ctx)
 		mutateSeededOutboundToPC20(t, chainApp, ctx, utxId, ob, uexecutortypes.TxType_FUNDS_AND_PAYLOAD)
+
+		amount, ok := new(big.Int).SetString(ob.Amount, 10)
+		require.True(t, ok)
+		fundVaultForPC20(t, chainApp, ctx, vault, pc20SourceAsset, amount)
 
 		castPC20SettlementVotes(t, ctx, chainApp, vals, coreVals, utxId, ob, false, "")
 
@@ -485,23 +491,27 @@ func TestPC20Export_FailedSettlement(t *testing.T) {
 		require.True(t, found)
 		got := utx.OutboundTx[0]
 
-		// revertExport fails fast because VAULT_PC20 is not registered → ABORTED,
-		// with the VaultPC20 guard surfaced in both the abort reason and the
-		// recorded revert execution. Proof it took the PC20 release path.
-		require.Equal(t, uexecutortypes.Status_ABORTED, got.OutboundStatus)
-		require.Contains(t, got.AbortReason, "VAULT_PC20 system contract is not registered")
+		// VAULT_PC20 (0xB1) is registered, so revertExport releases the locked native
+		// and the outbound ends REVERTED via the PC20 release path — PcRevertExecution
+		// records it (contrast: the PRC20 re-mint path below leaves it nil).
+		require.Equal(t, uexecutortypes.Status_REVERTED, got.OutboundStatus)
 		require.NotNil(t, got.PcRevertExecution)
-		require.Equal(t, "FAILED", got.PcRevertExecution.Status)
-		require.Contains(t, got.PcRevertExecution.ErrorMsg, "VAULT_PC20 system contract is not registered")
+		require.Equal(t, "SUCCESS", got.PcRevertExecution.Status)
 	})
 
 	t.Run("PC20 export releases on failure even with a non-funds tx type", func(t *testing.T) {
 		chainApp, ctx, vals, utxId, ob, coreVals := setupOutboundVotingTest(t, 4)
+		deployUniversalCorePC20(t, chainApp, ctx)
+		vault := registerAndDeployVaultPC20(t, chainApp, ctx)
 		// TxType_PAYLOAD sits outside the funds-revert gate; the is_pc20 clause is
 		// what still forces a release. Without that hardening this would skip the
 		// revert entirely and end REVERTED with no PcRevertExecution.
 		mutateSeededOutboundToPC20(t, chainApp, ctx, utxId, ob, uexecutortypes.TxType_PAYLOAD)
 
+		amount, ok := new(big.Int).SetString(ob.Amount, 10)
+		require.True(t, ok)
+		fundVaultForPC20(t, chainApp, ctx, vault, pc20SourceAsset, amount)
+
 		castPC20SettlementVotes(t, ctx, chainApp, vals, coreVals, utxId, ob, false, "")
 
 		utx, found, err := chainApp.UexecutorKeeper.GetUniversalTx(ctx, utxId)
@@ -509,9 +519,11 @@ func TestPC20Export_FailedSettlement(t *testing.T) {
 		require.True(t, found)
 		got := utx.OutboundTx[0]
 
-		require.Equal(t, uexecutortypes.Status_ABORTED, got.OutboundStatus, "locked native must never be stranded on a tx-type gate")
+		// The is_pc20 clause forces the release for a non-funds tx type, and with
+		// VAULT_PC20 registered the revertExport succeeds → REVERTED, release recorded.
+		require.Equal(t, uexecutortypes.Status_REVERTED, got.OutboundStatus, "locked native must never be stranded on a tx-type gate")
 		require.NotNil(t, got.PcRevertExecution, "release was attempted despite the non-funds tx type")
-		require.Contains(t, got.PcRevertExecution.ErrorMsg, "VAULT_PC20 system contract is not registered")
+		require.Equal(t, "SUCCESS", got.PcRevertExecution.Status)
 	})
 
 	t.Run("PRC20 failed vote reverts via re-mint (contrast: not aborted)", func(t *testing.T) {

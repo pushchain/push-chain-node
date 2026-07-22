@@ -2562,7 +2562,9 @@ func buildAndSimulateRescue(t *testing.T, rpcClient *RPCClient, builder *TxBuild
 		copy(revertMint[:], token[:])
 	}
 
-	gasFee := uint64(0)
+	// pc20-3rd-iteration's rescue reimburses relayer gas and enforces
+	// gas_fee >= gas_used (incl. recipient-ATA rent for SPL), so gas_fee must be non-zero.
+	gasFee := uint64(20000000)
 	// 10-minute window past wall-clock; gateway enforces Clock::unix_timestamp <= deadline.
 	deadline := time.Now().Unix() + 600
 	messageHash, err := builder.constructTSSMessage(

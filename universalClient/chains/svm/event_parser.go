@@ -147,26 +147,33 @@ func parseOutboundObservationEvent(log string, signature string, slot uint64, lo
 	txID := "0x" + hex.EncodeToString(decoded[8:40])
 	universalTxID := "0x" + hex.EncodeToString(decoded[40:72])
 
-	// gas_used and the PC20 wrapper exist ONLY on UniversalTxFinalized, which has a
-	// wrapper_address (Pubkey, 32B) right after universal_tx_id:
-	//   disc(8) sub_tx_id(32) universal_tx_id(32) wrapper_address(32) gas_fee(8)
-	//   gas_used(8) ...
-	// The revert/rescue events carry neither, so gasUsed stays 0 rather than reading
-	// bytes from an unrelated field.
-	// TODO: Read gas_used in rescue / revert events once availble
+	// gas_used sits at a different offset per event (the structs diverge after
+	// universal_tx_id). Only UniversalTxFinalized carries wrapper_address.
 	var gasUsed uint64
 	var wrapperAddr string
-	if eventType == EventTypeFinalizeUniversalTx {
-		const wrapperOffset = 8 + 32 + 32            // 72
-		const gasUsedOffset = wrapperOffset + 32 + 8 // 112 (skip wrapper_address + gas_fee)
-		if len(decoded) >= gasUsedOffset+8 {
-			gasUsed = binary.LittleEndian.Uint64(decoded[gasUsedOffset : gasUsedOffset+8])
+	readGasUsed := func(offset int) {
+		if len(decoded) >= offset+8 {
+			gasUsed = binary.LittleEndian.Uint64(decoded[offset : offset+8])
+		}
+	}
+	switch eventType {
+	case EventTypeFinalizeUniversalTx:
+		// ...universal_tx_id(32) wrapper_address(32) gas_fee(8) gas_used(8) ...
+		const wrapperOffset = 8 + 32 + 32 // 72
+		readGasUsed(wrapperOffset + 32 + 8) // 112 (skip wrapper_address + gas_fee)
+		if len(decoded) >= wrapperOffset+32 {
 			var wrap [32]byte
 			copy(wrap[:], decoded[wrapperOffset:wrapperOffset+32])
 			if wrap != ([32]byte{}) { // Pubkey::default() = non-PC20 path, no wrapper
 				wrapperAddr = solana.PublicKeyFromBytes(wrap[:]).String()
 			}
 		}
+	case EventTypeRevertUniversalTx:
+		// ...universal_tx_id(32) revert_recipient(32) token(32) amount(8) gas_used(8) ...
+		readGasUsed(8 + 32 + 32 + 32 + 32 + 8) // 144
+	case EventTypeFundsRescued:
+		// ...universal_tx_id(32) token(32) amount(8) gas_used(8) ...
+		readGasUsed(8 + 32 + 32 + 32 + 8) // 112
 	}
 
 	// Create OutboundEvent payload

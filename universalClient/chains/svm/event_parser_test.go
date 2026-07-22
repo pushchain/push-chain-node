@@ -110,6 +110,28 @@ func buildFinalizePayloadWithToken(txID, universalTxID [32]byte, gasUsed uint64,
 	return data
 }
 
+// buildRevertPayload builds a RevertUniversalTx blob:
+//   disc(8) sub_tx_id(32) universal_tx_id(32) revert_recipient(32) token(32)
+//   amount(8) gas_used(8) revert_instruction...
+func buildRevertPayload(txID, universalTxID [32]byte, gasUsed uint64) []byte {
+	data := make([]byte, 160)
+	copy(data[8:40], txID[:])
+	copy(data[40:72], universalTxID[:])
+	binary.LittleEndian.PutUint64(data[144:152], gasUsed) // gas_used
+	return data
+}
+
+// buildRescuePayload builds a FundsRescued blob:
+//   disc(8) sub_tx_id(32) universal_tx_id(32) token(32) amount(8) gas_used(8)
+//   revert_instruction...
+func buildRescuePayload(txID, universalTxID [32]byte, gasUsed uint64) []byte {
+	data := make([]byte, 128)
+	copy(data[8:40], txID[:])
+	copy(data[40:72], universalTxID[:])
+	binary.LittleEndian.PutUint64(data[112:120], gasUsed) // gas_used
+	return data
+}
+
 func TestBase58ToHex(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -429,36 +451,28 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 		assert.Empty(t, outbound.Pc20WrapperAddress)
 	})
 
-	t.Run("revert event extracts neither wrapper nor gas_used (no such fields)", func(t *testing.T) {
-		var txID, utxID, token [32]byte
-		for i := range token {
-			token[i] = byte(i + 1)
-		}
-		// token non-zero bytes overlap where finalize's gas_used would be — the
-		// revert path must NOT misread them as gas.
-		data := buildFinalizePayloadWithToken(txID, utxID, 5000, token)
+	t.Run("revert event reads gas_used (@144) and no wrapper", func(t *testing.T) {
+		var txID, utxID [32]byte
+		data := buildRevertPayload(txID, utxID, 7777)
 		event := ParseEvent(wrapAsLog(data), signature, 1, 0, EventTypeRevertUniversalTx, chainID, logger)
 		require.NotNil(t, event)
 
 		var outbound common.OutboundEvent
 		require.NoError(t, json.Unmarshal(event.EventData, &outbound))
 		assert.Empty(t, outbound.Pc20WrapperAddress)
-		assert.Equal(t, "0", outbound.GasFeeUsed) // RevertUniversalTx carries no gas_used
+		assert.Equal(t, "7777", outbound.GasFeeUsed)
 	})
 
-	t.Run("rescue event extracts neither wrapper nor gas_used", func(t *testing.T) {
-		var txID, utxID, token [32]byte
-		for i := range token {
-			token[i] = byte(i + 1)
-		}
-		data := buildFinalizePayloadWithToken(txID, utxID, 5000, token)
+	t.Run("rescue event reads gas_used (@112) and no wrapper", func(t *testing.T) {
+		var txID, utxID [32]byte
+		data := buildRescuePayload(txID, utxID, 3333)
 		event := ParseEvent(wrapAsLog(data), signature, 1, 0, EventTypeFundsRescued, chainID, logger)
 		require.NotNil(t, event)
 
 		var outbound common.OutboundEvent
 		require.NoError(t, json.Unmarshal(event.EventData, &outbound))
 		assert.Empty(t, outbound.Pc20WrapperAddress)
-		assert.Equal(t, "0", outbound.GasFeeUsed) // FundsRescued carries no gas_used
+		assert.Equal(t, "3333", outbound.GasFeeUsed)
 	})
 
 	t.Run("returns nil for log without Program data prefix", func(t *testing.T) {

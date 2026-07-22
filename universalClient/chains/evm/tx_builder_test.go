@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"math/big"
+	"os"
 	"testing"
 	"time"
 
@@ -707,7 +708,7 @@ func TestDetermineFunctionNameDefault(t *testing.T) {
 const (
 	bscGatewayAddress = "0x44aFFC61983F4348DdddB886349eb992C061EaC0"
 	bscVaultAddress   = "0xE52AC4f8DD3e0263bDF748F3390cdFA1f02be881"
-	bscSimulateFrom   = "0x05D7386FB3D7cB00e0CFAc5Af3B2EFF6BF37c5f1" // TSS Address (has TSS_ROLE)
+	bscSimulateFrom   = "0x9fed6f778a956244c06a3b905ba45bdb2ec3afea" // TSS EOA (holds TSS_ROLE on the vault)
 	bscPushAccount    = "0x35B84d6848D16415177c64D64504663b998A6ab4" // Push account / origin caller
 	bscRPCURL         = "https://bsc-testnet-rpc.publicnode.com"
 	bscChainID        = int64(97)
@@ -718,7 +719,11 @@ const (
 // setupBSCSimulation creates RPCClient and TxBuilder for BSC testnet simulation tests.
 func setupBSCSimulation(t *testing.T) (*RPCClient, *TxBuilder) {
 	t.Helper()
-	t.Skip("skipping simulation tests") // DELIBERATELY SKIPPING SIMULATION TESTS
+	// Skipped by default (CI never runs these). Run locally against BSC testnet
+	// with RUN_EVM_SIM=1.
+	if os.Getenv("RUN_EVM_SIM") == "" {
+		t.Skip("skipping simulation tests; set RUN_EVM_SIM=1 to run against BSC testnet")
+	}
 	logger := zerolog.Nop()
 	rpcClient, err := NewRPCClient([]string{bscRPCURL}, bscChainID, logger)
 	if err != nil {
@@ -1324,5 +1329,3 @@ func decodeRevertToken(t *testing.T, argsData []byte) ethcommon.Address {
 	require.NoError(t, err)
 	return vals[2].(ethcommon.Address)
 }
-
-

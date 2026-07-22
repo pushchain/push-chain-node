@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/gagliardetto/solana-go"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -86,19 +87,26 @@ func wrapAsLog(data []byte) string {
 	return "Program data: " + base64.StdEncoding.EncodeToString(data)
 }
 
-// buildOutboundPayload builds the minimum 97-byte outbound event data.
-// The audited finalize event surfaces gas_used (offset 80..88) as the value
-// the parser reports as GasFeeUsed; gas_fee (offset 72..80) is the prepaid
-// budget and is skipped. Tests pass `gasUsed` to match what the parser will
-// extract; gas_fee in the payload is left zero.
+// buildOutboundPayload builds a UniversalTxFinalized blob in the current layout.
+// The finalize event surfaces gas_used (offset 112..120) as the value the parser
+// reports as GasFeeUsed; gas_fee (offset 104..112) is the prepaid budget and is
+// skipped. wrapper_address (offset 72..104) is left zero here.
 func buildOutboundPayload(txID [32]byte, universalTxID [32]byte, gasUsed uint64) []byte {
-	data := make([]byte, 97)
-	// discriminator (8 bytes, zeroed is fine)
+	return buildFinalizePayloadWithToken(txID, universalTxID, gasUsed, [32]byte{})
+}
+
+// buildFinalizePayloadWithToken builds a full UniversalTxFinalized blob including
+// the wrapper_address field at offset 72 (the PC20 wrapped mint on export):
+//   disc(8) sub_tx_id(32) universal_tx_id(32) wrapper_address(32) gas_fee(8)
+//   gas_used(8) gas_to_refund(8) ata_created(1) push_account(20) target(32)
+//   token(32) amount(8)
+func buildFinalizePayloadWithToken(txID, universalTxID [32]byte, gasUsed uint64, wrapper [32]byte) []byte {
+	data := make([]byte, 221)
 	copy(data[8:40], txID[:])
 	copy(data[40:72], universalTxID[:])
-	// gas_fee at 72..80 (prepaid budget, left zero in tests)
-	binary.LittleEndian.PutUint64(data[80:88], gasUsed)
-	// gas_to_refund at 88..96 (left zero); ata_created at 96 (left zero)
+	copy(data[72:104], wrapper[:]) // wrapper_address
+	// gas_fee at 104..112 (left zero)
+	binary.LittleEndian.PutUint64(data[112:120], gasUsed) // gas_used
 	return data
 }
 
@@ -396,6 +404,63 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 		assert.Equal(t, "5000", outbound.GasFeeUsed)
 	})
 
+	t.Run("finalize event reports pc20 wrapper from wrapper_address field", func(t *testing.T) {
+		var txID, utxID, token [32]byte
+		for i := range token {
+			token[i] = byte(i + 1)
+		}
+		data := buildFinalizePayloadWithToken(txID, utxID, 5000, token)
+		event := ParseEvent(wrapAsLog(data), signature, 1, 0, EventTypeFinalizeUniversalTx, chainID, logger)
+		require.NotNil(t, event)
+
+		var outbound common.OutboundEvent
+		require.NoError(t, json.Unmarshal(event.EventData, &outbound))
+		assert.Equal(t, solana.PublicKeyFromBytes(token[:]).String(), outbound.Pc20WrapperAddress)
+	})
+
+	t.Run("native SOL finalize (zero token) reports no wrapper", func(t *testing.T) {
+		var txID, utxID, zero [32]byte
+		data := buildFinalizePayloadWithToken(txID, utxID, 5000, zero)
+		event := ParseEvent(wrapAsLog(data), signature, 1, 0, EventTypeFinalizeUniversalTx, chainID, logger)
+		require.NotNil(t, event)
+
+		var outbound common.OutboundEvent
+		require.NoError(t, json.Unmarshal(event.EventData, &outbound))
+		assert.Empty(t, outbound.Pc20WrapperAddress)
+	})
+
+	t.Run("revert event extracts neither wrapper nor gas_used (no such fields)", func(t *testing.T) {
+		var txID, utxID, token [32]byte
+		for i := range token {
+			token[i] = byte(i + 1)
+		}
+		// token non-zero bytes overlap where finalize's gas_used would be — the
+		// revert path must NOT misread them as gas.
+		data := buildFinalizePayloadWithToken(txID, utxID, 5000, token)
+		event := ParseEvent(wrapAsLog(data), signature, 1, 0, EventTypeRevertUniversalTx, chainID, logger)
+		require.NotNil(t, event)
+
+		var outbound common.OutboundEvent
+		require.NoError(t, json.Unmarshal(event.EventData, &outbound))
+		assert.Empty(t, outbound.Pc20WrapperAddress)
+		assert.Equal(t, "0", outbound.GasFeeUsed) // RevertUniversalTx carries no gas_used
+	})
+
+	t.Run("rescue event extracts neither wrapper nor gas_used", func(t *testing.T) {
+		var txID, utxID, token [32]byte
+		for i := range token {
+			token[i] = byte(i + 1)
+		}
+		data := buildFinalizePayloadWithToken(txID, utxID, 5000, token)
+		event := ParseEvent(wrapAsLog(data), signature, 1, 0, EventTypeFundsRescued, chainID, logger)
+		require.NotNil(t, event)
+
+		var outbound common.OutboundEvent
+		require.NoError(t, json.Unmarshal(event.EventData, &outbound))
+		assert.Empty(t, outbound.Pc20WrapperAddress)
+		assert.Equal(t, "0", outbound.GasFeeUsed) // FundsRescued carries no gas_used
+	})
+
 	t.Run("returns nil for log without Program data prefix", func(t *testing.T) {
 		event := ParseEvent("Some other log message", signature, 12345, 0, EventTypeFinalizeUniversalTx, chainID, logger)
 		assert.Nil(t, event)
@@ -417,16 +482,16 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 		assert.Nil(t, event)
 	})
 
-	t.Run("parses minimum valid data (exactly 97 bytes)", func(t *testing.T) {
-		data := make([]byte, 97)
+	t.Run("parses minimum valid finalize data", func(t *testing.T) {
+		data := make([]byte, 120)
 		for i := 8; i < 40; i++ {
 			data[i] = 0x11
 		}
 		for i := 40; i < 72; i++ {
 			data[i] = 0x22
 		}
-		// gas_used at 80..88
-		binary.LittleEndian.PutUint64(data[80:88], 12345)
+		// wrapper_address at 72..104 and gas_fee at 104..112 left zero; gas_used at 112..120
+		binary.LittleEndian.PutUint64(data[112:120], 12345)
 
 		event := ParseEvent(wrapAsLog(data), signature, 100, 0, EventTypeFinalizeUniversalTx, chainID, logger)
 		require.NotNil(t, event)

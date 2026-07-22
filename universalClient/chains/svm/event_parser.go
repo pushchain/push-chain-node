@@ -48,7 +48,7 @@ func ParseEvent(log string, signature string, slot uint64, logIndex uint, eventT
 	case EventTypeSendFunds:
 		return parseSendFundsEvent(log, signature, slot, logIndex, chainID, logger)
 	case EventTypeFinalizeUniversalTx, EventTypeRevertUniversalTx, EventTypeFundsRescued:
-		return parseOutboundObservationEvent(log, signature, slot, logIndex, chainID, logger)
+		return parseOutboundObservationEvent(log, signature, slot, logIndex, eventType, logger)
 	default:
 		logger.Debug().
 			Str("event_type", eventType).
@@ -113,7 +113,7 @@ func parseSendFundsEvent(log string, signature string, slot uint64, logIndex uin
 // - token (32 bytes, Pubkey)
 // - amount (8 bytes, u64)
 // - payload (4 bytes length + data, Vec<u8>)
-func parseOutboundObservationEvent(log string, signature string, slot uint64, logIndex uint, chainID string, logger zerolog.Logger) *store.Event {
+func parseOutboundObservationEvent(log string, signature string, slot uint64, logIndex uint, eventType string, logger zerolog.Logger) *store.Event {
 	if !strings.HasPrefix(log, "Program data: ") {
 		return nil
 	}
@@ -143,29 +143,38 @@ func parseOutboundObservationEvent(log string, signature string, slot uint64, lo
 		Uint64("slot", slot).
 		Msg("processing outboundObservation event")
 
-	// Skip discriminator (8 bytes)
-	offset := 8
+	// All three events share the first two fields: disc(8) sub_tx_id(32) universal_tx_id(32).
+	txID := "0x" + hex.EncodeToString(decoded[8:40])
+	universalTxID := "0x" + hex.EncodeToString(decoded[40:72])
 
-	// Extract txID (32 bytes)
-	txID := "0x" + hex.EncodeToString(decoded[offset:offset+32])
-	offset += 32
-
-	// Extract universalTxID (32 bytes)
-	universalTxID := "0x" + hex.EncodeToString(decoded[offset:offset+32])
-	offset += 32
-
-	// Skip gas_fee (prepaid budget, 8 bytes); the audited finalize event reports
-	// gas_used separately and that's the value we want to surface as GasFeeUsed.
-	offset += 8
-
-	// Extract gas_used (8 bytes, u64 little-endian lamports) — actual gas consumed.
-	gasUsed := binary.LittleEndian.Uint64(decoded[offset : offset+8])
+	// gas_used and the PC20 wrapper exist ONLY on UniversalTxFinalized, which has a
+	// wrapper_address (Pubkey, 32B) right after universal_tx_id:
+	//   disc(8) sub_tx_id(32) universal_tx_id(32) wrapper_address(32) gas_fee(8)
+	//   gas_used(8) ...
+	// The revert/rescue events carry neither, so gasUsed stays 0 rather than reading
+	// bytes from an unrelated field.
+	// TODO: Read gas_used in rescue / revert events once availble
+	var gasUsed uint64
+	var wrapperAddr string
+	if eventType == EventTypeFinalizeUniversalTx {
+		const wrapperOffset = 8 + 32 + 32            // 72
+		const gasUsedOffset = wrapperOffset + 32 + 8 // 112 (skip wrapper_address + gas_fee)
+		if len(decoded) >= gasUsedOffset+8 {
+			gasUsed = binary.LittleEndian.Uint64(decoded[gasUsedOffset : gasUsedOffset+8])
+			var wrap [32]byte
+			copy(wrap[:], decoded[wrapperOffset:wrapperOffset+32])
+			if wrap != ([32]byte{}) { // Pubkey::default() = non-PC20 path, no wrapper
+				wrapperAddr = solana.PublicKeyFromBytes(wrap[:]).String()
+			}
+		}
+	}
 
 	// Create OutboundEvent payload
 	payload := common.OutboundEvent{
-		TxID:          txID,
-		UniversalTxID: universalTxID,
-		GasFeeUsed:    fmt.Sprintf("%d", gasUsed),
+		TxID:               txID,
+		UniversalTxID:      universalTxID,
+		GasFeeUsed:         fmt.Sprintf("%d", gasUsed),
+		Pc20WrapperAddress: wrapperAddr,
 	}
 
 	// Marshal payload to JSON
@@ -369,4 +378,3 @@ func decodeUniversalTxEvent(data []byte, logger zerolog.Logger) (*common.Univers
 
 	return payload, nil
 }
-

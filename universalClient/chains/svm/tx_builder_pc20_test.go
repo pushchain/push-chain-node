@@ -11,12 +11,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// packPC20Payload builds the raw push-side gateway payload core forwards:
+// selector || abi.encode(destChainNamespace, name, symbol, decimals) || packed userData.
 func packPC20Payload(t *testing.T, name, symbol string, decimals uint8, userData []byte) []byte {
 	t.Helper()
 	require.NoError(t, pc20ExportABIErr)
-	encoded, err := pc20ExportABIArgs.Pack(name, symbol, decimals, userData)
+	encoded, err := pc20ExportABIArgs.Pack("solana:devnet", name, symbol, decimals)
 	require.NoError(t, err)
-	return append(append([]byte{}, pc20Selector[:]...), encoded...)
+	out := append(append([]byte{}, pc20Selector[:]...), encoded...)
+	return append(out, userData...) // userData is encodePacked-appended
 }
 
 func TestIsPC20Payload(t *testing.T) {
@@ -54,19 +57,17 @@ func TestParsePC20ExportPayload_Errors(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestBuildPC20ExportIxData_Golden(t *testing.T) {
+func TestBuildPC20ExportIxData_Passthrough(t *testing.T) {
 	sourceAsset := makeSender(0xaa)
-	meta := &pc20ExportMeta{Name: "AB", Symbol: "C", Decimals: 6, UserData: []byte{0x01, 0x02}}
+	// ix_data = "PC20" || source_asset || (raw push-side payload minus its selector).
+	// The ABI region is forwarded verbatim so it stays byte-identical to what the
+	// gateway re-decodes and to what the TSS message is built from.
+	payload := packPC20Payload(t, "AB", "C", 6, []byte{0x01, 0x02})
 
-	got := buildPC20ExportIxData(sourceAsset, meta)
+	got := buildPC20ExportIxData(sourceAsset, payload)
 
-	// selector || source_asset(20) || borsh String name || borsh String symbol || u8 || borsh Vec<u8>
-	expected := []byte{0x50, 0x43, 0x32, 0x30}
-	expected = append(expected, sourceAsset[:]...)
-	expected = append(expected, 0x02, 0x00, 0x00, 0x00, 'A', 'B')
-	expected = append(expected, 0x01, 0x00, 0x00, 0x00, 'C')
-	expected = append(expected, 0x06)
-	expected = append(expected, 0x02, 0x00, 0x00, 0x00, 0x01, 0x02)
+	expected := append([]byte{0x50, 0x43, 0x32, 0x30}, sourceAsset[:]...)
+	expected = append(expected, payload[len(pc20Selector):]...) // abi.encode(...) || userData
 
 	assert.Equal(t, expected, got)
 }
@@ -205,11 +206,13 @@ func TestBuildPC20ExportAccounts_Direct(t *testing.T) {
 	accounts, err := tb.buildPC20ExportAccounts(
 		caller, configPDA, vaultPDA, cea, tssPDA, executedTxPDA,
 		solana.SystemProgramID, recipient, mint, state, false, nil,
+		solana.PublicKey{}, solana.PublicKey{},
 	)
 	require.NoError(t, err)
 
-	// 20 typed slots + [pc20_state, pc20_mint, recipient_ata]
-	require.Len(t, accounts, 23)
+	// 20 typed slots + [pc20_state, pc20_mint] (export-only mints to cea_ata, so no
+	// recipient_ata in the remaining accounts).
+	require.Len(t, accounts, 22)
 
 	assert.Equal(t, caller, accounts[0].PublicKey)
 	assert.True(t, accounts[0].IsSigner)
@@ -217,25 +220,27 @@ func TestBuildPC20ExportAccounts_Direct(t *testing.T) {
 	assert.Equal(t, recipient, accounts[8].PublicKey)
 	assert.True(t, accounts[8].IsWritable)
 
-	// None sentinels: vault_ata(9), cea_ata(10), mint(11), recipient_ata(16), rate limits(17,18), ref slots(19,20)
-	for _, idx := range []int{9, 10, 11, 16, 17, 18, 19} {
+	// cea_ata (10) is the mint destination — always the real CEA ATA.
+	expectedCeaATA, _, _ := solana.FindProgramAddress(
+		[][]byte{cea.Bytes(), solana.TokenProgramID.Bytes(), mint.Bytes()},
+		solana.SPLAssociatedTokenAccountProgramID,
+	)
+	assert.Equal(t, expectedCeaATA, accounts[10].PublicKey)
+	assert.True(t, accounts[10].IsWritable)
+
+	// None sentinels: vault_ata(9), mint(11), recipient_ata(15), rate limits(16,17), ref slots(18,19)
+	for _, idx := range []int{9, 11, 15, 16, 17, 18, 19} {
 		assert.Equal(t, tb.gatewayAddress, accounts[idx].PublicKey, "slot %d must be None sentinel", idx)
 	}
 	assert.Equal(t, solana.TokenProgramID, accounts[12].PublicKey)
 	assert.Equal(t, solana.SysVarRentPubkey, accounts[13].PublicKey)
 	assert.Equal(t, solana.SPLAssociatedTokenAccountProgramID, accounts[14].PublicKey)
 
-	// Remaining accounts
+	// Remaining accounts: [pc20_state, pc20_mint]
 	assert.Equal(t, state, accounts[20].PublicKey)
 	assert.True(t, accounts[20].IsWritable)
 	assert.Equal(t, mint, accounts[21].PublicKey)
 	assert.True(t, accounts[21].IsWritable)
-	expectedATA, _, _ := solana.FindProgramAddress(
-		[][]byte{recipient.Bytes(), solana.TokenProgramID.Bytes(), mint.Bytes()},
-		solana.SPLAssociatedTokenAccountProgramID,
-	)
-	assert.Equal(t, expectedATA, accounts[22].PublicKey)
-	assert.True(t, accounts[22].IsWritable)
 }
 
 func TestBuildPC20ExportAccounts_WithPayload(t *testing.T) {
@@ -258,6 +263,7 @@ func TestBuildPC20ExportAccounts_WithPayload(t *testing.T) {
 	accounts, err := tb.buildPC20ExportAccounts(
 		recipient, recipient, recipient, cea, recipient, recipient,
 		target, recipient, mint, state, true, []GatewayAccountMeta{execAcc},
+		solana.PublicKey{}, solana.PublicKey{},
 	)
 	require.NoError(t, err)
 

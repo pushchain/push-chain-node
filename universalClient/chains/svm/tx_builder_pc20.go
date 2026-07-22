@@ -31,7 +31,11 @@ const (
 	pc20StateAccountLen             = 8 + 20 + 32 + 1 + 1 // disc + source_asset + wrapped_mint + decimals + bump
 )
 
-// Core stores the vault-ready export payload: selector || abi.encode(name, symbol, decimals, userData).
+// Core forwards the raw push-side payload verbatim: selector ||
+// abi.encode(destChainNamespace, name, symbol, decimals) with any user calldata
+// encodePacked-appended. The gateway decodes the ABI region itself, but the TSS
+// message still signs name/symbol/decimals as separate fields, so UV decodes them
+// here too. destChainNamespace is discarded.
 var pc20ExportABIArgs, pc20ExportABIErr = buildPC20ExportABIArgs()
 
 func buildPC20ExportABIArgs() (abi.Arguments, error) {
@@ -43,11 +47,8 @@ func buildPC20ExportABIArgs() (abi.Arguments, error) {
 	if err != nil {
 		return nil, err
 	}
-	bytesT, err := abi.NewType("bytes", "", nil)
-	if err != nil {
-		return nil, err
-	}
-	return abi.Arguments{{Type: stringT}, {Type: stringT}, {Type: uint8T}, {Type: bytesT}}, nil
+	// destChainNamespace, name, symbol, decimals
+	return abi.Arguments{{Type: stringT}, {Type: stringT}, {Type: stringT}, {Type: uint8T}}, nil
 }
 
 type pc20ExportMeta struct {
@@ -77,16 +78,28 @@ func parsePC20ExportPayload(payload []byte) (*pc20ExportMeta, error) {
 	if pc20ExportABIErr != nil {
 		return nil, fmt.Errorf("pc20 abi init failed: %w", pc20ExportABIErr)
 	}
-	vals, err := pc20ExportABIArgs.Unpack(payload[len(pc20Selector):])
+	body := payload[len(pc20Selector):]
+	vals, err := pc20ExportABIArgs.Unpack(body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to abi-decode pc20 export payload: %w", err)
 	}
-	name, ok1 := vals[0].(string)
-	symbol, ok2 := vals[1].(string)
-	decimals, ok3 := vals[2].(uint8)
-	userData, ok4 := vals[3].([]byte)
-	if !ok1 || !ok2 || !ok3 || !ok4 {
+	destChain, ok0 := vals[0].(string)
+	name, ok1 := vals[1].(string)
+	symbol, ok2 := vals[2].(string)
+	decimals, ok3 := vals[3].(uint8)
+	if !ok0 || !ok1 || !ok2 || !ok3 {
 		return nil, fmt.Errorf("unexpected pc20 export payload field types")
+	}
+	// userData is encodePacked-appended after the ABI tuple. Recover it by
+	// re-encoding the tuple (canonical, deterministic) to find where the ABI
+	// region ends; anything past it is the raw user calldata.
+	reEncoded, err := pc20ExportABIArgs.Pack(destChain, name, symbol, decimals)
+	if err != nil {
+		return nil, fmt.Errorf("failed to re-encode pc20 metadata: %w", err)
+	}
+	var userData []byte
+	if len(body) > len(reEncoded) {
+		userData = body[len(reEncoded):]
 	}
 	return &pc20ExportMeta{Name: name, Symbol: symbol, Decimals: decimals, UserData: userData}, nil
 }
@@ -125,24 +138,16 @@ func parseGasFee(gasFee string) uint64 {
 }
 
 // buildPC20ExportIxData builds ix_data for the finalize id=5 route:
-// selector || borsh(Pc20ExportIxData{source_asset, name, symbol, decimals, user_data}).
-func buildPC20ExportIxData(sourceAsset [20]byte, m *pc20ExportMeta) []byte {
-	data := make([]byte, 0, 4+20+4+len(m.Name)+4+len(m.Symbol)+1+4+len(m.UserData))
+// "PC20" || source_asset || the raw push-side payload after its own selector
+// (abi.encode(destChainNamespace,name,symbol,decimals) || raw user_data). Forwarded
+// verbatim so it stays byte-identical to what the gateway and TSS message decode.
+func buildPC20ExportIxData(sourceAsset [20]byte, payload []byte) []byte {
+	abiBody := payload[len(pc20Selector):]
+	data := make([]byte, 0, len(pc20Selector)+20+len(abiBody))
 	data = append(data, pc20Selector[:]...)
 	data = append(data, sourceAsset[:]...)
-	data = appendBorshBytes(data, []byte(m.Name))
-	data = appendBorshBytes(data, []byte(m.Symbol))
-	data = append(data, m.Decimals)
-	data = appendBorshBytes(data, m.UserData)
+	data = append(data, abiBody...)
 	return data
-}
-
-// appendBorshBytes appends a Borsh Vec<u8>/String: u32 LE length + raw bytes.
-func appendBorshBytes(dst, b []byte) []byte {
-	l := make([]byte, 4)
-	binary.LittleEndian.PutUint32(l, uint32(len(b)))
-	dst = append(dst, l...)
-	return append(dst, b...)
 }
 
 // appendU32BEBytes appends serialize_string/serialize_ix_data framing: u32 BE length + raw bytes.
@@ -338,6 +343,107 @@ func validatePC20UserData(userData []byte) error {
 	return nil
 }
 
+// pc20ExportPrep holds the parsed inputs, derived PDAs, and ix_data shared by the
+// direct and ref-route export builders so the two stay byte-identical.
+type pc20ExportPrep struct {
+	sourceAsset        [20]byte
+	meta               *pc20ExportMeta
+	recipient          solana.PublicKey
+	destinationProgram solana.PublicKey
+	execAccounts       []GatewayAccountMeta
+	hasPayload         bool
+	ixData             []byte
+	configPDA          solana.PublicKey
+	vaultPDA           solana.PublicKey
+	tssPDA             solana.PublicKey
+	executedTxPDA      solana.PublicKey
+	ceaAuthorityPDA    solana.PublicKey
+	pc20Mint           solana.PublicKey
+	pc20State          solana.PublicKey
+}
+
+// preparePC20Export parses the export payload and derives the PDAs and ix_data.
+func (tb *TxBuilder) preparePC20Export(
+	data *uetypes.OutboundCreatedEvent,
+	txID [32]byte,
+	pushAccount [20]byte,
+	payload []byte,
+) (*pc20ExportPrep, error) {
+	sourceAsset, err := parsePC20SourceAsset(data.AssetAddr)
+	if err != nil {
+		return nil, err
+	}
+	meta, err := parsePC20ExportPayload(payload)
+	if err != nil {
+		return nil, err
+	}
+	recipient, err := parseSolanaAddress(data.Recipient)
+	if err != nil {
+		return nil, err
+	}
+
+	hasPayload := len(meta.UserData) > 0
+	destinationProgram := solana.SystemProgramID
+	var execAccounts []GatewayAccountMeta
+	if hasPayload {
+		accounts, _, instructionID, targetProgram, decErr := decodePayload(meta.UserData)
+		if decErr != nil {
+			return nil, fmt.Errorf("invalid pc20 user_data: %w", decErr)
+		}
+		if instructionID != 2 {
+			return nil, fmt.Errorf("pc20 user_data must carry instruction_id=2, got %d", instructionID)
+		}
+		execAccounts = accounts
+		destinationProgram = solana.PublicKeyFromBytes(targetProgram[:])
+	}
+
+	configPDA, _, err := solana.FindProgramAddress([][]byte{configSeed}, tb.gatewayAddress)
+	if err != nil {
+		return nil, fmt.Errorf("failed to derive config PDA: %w", err)
+	}
+	vaultPDA, _, err := solana.FindProgramAddress([][]byte{vaultSeed}, tb.gatewayAddress)
+	if err != nil {
+		return nil, fmt.Errorf("failed to derive vault PDA: %w", err)
+	}
+	tssPDA, _, err := solana.FindProgramAddress([][]byte{tssSeed}, tb.gatewayAddress)
+	if err != nil {
+		return nil, fmt.Errorf("failed to derive TSS PDA: %w", err)
+	}
+	executedTxPDA, _, err := solana.FindProgramAddress([][]byte{executedSubTxSeed, txID[:]}, tb.gatewayAddress)
+	if err != nil {
+		return nil, fmt.Errorf("failed to derive executed_tx PDA: %w", err)
+	}
+	ceaAuthorityPDA, _, err := solana.FindProgramAddress([][]byte{ceaAuthoritySeed, pushAccount[:]}, tb.gatewayAddress)
+	if err != nil {
+		return nil, fmt.Errorf("failed to derive cea_authority PDA: %w", err)
+	}
+	pc20Mint, err := tb.derivePC20MintPDA(sourceAsset)
+	if err != nil {
+		return nil, err
+	}
+	pc20State, err := tb.derivePC20StatePDA(pc20Mint)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pc20ExportPrep{
+		sourceAsset:        sourceAsset,
+		meta:               meta,
+		recipient:          recipient,
+		destinationProgram: destinationProgram,
+		execAccounts:       execAccounts,
+		hasPayload:         hasPayload,
+		ixData:             buildPC20ExportIxData(sourceAsset, payload),
+		configPDA:          configPDA,
+		vaultPDA:           vaultPDA,
+		tssPDA:             tssPDA,
+		executedTxPDA:      executedTxPDA,
+		ceaAuthorityPDA:    ceaAuthorityPDA,
+		pc20Mint:           pc20Mint,
+		pc20State:          pc20State,
+	}, nil
+}
+
 // buildPC20ExportTransaction assembles the finalize id=5 transaction (mirror of the
 // generic path in BuildOutboundTransaction — must reproduce the signed hash's inputs).
 func (tb *TxBuilder) buildPC20ExportTransaction(
@@ -353,76 +459,25 @@ func (tb *TxBuilder) buildPC20ExportTransaction(
 	amount uint64,
 	payload []byte,
 ) (*solana.Transaction, uint8, error) {
-	sourceAsset, err := parsePC20SourceAsset(data.AssetAddr)
-	if err != nil {
-		return nil, 0, err
-	}
-	meta, err := parsePC20ExportPayload(payload)
-	if err != nil {
-		return nil, 0, err
-	}
-	recipient, err := parseSolanaAddress(data.Recipient)
+	p, err := tb.preparePC20Export(data, txID, pushAccount, payload)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	hasPayload := len(meta.UserData) > 0
-	destinationProgram := solana.SystemProgramID
-	var execAccounts []GatewayAccountMeta
-	if hasPayload {
-		accounts, _, instructionID, targetProgram, decErr := decodePayload(meta.UserData)
-		if decErr != nil {
-			return nil, 0, fmt.Errorf("invalid pc20 user_data: %w", decErr)
-		}
-		if instructionID != 2 {
-			return nil, 0, fmt.Errorf("pc20 user_data must carry instruction_id=2, got %d", instructionID)
-		}
-		execAccounts = accounts
-		destinationProgram = solana.PublicKeyFromBytes(targetProgram[:])
-	}
-
-	configPDA, _, err := solana.FindProgramAddress([][]byte{configSeed}, tb.gatewayAddress)
-	if err != nil {
-		return nil, 0, fmt.Errorf("failed to derive config PDA: %w", err)
-	}
-	vaultPDA, _, err := solana.FindProgramAddress([][]byte{vaultSeed}, tb.gatewayAddress)
-	if err != nil {
-		return nil, 0, fmt.Errorf("failed to derive vault PDA: %w", err)
-	}
-	tssPDA, _, err := solana.FindProgramAddress([][]byte{tssSeed}, tb.gatewayAddress)
-	if err != nil {
-		return nil, 0, fmt.Errorf("failed to derive TSS PDA: %w", err)
-	}
-	executedTxPDA, _, err := solana.FindProgramAddress([][]byte{executedSubTxSeed, txID[:]}, tb.gatewayAddress)
-	if err != nil {
-		return nil, 0, fmt.Errorf("failed to derive executed_tx PDA: %w", err)
-	}
-	ceaAuthorityPDA, _, err := solana.FindProgramAddress([][]byte{ceaAuthoritySeed, pushAccount[:]}, tb.gatewayAddress)
-	if err != nil {
-		return nil, 0, fmt.Errorf("failed to derive cea_authority PDA: %w", err)
-	}
-	pc20Mint, err := tb.derivePC20MintPDA(sourceAsset)
-	if err != nil {
-		return nil, 0, err
-	}
-	pc20State, err := tb.derivePC20StatePDA(pc20Mint)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	ixData := buildPC20ExportIxData(sourceAsset, meta)
 	instructionData := tb.buildWithdrawAndExecuteData(
 		pc20FinalizeInstructionID, txID, universalTxID, amount, pushAccount,
-		[]byte{}, ixData, parseGasFee(data.GasFee), data.SigningDeadline,
+		[]byte{}, p.ixData, parseGasFee(data.GasFee), data.SigningDeadline,
 		signature, recoveryID, req.SigningHash,
 	)
 
+	// Direct route: zero pubkeys → None sentinels for the two ref slots.
 	accounts, err := tb.buildPC20ExportAccounts(
 		relayerKeypair.PublicKey(),
-		configPDA, vaultPDA, ceaAuthorityPDA, tssPDA, executedTxPDA,
-		destinationProgram, recipient,
-		pc20Mint, pc20State,
-		hasPayload, execAccounts,
+		p.configPDA, p.vaultPDA, p.ceaAuthorityPDA, p.tssPDA, p.executedTxPDA,
+		p.destinationProgram, p.recipient,
+		p.pc20Mint, p.pc20State,
+		p.hasPayload, p.execAccounts,
+		solana.PublicKey{}, solana.PublicKey{},
 	)
 	if err != nil {
 		return nil, 0, err
@@ -440,7 +495,7 @@ func (tb *TxBuilder) buildPC20ExportTransaction(
 	}
 
 	opts := []solana.TransactionOption{solana.TransactionPayer(relayerKeypair.PublicKey())}
-	addressTables, err := tb.fetchAddressTables(ctx, pc20Mint, false)
+	addressTables, err := tb.fetchAddressTables(ctx, p.pc20Mint, false)
 	if err != nil {
 		tb.logger.Warn().Err(err).Msg("failed to fetch ALTs, falling back to legacy tx")
 	} else if len(addressTables) > 0 {
@@ -466,11 +521,168 @@ func (tb *TxBuilder) buildPC20ExportTransaction(
 		tb.logger.Warn().
 			Int("raw_bytes", len(txBytes)).
 			Int("limit", solanaTxMaxBytes).
-			Int("ix_data_bytes", len(ixData)).
+			Int("ix_data_bytes", len(p.ixData)).
 			Msg("pc20 export transaction exceeds Solana raw tx limit")
 	}
 
 	return tx, pc20FinalizeInstructionID, nil
+}
+
+// BuildPC20ExportRefTransactions builds the (storeTx, refFinalizeTx) pair for a
+// PC20 export (id=5) whose direct tx exceeds Solana's size limit. The store tx
+// uploads the raw ix_data into a content-addressed PDA; the ref-finalize reuses
+// the SAME TSS signature (the gateway rebuilds the message from the stored bytes).
+// Returns the stored_ix_data PDA so the broadcaster can probe for it before
+// re-broadcasting the store tx.
+func (tb *TxBuilder) BuildPC20ExportRefTransactions(
+	ctx context.Context,
+	req *common.UnsignedSigningReq,
+	data *uetypes.OutboundCreatedEvent,
+	signature []byte,
+) (*solana.Transaction, *solana.Transaction, solana.PublicKey, error) {
+	if req == nil {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("signing request is nil")
+	}
+	if data == nil {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("outbound event data is nil")
+	}
+	if len(signature) != 65 {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("signature must be 65 bytes, got %d", len(signature))
+	}
+	recoveryID := signature[64]
+	signature = signature[:64]
+
+	relayerKeypair, err := tb.loadRelayerKeypair()
+	if err != nil {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("failed to load relayer keypair: %w", err)
+	}
+
+	amount, err := strconv.ParseUint(data.Amount, 10, 64)
+	if err != nil {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("invalid amount: %s", data.Amount)
+	}
+
+	// txID/universalTxID are left-padded to 32 bytes; sender is strictly 20 bytes
+	// (mirrors BuildOutboundTransaction / BuildRefRouteTransactions).
+	var txID [32]byte
+	txIDBytes, err := hex.DecodeString(removeHexPrefix(data.TxID))
+	if err != nil {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("invalid txID: %s", data.TxID)
+	}
+	if len(txIDBytes) == 32 {
+		copy(txID[:], txIDBytes)
+	} else if len(txIDBytes) > 0 {
+		copy(txID[32-len(txIDBytes):], txIDBytes)
+	}
+
+	var universalTxID [32]byte
+	utxIDBytes, err := hex.DecodeString(removeHexPrefix(data.UniversalTxId))
+	if err != nil {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("invalid universalTxID: %s", data.UniversalTxId)
+	}
+	if len(utxIDBytes) == 32 {
+		copy(universalTxID[:], utxIDBytes)
+	} else if len(utxIDBytes) > 0 {
+		copy(universalTxID[32-len(utxIDBytes):], utxIDBytes)
+	}
+
+	var sender [20]byte
+	senderBytes, err := hex.DecodeString(removeHexPrefix(data.Sender))
+	if err != nil || len(senderBytes) != 20 {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("invalid sender: expected 20-byte hex, got %q", data.Sender)
+	}
+	copy(sender[:], senderBytes)
+
+	p, err := tb.preparePC20Export(data, txID, sender, decodeHexPayload(data.Payload))
+	if err != nil {
+		return nil, nil, solana.PublicKey{}, err
+	}
+	if len(p.ixData) > maxRefRouteIxData {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("pc20 ix_data size %d exceeds ref-route max %d (store tx would exceed %d-byte limit)", len(p.ixData), maxRefRouteIxData, solanaTxMaxBytes)
+	}
+
+	// Content-addressed stored_ix_data PDA: ["stored_ix_data", sub_tx_id, keccak256(ix_data)].
+	var ixDataHash [32]byte
+	copy(ixDataHash[:], crypto.Keccak256(p.ixData))
+	storedIxDataPDA, err := tb.deriveStoredIxDataPDA(txID, ixDataHash)
+	if err != nil {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("failed to derive stored_ix_data PDA: %w", err)
+	}
+
+	// If another validator already won the store race, echo the stored
+	// store_refund_recipient (the contract constrains it); else it's our relayer.
+	storeRefundRecipient := relayerKeypair.PublicKey()
+	if existing, _ := tb.rpcClient.GetAccountData(ctx, storedIxDataPDA); len(existing) >= storedIxDataRefundRecipientOffset+32 {
+		copy(storeRefundRecipient[:], existing[storedIxDataRefundRecipientOffset:storedIxDataRefundRecipientOffset+32])
+	}
+
+	recentBlockhash, err := tb.rpcClient.GetRecentBlockhash(ctx)
+	if err != nil {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("failed to get recent blockhash: %w", err)
+	}
+
+	signRelayer := func(key solana.PublicKey) *solana.PrivateKey {
+		if key.Equals(relayerKeypair.PublicKey()) {
+			priv := relayerKeypair
+			return &priv
+		}
+		return nil
+	}
+
+	// --- store_execute_ix_data tx (relayer-signed only, no TSS) ---
+	storeData := tb.buildStoreIxDataData(txID, ixDataHash, p.ixData)
+	storeAccounts := tb.buildStoreIxDataAccounts(relayerKeypair.PublicKey(), storedIxDataPDA)
+	storeInstruction := solana.NewInstruction(tb.gatewayAddress, storeAccounts, storeData)
+	storeTx, err := solana.NewTransaction(
+		[]solana.Instruction{storeInstruction},
+		recentBlockhash,
+		solana.TransactionPayer(relayerKeypair.PublicKey()),
+	)
+	if err != nil {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("failed to create store tx: %w", err)
+	}
+	if _, err := storeTx.Sign(signRelayer); err != nil {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("failed to sign store tx: %w", err)
+	}
+
+	// --- finalize_universal_tx_with_ix_data_ref tx (TSS-signed; id=5) ---
+	refData := tb.buildWithdrawAndExecuteRefData(
+		pc20FinalizeInstructionID, txID, universalTxID, amount, sender,
+		ixDataHash, []byte{}, // PC20 export requires empty writable_flags
+		parseGasFee(data.GasFee), data.SigningDeadline,
+		signature, recoveryID, req.SigningHash,
+	)
+	refAccounts, err := tb.buildPC20ExportAccounts(
+		relayerKeypair.PublicKey(),
+		p.configPDA, p.vaultPDA, p.ceaAuthorityPDA, p.tssPDA, p.executedTxPDA,
+		p.destinationProgram, p.recipient,
+		p.pc20Mint, p.pc20State,
+		p.hasPayload, p.execAccounts,
+		storedIxDataPDA, storeRefundRecipient,
+	)
+	if err != nil {
+		return nil, nil, solana.PublicKey{}, err
+	}
+
+	instructions := []solana.Instruction{
+		tb.buildSetComputeUnitLimitInstruction(defaultComputeUnitLimit),
+		solana.NewInstruction(tb.gatewayAddress, refAccounts, refData),
+	}
+	refOpts := []solana.TransactionOption{solana.TransactionPayer(relayerKeypair.PublicKey())}
+	if addressTables, altErr := tb.fetchAddressTables(ctx, p.pc20Mint, false); altErr != nil {
+		tb.logger.Warn().Err(altErr).Msg("failed to fetch ALTs for pc20 ref-finalize, falling back to legacy tx")
+	} else if len(addressTables) > 0 {
+		refOpts = append(refOpts, solana.TransactionAddressTables(addressTables))
+	}
+	refTx, err := solana.NewTransaction(instructions, recentBlockhash, refOpts...)
+	if err != nil {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("failed to create ref-finalize tx: %w", err)
+	}
+	if _, err := refTx.Sign(signRelayer); err != nil {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("failed to sign ref-finalize tx: %w", err)
+	}
+
+	return storeTx, refTx, storedIxDataPDA, nil
 }
 
 // buildPC20ExportAccounts builds the finalize_universal_tx account list for the id=5 route.
@@ -490,6 +702,8 @@ func (tb *TxBuilder) buildPC20ExportAccounts(
 	pc20State solana.PublicKey,
 	hasPayload bool,
 	execAccounts []GatewayAccountMeta,
+	storedIxData solana.PublicKey,
+	storeRefundRecipient solana.PublicKey,
 ) ([]*solana.AccountMeta, error) {
 	none := func() *solana.AccountMeta {
 		return &solana.AccountMeta{PublicKey: tb.gatewayAddress, IsWritable: false, IsSigner: false}
@@ -508,19 +722,17 @@ func (tb *TxBuilder) buildPC20ExportAccounts(
 	}
 
 	accounts = append(accounts, none()) // vault_ata
-	if hasPayload {
-		ceaATA, _, err := solana.FindProgramAddress(
-			[][]byte{ceaAuthorityPDA.Bytes(), solana.TokenProgramID.Bytes(), pc20Mint.Bytes()},
-			solana.SPLAssociatedTokenAccountProgramID,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to derive cea ATA: %w", err)
-		}
-		accounts = append(accounts, &solana.AccountMeta{PublicKey: ceaATA, IsWritable: true, IsSigner: false}) // cea_ata
-	} else {
-		accounts = append(accounts, none()) // cea_ata
+	// cea_ata is the mint destination — the gateway always mints the wrapper to it
+	// (pda_mint_to → cea_ata), regardless of user_data, so it must always be set.
+	ceaATA, _, err := solana.FindProgramAddress(
+		[][]byte{ceaAuthorityPDA.Bytes(), solana.TokenProgramID.Bytes(), pc20Mint.Bytes()},
+		solana.SPLAssociatedTokenAccountProgramID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to derive cea ATA: %w", err)
 	}
-	accounts = append(accounts, none()) // mint
+	accounts = append(accounts, &solana.AccountMeta{PublicKey: ceaATA, IsWritable: true, IsSigner: false}) // cea_ata
+	accounts = append(accounts, none())                                                                    // mint
 	accounts = append(accounts,
 		&solana.AccountMeta{PublicKey: solana.TokenProgramID, IsWritable: false, IsSigner: false},
 		&solana.AccountMeta{PublicKey: solana.SysVarRentPubkey, IsWritable: false, IsSigner: false},
@@ -528,8 +740,22 @@ func (tb *TxBuilder) buildPC20ExportAccounts(
 	)
 	accounts = append(accounts, none()) // recipient_ata (typed)
 	accounts = append(accounts, none(), none()) // rate_limit_config, token_rate_limit
-	accounts = append(accounts, none(), none()) // stored_ix_data, store_refund_recipient
+	// stored_ix_data + store_refund_recipient: writable on the ref route (the PDA is
+	// auto-closed on success), None sentinels on the direct route.
+	if storedIxData.IsZero() {
+		accounts = append(accounts, none())
+	} else {
+		accounts = append(accounts, &solana.AccountMeta{PublicKey: storedIxData, IsWritable: true, IsSigner: false})
+	}
+	if storeRefundRecipient.IsZero() {
+		accounts = append(accounts, none())
+	} else {
+		accounts = append(accounts, &solana.AccountMeta{PublicKey: storeRefundRecipient, IsWritable: true, IsSigner: false})
+	}
 
+	// Remaining accounts: [pc20_state, pc20_mint] + the payload accounts (only when
+	// user_data is present). The gateway requires exactly these two when user_data is
+	// empty — no recipient_ata, since the wrapper is minted to cea_ata.
 	accounts = append(accounts,
 		&solana.AccountMeta{PublicKey: pc20State, IsWritable: true, IsSigner: false},
 		&solana.AccountMeta{PublicKey: pc20Mint, IsWritable: true, IsSigner: false},
@@ -542,15 +768,6 @@ func (tb *TxBuilder) buildPC20ExportAccounts(
 				IsSigner:   false,
 			})
 		}
-	} else {
-		recipientATA, _, err := solana.FindProgramAddress(
-			[][]byte{recipient.Bytes(), solana.TokenProgramID.Bytes(), pc20Mint.Bytes()},
-			solana.SPLAssociatedTokenAccountProgramID,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to derive recipient ATA: %w", err)
-		}
-		accounts = append(accounts, &solana.AccountMeta{PublicKey: recipientATA, IsWritable: true, IsSigner: false})
 	}
 
 	return accounts, nil

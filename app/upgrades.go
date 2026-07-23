@@ -7,10 +7,14 @@ import (
 
 	"github.com/pushchain/push-chain-node/app/upgrades"
 	"github.com/pushchain/push-chain-node/app/upgrades/noop"
+	pc20 "github.com/pushchain/push-chain-node/app/upgrades/pc20"
 )
 
 // Upgrades list of chain upgrades
-var Upgrades = []upgrades.Upgrade{}
+var Upgrades = []upgrades.Upgrade{
+	// pc20 — no-op binary swap (VAULT_PC/VAULT_PC20 deployed separately from EVM side)
+	pc20.NewUpgrade(),
+}
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers
 func (app *ChainApp) RegisterUpgradeHandlers() {

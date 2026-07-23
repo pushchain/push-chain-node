@@ -330,6 +330,15 @@ func (k *Keeper) GetUeModuleAddress(ctx context.Context) (common.Address, string
 	return ethSenderUEAddr, ethSenderUEAddr.Hex()
 }
 
+// IsUeModuleAddress reports whether addr is the uexecutor module account's EVM
+// address. The check compares the raw 20-byte values — an address's VM-native
+// identity — so hex casing / EIP-55 checksum is irrelevant here and no string
+// normalization (lowercasing) is needed or correct.
+func (k *Keeper) IsUeModuleAddress(ctx context.Context, addr common.Address) bool {
+	moduleAddr, _ := k.GetUeModuleAddress(ctx)
+	return addr == moduleAddr
+}
+
 func (k Keeper) SchemaBuilder() *collections.SchemaBuilder {
 	return k.schemaBuilder
 }

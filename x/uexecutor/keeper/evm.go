@@ -156,6 +156,28 @@ func (k Keeper) CallFactoryToDeployUEA(
 	)
 }
 
+// moduleSenderNonce resolves the (isModuleSender, manualNonce) pair for a derived
+// EVM call sent from `from`. When `from` is the uexecutor module account, the call
+// must draw its nonce from — and advance — ModuleAccountNonce, the single counter
+// every module-originated EVM call shares, so it stays aligned with the account's
+// real EVM nonce; that value is returned as the manual nonce. For any other sender
+// it returns (false, nil, nil) so the EVM keeper sources the nonce from that
+// account's own sequence.
+func (k Keeper) moduleSenderNonce(ctx sdk.Context, from common.Address) (bool, *uint64, error) {
+	if !k.IsUeModuleAddress(ctx, from) {
+		return false, nil, nil
+	}
+	nonce, err := k.GetModuleAccountNonce(ctx)
+	if err != nil {
+		return false, nil, errors.Wrap(err, "failed to get module account nonce")
+	}
+	// increment first (safe for internal modules) — mirrors the other module calls
+	if _, err := k.IncrementModuleAccountNonce(ctx); err != nil {
+		return false, nil, errors.Wrap(err, "failed to increment module account nonce")
+	}
+	return true, &nonce, nil
+}
+
 // CallUEAExecutePayload executes a universal payload through UEA
 func (k Keeper) CallUEAExecutePayload(
 	ctx sdk.Context,
@@ -179,6 +201,15 @@ func (k Keeper) CallUEAExecutePayload(
 		return nil, fmt.Errorf("invalid gas limit: %s", universal_payload.GasLimit)
 	}
 
+	// When the module itself is the sender (inbound execution), draw + advance the
+	// module's nonce via ModuleAccountNonce so it stays aligned with every other
+	// module-originated EVM call. A non-module sender (direct MsgExecutePayload,
+	// from = owner) sources the nonce from its own account sequence.
+	isModuleSender, moduleNonce, err := k.moduleSenderNonce(ctx, from)
+	if err != nil {
+		return nil, err
+	}
+
 	return k.evmKeeper.DerivedEVMCall(
 		ctx,
 		abi,
@@ -188,8 +219,8 @@ func (k Keeper) CallUEAExecutePayload(
 		gasLimit,
 		true,  // commit = true (real tx, not simulation)
 		false, // gasless = false (@dev: we need gas to be emitted in the tx receipt)
-		false, // not a module sender
-		nil,
+		isModuleSender,
+		moduleNonce,
 		"executeUniversalTx",
 		abiUniversalPayload,
 		verificationData,
@@ -213,6 +244,13 @@ func (k Keeper) CallUEAMigrateUEA(
 		return nil, errors.Wrapf(err, "failed to create universal payload")
 	}
 
+	// Module-sender migrations must advance the shared module nonce (see
+	// moduleSenderNonce); non-module senders use their own account sequence.
+	isModuleSender, moduleNonce, err := k.moduleSenderNonce(ctx, from)
+	if err != nil {
+		return nil, err
+	}
+
 	return k.evmKeeper.DerivedEVMCall(
 		ctx,
 		abi,
@@ -222,8 +260,8 @@ func (k Keeper) CallUEAMigrateUEA(
 		nil,
 		true,  // commit = true (real tx, not simulation)
 		false, // gasless = false (@dev: we need gas to be emitted in the tx receipt)
-		false, // not a module sender
-		nil,
+		isModuleSender,
+		moduleNonce,
 		"migrateUEA",
 		abiMigrationPayload,
 		signature,

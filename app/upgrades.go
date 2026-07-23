@@ -27,6 +27,7 @@ import (
 	"github.com/pushchain/push-chain-node/app/upgrades/noop"
 	outbound "github.com/pushchain/push-chain-node/app/upgrades/outbound"
 	pcmintcap "github.com/pushchain/push-chain-node/app/upgrades/pc-mint-cap"
+	pc20 "github.com/pushchain/push-chain-node/app/upgrades/pc20"
 	proxybytecodefix "github.com/pushchain/push-chain-node/app/upgrades/proxy-bytecode-fix"
 	purgeexpiredoutbounds "github.com/pushchain/push-chain-node/app/upgrades/purge-expired-outbounds"
 	removefeeabsv1 "github.com/pushchain/push-chain-node/app/upgrades/remove-fee-abs-v1"
@@ -84,6 +85,8 @@ var Upgrades = []upgrades.Upgrade{
 	securityauditfixes.NewUpgrade(),
 	// cosmos/evm v0.6.0 — runs the standard transfer module v5->v6 migration
 	evmv060.NewUpgrade(),
+	// pc20 — no-op binary swap; VAULT_PC/VAULT_PC20 deployed separately from EVM side
+	pc20.NewUpgrade(),
 }
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers

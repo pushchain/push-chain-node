@@ -115,24 +115,35 @@ func convertOutboundToEvent(entry *uexecutortypes.PendingOutboundEntry, outbound
 		logIndex = outbound.PcTx.LogIndex
 	}
 
+	// PC20 export: OutboundTx.ExternalAssetAddr is empty (the wrapper isn't known
+	// until settlement); surface the Push-native source (Pc20ContractAddress) as
+	// the event's asset_addr so downstream tx-builders get the settlement `token`.
+	// Mirrors core's emitted outbound_created event.
+	assetAddr := outbound.ExternalAssetAddr
+	if outbound.IsPc20 {
+		assetAddr = outbound.Pc20ContractAddress
+	}
+
 	outboundData := uexecutortypes.OutboundCreatedEvent{
-		UniversalTxId:    entry.UniversalTxId,
-		TxID:             outbound.Id,
-		DestinationChain: outbound.DestinationChain,
-		Recipient:        outbound.Recipient,
-		Amount:           outbound.Amount,
-		AssetAddr:        outbound.ExternalAssetAddr,
-		Sender:           outbound.Sender,
-		Payload:          outbound.Payload,
-		GasFee:           outbound.GasFee,
-		GasLimit:         outbound.GasLimit,
-		GasPrice:         outbound.GasPrice,
-		GasToken:         outbound.GasToken,
-		TxType:           outbound.TxType.String(),
-		PcTxHash:         pcTxHash,
-		LogIndex:         logIndex,
-		RevertMsg:        revertMsg,
-		SigningDeadline:  entry.SigningDeadline,
+		UniversalTxId:       entry.UniversalTxId,
+		TxID:                outbound.Id,
+		DestinationChain:    outbound.DestinationChain,
+		Recipient:           outbound.Recipient,
+		Amount:              outbound.Amount,
+		AssetAddr:           assetAddr,
+		Sender:              outbound.Sender,
+		Payload:             outbound.Payload,
+		GasFee:              outbound.GasFee,
+		GasLimit:            outbound.GasLimit,
+		GasPrice:            outbound.GasPrice,
+		GasToken:            outbound.GasToken,
+		TxType:              outbound.TxType.String(),
+		PcTxHash:            pcTxHash,
+		LogIndex:            logIndex,
+		RevertMsg:           revertMsg,
+		SigningDeadline:     entry.SigningDeadline,
+		IsPc20:              outbound.IsPc20,
+		Pc20ContractAddress: outbound.Pc20ContractAddress,
 	}
 
 	eventData, err := json.Marshal(outboundData)

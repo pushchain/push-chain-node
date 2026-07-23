@@ -16,9 +16,8 @@ import (
 
 // Event type constants matching gateway method names in chain config.
 const (
-	EventTypeSendFunds          = "sendFunds"
-	EventTypeExecuteUniversalTx = "executeUniversalTx"
-	EventTypeRevertUniversalTx  = "revertUniversalTx"
+	EventTypeSendFunds         = "sendFunds"
+	EventTypeRevertUniversalTx = "revertUniversalTx"
 )
 
 // Vault event type constants matching vault method names in chain config.
@@ -28,7 +27,7 @@ const (
 )
 
 // ParseEvent parses a log into a store.Event based on the event type.
-// eventType should be one of: sendFunds, executeUniversalTx, revertUniversalTx.
+// eventType should be one of: sendFunds, revertUniversalTx, finalizeUniversalTx, fundsRescued.
 func ParseEvent(log *types.Log, eventType string, chainID string, logger zerolog.Logger) *store.Event {
 	if len(log.Topics) == 0 {
 		return nil
@@ -37,9 +36,9 @@ func ParseEvent(log *types.Log, eventType string, chainID string, logger zerolog
 	switch eventType {
 	case EventTypeSendFunds:
 		return parseSendFundsEvent(log, chainID, logger)
-	case EventTypeExecuteUniversalTx, EventTypeRevertUniversalTx, EventTypeFinalizeUniversalTx, EventTypeFundsRescued:
+	case EventTypeRevertUniversalTx, EventTypeFinalizeUniversalTx, EventTypeFundsRescued:
 		// All share the same topic layout: Topics[1]=txID, Topics[2]=universalTxID.
-		return parseOutboundObservationEvent(log, chainID, logger)
+		return parseOutboundObservationEvent(log, eventType, logger)
 	default:
 		logger.Debug().
 			Str("event_type", eventType).
@@ -86,12 +85,16 @@ func parseSendFundsEvent(log *types.Log, chainID string, logger zerolog.Logger) 
 // - Topics[0]: event signature hash
 // - Topics[1]: txID (bytes32)
 // - Topics[2]: universalTxID (bytes32)
-func parseOutboundObservationEvent(log *types.Log, chainID string, logger zerolog.Logger) *store.Event {
-	if len(log.Topics) < 3 {
+// - Topics[3]: UniversalTxFinalized only — wrapperAddress (address(0) for PRC20).
+//   Other observation events put token/recipient there, so it's ignored for them.
+func parseOutboundObservationEvent(log *types.Log, eventType string, logger zerolog.Logger) *store.Event {
+	// All observation events carry 3 indexed params (sig + subTxId + universalTxId
+	// + a 3rd: wrapperAddress on finalize, token/recipient elsewhere) = 4 topics.
+	if len(log.Topics) < 4 {
 		logger.Warn().
 			Str("tx_hash", log.TxHash.Hex()).
 			Int("topic_count", len(log.Topics)).
-			Msg("not enough indexed fields for outboundObservation event; need at least 3 topics")
+			Msg("not enough indexed fields for outboundObservation event; need at least 4 topics")
 		return nil
 	}
 
@@ -110,10 +113,22 @@ func parseOutboundObservationEvent(log *types.Log, chainID string, logger zerolo
 	// Extract universalTxID from Topics[2] (bytes32)
 	universalTxID := "0x" + hex.EncodeToString(log.Topics[2].Bytes())
 
+	// Topics[3] is the deployed PC20 wrapper only on UniversalTxFinalized (address(0)
+	// for PRC20). Read it uniformly, then drop it for every other observation event —
+	// there Topics[3] is token/recipient, not a wrapper.
+	var wrapperAddr string
+	if addr := ethcommon.BytesToAddress(log.Topics[3].Bytes()); addr != (ethcommon.Address{}) {
+		wrapperAddr = addr.Hex()
+	}
+	if eventType != EventTypeFinalizeUniversalTx {
+		wrapperAddr = ""
+	}
+
 	// Create OutboundEvent payload
 	payload := common.OutboundEvent{
-		TxID:          txID,
-		UniversalTxID: universalTxID,
+		TxID:               txID,
+		UniversalTxID:      universalTxID,
+		Pc20WrapperAddress: wrapperAddr,
 	}
 
 	// Marshal payload to JSON
@@ -278,5 +293,3 @@ func parseUniversalTx(event *store.Event, log *types.Log, dataOffset uint64, pay
 
 	finalizeEvent(event, payload, logger)
 }
-
-

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"math/big"
+	"os"
 	"testing"
 	"time"
 
@@ -707,7 +708,7 @@ func TestDetermineFunctionNameDefault(t *testing.T) {
 const (
 	bscGatewayAddress = "0x44aFFC61983F4348DdddB886349eb992C061EaC0"
 	bscVaultAddress   = "0xE52AC4f8DD3e0263bDF748F3390cdFA1f02be881"
-	bscSimulateFrom   = "0x05D7386FB3D7cB00e0CFAc5Af3B2EFF6BF37c5f1" // TSS Address (has TSS_ROLE)
+	bscSimulateFrom   = "0x9fed6f778a956244c06a3b905ba45bdb2ec3afea" // TSS EOA (holds TSS_ROLE on the vault)
 	bscPushAccount    = "0x35B84d6848D16415177c64D64504663b998A6ab4" // Push account / origin caller
 	bscRPCURL         = "https://bsc-testnet-rpc.publicnode.com"
 	bscChainID        = int64(97)
@@ -718,7 +719,11 @@ const (
 // setupBSCSimulation creates RPCClient and TxBuilder for BSC testnet simulation tests.
 func setupBSCSimulation(t *testing.T) (*RPCClient, *TxBuilder) {
 	t.Helper()
-	t.Skip("skipping simulation tests") // DELIBERATELY SKIPPING SIMULATION TESTS
+	// Skipped by default (CI never runs these). Run locally against BSC testnet
+	// with RUN_EVM_SIM=1.
+	if os.Getenv("RUN_EVM_SIM") == "" {
+		t.Skip("skipping simulation tests; set RUN_EVM_SIM=1 to run against BSC testnet")
+	}
 	logger := zerolog.Nop()
 	rpcClient, err := NewRPCClient([]string{bscRPCURL}, bscChainID, logger)
 	if err != nil {
@@ -1262,4 +1267,65 @@ func TestBroadcastFundMigrationTx_DoesNotQueryBalance(t *testing.T) {
 	require.Error(t, err)
 	assert.NotContains(t, err.Error(), "get_balance", "broadcast must not call GetBalance")
 	assert.NotContains(t, err.Error(), "failed to get balance", "broadcast must not call GetBalance")
+}
+
+// A PC20 inbound-revert/rescue re-mints the wrapper on EVM. The Vault detects PC20
+// by the token being a factory wrapper and requires msg.value==0. UV has no
+// PC20-specific revert code — the generic path must produce token=wrapper, value=0.
+func TestPC20Revert_BuildsWrapperTokenValueZero(t *testing.T) {
+	wrapper := "0x1111111111111111111111111111111111111111"
+	tb := &TxBuilder{}
+
+	for _, tc := range []struct {
+		txType   uetypes.TxType
+		wantFunc string
+	}{
+		{uetypes.TxType_INBOUND_REVERT, "revertUniversalTx"},
+		{uetypes.TxType_RESCUE_FUNDS, "rescueFunds"},
+	} {
+		t.Run(tc.wantFunc, func(t *testing.T) {
+			data := &uetypes.OutboundCreatedEvent{
+				TxID:          "0x" + hex.EncodeToString(make([]byte, 32)),
+				UniversalTxId: "0x" + hex.EncodeToString(make([]byte, 32)),
+				Sender:        "0x0000000000000000000000000000000000000000",
+				Recipient:     "0x2222222222222222222222222222222222222222",
+				Amount:        "1000",
+				AssetAddr:     wrapper, // core sets ExternalAssetAddr = wrapper for the re-mint
+				IsPc20:        false,   // revert/rescue outbounds are never IsPc20
+				TxType:        tc.txType.String(),
+			}
+
+			assetAddr := ethcommon.HexToAddress(data.AssetAddr)
+			funcName := tb.determineFunctionName(tc.txType, assetAddr)
+			require.Equal(t, tc.wantFunc, funcName)
+
+			// value = 0 for a non-zero (wrapper) token.
+			assert.NotEqual(t, ethcommon.Address{}, assetAddr, "wrapper token must be non-zero → tx value 0")
+
+			amount := big.NewInt(1000)
+			txData, err := tb.encodeFunctionCall(funcName, data, amount, assetAddr, tc.txType)
+			require.NoError(t, err)
+
+			sig := tb.getFunctionSignature(funcName, false)
+			assert.Equal(t, crypto.Keccak256([]byte(sig))[:4], txData[:4])
+			assert.Equal(t, ethcommon.HexToAddress(wrapper), decodeRevertToken(t, txData[4:]))
+		})
+	}
+}
+
+// decodeRevertToken unpacks the `token` (3rd arg) of revertUniversalTx/rescueFunds
+// calldata: (bytes32 subTxId, bytes32 universalTxId, address token, uint256 amount, (address,bytes)).
+func decodeRevertToken(t *testing.T, argsData []byte) ethcommon.Address {
+	t.Helper()
+	b32, _ := abi.NewType("bytes32", "", nil)
+	addr, _ := abi.NewType("address", "", nil)
+	u256, _ := abi.NewType("uint256", "", nil)
+	tuple, _ := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
+		{Name: "revertRecipient", Type: "address"},
+		{Name: "revertMsg", Type: "bytes"},
+	})
+	args := abi.Arguments{{Type: b32}, {Type: b32}, {Type: addr}, {Type: u256}, {Type: tuple}}
+	vals, err := args.Unpack(argsData)
+	require.NoError(t, err)
+	return vals[2].(ethcommon.Address)
 }

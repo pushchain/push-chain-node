@@ -254,6 +254,30 @@ const UNIVERSAL_CORE_ABI = `[
     },
     {
       "type": "function",
+      "name": "setWrapperDeployed",
+      "inputs": [
+        { "name": "sourceAsset", "type": "address", "internalType": "address" },
+        { "name": "destChain", "type": "string", "internalType": "string" },
+        { "name": "wrapper", "type": "bytes32", "internalType": "bytes32" }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "getPC20Source",
+      "inputs": [
+        { "name": "wrapper", "type": "bytes32", "internalType": "bytes32" },
+        { "name": "destChain", "type": "string", "internalType": "string" }
+      ],
+      "outputs": [
+        { "name": "sourceAsset", "type": "address", "internalType": "address" },
+        { "name": "known", "type": "bool", "internalType": "bool" }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "depositPRC20WithAutoSwap",
       "inputs": [
         { "name": "prc20", "type": "address", "internalType": "address" },
@@ -865,6 +889,41 @@ func ParsePRC20ABI() (abi.ABI, error) {
 
 func ParseUniversalCoreABI() (abi.ABI, error) {
 	return abi.JSON(strings.NewReader(UNIVERSAL_CORE_ABI))
+}
+
+// VAULT_PC20_ABI is the on-Push VaultPC20 custody vault. It holds Push-native
+// PC20 tokens locked during export and releases them on unlock (wrapper burned
+// on the destination) or revertExport (export settlement failed). The uexecutor
+// module is the authorized caller; each subTxId is single-shot (replay guarded).
+const VAULT_PC20_ABI = `[
+    {
+      "type": "function",
+      "name": "revertExport",
+      "inputs": [
+        { "name": "subTxId", "type": "bytes32", "internalType": "bytes32" },
+        { "name": "token", "type": "address", "internalType": "address" },
+        { "name": "amount", "type": "uint256", "internalType": "uint256" },
+        { "name": "revertRecipient", "type": "address", "internalType": "address" }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "unlock",
+      "inputs": [
+        { "name": "subTxId", "type": "bytes32", "internalType": "bytes32" },
+        { "name": "token", "type": "address", "internalType": "address" },
+        { "name": "amount", "type": "uint256", "internalType": "uint256" },
+        { "name": "recipient", "type": "address", "internalType": "address" }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    }
+]`
+
+func ParseVaultPC20ABI() (abi.ABI, error) {
+	return abi.JSON(strings.NewReader(VAULT_PC20_ABI))
 }
 
 // RecipientContractABI is the ABI for smart-contract recipients that implement executeUniversalTx.

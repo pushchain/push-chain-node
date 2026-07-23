@@ -13,7 +13,8 @@ import (
 )
 
 const (
-	USigVerifierPrecompileAddress = "0xEC00000000000000000000000000000000000001"
+	USigVerifierPrecompileAddress   = "0x00000000000000000000000000000000000000ca"
+	USigVerifierPrecompileAddressV2 = "0xEC00000000000000000000000000000000000001"
 	// VerifyEd25519Gas is the gas cost for verifying an Ed25519 signature.
 	VerifyEd25519Gas uint64 = 4000
 	// VerifyEd25519RawMessageGas matches VerifyEd25519Gas — same Ed25519
@@ -49,6 +50,11 @@ func GetAddress() common.Address {
 	return common.HexToAddress(USigVerifierPrecompileAddress)
 }
 
+// GetAddressV2 returns the new (0xEC..01) address of the precompile
+func GetAddressV2() common.Address {
+	return common.HexToAddress(USigVerifierPrecompileAddressV2)
+}
+
 func NewPrecompile() (*Precompile, error) {
 	p := &Precompile{
 		Precompile: cmn.Precompile{
@@ -59,6 +65,22 @@ func NewPrecompile() (*Precompile, error) {
 	}
 
 	p.SetAddress(GetAddress())
+
+	return p, nil
+}
+
+// NewPrecompileV2 creates a new USigVerifier precompile at the new address (0xEC..01).
+// It provides the same functionality as NewPrecompile but at the reserved address range.
+func NewPrecompileV2() (*Precompile, error) {
+	p := &Precompile{
+		Precompile: cmn.Precompile{
+			KvGasConfig:          storetypes.KVGasConfig(),
+			TransientKVGasConfig: storetypes.TransientGasConfig(),
+		},
+		ABI: ABI,
+	}
+
+	p.SetAddress(GetAddressV2())
 
 	return p, nil
 }

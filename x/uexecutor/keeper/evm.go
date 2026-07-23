@@ -140,6 +140,14 @@ func (k Keeper) CallFactoryToDeployUEA(
 		return nil, errors.Wrapf(err, "failed to create universal account")
 	}
 
+	// When the module deploys the UEA (inbound path, from = module), draw + advance
+	// the module's nonce via ModuleAccountNonce; a non-module sender (MsgDeployUEA /
+	// MsgExecutePayload, from = owner) uses its own account sequence.
+	isModuleSender, moduleNonce, err := k.moduleSenderNonce(ctx, from)
+	if err != nil {
+		return nil, err
+	}
+
 	return k.evmKeeper.DerivedEVMCall(
 		ctx,
 		abi,
@@ -149,8 +157,8 @@ func (k Keeper) CallFactoryToDeployUEA(
 		nil,
 		true,  // commit = true (real tx, not simulation)
 		false, // gasless = false (@dev: we need gas to be emitted in the tx receipt)
-		false, // not a module sender
-		nil,
+		isModuleSender,
+		moduleNonce,
 		"deployUEA",
 		abiUniversalAccount,
 	)
@@ -317,14 +325,8 @@ func (k Keeper) CallPRC20Deposit(
 
 	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
 
-	// Before sending an EVM tx from module
-	nonce, err := k.GetModuleAccountNonce(ctx)
+	isModuleSender, moduleNonce, err := k.moduleSenderNonce(ctx, ueModuleAccAddress)
 	if err != nil {
-		return nil, err
-	}
-
-	// increment first (safe for internal modules)
-	if _, err := k.IncrementModuleAccountNonce(ctx); err != nil {
 		return nil, err
 	}
 
@@ -335,10 +337,10 @@ func (k Keeper) CallPRC20Deposit(
 		handlerAddr,        // destination
 		big.NewInt(0),
 		nil,
-		true,   // commit = true (real tx, not simulation)
-		false,  // gasless = false (@dev: we need gas to be emitted in the tx receipt)
-		true,   // module sender = true
-		&nonce, // manual nonce of module
+		true,  // commit = true (real tx, not simulation)
+		false, // gasless = false (@dev: we need gas to be emitted in the tx receipt)
+		isModuleSender,
+		moduleNonce,
 		"depositPRC20Token",
 		prc20Address,
 		amount,
@@ -363,12 +365,8 @@ func (k Keeper) CallUniversalCoreSetChainMeta(
 
 	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
 
-	nonce, err := k.GetModuleAccountNonce(ctx)
+	isModuleSender, moduleNonce, err := k.moduleSenderNonce(ctx, ueModuleAccAddress)
 	if err != nil {
-		return nil, err
-	}
-
-	if _, err := k.IncrementModuleAccountNonce(ctx); err != nil {
 		return nil, err
 	}
 
@@ -381,8 +379,8 @@ func (k Keeper) CallUniversalCoreSetChainMeta(
 		nil,
 		true,
 		false,
-		true,
-		&nonce,
+		isModuleSender,
+		moduleNonce,
 		"setChainMeta",
 		chainNamespace,
 		price,
@@ -401,7 +399,7 @@ func (k Keeper) GetGasPriceByChain(ctx sdk.Context, chainNamespace string) (*big
 
 	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
 
-	receipt, err := k.evmKeeper.CallEVM(ctx, k.evmKeeper.NewStateDB(ctx), abi, ueModuleAccAddress, handlerAddr, false, false, nil,"gasPriceByChainNamespace", chainNamespace)
+	receipt, err := k.evmKeeper.CallEVM(ctx, k.evmKeeper.NewStateDB(ctx), abi, ueModuleAccAddress, handlerAddr, false, false, nil, "gasPriceByChainNamespace", chainNamespace)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to call gasPriceByChainNamespace")
 	}
@@ -426,7 +424,7 @@ func (k Keeper) GetL1GasFeeByChain(ctx sdk.Context, chainNamespace string) (*big
 
 	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
 
-	receipt, err := k.evmKeeper.CallEVM(ctx, k.evmKeeper.NewStateDB(ctx), abi, ueModuleAccAddress, handlerAddr, false, false, nil,"l1GasFeeByChainNamespace", chainNamespace)
+	receipt, err := k.evmKeeper.CallEVM(ctx, k.evmKeeper.NewStateDB(ctx), abi, ueModuleAccAddress, handlerAddr, false, false, nil, "l1GasFeeByChainNamespace", chainNamespace)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to call l1GasFeeByChainNamespace")
 	}
@@ -450,7 +448,7 @@ func (k Keeper) GetTssFundMigrationGasLimitByChain(ctx sdk.Context, chainNamespa
 
 	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
 
-	receipt, err := k.evmKeeper.CallEVM(ctx, k.evmKeeper.NewStateDB(ctx), abi, ueModuleAccAddress, handlerAddr, false, false, nil,"tssFundMigrationGasLimitByChainNamespace", chainNamespace)
+	receipt, err := k.evmKeeper.CallEVM(ctx, k.evmKeeper.NewStateDB(ctx), abi, ueModuleAccAddress, handlerAddr, false, false, nil, "tssFundMigrationGasLimitByChainNamespace", chainNamespace)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to call tssFundMigrationGasLimitByChainNamespace")
 	}
@@ -474,7 +472,7 @@ func (k Keeper) GetUniversalCoreQuoterAddress(ctx sdk.Context) (common.Address, 
 
 	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
 
-	receipt, err := k.evmKeeper.CallEVM(ctx, k.evmKeeper.NewStateDB(ctx), abi, ueModuleAccAddress, handlerAddr, false, false, nil,"uniswapV3Quoter")
+	receipt, err := k.evmKeeper.CallEVM(ctx, k.evmKeeper.NewStateDB(ctx), abi, ueModuleAccAddress, handlerAddr, false, false, nil, "uniswapV3Quoter")
 	if err != nil {
 		return common.Address{}, errors.Wrap(err, "failed to call uniswapV3Quoter")
 	}
@@ -498,7 +496,7 @@ func (k Keeper) GetUniversalCoreWPCAddress(ctx sdk.Context) (common.Address, err
 
 	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
 
-	receipt, err := k.evmKeeper.CallEVM(ctx, k.evmKeeper.NewStateDB(ctx), abi, ueModuleAccAddress, handlerAddr, false, false, nil,"WPC")
+	receipt, err := k.evmKeeper.CallEVM(ctx, k.evmKeeper.NewStateDB(ctx), abi, ueModuleAccAddress, handlerAddr, false, false, nil, "WPC")
 	if err != nil {
 		return common.Address{}, errors.Wrap(err, "failed to call WPC")
 	}
@@ -522,7 +520,7 @@ func (k Keeper) GetDefaultFeeTierForToken(ctx sdk.Context, prc20Address common.A
 
 	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
 
-	receipt, err := k.evmKeeper.CallEVM(ctx, k.evmKeeper.NewStateDB(ctx), abi, ueModuleAccAddress, handlerAddr, false, false, nil,"defaultFeeTier", prc20Address)
+	receipt, err := k.evmKeeper.CallEVM(ctx, k.evmKeeper.NewStateDB(ctx), abi, ueModuleAccAddress, handlerAddr, false, false, nil, "defaultFeeTier", prc20Address)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to call defaultFeeTier")
 	}
@@ -608,11 +606,8 @@ func (k Keeper) CallVaultPC20RevertExport(
 
 	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
 
-	nonce, err := k.GetModuleAccountNonce(ctx)
+	isModuleSender, moduleNonce, err := k.moduleSenderNonce(ctx, ueModuleAccAddress)
 	if err != nil {
-		return nil, err
-	}
-	if _, err := k.IncrementModuleAccountNonce(ctx); err != nil {
 		return nil, err
 	}
 
@@ -623,10 +618,10 @@ func (k Keeper) CallVaultPC20RevertExport(
 		common.HexToAddress(vaultAddr), // destination: VaultPC20
 		big.NewInt(0),
 		nil,
-		true,   // commit
-		false,  // gasless = false (gas emitted in receipt)
-		true,   // module sender
-		&nonce, // manual nonce of module
+		true,  // commit
+		false, // gasless = false (gas emitted in receipt)
+		isModuleSender,
+		moduleNonce,
 		"revertExport",
 		subTxId,
 		token,
@@ -658,11 +653,8 @@ func (k Keeper) CallVaultPC20Unlock(
 
 	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
 
-	nonce, err := k.GetModuleAccountNonce(ctx)
+	isModuleSender, moduleNonce, err := k.moduleSenderNonce(ctx, ueModuleAccAddress)
 	if err != nil {
-		return nil, err
-	}
-	if _, err := k.IncrementModuleAccountNonce(ctx); err != nil {
 		return nil, err
 	}
 
@@ -673,10 +665,10 @@ func (k Keeper) CallVaultPC20Unlock(
 		common.HexToAddress(vaultAddr), // destination: VaultPC20
 		big.NewInt(0),
 		nil,
-		true,   // commit
-		false,  // gasless = false (gas emitted in receipt)
-		true,   // module sender
-		&nonce, // manual nonce of module
+		true,  // commit
+		false, // gasless = false (gas emitted in receipt)
+		isModuleSender,
+		moduleNonce,
 		"unlock",
 		subTxId,
 		token,
@@ -743,11 +735,8 @@ func (k Keeper) CallUniversalCoreSetWrapperDeployed(
 
 	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
 
-	nonce, err := k.GetModuleAccountNonce(ctx)
+	isModuleSender, moduleNonce, err := k.moduleSenderNonce(ctx, ueModuleAccAddress)
 	if err != nil {
-		return nil, err
-	}
-	if _, err := k.IncrementModuleAccountNonce(ctx); err != nil {
 		return nil, err
 	}
 
@@ -758,10 +747,10 @@ func (k Keeper) CallUniversalCoreSetWrapperDeployed(
 		handlerAddr,        // destination: UniversalCore
 		big.NewInt(0),
 		nil,
-		true,   // commit
-		false,  // gasless = false (gas emitted in receipt)
-		true,   // module sender
-		&nonce, // manual nonce of module
+		true,  // commit
+		false, // gasless = false (gas emitted in receipt)
+		isModuleSender,
+		moduleNonce,
 		"setWrapperDeployed",
 		sourceAsset,
 		destChain,
@@ -790,14 +779,8 @@ func (k Keeper) CallPRC20DepositAutoSwap(
 
 	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
 
-	// Before sending an EVM tx from module
-	nonce, err := k.GetModuleAccountNonce(ctx)
+	isModuleSender, moduleNonce, err := k.moduleSenderNonce(ctx, ueModuleAccAddress)
 	if err != nil {
-		return nil, err
-	}
-
-	// increment first (safe for internal modules)
-	if _, err := k.IncrementModuleAccountNonce(ctx); err != nil {
 		return nil, err
 	}
 
@@ -808,10 +791,10 @@ func (k Keeper) CallPRC20DepositAutoSwap(
 		handlerAddr,        // destination: Handler contract
 		big.NewInt(0),
 		nil,
-		true,   // commit = true (real tx, not simulation)
-		false,  // gasless = false (@dev: we need gas to be emitted in the tx receipt)
-		true,   // module sender = true
-		&nonce, // manual nonce of module
+		true,  // commit = true (real tx, not simulation)
+		false, // gasless = false (@dev: we need gas to be emitted in the tx receipt)
+		isModuleSender,
+		moduleNonce,
 		"depositPRC20WithAutoSwap",
 		prc20Address,
 		amount,
@@ -842,12 +825,8 @@ func (k Keeper) CallUniversalCoreRefundUnusedGas(
 
 	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
 
-	nonce, err := k.GetModuleAccountNonce(ctx)
+	isModuleSender, moduleNonce, err := k.moduleSenderNonce(ctx, ueModuleAccAddress)
 	if err != nil {
-		return nil, err
-	}
-
-	if _, err := k.IncrementModuleAccountNonce(ctx); err != nil {
 		return nil, err
 	}
 
@@ -861,8 +840,8 @@ func (k Keeper) CallUniversalCoreRefundUnusedGas(
 		nil,
 		true,
 		false,
-		true,
-		&nonce,
+		isModuleSender,
+		moduleNonce,
 		"refundUnusedGas",
 		gasToken,
 		amount,
@@ -892,11 +871,8 @@ func (k Keeper) CallExecuteUniversalTx(
 
 	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
 
-	nonce, err := k.GetModuleAccountNonce(ctx)
+	isModuleSender, moduleNonce, err := k.moduleSenderNonce(ctx, ueModuleAccAddress)
 	if err != nil {
-		return nil, err
-	}
-	if _, err := k.IncrementModuleAccountNonce(ctx); err != nil {
 		return nil, err
 	}
 
@@ -909,8 +885,8 @@ func (k Keeper) CallExecuteUniversalTx(
 		nil,
 		true,
 		false,
-		true,
-		&nonce,
+		isModuleSender,
+		moduleNonce,
 		"executeUniversalTx",
 		sourceChain,
 		ceaAddress,

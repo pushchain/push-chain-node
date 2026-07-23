@@ -115,3 +115,27 @@ func TestModuleNonce_InboundPayloadExecutionAdvancesModuleNonce(t *testing.T) {
 	require.Equal(t, uint64(2), after-before,
 		"deposit + UEA payload execution must each advance ModuleAccountNonce (Δ2); pre-fix Δ was 1")
 }
+
+// TestModuleNonce_ModuleDeployUEAAdvancesModuleNonce covers the CallFactoryToDeployUEA
+// path: the inbound flow deploys a UEA for a first-time user as the module, so that
+// deployment must also advance ModuleAccountNonce. Before the fix it ran the module
+// as a non-module sender and left the counter untouched (reusing a nonce).
+func TestModuleNonce_ModuleDeployUEAAdvancesModuleNonce(t *testing.T) {
+	app, ctx, _, _, _, _ := setupInboundInitiatedOutboundTest(t, 4)
+	k := app.UexecutorKeeper
+	moduleAddr, _ := k.GetUeModuleAddress(ctx)
+
+	before, err := k.GetModuleAccountNonce(ctx)
+	require.NoError(t, err)
+
+	// Deploy a UEA for a fresh owner AS THE MODULE (as the inbound path does).
+	freshUA := &uexecutortypes.UniversalAccountId{
+		ChainNamespace: "eip155", ChainId: "11155111",
+		Owner: "0x00000000000000000000000000000000000000Ab",
+	}
+	_, _ = k.DeployUEAV2(ctx, moduleAddr, freshUA)
+
+	after, err := k.GetModuleAccountNonce(ctx)
+	require.NoError(t, err)
+	require.Equal(t, before+1, after, "a module-sender UEA deployment must advance ModuleAccountNonce by 1")
+}

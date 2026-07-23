@@ -9,6 +9,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pushchain/push-chain-node/utils"
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
@@ -67,15 +68,9 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 			} else if isUEA {
 				// UEA path: deposit PRC20 into the UEA (if amount > 0), then execute payload via UEA
 				if inboundAmount.Sign() > 0 {
-					receipt, execErr = k.depositPRC20(
-						sdkCtx,
-						utx.InboundTx.SourceChain,
-						utx.InboundTx.AssetAddr,
-						ueaAddr,
-						utx.InboundTx.Amount,
-					)
+					receipt, execErr = k.creditInboundFunds(sdkCtx, utx.InboundTx, utx.Id, ueaAddr)
 					if execErr != nil {
-						execErr = fmt.Errorf("depositPRC20 failed: %w", execErr)
+						execErr = fmt.Errorf("inbound funds credit failed: %w", execErr)
 					}
 				}
 			} else {
@@ -87,15 +82,9 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 				}
 				// EOA: just deposit, skip executeUniversalTx (no contract to call)
 				if inboundAmount.Sign() > 0 {
-					receipt, execErr = k.depositPRC20(
-						sdkCtx,
-						utx.InboundTx.SourceChain,
-						utx.InboundTx.AssetAddr,
-						ueaAddr,
-						utx.InboundTx.Amount,
-					)
+					receipt, execErr = k.creditInboundFunds(sdkCtx, utx.InboundTx, utx.Id, ueaAddr)
 					if execErr != nil {
-						execErr = fmt.Errorf("depositPRC20 failed: %w", execErr)
+						execErr = fmt.Errorf("inbound funds credit failed: %w", execErr)
 					}
 				}
 			}
@@ -142,15 +131,9 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 			}
 
 			if execErr == nil && inboundAmount.Sign() > 0 {
-				receipt, err = k.depositPRC20(
-					sdkCtx,
-					utx.InboundTx.SourceChain,
-					utx.InboundTx.AssetAddr,
-					ueaAddr,
-					utx.InboundTx.Amount,
-				)
+				receipt, err = k.creditInboundFunds(sdkCtx, utx.InboundTx, utx.Id, ueaAddr)
 				if err != nil {
-					execErr = fmt.Errorf("depositPRC20 failed: %w", err)
+					execErr = fmt.Errorf("inbound funds credit failed: %w", err)
 					shouldRevert = true
 					revertReason = execErr.Error()
 				}
@@ -207,17 +190,38 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 
 	// Smart contract path: call executeUniversalTx and return
 	if isSmartContract {
-		tokenConfig, tcErr := k.uregistryKeeper.GetTokenConfig(sdkCtx, utx.InboundTx.SourceChain, utx.InboundTx.AssetAddr)
+		// Resolve the on-Push asset the recipient contract received: the PC20 source
+		// (via UniversalCore's reverse registry) for a PC20 return, else the PRC20
+		// from the token registry.
+		var prc20Addr common.Address
+		var resolveErr error
+		if utx.InboundTx.IsPc20 {
+			wrapper, wErr := utils.AddressToBytes32(utx.InboundTx.SourceChain, utx.InboundTx.AssetAddr)
+			source, known, srcErr := common.Address{}, false, wErr
+			if wErr == nil {
+				source, known, srcErr = k.CallUniversalCoreGetPC20Source(sdkCtx, wrapper, utx.InboundTx.SourceChain)
+			}
+			switch {
+			case srcErr != nil:
+				resolveErr = fmt.Errorf("PC20 source lookup failed: %w", srcErr)
+			case !known:
+				resolveErr = fmt.Errorf("no PC20 wrapper mapping for %s on %s", utx.InboundTx.AssetAddr, utx.InboundTx.SourceChain)
+			default:
+				prc20Addr = source
+			}
+		} else if tokenConfig, tcErr := k.uregistryKeeper.GetTokenConfig(sdkCtx, utx.InboundTx.SourceChain, utx.InboundTx.AssetAddr); tcErr != nil {
+			resolveErr = fmt.Errorf("token config lookup failed: %w", tcErr)
+		} else {
+			prc20Addr = common.HexToAddress(tokenConfig.NativeRepresentation.ContractAddress)
+		}
 
 		var contractReceipt *evmtypes.MsgEthereumTxResponse
 		var contractErr error
 		var feeErr error
 
-		if tcErr != nil {
-			contractErr = fmt.Errorf("token config lookup failed: %w", tcErr)
+		if resolveErr != nil {
+			contractErr = resolveErr
 		} else {
-			prc20Addr := common.HexToAddress(tokenConfig.NativeRepresentation.ContractAddress)
-
 			amount := new(big.Int)
 			amount, ok := amount.SetString(utx.InboundTx.Amount, 10)
 			if !ok {

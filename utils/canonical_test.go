@@ -1,23 +1,26 @@
 package utils_test
 
 import (
+	"encoding/hex"
 	"testing"
 
+	ethcommon "github.com/ethereum/go-ethereum/common"
+	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/require"
 
 	"github.com/pushchain/push-chain-node/utils"
 )
 
 const (
-	eip55Addr  = "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed"
-	lowerAddr  = "0x5aaeb6053f3e94c9b9a09f33669435e7ef1beaed"
-	upperAddr  = "0X5AAEB6053F3E94C9B9A09F33669435E7EF1BEAED"
-	noPfxAddr  = "5aaeb6053f3e94c9b9a09f33669435e7ef1beaed"
-	mixedHash  = "0xB28F49668e7e76dc96D7aaBE5b7f63FEcfbd1c3574774c05e8204e749fd96fbd"
-	lowerHash  = "0xb28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd"
-	noPfxHash  = "b28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd"
-	solPubkey  = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
-	solSig     = "5j7s6NiJS3JAkvgkoc18WVAsiSaci2pxB2A6ueCJP4tprA2TFg9wSyTLeYouxPBJEMzJinENTkpA52YStRW5Dia7"
+	eip55Addr = "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed"
+	lowerAddr = "0x5aaeb6053f3e94c9b9a09f33669435e7ef1beaed"
+	upperAddr = "0X5AAEB6053F3E94C9B9A09F33669435E7EF1BEAED"
+	noPfxAddr = "5aaeb6053f3e94c9b9a09f33669435e7ef1beaed"
+	mixedHash = "0xB28F49668e7e76dc96D7aaBE5b7f63FEcfbd1c3574774c05e8204e749fd96fbd"
+	lowerHash = "0xb28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd"
+	noPfxHash = "b28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd"
+	solPubkey = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+	solSig    = "5j7s6NiJS3JAkvgkoc18WVAsiSaci2pxB2A6ueCJP4tprA2TFg9wSyTLeYouxPBJEMzJinENTkpA52YStRW5Dia7"
 )
 
 func TestCanonicalizeEVMAddress_EquivalentEncodingsConverge(t *testing.T) {
@@ -133,4 +136,55 @@ func TestCAIP2Namespace(t *testing.T) {
 	require.Equal(t, "eip155", utils.CAIP2Namespace("eip155:1"))
 	require.Equal(t, "solana", utils.CAIP2Namespace("solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"))
 	require.Equal(t, "", utils.CAIP2Namespace("no-colon"))
+}
+
+// AddressToBytes32: an EVM address goes into the low 20 bytes (bytes32(uint160(addr))).
+func TestAddressToBytes32_EVM_LowAligned(t *testing.T) {
+	addr := "0x000000000000000000000000000000000000dEaD"
+	h, err := utils.AddressToBytes32("eip155:11155111", addr)
+	require.NoError(t, err)
+	require.Equal(t, ethcommon.HexToAddress(addr).Bytes(), h.Bytes()[12:], "address occupies the low 20 bytes")
+	require.Equal(t, make([]byte, 12), h.Bytes()[:12], "high 12 bytes are zero")
+
+	// Case-insensitive input converges to the same key.
+	h2, err := utils.AddressToBytes32("eip155:11155111", "0x000000000000000000000000000000000000dead")
+	require.NoError(t, err)
+	require.Equal(t, h, h2)
+}
+
+// AddressToBytes32: a Solana pubkey is the raw 32 bytes, and base58 vs 0x-hex of
+// the same pubkey converge to the same key.
+func TestAddressToBytes32_Solana(t *testing.T) {
+	raw := make([]byte, 32)
+	for i := range raw {
+		raw[i] = byte(i + 1)
+	}
+	const solChain = "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"
+
+	hB58, err := utils.AddressToBytes32(solChain, base58.Encode(raw))
+	require.NoError(t, err)
+	require.Equal(t, raw, hB58.Bytes(), "solana pubkey is the raw 32 bytes")
+
+	hHex, err := utils.AddressToBytes32(solChain, "0x"+hex.EncodeToString(raw))
+	require.NoError(t, err)
+	require.Equal(t, hB58, hHex, "base58 and 0x-hex of the same pubkey converge")
+}
+
+// AddressToBytes32 validates the address against the chain and rejects mismatches.
+func TestAddressToBytes32_Rejects(t *testing.T) {
+	cases := []struct {
+		name, chain, addr string
+	}{
+		{"base58 on an EVM chain", "eip155:1", "So11111111111111111111111111111111111111112"},
+		{"20-byte EVM addr on a Solana chain", "solana:x", "0x000000000000000000000000000000000000dEaD"},
+		{"malformed EVM (wrong length)", "eip155:1", "0x1234"},
+		{"empty", "eip155:1", ""},
+		{"unsupported namespace", "cosmos:1", "0x000000000000000000000000000000000000dEaD"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := utils.AddressToBytes32(tc.chain, tc.addr)
+			require.Error(t, err)
+		})
+	}
 }

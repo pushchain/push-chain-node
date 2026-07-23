@@ -178,24 +178,20 @@ func TestNewEventListener_TopicMapFromGatewayMethods(t *testing.T) {
 	logger := testLogger(t)
 
 	sendFundsTopicHex := "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-	executeTxTopicHex := "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 	revertTxTopicHex := "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
 
 	gatewayMethods := []*uregistrytypes.GatewayMethods{
 		{Name: EventTypeSendFunds, Identifier: "sendFunds()", EventIdentifier: sendFundsTopicHex},
-		{Name: EventTypeExecuteUniversalTx, Identifier: "executeUniversalTx()", EventIdentifier: executeTxTopicHex},
 		{Name: EventTypeRevertUniversalTx, Identifier: "revertUniversalTx()", EventIdentifier: revertTxTopicHex},
 	}
 
 	el, err := NewEventListener(nil, "0xGateway", "0xVault", "eip155:1", gatewayMethods, nil, database, 5, nil, logger)
 	require.NoError(t, err)
 
-	assert.Len(t, el.eventTopics, 3)
-	assert.Len(t, el.topicToEventType, 3)
+	assert.Len(t, el.eventTopics, 2)
+	assert.Len(t, el.topicToEventType, 2)
 
-	// Verify each topic maps to the correct event type
 	assert.Equal(t, EventTypeSendFunds, el.topicToEventType[ethcommon.HexToHash(sendFundsTopicHex)])
-	assert.Equal(t, EventTypeExecuteUniversalTx, el.topicToEventType[ethcommon.HexToHash(executeTxTopicHex)])
 	assert.Equal(t, EventTypeRevertUniversalTx, el.topicToEventType[ethcommon.HexToHash(revertTxTopicHex)])
 }
 

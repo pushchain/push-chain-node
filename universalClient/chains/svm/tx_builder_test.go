@@ -2119,6 +2119,148 @@ func TestBuildRefRouteTransactions_Validation(t *testing.T) {
 	})
 }
 
+// newPC20RefEvent builds a valid PC20 export event for the ref-route builder:
+// a 20-byte source in AssetAddr and a selector-prefixed ABI payload.
+func newPC20RefEvent(t *testing.T, name, symbol string) *uetypes.OutboundCreatedEvent {
+	t.Helper()
+	src := makeSender(0x03)
+	ev := newBaseRefRouteEvent(t, "0x"+hex.EncodeToString(packPC20Payload(t, name, symbol, 6, nil)))
+	ev.AssetAddr = "0x" + hex.EncodeToString(src[:])
+	ev.IsPc20 = true
+	ev.Pc20ContractAddress = ev.AssetAddr
+	return ev
+}
+
+func TestBuildPC20ExportRefTransactions_Validation(t *testing.T) {
+	builder := newTestBuilderWithKeypair(t)
+	ctx := context.Background()
+	validSig := make([]byte, 65)
+	req := &common.UnsignedSigningReq{SigningHash: make([]byte, 32)}
+
+	t.Run("nil signing request", func(t *testing.T) {
+		_, _, _, err := builder.BuildPC20ExportRefTransactions(ctx, nil, newPC20RefEvent(t, "Tok", "TK"), validSig)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "signing request is nil")
+	})
+
+	t.Run("nil event data", func(t *testing.T) {
+		_, _, _, err := builder.BuildPC20ExportRefTransactions(ctx, req, nil, validSig)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "outbound event data is nil")
+	})
+
+	t.Run("wrong signature length", func(t *testing.T) {
+		_, _, _, err := builder.BuildPC20ExportRefTransactions(ctx, req, newPC20RefEvent(t, "Tok", "TK"), make([]byte, 64))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "signature must be 65 bytes")
+	})
+
+	t.Run("oversized ix_data rejected", func(t *testing.T) {
+		// A very long name pushes the ABI region past the ref-route ceiling.
+		ev := newPC20RefEvent(t, strings.Repeat("A", 1200), "TK")
+		_, _, _, err := builder.BuildPC20ExportRefTransactions(ctx, req, ev, validSig)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "exceeds ref-route max")
+	})
+
+	t.Run("invalid sender length", func(t *testing.T) {
+		ev := newPC20RefEvent(t, "Tok", "TK")
+		ev.Sender = "0xdeadbeef" // 4 bytes, not 20
+		_, _, _, err := builder.BuildPC20ExportRefTransactions(ctx, req, ev, validSig)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid sender")
+	})
+
+	t.Run("invalid pc20 source asset rejected", func(t *testing.T) {
+		ev := newPC20RefEvent(t, "Tok", "TK")
+		ev.AssetAddr = "0xabcd" // not 20 bytes
+		_, _, _, err := builder.BuildPC20ExportRefTransactions(ctx, req, ev, validSig)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "pc20 source asset")
+	})
+}
+
+// TestBuildPC20ExportRefData_LayoutAndParity verifies the ref-finalize
+// instruction data carries id=5 and the ix_data hash at the documented offset,
+// and that the stored ix_data equals the direct-route ix_data (so the gateway
+// rebuilds the identical PC20 export + TSS message).
+func TestBuildPC20ExportRefData_LayoutAndParity(t *testing.T) {
+	tb := newTestBuilder(t)
+
+	src := makeSender(0xaa)
+	payload := packPC20Payload(t, "Devnet PC20", "dPC20", 6, nil)
+	ixData := buildPC20ExportIxData(src, payload)
+
+	var ixDataHash [32]byte
+	copy(ixDataHash[:], crypto.Keccak256(ixData))
+
+	txID := makeTxID(0x11)
+	utxID := makeTxID(0x22)
+	pushAccount := makeSender(0x33)
+	data := tb.buildWithdrawAndExecuteRefData(
+		pc20FinalizeInstructionID, txID, utxID, 5000, pushAccount,
+		ixDataHash, []byte{}, 6000, 1_800_000_000, make([]byte, 64), 0, make([]byte, 32),
+	)
+
+	assert.Equal(t, discFinalizeUniversalTxRef[:], data[:8])
+	assert.Equal(t, byte(pc20FinalizeInstructionID), data[8])
+	// disc(8) + id(1) + sub_tx_id(32) + universal_tx_id(32) + amount(8) + push_account(20) = 101
+	assert.Equal(t, ixDataHash[:], data[101:133])
+	// writable_flags is empty for PC20 export → 4-byte zero length prefix follows.
+	assert.Equal(t, []byte{0, 0, 0, 0}, data[133:137])
+}
+
+// TestBuildPC20ExportAccounts_RefSlots verifies the two ref slots (#18,#19) are
+// filled and writable on the ref route, and remain None sentinels on direct.
+func TestBuildPC20ExportAccounts_RefSlots(t *testing.T) {
+	tb := newTestBuilder(t)
+	src := makeSender(0x03)
+	mint, err := tb.derivePC20MintPDA(src)
+	require.NoError(t, err)
+	state, err := tb.derivePC20StatePDA(mint)
+	require.NoError(t, err)
+	recipient := solana.MustPublicKeyFromBase58("Vote111111111111111111111111111111111111111")
+	storedIxBytes := makeTxID(0x77)
+	refundBytes := makeTxID(0x88)
+	storedIx := solana.PublicKeyFromBytes(storedIxBytes[:])
+	refund := solana.PublicKeyFromBytes(refundBytes[:])
+
+	ref, err := tb.buildPC20ExportAccounts(
+		recipient, recipient, recipient, recipient, recipient, recipient,
+		solana.SystemProgramID, recipient, mint, state, false, nil,
+		storedIx, refund,
+	)
+	require.NoError(t, err)
+	require.Len(t, ref, 22)
+	assert.Equal(t, storedIx, ref[18].PublicKey)
+	assert.True(t, ref[18].IsWritable)
+	assert.Equal(t, refund, ref[19].PublicKey)
+	assert.True(t, ref[19].IsWritable)
+
+	// Direct route: same slots are the gateway None sentinel, non-writable.
+	direct, err := tb.buildPC20ExportAccounts(
+		recipient, recipient, recipient, recipient, recipient, recipient,
+		solana.SystemProgramID, recipient, mint, state, false, nil,
+		solana.PublicKey{}, solana.PublicKey{},
+	)
+	require.NoError(t, err)
+	require.Len(t, direct, 22)
+	assert.Equal(t, tb.gatewayAddress, direct[18].PublicKey)
+	assert.False(t, direct[18].IsWritable)
+	assert.Equal(t, tb.gatewayAddress, direct[19].PublicKey)
+}
+
+// TestPC20ExportRefRoute_IxDataUnderStoreCap guards the payload size used by the
+// TestSimulate_PC20Export_RefRoute simulation: the 400-char name must inflate the
+// ix_data enough to represent a ref-worthy payload while staying under the store
+// cap, else BuildPC20ExportRefTransactions rejects it before any RPC.
+func TestPC20ExportRefRoute_IxDataUnderStoreCap(t *testing.T) {
+	payload := packPC20Payload(t, strings.Repeat("A", 400), "dPC20", 6, nil)
+	ixData := buildPC20ExportIxData(makeSender(0x44), payload)
+	require.Greater(t, len(ixData), 600)                  // large enough to force the ref route
+	require.LessOrEqual(t, len(ixData), maxRefRouteIxData) // small enough for the store tx
+}
+
 // =============================================================================
 //  Devnet Simulation Tests
 //
@@ -2155,7 +2297,11 @@ const (
 // Uses the hardcoded Solana relayer keypair (AdWDRaQfvWJqW4TaxTrXP5WogCWJMJBrtBfGjjHUDADM).
 func setupDevnetSimulation(t *testing.T) (*RPCClient, *TxBuilder) {
 
-	t.Skip("skipping simulation tests") // DELIBERATELY SKIPPING SIMULATION TESTS
+	// Skipped by default (CI never runs these). Run locally against devnet with
+	// RUN_SVM_SIM=1 — the public RPC rate-limits, so use -p 1 or run tests singly.
+	if os.Getenv("RUN_SVM_SIM") == "" {
+		t.Skip("skipping simulation tests; set RUN_SVM_SIM=1 to run against devnet")
+	}
 	t.Helper()
 	if testing.Short() {
 		t.Skip("skipping simulation test in short mode")
@@ -2416,7 +2562,9 @@ func buildAndSimulateRescue(t *testing.T, rpcClient *RPCClient, builder *TxBuild
 		copy(revertMint[:], token[:])
 	}
 
-	gasFee := uint64(0)
+	// pc20-3rd-iteration's rescue reimburses relayer gas and enforces
+	// gas_fee >= gas_used (incl. recipient-ATA rent for SPL), so gas_fee must be non-zero.
+	gasFee := uint64(20000000)
 	// 10-minute window past wall-clock; gateway enforces Clock::unix_timestamp <= deadline.
 	deadline := time.Now().Unix() + 600
 	messageHash, err := builder.constructTSSMessage(
@@ -2506,6 +2654,61 @@ func TestSimulate_Rescue_SPLToken(t *testing.T) {
 	requireSimulationSuccess(t, result)
 }
 
+// newDevnetPC20Export builds a PC20 export outbound as UV sees it after
+// convertOutboundToEvent: IsPc20 set, source asset in AssetAddr (== Pc20ContractAddress),
+// and Payload the raw push-side form selector || abi.encode(destChainNamespace, name, symbol, decimals) || packed userData.
+func newDevnetPC20Export(t *testing.T, sourceAsset [20]byte, amount string, meta *pc20ExportMeta) (*uetypes.OutboundCreatedEvent, *ecdsa.PrivateKey) {
+	t.Helper()
+	require.NoError(t, pc20ExportABIErr)
+	encoded, err := pc20ExportABIArgs.Pack("solana:devnet", meta.Name, meta.Symbol, meta.Decimals)
+	require.NoError(t, err)
+	raw := append(append([]byte{}, pc20Selector[:]...), encoded...)
+	raw = append(raw, meta.UserData...)
+	payload := "0x" + hex.EncodeToString(raw)
+
+	source := "0x" + hex.EncodeToString(sourceAsset[:])
+	data, evmKey := newDevnetOutbound(t, amount, source, payload, "", "FUNDS_AND_PAYLOAD")
+	data.IsPc20 = true
+	data.Pc20ContractAddress = source
+	return data, evmKey
+}
+
+func TestSimulate_PC20Export_Direct(t *testing.T) {
+	rpcClient, builder := setupDevnetSimulation(t)
+	defer rpcClient.Close()
+
+	sourceAsset := makeSender(0x44)
+	meta := &pc20ExportMeta{Name: "Devnet PC20", Symbol: "dPC20", Decimals: 6}
+
+	data, evmKey := newDevnetPC20Export(t, sourceAsset, "10000000", meta)
+	// A first-time export creates the mint, pc20_state, and CEA ATA — gas_fee must
+	// cover their rent (core sizes this via getPC20ExportGasAndFees in production).
+	data.GasFee = "20000000"
+
+	result, err := buildAndSimulate(t, rpcClient, builder, data, evmKey)
+	require.NoError(t, err)
+	requireSimulationSuccess(t, result)
+}
+
+// TestSimulate_PC20Export_RefRoute forces a PC20 export over the ref route with a
+// long name (inflates the ABI metadata past the direct-tx size limit, staying
+// under the 921-byte store cap) and simulates the store tx. Like the generic ref
+// simulation, the ref-finalize is size-checked but not simulated (its PDA only
+// exists after the store lands).
+func TestSimulate_PC20Export_RefRoute(t *testing.T) {
+	rpcClient, builder := setupDevnetSimulation(t)
+	defer rpcClient.Close()
+
+	sourceAsset := makeSender(0x44)
+	meta := &pc20ExportMeta{Name: strings.Repeat("A", 400), Symbol: "dPC20", Decimals: 6}
+
+	data, evmKey := newDevnetPC20Export(t, sourceAsset, "10000000", meta)
+
+	storeSim, _, err := buildAndSimulateRefRouteWith(t, rpcClient, builder, data, evmKey, builder.BuildPC20ExportRefTransactions)
+	require.NoError(t, err)
+	requireSimulationSuccess(t, storeSim)
+}
+
 // buildAndSimulateRefRoute drives the ref-finalize pipeline through
 // simulation only — no broadcasts, no state changes, no SOL spent.
 //
@@ -2519,12 +2722,26 @@ func TestSimulate_Rescue_SPLToken(t *testing.T) {
 // stateful. Asserting "ref-finalize is well-formed" is therefore left to the
 // unit tests (TestBuildWithdrawAndExecuteRefData_ArgOrder,
 // TestBuildWithdrawAndExecuteAccounts_RefRouteSlots).
+// refTxBuilderFn matches BuildRefRouteTransactions / BuildPC20ExportRefTransactions.
+type refTxBuilderFn func(context.Context, *common.UnsignedSigningReq, *uetypes.OutboundCreatedEvent, []byte) (*solana.Transaction, *solana.Transaction, solana.PublicKey, error)
+
 func buildAndSimulateRefRoute(
 	t *testing.T,
 	rpcClient *RPCClient,
 	builder *TxBuilder,
 	data *uetypes.OutboundCreatedEvent,
 	evmKey *ecdsa.PrivateKey,
+) (storeSim *rpc.SimulateTransactionResult, storedPDA solana.PublicKey, err error) {
+	return buildAndSimulateRefRouteWith(t, rpcClient, builder, data, evmKey, builder.BuildRefRouteTransactions)
+}
+
+func buildAndSimulateRefRouteWith(
+	t *testing.T,
+	rpcClient *RPCClient,
+	builder *TxBuilder,
+	data *uetypes.OutboundCreatedEvent,
+	evmKey *ecdsa.PrivateKey,
+	refBuilder refTxBuilderFn,
 ) (storeSim *rpc.SimulateTransactionResult, storedPDA solana.PublicKey, err error) {
 	t.Helper()
 
@@ -2540,9 +2757,9 @@ func buildAndSimulateRefRoute(
 	sig, recoveryID := signMessageHash(t, evmKey, req.SigningHash)
 	fullSig := append(sig, recoveryID)
 
-	storeTx, refTx, storedPDA, err := builder.BuildRefRouteTransactions(ctx, req, data, fullSig)
+	storeTx, refTx, storedPDA, err := refBuilder(ctx, req, data, fullSig)
 	if err != nil {
-		return nil, solana.PublicKey{}, fmt.Errorf("BuildRefRouteTransactions: %w", err)
+		return nil, solana.PublicKey{}, fmt.Errorf("build ref-route transactions: %w", err)
 	}
 	t.Logf("  stored_ix_data PDA=%s", storedPDA.String())
 
@@ -2717,4 +2934,147 @@ func TestSimulate_RefRoute_Execute(t *testing.T) {
 	storeSim, _, err := buildAndSimulateRefRoute(t, rpcClient, builder, data, evmKey)
 	require.NoError(t, err)
 	requireSimulationSuccess(t, storeSim)
+}
+
+// =============================================================================
+//  Frozen vectors against the devnet dummy gateway program
+//  (contracts/svm-gateway/app/gateway-test.ts §17 — devnetGatewayAddress)
+// =============================================================================
+
+// newDummyGatewayBuilder returns an offline builder targeting the devnet dummy
+// gateway program — PDA derivations match the deployed dummy without RPC.
+func newDummyGatewayBuilder(t *testing.T) *TxBuilder {
+	t.Helper()
+	builder, err := NewTxBuilder(&RPCClient{}, "solana:"+devnetGenesisHash, devnetGatewayAddress, "/tmp", zerolog.Nop(), nil)
+	require.NoError(t, err)
+	return builder
+}
+
+func TestPC20DummyGateway_PDAGoldens(t *testing.T) {
+	tb := newDummyGatewayBuilder(t)
+	sourceAsset := makeSender(0x44)
+	pushAccount := makeSender(0x33)
+	txID := makeTxID(0x11)
+	recipient := solana.MustPublicKeyFromBase58("Vote111111111111111111111111111111111111111")
+
+	mint, err := tb.derivePC20MintPDA(sourceAsset)
+	require.NoError(t, err)
+	state, err := tb.derivePC20StatePDA(mint)
+	require.NoError(t, err)
+
+	derive := func(seeds ...[]byte) solana.PublicKey {
+		pda, _, dErr := solana.FindProgramAddress(seeds, tb.gatewayAddress)
+		require.NoError(t, dErr)
+		return pda
+	}
+
+	// Golden addresses — any change here means the derivation drifted from the
+	// deployed dummy gateway and on-chain validation would fail.
+	assert.Equal(t, "BCwdEfbVJtt47ukvdX7jW5kzAUKZhjyXveSZvQL3MF8", mint.String())
+	assert.Equal(t, "7G5dx7WgVyxvzstv3ZS6ohrb1w17qAkXFXaYyoCewzL1", state.String())
+	assert.Equal(t, "7QAS73zgRm7KMt85XMGWbWDnmhZR1UyTULhhxR254YYR", derive(configSeed).String())
+	assert.Equal(t, "4sQLizYQ1ZJjc2doLqTQsk1Kj8XVS5uviJykpHNNMSi5", derive(vaultSeed).String())
+	assert.Equal(t, "ETqvwz5YExaFnQH6E6gHZ374wSP8NBnQ5emLcMUyhMA5", derive(feeVaultSeed).String())
+	assert.Equal(t, "FDxeNn8YT8DoWrJ5GzqNTW8rjx8cLFNFBgHpBTMifeYJ", derive(tssSeed).String())
+	assert.Equal(t, "8FEnaGzyfin7A7MPBKHPbXrvTdAH1ZSCfArZUtMhbHKS", derive(executedSubTxSeed, txID[:]).String())
+	assert.Equal(t, "ERuuJZgVBKi3VmvcHqkubJzHcsjJooiBwG1WDLwYksUr", derive(ceaAuthoritySeed, pushAccount[:]).String())
+
+	recipientATA, _, err := solana.FindProgramAddress(
+		[][]byte{recipient.Bytes(), solana.TokenProgramID.Bytes(), mint.Bytes()},
+		solana.SPLAssociatedTokenAccountProgramID,
+	)
+	require.NoError(t, err)
+	assert.Equal(t, "E5BLLSpQAiyuzw1K6bp4MA2HzHkeKXjwAnvYWPFK8jD4", recipientATA.String())
+}
+
+func TestPC20DummyGateway_ExportBuild(t *testing.T) {
+	// Mirrors gateway-test.ts §17.1: direct export via finalize_universal_tx id=5,
+	// signature verified end-to-end against the message the dummy program rebuilds.
+	tb := newDummyGatewayBuilder(t)
+	evmKey, tssAddr, _ := generateTestEVMKey(t)
+
+	chainID := "devnet"
+	deadline := int64(1_800_000_000)
+	amount := uint64(10_000_000)
+	gasFee := uint64(6_000_000)
+	txID := makeTxID(0x11)
+	utxID := makeTxID(0x22)
+	pushAccount := makeSender(0x33)
+	sourceAsset := makeSender(0x44)
+	recipient := solana.MustPublicKeyFromBase58("Vote111111111111111111111111111111111111111")
+	payload := packPC20Payload(t, "Devnet PC20", "dPC20", 6, nil)
+	meta, err := parsePC20ExportPayload(payload)
+	require.NoError(t, err)
+
+	msgHash := constructPC20ExportTSSMessage(chainID, deadline, amount, txID, utxID, pushAccount, sourceAsset, recipient, meta, gasFee)
+	sig, recoveryID := signMessageHash(t, evmKey, msgHash)
+
+	// Recovered address must match — same check validate_message does on-chain.
+	recovered, err := crypto.SigToPub(msgHash, append(append([]byte{}, sig...), recoveryID))
+	require.NoError(t, err)
+	assert.Equal(t, tssAddr[:], crypto.PubkeyToAddress(*recovered).Bytes())
+
+	ixData := buildPC20ExportIxData(sourceAsset, payload)
+	instrData := tb.buildWithdrawAndExecuteData(
+		pc20FinalizeInstructionID, txID, utxID, amount, pushAccount,
+		[]byte{}, ixData, gasFee, deadline, sig, recoveryID, msgHash,
+	)
+
+	// Layout: disc(8) + id(1) + txid(32) + utxid(32) + amount(8) + sender(20)
+	//       + wf(4+0) + ix(4+N) + gas(8) + deadline(8) + sig(64) + recov(1) + hash(32)
+	assert.Equal(t, anchorDiscriminator("finalize_universal_tx"), instrData[:8])
+	assert.Equal(t, byte(5), instrData[8])
+	hashOff := 8 + 1 + 32 + 32 + 8 + 20 + 4 + 4 + len(ixData) + 8 + 8 + 64 + 1
+	assert.Equal(t, msgHash, instrData[hashOff:hashOff+32])
+
+	mint, err := tb.derivePC20MintPDA(sourceAsset)
+	require.NoError(t, err)
+	state, err := tb.derivePC20StatePDA(mint)
+	require.NoError(t, err)
+	cea, _, err := solana.FindProgramAddress([][]byte{ceaAuthoritySeed, pushAccount[:]}, tb.gatewayAddress)
+	require.NoError(t, err)
+	configPDA, _, _ := solana.FindProgramAddress([][]byte{configSeed}, tb.gatewayAddress)
+	vaultPDA, _, _ := solana.FindProgramAddress([][]byte{vaultSeed}, tb.gatewayAddress)
+	tssPDA, _, _ := solana.FindProgramAddress([][]byte{tssSeed}, tb.gatewayAddress)
+	executedTxPDA, _, _ := solana.FindProgramAddress([][]byte{executedSubTxSeed, txID[:]}, tb.gatewayAddress)
+
+	accounts, err := tb.buildPC20ExportAccounts(
+		recipient, configPDA, vaultPDA, cea, tssPDA, executedTxPDA,
+		solana.SystemProgramID, recipient, mint, state, false, nil,
+		solana.PublicKey{}, solana.PublicKey{},
+	)
+	require.NoError(t, err)
+	require.Len(t, accounts, 22)
+
+	// Remaining accounts [pc20_state, pc20_mint] hit the frozen dummy-gateway addresses.
+	assert.Equal(t, "7G5dx7WgVyxvzstv3ZS6ohrb1w17qAkXFXaYyoCewzL1", accounts[20].PublicKey.String())
+	assert.Equal(t, "BCwdEfbVJtt47ukvdX7jW5kzAUKZhjyXveSZvQL3MF8", accounts[21].PublicKey.String())
+}
+
+func TestPC20DummyGateway_RemintMessage(t *testing.T) {
+	// Mirrors gateway-test.ts §17.3: revert after burn — remint signature domain.
+	evmKey, tssAddr, _ := generateTestEVMKey(t)
+	tb := newDummyGatewayBuilder(t)
+
+	sourceAsset := makeSender(0x44)
+	mintPDA, err := tb.derivePC20MintPDA(sourceAsset)
+	require.NoError(t, err)
+	var mint [32]byte
+	copy(mint[:], mintPDA.Bytes())
+	var recipient [32]byte
+	copy(recipient[:], solana.MustPublicKeyFromBase58("Vote111111111111111111111111111111111111111").Bytes())
+
+	msgHash, err := constructPC20RemintTSSMessage(3, "devnet", 1_800_000_000, 2_000_000, makeTxID(0x55), makeTxID(0x66), mint, recipient, 1_000_000, nil, sourceAsset)
+	require.NoError(t, err)
+
+	sig, recoveryID := signMessageHash(t, evmKey, msgHash)
+	recovered, err := crypto.SigToPub(msgHash, append(append([]byte{}, sig...), recoveryID))
+	require.NoError(t, err)
+	assert.Equal(t, tssAddr[:], crypto.PubkeyToAddress(*recovered).Bytes())
+
+	// Domain separation: the same inputs WITHOUT the PC20 suffix (normal SPL revert)
+	// must produce a different hash — a normal revert signature can't be replayed as remint.
+	splMsg, err := tb.constructTSSMessage(3, "devnet", 1_800_000_000, 2_000_000, makeTxID(0x55), makeTxID(0x66), [20]byte{}, [32]byte{}, 1_000_000, [32]byte{}, nil, nil, recipient, mint, nil)
+	require.NoError(t, err)
+	assert.NotEqual(t, splMsg, msgHash)
 }

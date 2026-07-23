@@ -199,3 +199,68 @@ func LenientCanonicalizeEVMAddress(addr string) string {
 	}
 	return canon
 }
+
+// AddressToBytes32 encodes a native chain address into the 32-byte form used as
+// an opaque key by contracts that must hold both EVM (20-byte) and SVM (32-byte)
+// addresses — e.g. UniversalCore's PC20 wrapper mappings (setWrapperDeployed /
+// getPC20Source), where the wrapper lives on either an EVM or a Solana chain.
+// uv sends the wrapper in each chain's native format (EVM hex / SVM base58), the
+// same convention as an inbound asset_addr, and the chain owns this encoding.
+//
+// It validates the address against the chain's CAIP-2 namespace and errors on a
+// malformed value or one that does not match the chain:
+//   - eip155: a valid 20-byte hex address → right-aligned into the low 20 bytes,
+//     matching Solidity's bytes32(uint160(addr)).
+//   - solana: base58 (or 0x-hex) decoding to exactly 32 bytes → the raw 32 bytes.
+//
+// The mapping is deterministic, so the same address yields the same bytes32
+// whether it arrives on the outbound finalize observation (setWrapperDeployed) or
+// the return inbound (getPC20Source) — which is what makes the reverse lookup hit.
+func AddressToBytes32(chain, addr string) (ethcommon.Hash, error) {
+	addr = strings.TrimSpace(addr)
+	if addr == "" {
+		return ethcommon.Hash{}, fmt.Errorf("empty address for chain %q", chain)
+	}
+	switch CAIP2Namespace(chain) {
+	case namespaceEVM:
+		if !ethcommon.IsHexAddress(addr) {
+			return ethcommon.Hash{}, fmt.Errorf("invalid eip155 address %q: must be 20-byte hex", addr)
+		}
+		// 20-byte address right-aligned into the low 20 bytes of the hash.
+		return ethcommon.BytesToHash(ethcommon.HexToAddress(addr).Bytes()), nil
+	case namespaceSolana:
+		raw, err := solanaAddressBytes(addr)
+		if err != nil {
+			return ethcommon.Hash{}, fmt.Errorf("invalid solana address %q: %w", addr, err)
+		}
+		return ethcommon.BytesToHash(raw), nil
+	default:
+		return ethcommon.Hash{}, fmt.Errorf("unsupported namespace for chain %q", chain)
+	}
+}
+
+// solanaAddressBytes decodes a Solana address to exactly 32 bytes, accepting
+// base58 (the native form) or 0x-hex.
+func solanaAddressBytes(addr string) ([]byte, error) {
+	if body, had0x := strip0x(addr); had0x {
+		raw, err := hex.DecodeString(body)
+		if err != nil {
+			return nil, fmt.Errorf("invalid hex: %w", err)
+		}
+		if len(raw) != 32 {
+			return nil, fmt.Errorf("expected 32 bytes, got %d", len(raw))
+		}
+		return raw, nil
+	}
+	if !isBase58String(addr) {
+		return nil, fmt.Errorf("not base58")
+	}
+	raw, err := base58.Decode(addr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid base58: %w", err)
+	}
+	if len(raw) != 32 {
+		return nil, fmt.Errorf("expected 32 bytes, got %d", len(raw))
+	}
+	return raw, nil
+}

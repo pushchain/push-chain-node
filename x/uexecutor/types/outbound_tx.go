@@ -69,8 +69,18 @@ func (p OutboundTx) ValidateBasic() error {
 		}
 	}
 
-	// external_asset_addr required when amount is involved
-	if (p.TxType == TxType_FUNDS || p.TxType == TxType_FUNDS_AND_PAYLOAD) && strings.TrimSpace(p.ExternalAssetAddr) == "" {
+	// For a PC20 export the destination wrapper is not known until settlement, so
+	// external_asset_addr is legitimately empty; the locked Push-native token is
+	// carried in pc20_contract_address, which must be a valid address instead.
+	// For everything else, external_asset_addr is required when funds are moved.
+	if p.IsPc20 {
+		if strings.TrimSpace(p.Pc20ContractAddress) == "" {
+			return errors.Wrap(sdkerrors.ErrInvalidAddress, "pc20_contract_address cannot be empty for a pc20 export")
+		}
+		if !utils.IsValidAddress(p.Pc20ContractAddress, utils.HEX) {
+			return errors.Wrapf(sdkerrors.ErrInvalidAddress, "invalid pc20_contract_address: %s", p.Pc20ContractAddress)
+		}
+	} else if (p.TxType == TxType_FUNDS || p.TxType == TxType_FUNDS_AND_PAYLOAD) && strings.TrimSpace(p.ExternalAssetAddr) == "" {
 		return errors.Wrap(sdkerrors.ErrInvalidAddress, "external_asset_addr cannot be empty for funds tx")
 	}
 

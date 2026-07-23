@@ -386,11 +386,12 @@ func (ep *EventProcessor) buildOutboundObservation(event *store.Event, outboundD
 	}
 
 	observation := &uexecutortypes.OutboundObservation{
-		Success:     true,
-		BlockHeight: event.BlockHeight,
-		TxHash:      txHashHex,
-		ErrorMsg:    "",
-		GasFeeUsed:  gasFeeUsed,
+		Success:            true,
+		BlockHeight:        event.BlockHeight,
+		TxHash:             txHashHex,
+		ErrorMsg:           "",
+		GasFeeUsed:         gasFeeUsed,
+		Pc20WrapperAddress: outboundData.Pc20WrapperAddress,
 	}
 
 	return observation, nil

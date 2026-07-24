@@ -176,3 +176,79 @@ func TestNormalizeForTxType_PC20(t *testing.T) {
 		require.Equal(t, to.Hex(), in.UniversalPayload.To)
 	})
 }
+
+// NormalizeForTxType must preserve the FULL observed raw_payload (magic selector
+// included) when the user payload fails to decode, so the exact on-chain bytes
+// remain available for forensics/debugging. Previously the selector was stripped
+// into raw_payload before decoding, so a failed decode left only the stripped
+// remainder — losing the selector that determined is_pc20. A successful decode
+// still clears raw_payload.
+func TestNormalizeForTxType_PreservesRawPayloadOnDecodeFailure(t *testing.T) {
+	const evmChain = "eip155:11155111"
+
+	// A valid, decodable EVM universal payload (for the success case).
+	to := common.HexToAddress("0x000000000000000000000000000000000000beef")
+	validEncoded, err := abiEncodeUniversalPayload(
+		to, big.NewInt(1000), []byte{0xde, 0xad, 0xbe, 0xef},
+		big.NewInt(21000), big.NewInt(1000000000), big.NewInt(200000000),
+		big.NewInt(1), big.NewInt(9999999999), 1,
+	)
+	require.NoError(t, err)
+
+	// A body that is NOT a valid ABI-encoded UniversalPayload → decode fails.
+	const badBody = "deadbeef"
+
+	t.Run("PC20 decode failure keeps the full original raw_payload", func(t *testing.T) {
+		original := "0x" + types.PC20Selector + badBody
+		in := types.Inbound{
+			SourceChain: evmChain,
+			TxType:      types.TxType_FUNDS_AND_PAYLOAD,
+			RawPayload:  original,
+		}
+		err := in.NormalizeForTxType()
+		require.Error(t, err, "an undecodable body must fail normalization")
+		require.True(t, in.IsPc20, "PC20 selector must still be flagged on failure")
+		require.Nil(t, in.UniversalPayload, "no universal payload on failure")
+		require.Equal(t, original, in.RawPayload,
+			"raw_payload must retain the FULL original (selector included) on decode failure")
+	})
+
+	t.Run("PRC20 decode failure keeps the full original raw_payload", func(t *testing.T) {
+		original := "0x" + types.PRC20Selector + badBody
+		in := types.Inbound{
+			SourceChain: evmChain,
+			TxType:      types.TxType_FUNDS_AND_PAYLOAD,
+			RawPayload:  original,
+		}
+		err := in.NormalizeForTxType()
+		require.Error(t, err)
+		require.False(t, in.IsPc20, "PRC20 selector is not PC20")
+		require.Equal(t, original, in.RawPayload,
+			"raw_payload must retain the full original (PRC20 selector included) on failure")
+	})
+
+	t.Run("un-prefixed decode failure keeps the original raw_payload", func(t *testing.T) {
+		original := "0x" + badBody
+		in := types.Inbound{
+			SourceChain: evmChain,
+			TxType:      types.TxType_FUNDS_AND_PAYLOAD,
+			RawPayload:  original,
+		}
+		err := in.NormalizeForTxType()
+		require.Error(t, err)
+		require.False(t, in.IsPc20)
+		require.Equal(t, original, in.RawPayload)
+	})
+
+	t.Run("PC20 successful decode clears raw_payload", func(t *testing.T) {
+		in := types.Inbound{
+			SourceChain: evmChain,
+			TxType:      types.TxType_FUNDS_AND_PAYLOAD,
+			RawPayload:  "0x" + types.PC20Selector + strings.TrimPrefix(validEncoded, "0x"),
+		}
+		require.NoError(t, in.NormalizeForTxType())
+		require.True(t, in.IsPc20)
+		require.NotNil(t, in.UniversalPayload)
+		require.Empty(t, in.RawPayload, "raw_payload must be cleared after a successful decode")
+	})
+}

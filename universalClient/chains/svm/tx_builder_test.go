@@ -1362,6 +1362,42 @@ func TestParseTxType(t *testing.T) {
 	}
 }
 
+func TestParseOutboundSender(t *testing.T) {
+	evm := makeSender(0xCC)
+	evmHex := "0x" + hex.EncodeToString(evm[:])
+	// A 32-byte Solana pubkey (as core sends it for an automatic inbound revert).
+	solPubkey := solana.NewWallet().PublicKey()
+	solHex := "0x" + hex.EncodeToString(solPubkey.Bytes())
+
+	t.Run("20-byte EVM sender parses for any tx type", func(t *testing.T) {
+		got, err := parseOutboundSender(evmHex, uetypes.TxType_FUNDS)
+		require.NoError(t, err)
+		assert.Equal(t, evm, got)
+	})
+
+	t.Run("32-byte Solana sender tolerated for INBOUND_REVERT (unused → zero)", func(t *testing.T) {
+		got, err := parseOutboundSender(solHex, uetypes.TxType_INBOUND_REVERT)
+		require.NoError(t, err)
+		assert.Equal(t, [20]byte{}, got)
+	})
+
+	t.Run("32-byte sender rejected for non-revert paths", func(t *testing.T) {
+		for _, tt := range []uetypes.TxType{
+			uetypes.TxType_FUNDS, uetypes.TxType_FUNDS_AND_PAYLOAD, uetypes.TxType_RESCUE_FUNDS,
+		} {
+			_, err := parseOutboundSender(solHex, tt)
+			require.Error(t, err, "txType %s", tt)
+			assert.Contains(t, err.Error(), "invalid sender length")
+		}
+	})
+
+	t.Run("non-hex sender errors even for INBOUND_REVERT", func(t *testing.T) {
+		_, err := parseOutboundSender("not-hex-zz", uetypes.TxType_INBOUND_REVERT)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid sender")
+	})
+}
+
 func TestBuildSetComputeUnitLimitInstruction(t *testing.T) {
 	builder := newTestBuilder(t)
 	ix := builder.buildSetComputeUnitLimitInstruction(300000)

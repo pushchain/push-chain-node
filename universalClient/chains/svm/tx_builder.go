@@ -183,6 +183,28 @@ func NewTxBuilder(
 //  sign it, and the 64-byte signature (r||s) is passed to BroadcastOutboundSigningRequest.
 // =============================================================================
 
+// parseOutboundSender decodes data.Sender into a 20-byte push account. The
+// finalize/export paths derive the CEA PDA from it, so they require exactly 20
+// bytes. An automatic INBOUND_REVERT can instead carry a 32-byte Solana pubkey
+// (the original Solana sender), which the revert path never reads (it routes to
+// revert_recipient). In that case the 32-byte value is DISCARDED (not truncated)
+// and the zero account is returned — the refund destination comes from recipient.
+func parseOutboundSender(senderHex string, txType uetypes.TxType) ([20]byte, error) {
+	var sender [20]byte
+	senderBytes, err := hex.DecodeString(removeHexPrefix(senderHex))
+	if err != nil {
+		return sender, fmt.Errorf("invalid sender: %s", senderHex)
+	}
+	if len(senderBytes) == 20 {
+		copy(sender[:], senderBytes)
+	} else if txType != uetypes.TxType_INBOUND_REVERT {
+		// Non-revert paths consume sender (CEA PDA seed) and must be exactly 20 bytes.
+		return sender, fmt.Errorf("invalid sender length: expected 20 bytes, got %d", len(senderBytes))
+	}
+	// INBOUND_REVERT with a non-20-byte sender: leave sender zero; it is unused.
+	return sender, nil
+}
+
 // GetOutboundSigningRequest creates a signing request from an outbound event.
 // Returns a 32-byte keccak256 hash that the TSS nodes need to sign.
 func (tb *TxBuilder) GetOutboundSigningRequest(
@@ -262,16 +284,9 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 		copy(universalTxID[32-len(utxIDBytes):], utxIDBytes)
 	}
 
-	// sender: the 20-byte EVM address of the original sender on the source chain
-	var sender [20]byte
-	senderBytes, err := hex.DecodeString(removeHexPrefix(data.Sender))
+	sender, err := parseOutboundSender(data.Sender, txType)
 	if err != nil {
-		return nil, fmt.Errorf("invalid sender: %s", data.Sender)
-	}
-	if len(senderBytes) == 20 {
-		copy(sender[:], senderBytes)
-	} else {
-		return nil, fmt.Errorf("invalid sender length: expected 20 bytes, got %d", len(senderBytes))
+		return nil, err
 	}
 
 	// PC20 export: core flags it via IsPc20; AssetAddr carries the 20-byte Push
@@ -800,15 +815,9 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 		copy(universalTxID[32-len(utxIDBytes):], utxIDBytes)
 	}
 
-	var sender [20]byte
-	senderBytes, err := hex.DecodeString(removeHexPrefix(data.Sender))
+	sender, err := parseOutboundSender(data.Sender, txType)
 	if err != nil {
-		return nil, 0, fmt.Errorf("invalid sender: %s", data.Sender)
-	}
-	if len(senderBytes) == 20 {
-		copy(sender[:], senderBytes)
-	} else {
-		return nil, 0, fmt.Errorf("invalid sender length: expected 20 bytes, got %d", len(senderBytes))
+		return nil, 0, err
 	}
 
 	// PC20 export: mirror of the signing-path branch — must rebuild the exact signed inputs.

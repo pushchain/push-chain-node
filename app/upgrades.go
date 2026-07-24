@@ -32,6 +32,7 @@ import (
 	purgeexpiredoutbounds "github.com/pushchain/push-chain-node/app/upgrades/purge-expired-outbounds"
 	removefeeabsv1 "github.com/pushchain/push-chain-node/app/upgrades/remove-fee-abs-v1"
 	removeutxverifier "github.com/pushchain/push-chain-node/app/upgrades/remove-utxverifier"
+	sdkv053 "github.com/pushchain/push-chain-node/app/upgrades/sdk-v0-53"
 	securityauditfixes "github.com/pushchain/push-chain-node/app/upgrades/security-audit-fixes"
 	solanafix "github.com/pushchain/push-chain-node/app/upgrades/solana-fix"
 	supplyburn "github.com/pushchain/push-chain-node/app/upgrades/supply-burn"
@@ -87,6 +88,8 @@ var Upgrades = []upgrades.Upgrade{
 	evmv060.NewUpgrade(),
 	// pc20 — no-op binary swap; VAULT_PC/VAULT_PC20 deployed separately from EVM side
 	pc20.NewUpgrade(),
+	// sdk-v0.53 — Cosmos SDK v0.50.10 -> v0.53.7; no-op (no module ConsensusVersion changes)
+	sdkv053.NewUpgrade(),
 }
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers

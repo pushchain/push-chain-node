@@ -2,15 +2,18 @@ package app
 
 import (
 	"fmt"
+	sdkv054 "github.com/pushchain/push-chain-node/app/upgrades/sdk-v0-54"
 
-	upgradetypes "cosmossdk.io/x/upgrade/types"
+	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
 
 	"github.com/pushchain/push-chain-node/app/upgrades"
 	"github.com/pushchain/push-chain-node/app/upgrades/noop"
 )
 
 // Upgrades list of chain upgrades
-var Upgrades = []upgrades.Upgrade{}
+var Upgrades = []upgrades.Upgrade{
+	sdkv054.NewUpgrade(),
+}
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers
 func (app *ChainApp) RegisterUpgradeHandlers() {

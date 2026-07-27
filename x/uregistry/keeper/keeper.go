@@ -16,7 +16,7 @@ import (
 	"cosmossdk.io/collections"
 	"cosmossdk.io/collections/indexes"
 	storetypes "cosmossdk.io/core/store"
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 	"github.com/pushchain/push-chain-node/utils"
 	"github.com/pushchain/push-chain-node/x/uregistry/types"
 )

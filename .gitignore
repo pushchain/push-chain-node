@@ -17,3 +17,7 @@ universalClient/coverage.out
 # TSS data directory
 tss-data/
 local-native/data/
+
+# compiled binaries (go build ./cmd/... writes these into the repo root)
+/pchaind
+/puniversald

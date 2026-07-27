@@ -1,10 +1,12 @@
 package usigverifier
 
 import (
-	"embed"
+	"bytes"
+	_ "embed"
+	"encoding/json"
 	"fmt"
 
-	storetypes "cosmossdk.io/store/types"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -23,19 +25,36 @@ const (
 
 var _ vm.PrecompiledContract = &Precompile{}
 
-// Embed abi json file to the executable binary. Needed when importing as dependency.
-//
-//go:embed abi.json
-var f embed.FS
-
-var ABI abi.ABI
+var (
+	// Embed abi json file to the executable binary. Needed when importing as dependency.
+	//
+	//go:embed abi.json
+	f   []byte
+	ABI abi.ABI
+)
 
 func init() {
+	// cosmos/evm v0.7.0 removed cmn.LoadABI, which unwrapped the "abi" field of a
+	// Hardhat artifact. This abi.json is such an artifact (hh-sol-artifact-1), not
+	// a bare ABI array like the upstream precompiles use, so unwrap it here before
+	// handing the array to abi.JSON.
+	var artifact struct {
+		ABI json.RawMessage `json:"abi"`
+	}
+	if err := json.Unmarshal(f, &artifact); err != nil {
+		panic(err)
+	}
 	var err error
-	ABI, err = cmn.LoadABI(f, "abi.json")
+	ABI, err = abi.JSON(bytes.NewReader(artifact.ABI))
 	if err != nil {
 		panic(err)
 	}
+}
+
+// Name identifies the precompile. geth 1.17 added Name() to the
+// vm.PrecompiledContract interface.
+func (p Precompile) Name() string {
+	return "usigverifier"
 }
 
 // Precompile defines the precompile

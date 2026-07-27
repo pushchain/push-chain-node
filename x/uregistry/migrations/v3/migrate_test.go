@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"cosmossdk.io/collections"
-	"cosmossdk.io/log"
-	storetypes "cosmossdk.io/store/types"
+	"cosmossdk.io/log/v2"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	sdkaddress "github.com/cosmos/cosmos-sdk/codec/address"

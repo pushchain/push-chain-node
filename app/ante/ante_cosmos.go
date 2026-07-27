@@ -8,9 +8,9 @@ import (
 	evmante "github.com/cosmos/evm/ante/evm"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
-	circuitante "cosmossdk.io/x/circuit/ante"
+	circuitante "github.com/cosmos/cosmos-sdk/contrib/x/circuit/ante"
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
-	ibcante "github.com/cosmos/ibc-go/v10/modules/core/ante"
+	ibcante "github.com/cosmos/ibc-go/v11/modules/core/ante"
 	cosmosante "github.com/pushchain/push-chain-node/app/cosmos"
 )
 
@@ -39,7 +39,9 @@ func NewCosmosAnteHandler(ctx sdk.Context, options HandlerOptions) sdk.AnteHandl
 		ante.NewConsumeGasForTxSizeDecorator(options.AccountKeeper),
 		NewDeductFeeDecorator(options.AccountKeeper, options.BankKeeper, options.FeegrantKeeper, txFeeChecker),
 		ibcante.NewRedundantRelayDecorator(options.IBCKeeper),
-		evmante.NewGasWantedDecorator(options.EvmKeeper, options.FeeMarketKeeper, &feemarketParams),
+		// NOTE(evm-0.7.0): GasWantedDecorator was removed upstream along with the
+		// transient stores. x/feemarket now reads ctx.BlockGasWanted() directly in
+		// EndBlock, so no ante-side accumulation is needed.
 		// NewAccountInitDecorator must be called before all signature verification decorators and SetPubKeyDecorator
 		// - this
 		// 1. generates the account for the new accounts only for gasless transactions,

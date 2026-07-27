@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"cosmossdk.io/collections"
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 

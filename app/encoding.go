@@ -6,8 +6,8 @@ import (
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/gogoproto/proto"
 
-	"cosmossdk.io/log"
-	"cosmossdk.io/x/tx/signing"
+	"cosmossdk.io/log/v2"
+	"github.com/cosmos/cosmos-sdk/x/tx/signing"
 
 	"github.com/cosmos/cosmos-sdk/codec/address"
 	"github.com/cosmos/cosmos-sdk/codec/types"

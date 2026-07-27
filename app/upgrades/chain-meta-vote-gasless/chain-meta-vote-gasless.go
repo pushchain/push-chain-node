@@ -3,10 +3,10 @@ package inbound
 import (
 	"context"
 
-	upgradetypes "cosmossdk.io/x/upgrade/types"
+	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
-	storetypes "cosmossdk.io/store/types"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	"github.com/pushchain/push-chain-node/app/upgrades"
 )
 

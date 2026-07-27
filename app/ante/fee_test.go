@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	addresscodec "cosmossdk.io/core/address"
-	"cosmossdk.io/log"
-	storetypes "cosmossdk.io/store/types"
+	"cosmossdk.io/log/v2"
+	storetypes "github.com/cosmos/cosmos-sdk/store/v2/types"
 	sdkaddress "github.com/cosmos/cosmos-sdk/codec/address"
 	"github.com/cosmos/cosmos-sdk/testutil/integration"
 

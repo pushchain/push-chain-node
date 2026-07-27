@@ -14,7 +14,7 @@ import (
 	"cosmossdk.io/core/appmodule"
 	"cosmossdk.io/core/store"
 	"cosmossdk.io/depinject"
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 
 	modulev1 "github.com/pushchain/push-chain-node/api/uvalidator/module/v1"
 	"github.com/pushchain/push-chain-node/x/uvalidator/keeper"

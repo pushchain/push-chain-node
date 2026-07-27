@@ -15,7 +15,7 @@ import (
 	uvconfig "github.com/pushchain/push-chain-node/universalClient/config"
 	"github.com/spf13/cobra"
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
-	"cosmossdk.io/log"
+	"cosmossdk.io/log/v2"
 )
 
 func NewRootCmd() *cobra.Command {

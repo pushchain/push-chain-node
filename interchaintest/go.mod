@@ -37,7 +37,6 @@ require (
 	github.com/cosmos/evm v0.1.0
 	github.com/cosmos/ibc-go/v8 v8.7.0
 	github.com/strangelove-ventures/interchaintest/v8 v8.8.1
-	github.com/strangelove-ventures/tokenfactory v0.50.3
 	github.com/stretchr/testify v1.10.0
 	go.uber.org/zap v1.27.0
 )

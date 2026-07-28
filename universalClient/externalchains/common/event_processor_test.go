@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"testing"
 	"time"
 
@@ -1181,4 +1182,18 @@ func TestProcessConfirmedEventsEnabledFlags(t *testing.T) {
 		database.Client().Where("event_id = ?", "0xaaa:0").First(&inboundEvt)
 		assert.Equal(t, store.StatusConfirmed, inboundEvt.Status)
 	})
+}
+
+func TestEncodeUint256Result(t *testing.T) {
+	out, err := EncodeUint256Result(big.NewInt(1_000_000))
+	require.NoError(t, err)
+	require.Len(t, out, 32)
+	assert.Equal(t, big.NewInt(1_000_000), new(big.Int).SetBytes(out))
+
+	out, err = EncodeUint256Result(nil)
+	require.NoError(t, err)
+	assert.Equal(t, make([]byte, 32), out)
+
+	_, err = EncodeUint256Result(big.NewInt(-1))
+	assert.Error(t, err)
 }

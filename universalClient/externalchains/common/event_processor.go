@@ -26,6 +26,12 @@ type VoteSigner interface {
 	VoteReadResult(ctx context.Context, requestID string, result *uread.ReadResult) (string, error)
 }
 
+// ChainReader executes an external read request against one chain.
+// Implemented by the evm and svm chain clients.
+type ChainReader interface {
+	ExecuteRead(ctx context.Context, req *uread.ReadRequest) (*uread.ReadResult, error)
+}
+
 // EventProcessor processes events from the chain's database and votes on them
 type EventProcessor struct {
 	signer          VoteSigner

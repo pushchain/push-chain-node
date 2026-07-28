@@ -2,11 +2,28 @@ package common
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
+
+// EncodeUint256Result canonically encodes a balance/amount as abi.encode(uint256)
+// so read results are byte-identical across validators and decodable by the
+// requesting contract. The bounds check guards against a malicious RPC value
+// that would not fit (FillBytes panics on overflow).
+func EncodeUint256Result(v *big.Int) ([]byte, error) {
+	if v == nil {
+		v = big.NewInt(0)
+	}
+	if v.Sign() < 0 || v.BitLen() > 256 {
+		return nil, fmt.Errorf("value out of uint256 range")
+	}
+	out := make([]byte, 32)
+	v.FillBytes(out)
+	return out, nil
+}
 
 // ChainClient defines the interface for chain-specific implementations
 type ChainClient interface {

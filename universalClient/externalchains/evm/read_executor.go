@@ -85,7 +85,7 @@ func (c *Client) ExecuteRead(ctx context.Context, req *uread.ReadRequest) (*urea
 		}
 		var slotValue [32]byte
 		copy(slotValue[32-min(len(value), 32):], value)
-		resultData, err = common.EncodeBytes32Result(slotValue)
+		resultData = slotValue[:]
 
 	default:
 		return uread.NewErrorResult(fmt.Errorf("unknown EvmQueryType %d", env.QueryType)), nil

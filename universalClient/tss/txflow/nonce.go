@@ -3,7 +3,7 @@ package txflow
 import (
 	"context"
 
-	"github.com/pushchain/push-chain-node/universalClient/chains/common"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
 )
 
 // NonceVerdict captures the outcome of comparing the signed nonce against

@@ -13,8 +13,8 @@ import (
 	solanarpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/rs/zerolog"
 
-	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/db"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 

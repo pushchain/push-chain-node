@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/pushchain/push-chain-node/universalClient/chains/common"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )

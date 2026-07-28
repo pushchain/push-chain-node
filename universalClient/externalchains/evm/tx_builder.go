@@ -14,7 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/rs/zerolog"
 
-	"github.com/pushchain/push-chain-node/universalClient/chains/common"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
@@ -447,7 +447,6 @@ func parseGasLimit(gasLimitStr string) (*big.Int, error) {
 func (tb *TxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, int64, error) {
 	return false, 0, nil
 }
-
 
 // GetGasFeeUsed returns the gas fee used by a transaction on the EVM chain.
 // Fetches the receipt for gasUsed and the transaction for gasPrice, then returns

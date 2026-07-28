@@ -21,8 +21,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/config"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
@@ -2293,7 +2293,7 @@ func TestBuildPC20ExportAccounts_RefSlots(t *testing.T) {
 func TestPC20ExportRefRoute_IxDataUnderStoreCap(t *testing.T) {
 	payload := packPC20Payload(t, strings.Repeat("A", 400), "dPC20", 6, nil)
 	ixData := buildPC20ExportIxData(makeSender(0x44), payload)
-	require.Greater(t, len(ixData), 600)                  // large enough to force the ref route
+	require.Greater(t, len(ixData), 600)                   // large enough to force the ref route
 	require.LessOrEqual(t, len(ixData), maxRefRouteIxData) // small enough for the store tx
 }
 

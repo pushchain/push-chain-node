@@ -1,13 +1,13 @@
-package push
+package pushwatcher
 
 import (
 	"context"
 	"fmt"
 	"testing"
 
-	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/config"
 	"github.com/pushchain/push-chain-node/universalClient/db"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/rs/zerolog"
@@ -90,14 +90,6 @@ func TestClient_IsHealthy(t *testing.T) {
 		}
 		assert.False(t, client.IsHealthy())
 	})
-}
-
-func TestClient_GetTxBuilder(t *testing.T) {
-	client := &Client{logger: zerolog.Nop()}
-	builder, err := client.GetTxBuilder()
-	require.Error(t, err)
-	assert.Nil(t, builder)
-	assert.Contains(t, err.Error(), "not supported")
 }
 
 func TestClient_StopBeforeStart(t *testing.T) {

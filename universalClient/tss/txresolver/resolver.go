@@ -12,8 +12,8 @@ import (
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 
-	"github.com/pushchain/push-chain-node/universalClient/chains"
-	"github.com/pushchain/push-chain-node/universalClient/chains/common"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
 	"github.com/pushchain/push-chain-node/universalClient/pushsigner"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
@@ -21,7 +21,7 @@ import (
 
 type Config struct {
 	EventStore    *eventstore.Store
-	Chains        *chains.Chains
+	Chains        *externalchains.Chains
 	PushSigner    *pushsigner.Signer
 	CheckInterval time.Duration
 	Logger        zerolog.Logger
@@ -30,7 +30,7 @@ type Config struct {
 
 type Resolver struct {
 	eventStore    *eventstore.Store
-	chains        *chains.Chains
+	chains        *externalchains.Chains
 	pushSigner    *pushsigner.Signer
 	checkInterval time.Duration
 	logger        zerolog.Logger

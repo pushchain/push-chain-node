@@ -16,6 +16,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/cosmos/cosmos-sdk/x/authz"
+	"github.com/pushchain/push-chain-node/universalClient/uread"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
@@ -365,6 +366,21 @@ func (c *Client) GetAllPendingOutbounds(ctx context.Context) ([]*uexecutortypes.
 		return nil, nil, err
 	}
 	return resp.Entries, resp.Outbounds, nil
+}
+
+// ErrReadQueriesNotAvailable is returned until the core-side pending-read query
+// exists. Callers treat it as "feature not live yet", not as a failure.
+var ErrReadQueriesNotAvailable = errors.New("pushcore: pending read requests query not available yet (blocked on core)")
+
+// GetAllPendingReadRequests retrieves pending external read requests from Push Chain.
+//
+// TODO(core): blocked on x/uexecutor Query/PendingReadRequests
+// (proto/uexecutor/v1/query.proto). Once it lands, mirror GetAllPendingOutbounds:
+// call c.uexecutorClients[idx].AllPendingReadRequests with retryWithRoundRobin,
+// map uexecutortypes.ReadRequest -> uread.ReadRequest (or drop the local type
+// entirely), and delete ErrReadQueriesNotAvailable.
+func (c *Client) GetAllPendingReadRequests(ctx context.Context) ([]*uread.ReadRequest, error) {
+	return nil, ErrReadQueriesNotAvailable
 }
 
 // createGRPCConnection creates a gRPC connection with appropriate transport security.

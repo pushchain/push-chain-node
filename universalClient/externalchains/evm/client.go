@@ -14,6 +14,7 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/db"
 	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
 	"github.com/pushchain/push-chain-node/universalClient/pushsigner"
+	"github.com/pushchain/push-chain-node/universalClient/store"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
@@ -200,6 +201,11 @@ func (c *Client) GetTxBuilder() (common.TxBuilder, error) {
 		return nil, fmt.Errorf("txBuilder not available for chain %s (gateway not configured)", c.chainIDStr)
 	}
 	return c.txBuilder, nil
+}
+
+// AddEvent stores an externally-produced event in this chain's database.
+func (c *Client) AddEvent(event *store.Event) (bool, error) {
+	return common.NewChainStore(c.database).InsertEventIfNotExists(event)
 }
 
 // initializeComponents creates all components that require the RPC client

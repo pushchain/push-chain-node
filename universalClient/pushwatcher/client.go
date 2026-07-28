@@ -25,14 +25,14 @@ type Client struct {
 }
 
 // NewClient creates a new Push chain client.
-// storeResolver may be nil; the listener then skips read request polling.
+// chainResolver may be nil; the listener then skips read request polling.
 func NewClient(
 	database *db.DB,
 	chainConfig *config.ChainSpecificConfig,
 	pushCore *pushcore.Client,
 	chainID string,
 	logger zerolog.Logger,
-	storeResolver common.ExternalChainStoreResolver,
+	chainResolver ExternalChainResolver,
 ) (*Client, error) {
 	// Normalize nil config so downstream uses don't need nil guards.
 	if chainConfig == nil {
@@ -45,7 +45,7 @@ func NewClient(
 		database,
 		logger,
 		chainConfig,
-		storeResolver,
+		chainResolver,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create event listener: %w", err)

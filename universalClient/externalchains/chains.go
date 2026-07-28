@@ -28,7 +28,6 @@ type Chains struct {
 	// Chain client management
 	chains       map[string]common.ChainClient          // key: CAIP-2 chain ID
 	chainConfigs map[string]*uregistrytypes.ChainConfig // key: CAIP-2 chain ID
-	chainDBs     map[string]*db.DB                      // key: CAIP-2 chain ID
 	chainsMu     sync.RWMutex
 	pushChainID  string // Push chain ID (always present)
 
@@ -58,7 +57,6 @@ func NewChains(
 		logger:       logger.With().Str("component", "chains").Logger(),
 		chains:       make(map[string]common.ChainClient),
 		chainConfigs: make(map[string]*uregistrytypes.ChainConfig),
-		chainDBs:     make(map[string]*db.DB),
 		pushChainID:  cfg.PushChainID,
 	}
 }
@@ -288,7 +286,6 @@ func (c *Chains) addChain(ctx context.Context, cfg *uregistrytypes.ChainConfig) 
 	c.chainsMu.Lock()
 	c.chains[cfg.Chain] = client
 	c.chainConfigs[cfg.Chain] = cfg
-	c.chainDBs[cfg.Chain] = chainDB
 	c.chainsMu.Unlock()
 
 	c.logger.Info().
@@ -317,7 +314,6 @@ func (c *Chains) removeChain(chainID string) error {
 
 	delete(c.chains, chainID)
 	delete(c.chainConfigs, chainID)
-	delete(c.chainDBs, chainID)
 
 	c.logger.Info().
 		Str("chain", chainID).
@@ -345,7 +341,6 @@ func (c *Chains) StopAll() {
 	// Clear the registry
 	c.chains = make(map[string]common.ChainClient)
 	c.chainConfigs = make(map[string]*uregistrytypes.ChainConfig)
-	c.chainDBs = make(map[string]*db.DB)
 }
 
 // GetClient returns the chain client for the specified chain ID
@@ -361,23 +356,6 @@ func (c *Chains) GetClient(chainID string) (common.ChainClient, error) {
 	return client, nil
 }
 
-// GetStore implements common.ExternalChainStoreResolver: resolves a CAIP-2 chain ID to
-// that chain's event store, so read requests can be routed into the target
-// chain's database.
-func (c *Chains) GetStore(chainID string) (*common.ChainStore, error) {
-	if chainID == c.pushChainID {
-		return nil, fmt.Errorf("read requests cannot target push chain itself")
-	}
-
-	c.chainsMu.RLock()
-	defer c.chainsMu.RUnlock()
-
-	chainDB, exists := c.chainDBs[chainID]
-	if !exists {
-		return nil, fmt.Errorf("no database for chain %s", chainID)
-	}
-	return common.NewChainStore(chainDB), nil
-}
 
 // IsEVMChain returns true if the chain uses EVM (e.g. Ethereum, BSC). Used by coordinator for nonce behaviour.
 func (c *Chains) IsEVMChain(chainID string) bool {

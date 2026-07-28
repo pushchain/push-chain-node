@@ -12,6 +12,7 @@ import (
 
 	"github.com/pushchain/push-chain-node/universalClient/config"
 	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
+	"github.com/pushchain/push-chain-node/universalClient/store"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
@@ -410,9 +411,10 @@ type mockChainClient struct {
 	stopErr     error
 }
 
-func (m *mockChainClient) Start(ctx context.Context) error { m.startCalled = true; return nil }
-func (m *mockChainClient) Stop() error                     { m.stopCalled = true; return m.stopErr }
-func (m *mockChainClient) IsHealthy() bool                 { return true }
+func (m *mockChainClient) Start(ctx context.Context) error           { m.startCalled = true; return nil }
+func (m *mockChainClient) Stop() error                               { m.stopCalled = true; return m.stopErr }
+func (m *mockChainClient) IsHealthy() bool                           { return true }
+func (m *mockChainClient) AddEvent(event *store.Event) (bool, error) { return true, nil }
 func (m *mockChainClient) GetTxBuilder() (common.TxBuilder, error) {
 	return nil, nil
 }

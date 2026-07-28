@@ -22,13 +22,6 @@ func NewChainStore(database *db.DB) *ChainStore {
 	}
 }
 
-// ExternalChainStoreResolver resolves a CAIP-2 chain ID to that chain's event
-// store, so events destined for an external chain (READ_REQUEST today, e.g.
-// SIGN events in the future) can be routed into that chain's own database.
-// Implemented by externalchains.Chains.
-type ExternalChainStoreResolver interface {
-	GetStore(chainID string) (*ChainStore, error)
-}
 
 // GetChainHeight returns the last processed block height for the chain.
 // Creates a new entry with height 0 if one doesn't exist (atomic via FirstOrCreate).

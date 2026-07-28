@@ -76,10 +76,11 @@ func (m *mockTxBuilder) BroadcastFundMigrationTx(ctx context.Context, req *commo
 
 type mockChainClient struct{ builder *mockTxBuilder }
 
-func (m *mockChainClient) Start(context.Context) error             { return nil }
-func (m *mockChainClient) Stop() error                             { return nil }
-func (m *mockChainClient) IsHealthy() bool                         { return true }
-func (m *mockChainClient) GetTxBuilder() (common.TxBuilder, error) { return m.builder, nil }
+func (m *mockChainClient) Start(context.Context) error               { return nil }
+func (m *mockChainClient) Stop() error                               { return nil }
+func (m *mockChainClient) IsHealthy() bool                           { return true }
+func (m *mockChainClient) AddEvent(event *store.Event) (bool, error) { return true, nil }
+func (m *mockChainClient) GetTxBuilder() (common.TxBuilder, error)   { return m.builder, nil }
 
 func setupTestDB(t *testing.T) (*eventstore.Store, *gorm.DB) {
 	t.Helper()

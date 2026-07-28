@@ -2,6 +2,7 @@ package pushsigner
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -24,6 +25,7 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/config"
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/pushsigner/keys"
+	"github.com/pushchain/push-chain-node/universalClient/uread"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
@@ -130,6 +132,22 @@ func (s *Signer) VoteTssKeyProcess(ctx context.Context, tssPubKey string, keyID 
 // VoteFundMigration votes on a fund migration result.
 func (s *Signer) VoteFundMigration(ctx context.Context, migrationID uint64, txHash string, success bool) (string, error) {
 	return voteFundMigration(ctx, s, s.log, s.granter, migrationID, txHash, success)
+}
+
+// ErrVoteReadNotAvailable is returned until the core-side vote msg exists.
+var ErrVoteReadNotAvailable = errors.New("pushsigner: MsgVoteReadResult not available yet (blocked on core)")
+
+// VoteReadResult votes on an external read observation.
+//
+// TODO(core): blocked on uexecutortypes.MsgVoteReadResult
+// (proto/uexecutor/v1/tx.proto). Once it lands:
+//   - add a voteReadResult builder in vote.go (Signer: granter, RequestId,
+//     Status, ResultData, ObservedBlockHeight, ObservedBlockHash) and route
+//     through vote() like voteInbound does;
+//   - ensure the validator AuthZ grant set includes the new msg type URL
+//     (grant_verifier.go + core-side grant creation).
+func (s *Signer) VoteReadResult(ctx context.Context, requestID string, result *uread.ReadResult) (string, error) {
+	return "", ErrVoteReadNotAvailable
 }
 
 // signAndBroadcastAuthZTx signs and broadcasts an AuthZ transaction

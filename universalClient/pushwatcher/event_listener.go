@@ -1,4 +1,4 @@
-package push
+package pushwatcher
 
 import (
 	"context"
@@ -6,9 +6,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/config"
 	"github.com/pushchain/push-chain-node/universalClient/db"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/rs/zerolog"

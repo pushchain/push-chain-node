@@ -15,7 +15,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 
-	"github.com/pushchain/push-chain-node/universalClient/chains/common"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
@@ -738,7 +738,7 @@ func (tb *TxBuilder) buildPC20ExportAccounts(
 		&solana.AccountMeta{PublicKey: solana.SysVarRentPubkey, IsWritable: false, IsSigner: false},
 		&solana.AccountMeta{PublicKey: solana.SPLAssociatedTokenAccountProgramID, IsWritable: false, IsSigner: false},
 	)
-	accounts = append(accounts, none()) // recipient_ata (typed)
+	accounts = append(accounts, none())         // recipient_ata (typed)
 	accounts = append(accounts, none(), none()) // rate_limit_config, token_rate_limit
 	// stored_ix_data + store_refund_recipient: writable on the ref route (the PDA is
 	// auto-closed on success), None sentinels on the direct route.

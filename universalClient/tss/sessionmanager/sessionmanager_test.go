@@ -19,9 +19,9 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	"github.com/pushchain/push-chain-node/universalClient/chains"
-	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/config"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss/coordinator"
 	"github.com/pushchain/push-chain-node/universalClient/tss/dkls"
@@ -485,7 +485,7 @@ func TestVerifySigningRequest_OutboundDisabled(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a Chains manager with empty maps — IsChainOutboundEnabled returns false for all chains
-	chainsManager := chains.NewChains(nil, nil, &config.Config{PushChainID: "test-chain"}, zerolog.Nop())
+	chainsManager := externalchains.NewChains(nil, nil, &config.Config{PushChainID: "test-chain"}, zerolog.Nop())
 	sm.chains = chainsManager
 
 	outboundData := uexecutortypes.OutboundCreatedEvent{

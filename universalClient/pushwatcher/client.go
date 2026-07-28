@@ -1,14 +1,14 @@
-// Package push provides a client for listening to Push Chain events.
-package push
+// Package pushwatcher provides a client for listening to Push Chain events.
+package pushwatcher
 
 import (
 	"context"
 	"fmt"
 	"time"
 
-	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/config"
 	"github.com/pushchain/push-chain-node/universalClient/db"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/rs/zerolog"
 )
@@ -125,10 +125,4 @@ func (c *Client) IsHealthy() bool {
 
 	_, err := c.pushCore.GetLatestBlock(ctx)
 	return err == nil
-}
-
-// GetTxBuilder returns the TxBuilder for this chain
-// Push chain does not support outbound transactions, so this always returns an error
-func (c *Client) GetTxBuilder() (common.TxBuilder, error) {
-	return nil, fmt.Errorf("txBuilder not supported for Push chain")
 }

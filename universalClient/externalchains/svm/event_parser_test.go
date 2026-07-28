@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/pushchain/push-chain-node/universalClient/chains/common"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 )
 
@@ -24,18 +24,19 @@ func nopLogger() zerolog.Logger {
 // parseSendFundsEvent / decodeUniversalTxEvent call.
 //
 // Layout (Borsh):
-//   discriminator  8  bytes
-//   sender        32  bytes (Pubkey)
-//   recipient     20  bytes (byte20)
-//   bridge_token  32  bytes (Pubkey)
-//   bridge_amount  8  bytes (u64 LE)
-//   data_len       4  bytes (u32 LE)
-//   data           variable
-//   revert_recip  32  bytes (Pubkey)
-//   tx_type        1  byte
-//   sig_len        4  bytes (u32 LE)
-//   sig_data       variable
-//   fromCEA        1  byte
+//
+//	discriminator  8  bytes
+//	sender        32  bytes (Pubkey)
+//	recipient     20  bytes (byte20)
+//	bridge_token  32  bytes (Pubkey)
+//	bridge_amount  8  bytes (u64 LE)
+//	data_len       4  bytes (u32 LE)
+//	data           variable
+//	revert_recip  32  bytes (Pubkey)
+//	tx_type        1  byte
+//	sig_len        4  bytes (u32 LE)
+//	sig_data       variable
+//	fromCEA        1  byte
 func buildSendFundsPayload(
 	sender [32]byte,
 	recipient [20]byte,
@@ -97,9 +98,10 @@ func buildOutboundPayload(txID [32]byte, universalTxID [32]byte, gasUsed uint64)
 
 // buildFinalizePayloadWithToken builds a full UniversalTxFinalized blob including
 // the wrapper_address field at offset 72 (the PC20 wrapped mint on export):
-//   disc(8) sub_tx_id(32) universal_tx_id(32) wrapper_address(32) gas_fee(8)
-//   gas_used(8) gas_to_refund(8) ata_created(1) push_account(20) target(32)
-//   token(32) amount(8)
+//
+//	disc(8) sub_tx_id(32) universal_tx_id(32) wrapper_address(32) gas_fee(8)
+//	gas_used(8) gas_to_refund(8) ata_created(1) push_account(20) target(32)
+//	token(32) amount(8)
 func buildFinalizePayloadWithToken(txID, universalTxID [32]byte, gasUsed uint64, wrapper [32]byte) []byte {
 	data := make([]byte, 221)
 	copy(data[8:40], txID[:])
@@ -111,8 +113,9 @@ func buildFinalizePayloadWithToken(txID, universalTxID [32]byte, gasUsed uint64,
 }
 
 // buildRevertPayload builds a RevertUniversalTx blob:
-//   disc(8) sub_tx_id(32) universal_tx_id(32) revert_recipient(32) token(32)
-//   amount(8) gas_used(8) revert_instruction...
+//
+//	disc(8) sub_tx_id(32) universal_tx_id(32) revert_recipient(32) token(32)
+//	amount(8) gas_used(8) revert_instruction...
 func buildRevertPayload(txID, universalTxID [32]byte, gasUsed uint64) []byte {
 	data := make([]byte, 160)
 	copy(data[8:40], txID[:])
@@ -122,8 +125,9 @@ func buildRevertPayload(txID, universalTxID [32]byte, gasUsed uint64) []byte {
 }
 
 // buildRescuePayload builds a FundsRescued blob:
-//   disc(8) sub_tx_id(32) universal_tx_id(32) token(32) amount(8) gas_used(8)
-//   revert_instruction...
+//
+//	disc(8) sub_tx_id(32) universal_tx_id(32) token(32) amount(8) gas_used(8)
+//	revert_instruction...
 func buildRescuePayload(txID, universalTxID [32]byte, gasUsed uint64) []byte {
 	data := make([]byte, 128)
 	copy(data[8:40], txID[:])
@@ -146,12 +150,12 @@ func TestBase58ToHex(t *testing.T) {
 		},
 		{
 			name:  "known base58 value",
-			input: "1",   // base58 "1" decodes to a single 0x00 byte
+			input: "1", // base58 "1" decodes to a single 0x00 byte
 			want:  "0x00",
 		},
 		{
 			name:  "known base58 multi-byte",
-			input: "2g",  // base58 "2g" decodes to 0x61
+			input: "2g", // base58 "2g" decodes to 0x61
 			want:  "0x61",
 		},
 		{

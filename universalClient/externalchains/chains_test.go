@@ -1,4 +1,4 @@
-package chains
+package externalchains
 
 import (
 	"context"
@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/config"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
@@ -1472,26 +1472,6 @@ func TestAddChain_ErrorCases(t *testing.T) {
 	})
 }
 
-func TestEnsurePushChain_EmptyID(t *testing.T) {
-	t.Run("returns error when pushChainID is empty", func(t *testing.T) {
-		c := newTestChains()
-		c.pushChainID = ""
-
-		err := c.ensurePushChain(context.Background())
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "push chain ID not configured")
-	})
-
-	t.Run("returns nil when push chain already exists", func(t *testing.T) {
-		c := newTestChains()
-		mock := &mockChainClient{}
-		c.chains[c.pushChainID] = mock
-
-		err := c.ensurePushChain(context.Background())
-		require.NoError(t, err)
-	})
-}
-
 func TestGetChainDB(t *testing.T) {
 	t.Run("creates database for EVM chain", func(t *testing.T) {
 		c := newTestChains()
@@ -1588,20 +1568,6 @@ func TestStart_PushCoreNil(t *testing.T) {
 	})
 }
 
-func TestEnsurePushChain_DBError(t *testing.T) {
-	t.Run("returns error when getChainDB fails", func(t *testing.T) {
-		c := newTestChains()
-		c.config = &config.Config{
-			PushChainID: "localchain_9000-1",
-			NodeHome:    "/dev/null/impossible/path",
-		}
-
-		err := c.ensurePushChain(context.Background())
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to get database for push chain")
-	})
-}
-
 func TestConfigsEqual_GatewayMethodsOrdering(t *testing.T) {
 	t.Run("gateway methods different order is not equal", func(t *testing.T) {
 		cfg1 := &uregistrytypes.ChainConfig{
@@ -1665,8 +1631,8 @@ func TestNewChains_ConfigPreserved(t *testing.T) {
 	t.Run("preserves all config fields", func(t *testing.T) {
 		logger := zerolog.Nop()
 		cfg := &config.Config{
-			PushChainID:                 "push:1",
-			NodeHome:                    "/tmp/test",
+			PushChainID:                  "push:1",
+			NodeHome:                     "/tmp/test",
 			ConfigRefreshIntervalSeconds: 30,
 		}
 

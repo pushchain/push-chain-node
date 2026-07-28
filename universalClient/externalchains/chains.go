@@ -1,4 +1,4 @@
-package chains
+package externalchains
 
 import (
 	"context"
@@ -7,12 +7,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pushchain/push-chain-node/universalClient/chains/common"
-	"github.com/pushchain/push-chain-node/universalClient/chains/evm"
-	"github.com/pushchain/push-chain-node/universalClient/chains/push"
-	"github.com/pushchain/push-chain-node/universalClient/chains/svm"
 	"github.com/pushchain/push-chain-node/universalClient/config"
 	"github.com/pushchain/push-chain-node/universalClient/db"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains/evm"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains/svm"
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/pushsigner"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
@@ -73,14 +72,6 @@ func (c *Chains) Start(ctx context.Context) error {
 
 	if c.pushCore == nil {
 		return fmt.Errorf("pushCore must be non-nil")
-	}
-
-	// Push chain client is a hard requirement: the universal client cannot
-	// do meaningful work (TSS coordination, signing, validator-set discovery)
-	// without it, so a startup failure here surfaces immediately rather than
-	// running degraded and relying on the periodic loop to recover.
-	if err := c.ensurePushChain(ctx); err != nil {
-		return fmt.Errorf("failed to attach push chain client: %w", err)
 	}
 
 	c.running = true
@@ -158,13 +149,10 @@ func (c *Chains) fetchAndUpdate(parent context.Context) error {
 		return err
 	}
 
-	// Track seen chains (Push chain always marked as seen)
+	// Track seen chains
 	seenChains := make(map[string]bool)
-	if c.pushChainID != "" {
-		seenChains[c.pushChainID] = true
-	}
 
-	// Process each chain config
+	// Process each chain config (Push chain is managed by core, not here)
 	for _, cfg := range cfgs {
 		chainID := cfg.Chain
 		if chainID == "" || chainID == c.pushChainID {
@@ -199,10 +187,10 @@ func (c *Chains) fetchAndUpdate(parent context.Context) error {
 		}
 	}
 
-	// Remove stale chains (never remove Push chain)
+	// Remove stale chains
 	c.chainsMu.RLock()
 	for chainID := range c.chains {
-		if chainID != c.pushChainID && !seenChains[chainID] {
+		if !seenChains[chainID] {
 			c.logger.Info().Str("chain", chainID).Msg("removing chain no longer in config")
 			if err := c.removeChain(chainID); err != nil {
 				c.logger.Error().Err(err).Str("chain", chainID).Msg("failed to remove chain")
@@ -424,71 +412,6 @@ func (c *Chains) getChainDB(chainID string) (*db.DB, error) {
 		Msg("created file database for chain")
 
 	return database, nil
-}
-
-// ensurePushChain ensures the push chain client is always present
-func (c *Chains) ensurePushChain(ctx context.Context) error {
-	if c.pushChainID == "" {
-		return fmt.Errorf("push chain ID not configured")
-	}
-
-	c.chainsMu.RLock()
-	_, exists := c.chains[c.pushChainID]
-	c.chainsMu.RUnlock()
-
-	if exists {
-		return nil // Already exists
-	}
-
-	// Get or create database for push chain
-	pushDB, err := c.getChainDB(c.pushChainID)
-	if err != nil {
-		return fmt.Errorf("failed to get database for push chain: %w", err)
-	}
-
-	// Create a minimal chain config for push chain
-	// Push chain doesn't need gateway or other configs
-	pushConfig := &uregistrytypes.ChainConfig{
-		Chain: c.pushChainID,
-		// VmType is not set for push chain as it's not a gateway chain
-		// GatewayAddress is empty for push chain
-		Enabled: &uregistrytypes.ChainEnabled{
-			IsInboundEnabled:  true,
-			IsOutboundEnabled: true,
-		},
-	}
-
-	// Get chain-specific config for push chain
-	chainConfig := c.config.GetChainConfig(c.pushChainID)
-
-	// Create push chain client
-	client, err := push.NewClient(
-		pushDB,
-		chainConfig,
-		c.pushCore,
-		c.pushChainID,
-		c.logger,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create push chain client: %w", err)
-	}
-
-	// Start the push chain client
-	if err := client.Start(ctx); err != nil {
-		return fmt.Errorf("failed to start push chain client: %w", err)
-	}
-
-	// Store the client and config
-	c.chainsMu.Lock()
-	c.chains[c.pushChainID] = client
-	c.chainConfigs[c.pushChainID] = pushConfig
-	c.chainsMu.Unlock()
-
-	c.logger.Info().
-		Str("chain", c.pushChainID).
-		Msg("chain client added")
-
-	return nil
 }
 
 // Helper functions

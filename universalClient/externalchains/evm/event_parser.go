@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog"
 
-	"github.com/pushchain/push-chain-node/universalClient/chains/common"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 )
 
@@ -82,11 +82,11 @@ func parseSendFundsEvent(log *types.Log, chainID string, logger zerolog.Logger) 
 
 // parseOutboundObservationEvent parses an outboundObservation event
 // Event structure:
-// - Topics[0]: event signature hash
-// - Topics[1]: txID (bytes32)
-// - Topics[2]: universalTxID (bytes32)
-// - Topics[3]: UniversalTxFinalized only — wrapperAddress (address(0) for PRC20).
-//   Other observation events put token/recipient there, so it's ignored for them.
+//   - Topics[0]: event signature hash
+//   - Topics[1]: txID (bytes32)
+//   - Topics[2]: universalTxID (bytes32)
+//   - Topics[3]: UniversalTxFinalized only — wrapperAddress (address(0) for PRC20).
+//     Other observation events put token/recipient there, so it's ignored for them.
 func parseOutboundObservationEvent(log *types.Log, eventType string, logger zerolog.Logger) *store.Event {
 	// All observation events carry 3 indexed params (sig + subTxId + universalTxId
 	// + a 3rd: wrapperAddress on finalize, token/recipient elsewhere) = 4 topics.

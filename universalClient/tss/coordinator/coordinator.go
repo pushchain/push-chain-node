@@ -17,8 +17,8 @@ import (
 
 	session "go-wrapper/go-dkls/sessions"
 
-	"github.com/pushchain/push-chain-node/universalClient/chains"
-	"github.com/pushchain/push-chain-node/universalClient/chains/common"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
@@ -65,7 +65,7 @@ type Coordinator struct {
 	eventStore      *eventstore.Store
 	pushCore        PushCoreClient
 	keyshareManager *keyshare.Manager
-	chains          *chains.Chains
+	chains          *externalchains.Chains
 
 	// Config
 	validatorAddress string
@@ -95,7 +95,7 @@ func NewCoordinator(
 	eventStore *eventstore.Store,
 	pushCore PushCoreClient,
 	keyshareManager *keyshare.Manager,
-	chains *chains.Chains,
+	chains *externalchains.Chains,
 	validatorAddress string,
 	coordinatorRange uint64,
 	pollInterval time.Duration,

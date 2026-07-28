@@ -21,9 +21,9 @@ import (
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 
-	"github.com/pushchain/push-chain-node/universalClient/chains"
-	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/config"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 	"github.com/pushchain/push-chain-node/universalClient/tss/txflow"
@@ -92,9 +92,9 @@ func setupTestDB(t *testing.T) (*eventstore.Store, *gorm.DB) {
 	return eventstore.NewStore(db, zerolog.Nop()), db
 }
 
-func newTestChains(t *testing.T, chainID string, vmType uregistrytypes.VmType, client common.ChainClient) *chains.Chains {
+func newTestChains(t *testing.T, chainID string, vmType uregistrytypes.VmType, client common.ChainClient) *externalchains.Chains {
 	t.Helper()
-	c := chains.NewChains(nil, nil, &config.Config{PushChainID: "test-chain"}, zerolog.Nop())
+	c := externalchains.NewChains(nil, nil, &config.Config{PushChainID: "test-chain"}, zerolog.Nop())
 
 	// Inject into unexported maps via reflect+unsafe.
 	v := reflect.ValueOf(c).Elem()
@@ -197,7 +197,7 @@ func getEvent(t *testing.T, db *gorm.DB, eventID string) store.Event {
 	return ev
 }
 
-func newBroadcaster(evtStore *eventstore.Store, ch *chains.Chains, tssAddr string) *Broadcaster {
+func newBroadcaster(evtStore *eventstore.Store, ch *externalchains.Chains, tssAddr string) *Broadcaster {
 	getTSSAddr := func(ctx context.Context) (string, error) { return tssAddr, nil }
 	return NewBroadcaster(Config{
 		EventStore:    evtStore,
@@ -822,4 +822,3 @@ func TestFundMigrationEVM_BroadcastFails_NonceNotConsumed_StaysSigned(t *testing
 	ev := getEvent(t, db, "fm-1")
 	require.Equal(t, store.StatusSigned, ev.Status) // stays SIGNED for retry
 }
-

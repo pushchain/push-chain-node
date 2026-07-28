@@ -1,19 +1,17 @@
-package evm
+package svm
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"math/big"
 	"strings"
 	"sync"
 	"time"
 
-	ethcommon "github.com/ethereum/go-ethereum/common"
+	"github.com/gagliardetto/solana-go"
 	"github.com/rs/zerolog"
 
-	chaincommon "github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/db"
+	chaincommon "github.com/pushchain/push-chain-node/universalClient/externalchains/common"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 )
 
@@ -48,7 +46,7 @@ func NewEventConfirmer(
 		pollIntervalSeconds:   pollIntervalSeconds,
 		fastConfirmations:     fastConfirmations,
 		standardConfirmations: standardConfirmations,
-		logger:                logger.With().Str("component", "evm_event_confirmer").Str("chain", chainID).Logger(),
+		logger:                logger.With().Str("component", "svm_event_confirmer").Str("chain", chainID).Logger(),
 		stopCh:                make(chan struct{}),
 	}
 }
@@ -100,10 +98,10 @@ func (ec *EventConfirmer) checkAndConfirmEvents(ctx context.Context) {
 
 // processPendingEvents fetches oldest 1000 pending events and checks if they are confirmed
 func (ec *EventConfirmer) processPendingEvents(ctx context.Context) error {
-	// Get latest block
-	latestBlock, err := ec.rpcClient.GetLatestBlock(ctx)
+	// Get latest slot
+	latestSlot, err := ec.rpcClient.GetLatestSlot(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get latest block: %w", err)
+		return fmt.Errorf("failed to get latest slot: %w", err)
 	}
 
 	// Fetch oldest 1000 pending events (all types)
@@ -127,28 +125,43 @@ func (ec *EventConfirmer) processPendingEvents(ctx context.Context) error {
 			continue
 		}
 
-		// Extract transaction hash from EventID (format: "txHash:logIndex")
-		txHash := ec.getTxHashFromEventID(event.EventID)
-		if txHash == "" {
+		// Extract transaction signature from EventID (format: "signature:logIndex")
+		txSignatureStr := ec.getTxSignatureFromEventID(event.EventID)
+		if txSignatureStr == "" {
 			ec.logger.Debug().
 				Str("event_id", event.EventID).
-				Uint64("block", event.BlockHeight).
-				Msg("failed to extract tx hash from event ID, skipping")
+				Uint64("slot", event.BlockHeight).
+				Msg("failed to extract tx signature from event ID, skipping")
 			continue
 		}
 
-		// Get transaction receipt
-		hash := ethcommon.HexToHash(txHash)
-		receipt, err := ec.rpcClient.GetTransactionReceipt(ctx, hash)
+		// Parse signature
+		sig, err := solana.SignatureFromBase58(txSignatureStr)
 		if err != nil {
-			// Transaction not found or not yet mined - skip
+			ec.logger.Debug().
+				Str("event_id", event.EventID).
+				Str("signature", txSignatureStr).
+				Err(err).
+				Msg("failed to parse signature, skipping")
 			continue
 		}
 
-		// eth_getLogs only returns logs from txs with receipt status 1, so this
-		// branch should never fire on a healthy RPC. Kept as defense-in-depth and
-		// for symmetry with the SVM confirmer, which has a real path here.
-		if receipt.Status != 1 {
+		// Get transaction
+		tx, err := ec.rpcClient.GetTransaction(ctx, sig)
+		if err != nil {
+			// Transaction not found or not yet confirmed - skip
+			continue
+		}
+
+		// Check if transaction is confirmed
+		if tx.Meta == nil {
+			continue
+		}
+
+		// Solana preserves meta.logMessages even when meta.err is set, so a Program
+		// data: line from a failed tx can reach the listener. Mark such events
+		// REVERTED here so they never promote to CONFIRMED and trigger a vote.
+		if tx.Meta.Err != nil {
 			if _, updateErr := ec.chainStore.UpdateEventStatus(event.EventID, store.StatusPending, store.StatusReverted); updateErr != nil {
 				ec.logger.Error().
 					Err(updateErr).
@@ -158,53 +171,20 @@ func (ec *EventConfirmer) processPendingEvents(ctx context.Context) error {
 			continue
 		}
 
+		// Get transaction slot
+		txSlot := tx.Slot
+		if txSlot == 0 {
+			// If slot is 0, use block height from event
+			txSlot = event.BlockHeight
+		}
+
 		// Check if transaction is confirmed based on confirmation type
 		requiredConfirmations := ec.getRequiredConfirmations(event.ConfirmationType)
-		confirmations := latestBlock - receipt.BlockNumber.Uint64() + 1
+		confirmations := latestSlot - txSlot + 1
 
 		if confirmations >= requiredConfirmations {
-			var rowsAffected int64
-
-			// For outbound events, enrich with gas fee before confirming
-			if event.Type == store.EventTypeOutbound {
-				tx, _, txErr := ec.rpcClient.GetTransactionByHash(ctx, hash)
-				if txErr != nil {
-					ec.logger.Warn().
-						Err(txErr).
-						Str("event_id", event.EventID).
-						Str("tx_hash", txHash).
-						Msg("failed to fetch transaction for gas fee, skipping confirmation")
-					continue
-				}
-				gasUsed := new(big.Int).SetUint64(receipt.GasUsed)
-				gasPrice := tx.GasPrice()
-				gasFeeUsed := new(big.Int).Mul(gasUsed, gasPrice).String()
-
-				// Unmarshal, set GasFeeUsed, re-marshal
-				var outboundEvent chaincommon.OutboundEvent
-				if unmarshalErr := json.Unmarshal(event.EventData, &outboundEvent); unmarshalErr != nil {
-					ec.logger.Error().
-						Err(unmarshalErr).
-						Str("event_id", event.EventID).
-						Msg("failed to unmarshal outbound event data")
-					continue
-				}
-				outboundEvent.GasFeeUsed = gasFeeUsed
-
-				updatedData, marshalErr := json.Marshal(outboundEvent)
-				if marshalErr != nil {
-					ec.logger.Error().
-						Err(marshalErr).
-						Str("event_id", event.EventID).
-						Msg("failed to marshal enriched outbound event data")
-					continue
-				}
-
-				rowsAffected, err = ec.chainStore.UpdateStatusAndEventData(event.EventID, store.StatusPending, store.StatusConfirmed, updatedData)
-			} else {
-				rowsAffected, err = ec.chainStore.UpdateEventStatus(event.EventID, store.StatusPending, store.StatusConfirmed)
-			}
-
+			// GasFeeUsed for outbound events is already set by the event parser from the on-chain event data
+			rowsAffected, err := ec.chainStore.UpdateEventStatus(event.EventID, store.StatusPending, store.StatusConfirmed)
 			if err != nil {
 				ec.logger.Error().
 					Err(err).
@@ -235,9 +215,9 @@ func (ec *EventConfirmer) processPendingEvents(ctx context.Context) error {
 	return nil
 }
 
-// getTxHashFromEventID extracts the transaction hash from EventID (format: "txHash:logIndex")
-func (ec *EventConfirmer) getTxHashFromEventID(eventID string) string {
-	// EventID format: "txHash:logIndex"
+// getTxSignatureFromEventID extracts the transaction signature from EventID (format: "signature:logIndex")
+func (ec *EventConfirmer) getTxSignatureFromEventID(eventID string) string {
+	// EventID format: "signature:logIndex"
 	parts := strings.Split(eventID, ":")
 	if len(parts) == 0 {
 		return ""
@@ -249,18 +229,18 @@ func (ec *EventConfirmer) getTxHashFromEventID(eventID string) string {
 func (ec *EventConfirmer) getRequiredConfirmations(confirmationType string) uint64 {
 	switch confirmationType {
 	case store.ConfirmationFast:
-		if ec.fastConfirmations >= 0 {
+		if ec.fastConfirmations > 0 {
 			return ec.fastConfirmations
 		}
 		return 5
 	case store.ConfirmationStandard:
-		if ec.standardConfirmations >= 0 {
+		if ec.standardConfirmations > 0 {
 			return ec.standardConfirmations
 		}
 		return 12
 	default:
 		// Default to standard if unknown
-		if ec.standardConfirmations >= 0 {
+		if ec.standardConfirmations > 0 {
 			return ec.standardConfirmations
 		}
 		return 12

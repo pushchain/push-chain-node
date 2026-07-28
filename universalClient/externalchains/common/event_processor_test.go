@@ -60,8 +60,7 @@ func (f *fakeChainReader) ExecuteRead(ctx context.Context, req *uread.ReadReques
 func testReadRequest() *uread.ReadRequest {
 	return &uread.ReadRequest{
 		RequestID:         "0xabc123",
-		ChainNamespace:    "eip155",
-		ChainID:           "11155111",
+		TargetChain:       "eip155:11155111",
 		Query:             []byte{0x01},
 		MinConfirmations:  1,
 		PinnedBlockHeight: 100,

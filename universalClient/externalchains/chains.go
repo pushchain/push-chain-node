@@ -361,7 +361,7 @@ func (c *Chains) GetClient(chainID string) (common.ChainClient, error) {
 	return client, nil
 }
 
-// GetStore implements common.ReadStoreResolver: resolves a CAIP-2 chain ID to
+// GetStore implements common.ExternalChainStoreResolver: resolves a CAIP-2 chain ID to
 // that chain's event store, so read requests can be routed into the target
 // chain's database.
 func (c *Chains) GetStore(chainID string) (*common.ChainStore, error) {

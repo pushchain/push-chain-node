@@ -14,22 +14,6 @@ type ChainReader interface {
 	ExecuteRead(ctx context.Context, req *uread.ReadRequest) (*uread.ReadResult, error)
 }
 
-// ReadStoreResolver resolves a CAIP-2 chain ID to that chain's event store, so
-// READ_REQUEST events can be routed into the target chain's own database.
-// Implemented by externalchains.Chains.
-type ReadStoreResolver interface {
-	GetStore(chainID string) (*ChainStore, error)
-}
-
-// CAIP2 joins a ReadSpec domain (chainNamespace, chainId) into the CAIP-2 key
-// used by the chains registry, e.g. ("eip155", "1") -> "eip155:1".
-func CAIP2(chainNamespace, chainID string) (string, error) {
-	if chainNamespace == "" || chainID == "" {
-		return "", fmt.Errorf("empty chain namespace or id")
-	}
-	return chainNamespace + ":" + chainID, nil
-}
-
 // EncodeUint256Result canonically encodes a balance/amount as abi.encode(uint256).
 func EncodeUint256Result(v *big.Int) ([]byte, error) {
 	if v == nil {

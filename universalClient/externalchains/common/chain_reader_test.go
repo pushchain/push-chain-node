@@ -31,12 +31,3 @@ func TestEncodeBytes32Result(t *testing.T) {
 	require.Len(t, out, 32)
 	assert.Equal(t, v[:], out)
 }
-
-func TestCAIP2(t *testing.T) {
-	got, err := CAIP2("eip155", "1")
-	require.NoError(t, err)
-	assert.Equal(t, "eip155:1", got)
-
-	_, err = CAIP2("", "1")
-	assert.Error(t, err)
-}

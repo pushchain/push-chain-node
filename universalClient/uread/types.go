@@ -8,8 +8,7 @@ package uread
 // ReadRequest mirrors the pending read request tracked by x/uexecutor.
 type ReadRequest struct {
 	RequestID         string // uint256 as 0x-prefixed hex (from ReadRequested event)
-	ChainNamespace    string // e.g. "eip155", "solana"
-	ChainID           string // e.g. "1", "42161", "mainnet-beta"
+	TargetChain       string // CAIP-2, e.g. "eip155:1", "solana:mainnet-beta"
 	Owner             []byte // ReadSpec.account.owner (20-byte addr / 32-byte pubkey)
 	Query             []byte // chain-specific envelope, abi.encode(...)
 	MinConfirmations  uint16

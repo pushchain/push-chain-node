@@ -31,14 +31,14 @@ type Config struct {
 // EventListener polls Push chain for active TSS events, pending outbounds and
 // pending read requests via gRPC, converts them to store.Events, and inserts
 // them into the local DB. Read request events are routed into the target
-// chain's DB (via readStoreResolver) so that chain's own event processor
+// chain's DB (via storeResolver) so that chain's own event processor
 // executes and votes them.
 type EventListener struct {
-	pushCore          *pushcore.Client
-	chainStore        *common.ChainStore
-	readStoreResolver common.ReadStoreResolver
-	cfg               Config
-	logger            zerolog.Logger
+	pushCore      *pushcore.Client
+	chainStore    *common.ChainStore
+	storeResolver common.ExternalChainStoreResolver
+	cfg           Config
+	logger        zerolog.Logger
 
 	mu      sync.Mutex
 	running bool
@@ -47,13 +47,13 @@ type EventListener struct {
 }
 
 // NewEventListener creates a new Push event listener.
-// readStoreResolver may be nil; read request polling is skipped without it.
+// storeResolver may be nil; read request polling is skipped without it.
 func NewEventListener(
 	pushCore *pushcore.Client,
 	database *db.DB,
 	logger zerolog.Logger,
 	chainConfig *config.ChainSpecificConfig,
-	readStoreResolver common.ReadStoreResolver,
+	storeResolver common.ExternalChainStoreResolver,
 ) (*EventListener, error) {
 	if pushCore == nil {
 		return nil, ErrNilClient
@@ -68,11 +68,11 @@ func NewEventListener(
 	}
 
 	return &EventListener{
-		pushCore:          pushCore,
-		chainStore:        common.NewChainStore(database),
-		readStoreResolver: readStoreResolver,
-		cfg:               Config{PollInterval: pollInterval},
-		logger:            logger.With().Str("component", "push_event_listener").Logger(),
+		pushCore:      pushCore,
+		chainStore:    common.NewChainStore(database),
+		storeResolver: storeResolver,
+		cfg:           Config{PollInterval: pollInterval},
+		logger:        logger.With().Str("component", "push_event_listener").Logger(),
 	}, nil
 }
 
@@ -250,7 +250,7 @@ func (el *EventListener) pollFundMigrationEvents(ctx context.Context) int {
 // retried next poll (core keeps returning them until fulfilled or expired).
 // Returns new event count.
 func (el *EventListener) pollReadRequestEvents(ctx context.Context) int {
-	if el.readStoreResolver == nil {
+	if el.storeResolver == nil {
 		return 0
 	}
 
@@ -266,15 +266,9 @@ func (el *EventListener) pollReadRequestEvents(ctx context.Context) int {
 
 	var newCount int
 	for _, req := range requests {
-		caip2, err := common.CAIP2(req.ChainNamespace, req.ChainID)
+		targetStore, err := el.storeResolver.GetStore(req.TargetChain)
 		if err != nil {
-			el.logger.Warn().Err(err).Str("request_id", req.RequestID).Msg("invalid read request domain")
-			continue
-		}
-
-		targetStore, err := el.readStoreResolver.GetStore(caip2)
-		if err != nil {
-			el.logger.Debug().Err(err).Str("request_id", req.RequestID).Str("target_chain", caip2).Msg("target chain not served; skipping read request")
+			el.logger.Debug().Err(err).Str("request_id", req.RequestID).Str("target_chain", req.TargetChain).Msg("target chain not served; skipping read request")
 			continue
 		}
 
@@ -286,13 +280,13 @@ func (el *EventListener) pollReadRequestEvents(ctx context.Context) int {
 
 		stored, err := targetStore.InsertEventIfNotExists(event)
 		if err != nil {
-			el.logger.Error().Err(err).Str("event_id", event.EventID).Str("target_chain", caip2).Msg("failed to store read request")
+			el.logger.Error().Err(err).Str("event_id", event.EventID).Str("target_chain", req.TargetChain).Msg("failed to store read request")
 			continue
 		}
 		if stored {
 			el.logger.Debug().
 				Str("event_id", event.EventID).
-				Str("target_chain", caip2).
+				Str("target_chain", req.TargetChain).
 				Msg("routed read request to target chain")
 			newCount++
 		}

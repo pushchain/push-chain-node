@@ -98,12 +98,15 @@ func NewClient(
 	if pushSigner != nil {
 		inboundEnabled := config.Enabled != nil && config.Enabled.IsInboundEnabled
 		outboundEnabled := config.Enabled != nil && config.Enabled.IsOutboundEnabled
+		// client is the reader for READ_REQUEST events routed into this chain's
+		// DB by the push event listener.
 		client.eventProcessor = common.NewEventProcessor(
 			pushSigner,
 			database,
 			chainIDStr,
 			inboundEnabled,
 			outboundEnabled,
+			client,
 			log,
 		)
 	}

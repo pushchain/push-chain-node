@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/pushchain/push-chain-node/universalClient/store"
+	"github.com/pushchain/push-chain-node/universalClient/uread"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 )
@@ -91,6 +92,27 @@ func convertFundMigrationEvent(migration *utsstypes.FundMigration) (*store.Event
 		ConfirmationType:  store.ConfirmationInstant,
 		Status:            store.StatusConfirmed,
 		EventData:         eventData,
+	}, nil
+}
+
+// convertReadRequestEvent converts a pending external read request to a store.Event.
+func convertReadRequestEvent(req *uread.ReadRequest) (*store.Event, error) {
+	if req == nil || req.RequestID == "" {
+		return nil, fmt.Errorf("read request is nil or missing request id")
+	}
+
+	eventData, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal read request event data: %w", err)
+	}
+
+	return &store.Event{
+		EventID:          hashEventID(store.EventTypeReadRequest, req.RequestID),
+		BlockHeight:      req.CreatedAtHeight,
+		Type:             store.EventTypeReadRequest,
+		ConfirmationType: store.ConfirmationInstant,
+		Status:           store.StatusConfirmed,
+		EventData:        eventData,
 	}, nil
 }
 

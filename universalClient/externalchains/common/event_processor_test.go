@@ -3,6 +3,7 @@ package common
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -12,15 +13,174 @@ import (
 
 	ucdb "github.com/pushchain/push-chain-node/universalClient/db"
 	"github.com/pushchain/push-chain-node/universalClient/store"
+	"github.com/pushchain/push-chain-node/universalClient/uread"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
+
+type fakeVoteSigner struct {
+	readVotes map[string]*uread.ReadResult
+	txHash    string
+	err       error
+}
+
+func (f *fakeVoteSigner) VoteInbound(ctx context.Context, inbound *uexecutortypes.Inbound) (string, error) {
+	if f.err != nil {
+		return "", f.err
+	}
+	return "", fmt.Errorf("inbound vote not supported by fake")
+}
+
+func (f *fakeVoteSigner) VoteOutbound(ctx context.Context, txID string, utxID string, observation *uexecutortypes.OutboundObservation) (string, error) {
+	if f.err != nil {
+		return "", f.err
+	}
+	return "", fmt.Errorf("outbound vote not supported by fake")
+}
+
+func (f *fakeVoteSigner) VoteReadResult(ctx context.Context, requestID string, result *uread.ReadResult) (string, error) {
+	if f.err != nil {
+		return "", f.err
+	}
+	if f.readVotes == nil {
+		f.readVotes = make(map[string]*uread.ReadResult)
+	}
+	f.readVotes[requestID] = result
+	return f.txHash, nil
+}
+
+type fakeChainReader struct {
+	result *uread.ReadResult
+	err    error
+}
+
+func (f *fakeChainReader) ExecuteRead(ctx context.Context, req *uread.ReadRequest) (*uread.ReadResult, error) {
+	return f.result, f.err
+}
+
+func testReadRequest() *uread.ReadRequest {
+	return &uread.ReadRequest{
+		RequestID:         "0xabc123",
+		ChainNamespace:    "eip155",
+		ChainID:           "11155111",
+		Query:             []byte{0x01},
+		MinConfirmations:  1,
+		PinnedBlockHeight: 100,
+		CreatedAtHeight:   7,
+	}
+}
+
+func newReadTestProcessor(t *testing.T, signer VoteSigner, reader ChainReader) (*EventProcessor, *ChainStore) {
+	t.Helper()
+	database, err := ucdb.OpenInMemoryDB(true)
+	require.NoError(t, err)
+	ep := NewEventProcessor(signer, database, "eip155:11155111", false, false, reader, zerolog.Nop())
+	return ep, NewChainStore(database)
+}
+
+func seedReadRequest(t *testing.T, cs *ChainStore, req *uread.ReadRequest) string {
+	t.Helper()
+	eventData, err := json.Marshal(req)
+	require.NoError(t, err)
+	eventID := "read:" + req.RequestID
+	stored, err := cs.InsertEventIfNotExists(&store.Event{
+		EventID:          eventID,
+		BlockHeight:      req.CreatedAtHeight,
+		Type:             store.EventTypeReadRequest,
+		ConfirmationType: store.ConfirmationInstant,
+		Status:           store.StatusConfirmed,
+		EventData:        eventData,
+	})
+	require.NoError(t, err)
+	require.True(t, stored)
+	return eventID
+}
+
+func eventStatus(t *testing.T, cs *ChainStore, eventID string) string {
+	t.Helper()
+	var event store.Event
+	require.NoError(t, cs.database.Client().Where("event_id = ?", eventID).First(&event).Error)
+	return event.Status
+}
+
+func TestProcessReadRequest_SuccessFlow(t *testing.T) {
+	req := testReadRequest()
+	result := &uread.ReadResult{
+		Status:              uread.ReadStatusSuccess,
+		ResultData:          []byte{0xaa},
+		ObservedBlockHeight: 100,
+	}
+	signer := &fakeVoteSigner{txHash: "VOTE_TX"}
+	ep, cs := newReadTestProcessor(t, signer, &fakeChainReader{result: result})
+	eventID := seedReadRequest(t, cs, req)
+
+	require.NoError(t, ep.processConfirmedEvents(context.Background()))
+
+	require.Contains(t, signer.readVotes, req.RequestID)
+	assert.Equal(t, result, signer.readVotes[req.RequestID])
+	assert.Equal(t, store.StatusCompleted, eventStatus(t, cs, eventID))
+
+	// second tick must not re-vote
+	signer.readVotes = nil
+	require.NoError(t, ep.processConfirmedEvents(context.Background()))
+	assert.Empty(t, signer.readVotes)
+}
+
+func TestProcessReadRequest_VoteFailureKeepsConfirmed(t *testing.T) {
+	req := testReadRequest()
+	signer := &fakeVoteSigner{err: fmt.Errorf("MsgVoteReadResult not available")}
+	ep, cs := newReadTestProcessor(t, signer, &fakeChainReader{result: &uread.ReadResult{Status: uread.ReadStatusSuccess}})
+	eventID := seedReadRequest(t, cs, req)
+
+	require.NoError(t, ep.processConfirmedEvents(context.Background()))
+
+	assert.Equal(t, store.StatusConfirmed, eventStatus(t, cs, eventID))
+}
+
+func TestProcessReadRequest_ExpiredMarkedReverted(t *testing.T) {
+	req := testReadRequest()
+	req.ExpiryTimestamp = time.Now().Add(-time.Minute).Unix()
+	signer := &fakeVoteSigner{txHash: "VOTE_TX"}
+	ep, cs := newReadTestProcessor(t, signer, &fakeChainReader{result: &uread.ReadResult{Status: uread.ReadStatusSuccess}})
+	eventID := seedReadRequest(t, cs, req)
+
+	require.NoError(t, ep.processConfirmedEvents(context.Background()))
+
+	assert.Empty(t, signer.readVotes)
+	assert.Equal(t, store.StatusReverted, eventStatus(t, cs, eventID))
+}
+
+func TestProcessReadRequest_ExecutionFailureRetries(t *testing.T) {
+	req := testReadRequest()
+	signer := &fakeVoteSigner{txHash: "VOTE_TX"}
+	ep, cs := newReadTestProcessor(t, signer, &fakeChainReader{err: fmt.Errorf("rpc down")})
+	eventID := seedReadRequest(t, cs, req)
+
+	require.NoError(t, ep.processConfirmedEvents(context.Background()))
+
+	// no vote, still CONFIRMED (transient RPC failure)
+	assert.Empty(t, signer.readVotes)
+	assert.Equal(t, store.StatusConfirmed, eventStatus(t, cs, eventID))
+}
+
+func TestProcessReadRequest_NoReaderSkips(t *testing.T) {
+	req := testReadRequest()
+	signer := &fakeVoteSigner{txHash: "VOTE_TX"}
+	// nil reader -> read events are skipped, left CONFIRMED
+	ep, cs := newReadTestProcessor(t, signer, nil)
+	eventID := seedReadRequest(t, cs, req)
+
+	require.NoError(t, ep.processConfirmedEvents(context.Background()))
+
+	assert.Empty(t, signer.readVotes)
+	assert.Equal(t, store.StatusConfirmed, eventStatus(t, cs, eventID))
+}
 
 func TestNewEventProcessor(t *testing.T) {
 	t.Run("creates event processor with valid params", func(t *testing.T) {
 		logger := zerolog.Nop()
 		chainID := "eip155:1"
 
-		processor := NewEventProcessor(nil, nil, chainID, true, true, logger)
+		processor := NewEventProcessor(nil, nil, chainID, true, true, nil, logger)
 
 		require.NotNil(t, processor)
 		assert.Equal(t, chainID, processor.chainID)
@@ -52,7 +212,7 @@ func TestEventProcessorStop(t *testing.T) {
 
 func TestEventProcessorBase58ToHex(t *testing.T) {
 	logger := zerolog.Nop()
-	processor := NewEventProcessor(nil, nil, "test-chain", true, true, logger)
+	processor := NewEventProcessor(nil, nil, "test-chain", true, true, nil, logger)
 
 	t.Run("empty string returns 0x", func(t *testing.T) {
 		result, err := processor.base58ToHex("")
@@ -86,7 +246,7 @@ func TestEventProcessorBase58ToHex(t *testing.T) {
 
 func TestEventProcessorConstructInbound(t *testing.T) {
 	logger := zerolog.Nop()
-	processor := NewEventProcessor(nil, nil, "eip155:1", true, true, logger)
+	processor := NewEventProcessor(nil, nil, "eip155:1", true, true, nil, logger)
 
 	t.Run("nil event returns error", func(t *testing.T) {
 		inbound, err := processor.constructInbound(nil)
@@ -252,7 +412,7 @@ func TestEventProcessorConstructInbound(t *testing.T) {
 
 func TestEventProcessorParseOutboundEventData(t *testing.T) {
 	logger := zerolog.Nop()
-	processor := NewEventProcessor(nil, nil, "eip155:1", true, true, logger)
+	processor := NewEventProcessor(nil, nil, "eip155:1", true, true, nil, logger)
 
 	t.Run("nil event returns error", func(t *testing.T) {
 		data, err := processor.parseOutboundEventData(nil)
@@ -331,7 +491,7 @@ func TestEventProcessorParseOutboundEventData(t *testing.T) {
 
 func TestEventProcessorBuildOutboundObservation(t *testing.T) {
 	logger := zerolog.Nop()
-	processor := NewEventProcessor(nil, nil, "eip155:1", true, true, logger)
+	processor := NewEventProcessor(nil, nil, "eip155:1", true, true, nil, logger)
 
 	t.Run("builds observation with gas fee from parsed data", func(t *testing.T) {
 		outboundData := &OutboundEvent{
@@ -403,7 +563,7 @@ func TestProcessOutboundEvent(t *testing.T) {
 	t.Run("nil event data returns parse error", func(t *testing.T) {
 		database := setupDB(t)
 		defer database.Close()
-		ep := NewEventProcessor(nil, database, "eip155:1", true, true, logger)
+		ep := NewEventProcessor(nil, database, "eip155:1", true, true, nil, logger)
 
 		event := &store.Event{
 			EventID:   "0xabc:0",
@@ -417,7 +577,7 @@ func TestProcessOutboundEvent(t *testing.T) {
 	t.Run("empty event data returns parse error", func(t *testing.T) {
 		database := setupDB(t)
 		defer database.Close()
-		ep := NewEventProcessor(nil, database, "eip155:1", true, true, logger)
+		ep := NewEventProcessor(nil, database, "eip155:1", true, true, nil, logger)
 
 		event := &store.Event{
 			EventID:   "0xabc:0",
@@ -431,7 +591,7 @@ func TestProcessOutboundEvent(t *testing.T) {
 	t.Run("invalid JSON event data returns parse error", func(t *testing.T) {
 		database := setupDB(t)
 		defer database.Close()
-		ep := NewEventProcessor(nil, database, "eip155:1", true, true, logger)
+		ep := NewEventProcessor(nil, database, "eip155:1", true, true, nil, logger)
 
 		event := &store.Event{
 			EventID:   "0xabc:0",
@@ -445,7 +605,7 @@ func TestProcessOutboundEvent(t *testing.T) {
 	t.Run("missing tx_id returns parse error", func(t *testing.T) {
 		database := setupDB(t)
 		defer database.Close()
-		ep := NewEventProcessor(nil, database, "eip155:1", true, true, logger)
+		ep := NewEventProcessor(nil, database, "eip155:1", true, true, nil, logger)
 
 		eventData, _ := json.Marshal(OutboundEvent{
 			TxID:          "",
@@ -463,7 +623,7 @@ func TestProcessOutboundEvent(t *testing.T) {
 	t.Run("missing universal_tx_id returns parse error", func(t *testing.T) {
 		database := setupDB(t)
 		defer database.Close()
-		ep := NewEventProcessor(nil, database, "eip155:1", true, true, logger)
+		ep := NewEventProcessor(nil, database, "eip155:1", true, true, nil, logger)
 
 		eventData, _ := json.Marshal(OutboundEvent{
 			TxID:          "0xtxid",
@@ -493,7 +653,7 @@ func TestProcessInboundEvent(t *testing.T) {
 	t.Run("nil event data returns construct error", func(t *testing.T) {
 		database := setupDB(t)
 		defer database.Close()
-		ep := NewEventProcessor(nil, database, "eip155:1", true, true, logger)
+		ep := NewEventProcessor(nil, database, "eip155:1", true, true, nil, logger)
 
 		event := &store.Event{
 			EventID:   "0xabc:0",
@@ -507,7 +667,7 @@ func TestProcessInboundEvent(t *testing.T) {
 	t.Run("invalid JSON event data returns construct error", func(t *testing.T) {
 		database := setupDB(t)
 		defer database.Close()
-		ep := NewEventProcessor(nil, database, "eip155:1", true, true, logger)
+		ep := NewEventProcessor(nil, database, "eip155:1", true, true, nil, logger)
 
 		event := &store.Event{
 			EventID:   "0xabc:0",
@@ -537,7 +697,7 @@ func TestProcessConfirmedEventsRouting(t *testing.T) {
 	t.Run("no confirmed events returns nil", func(t *testing.T) {
 		database := setupDB(t, nil)
 		defer database.Close()
-		ep := NewEventProcessor(nil, database, "eip155:1", true, true, logger)
+		ep := NewEventProcessor(nil, database, "eip155:1", true, true, nil, logger)
 
 		err := ep.processConfirmedEvents(ctx)
 		require.NoError(t, err)
@@ -553,7 +713,7 @@ func TestProcessConfirmedEventsRouting(t *testing.T) {
 			},
 		})
 		defer database.Close()
-		ep := NewEventProcessor(nil, database, "eip155:1", true, true, logger)
+		ep := NewEventProcessor(nil, database, "eip155:1", true, true, nil, logger)
 
 		err := ep.processConfirmedEvents(ctx)
 		require.NoError(t, err)
@@ -580,7 +740,7 @@ func TestProcessConfirmedEventsRouting(t *testing.T) {
 			},
 		})
 		defer database.Close()
-		ep := NewEventProcessor(nil, database, "eip155:1", true, true, logger)
+		ep := NewEventProcessor(nil, database, "eip155:1", true, true, nil, logger)
 
 		// Should not return error - errors on individual events are logged and skipped
 		err := ep.processConfirmedEvents(ctx)
@@ -610,7 +770,7 @@ func TestProcessConfirmedEventsRouting(t *testing.T) {
 			},
 		})
 		defer database.Close()
-		ep := NewEventProcessor(nil, database, "eip155:1", true, true, logger)
+		ep := NewEventProcessor(nil, database, "eip155:1", true, true, nil, logger)
 
 		err := ep.processConfirmedEvents(ctx)
 		require.NoError(t, err)
@@ -623,55 +783,23 @@ func TestProcessConfirmedEventsRouting(t *testing.T) {
 		assert.Equal(t, store.StatusConfirmed, evt2.Status)
 	})
 
-	t.Run("mixed inbound and outbound with bad data both fail gracefully", func(t *testing.T) {
+	t.Run("read request without reader is skipped", func(t *testing.T) {
 		database := setupDB(t, []store.Event{
 			{
-				EventID:   "0xin:0",
+				EventID:   "0xread:0",
 				Status:    store.StatusConfirmed,
-				Type:      store.EventTypeInbound,
-				EventData: []byte("bad"),
-			},
-			{
-				EventID:   "0xout:0",
-				Status:    store.StatusConfirmed,
-				Type:      store.EventTypeOutbound,
-				EventData: []byte("bad"),
+				Type:      store.EventTypeReadRequest,
+				EventData: []byte("{}"),
 			},
 		})
 		defer database.Close()
-		ep := NewEventProcessor(nil, database, "eip155:1", true, true, logger)
-
-		err := ep.processConfirmedEvents(ctx)
-		require.NoError(t, err)
-
-		var inEvt, outEvt store.Event
-		database.Client().Where("event_id = ?", "0xin:0").First(&inEvt)
-		assert.Equal(t, store.StatusConfirmed, inEvt.Status)
-		database.Client().Where("event_id = ?", "0xout:0").First(&outEvt)
-		assert.Equal(t, store.StatusConfirmed, outEvt.Status)
-	})
-
-	t.Run("outbound missing tx_id in valid JSON stays CONFIRMED", func(t *testing.T) {
-		eventData, _ := json.Marshal(OutboundEvent{
-			TxID:          "",
-			UniversalTxID: "0xutxid",
-		})
-		database := setupDB(t, []store.Event{
-			{
-				EventID:   "0xno_txid:0",
-				Status:    store.StatusConfirmed,
-				Type:      store.EventTypeOutbound,
-				EventData: eventData,
-			},
-		})
-		defer database.Close()
-		ep := NewEventProcessor(nil, database, "eip155:1", true, true, logger)
+		ep := NewEventProcessor(nil, database, "eip155:1", true, true, nil, logger)
 
 		err := ep.processConfirmedEvents(ctx)
 		require.NoError(t, err)
 
 		var evt store.Event
-		database.Client().Where("event_id = ?", "0xno_txid:0").First(&evt)
+		database.Client().Where("event_id = ?", "0xread:0").First(&evt)
 		assert.Equal(t, store.StatusConfirmed, evt.Status)
 	})
 
@@ -685,7 +813,7 @@ func TestProcessConfirmedEventsRouting(t *testing.T) {
 			},
 		})
 		defer database.Close()
-		ep := NewEventProcessor(nil, database, "eip155:1", true, true, logger)
+		ep := NewEventProcessor(nil, database, "eip155:1", true, true, nil, logger)
 
 		err := ep.processConfirmedEvents(ctx)
 		require.NoError(t, err)
@@ -703,7 +831,7 @@ func TestProcessLoopContextCancellation(t *testing.T) {
 	require.NoError(t, err)
 	defer database.Close()
 
-	ep := NewEventProcessor(nil, database, "eip155:1", true, true, logger)
+	ep := NewEventProcessor(nil, database, "eip155:1", true, true, nil, logger)
 
 	t.Run("processLoop exits promptly on context cancel", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
@@ -739,7 +867,7 @@ func TestProcessLoopStopChannel(t *testing.T) {
 	require.NoError(t, err)
 	defer database.Close()
 
-	ep := NewEventProcessor(nil, database, "eip155:1", true, true, logger)
+	ep := NewEventProcessor(nil, database, "eip155:1", true, true, nil, logger)
 
 	t.Run("processLoop exits promptly on stop signal", func(t *testing.T) {
 		ctx := context.Background()
@@ -789,6 +917,7 @@ func TestEventProcessorStruct(t *testing.T) {
 		ep := &EventProcessor{}
 		assert.Nil(t, ep.signer)
 		assert.Nil(t, ep.chainStore)
+		assert.Nil(t, ep.reader)
 		assert.Empty(t, ep.chainID)
 		assert.False(t, ep.running)
 		assert.Nil(t, ep.stopCh)
@@ -801,25 +930,25 @@ func TestNewEventProcessorEnabledFlags(t *testing.T) {
 	logger := zerolog.Nop()
 
 	t.Run("both enabled", func(t *testing.T) {
-		ep := NewEventProcessor(nil, nil, "eip155:1", true, true, logger)
+		ep := NewEventProcessor(nil, nil, "eip155:1", true, true, nil, logger)
 		assert.True(t, ep.inboundEnabled)
 		assert.True(t, ep.outboundEnabled)
 	})
 
 	t.Run("inbound only", func(t *testing.T) {
-		ep := NewEventProcessor(nil, nil, "eip155:1", true, false, logger)
+		ep := NewEventProcessor(nil, nil, "eip155:1", true, false, nil, logger)
 		assert.True(t, ep.inboundEnabled)
 		assert.False(t, ep.outboundEnabled)
 	})
 
 	t.Run("outbound only", func(t *testing.T) {
-		ep := NewEventProcessor(nil, nil, "eip155:1", false, true, logger)
+		ep := NewEventProcessor(nil, nil, "eip155:1", false, true, nil, logger)
 		assert.False(t, ep.inboundEnabled)
 		assert.True(t, ep.outboundEnabled)
 	})
 
 	t.Run("both disabled", func(t *testing.T) {
-		ep := NewEventProcessor(nil, nil, "eip155:1", false, false, logger)
+		ep := NewEventProcessor(nil, nil, "eip155:1", false, false, nil, logger)
 		assert.False(t, ep.inboundEnabled)
 		assert.False(t, ep.outboundEnabled)
 	})
@@ -831,7 +960,7 @@ func TestEventProcessorStartDoubleStart(t *testing.T) {
 	require.NoError(t, err)
 	defer database.Close()
 
-	ep := NewEventProcessor(nil, database, "eip155:1", true, true, logger)
+	ep := NewEventProcessor(nil, database, "eip155:1", true, true, nil, logger)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -858,7 +987,7 @@ func TestEventProcessorStopIdempotent(t *testing.T) {
 	require.NoError(t, err)
 	defer database.Close()
 
-	ep := NewEventProcessor(nil, database, "eip155:1", true, true, logger)
+	ep := NewEventProcessor(nil, database, "eip155:1", true, true, nil, logger)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -888,7 +1017,7 @@ func TestEventProcessorIsRunningStateTransitions(t *testing.T) {
 	require.NoError(t, err)
 	defer database.Close()
 
-	ep := NewEventProcessor(nil, database, "eip155:1", true, true, logger)
+	ep := NewEventProcessor(nil, database, "eip155:1", true, true, nil, logger)
 
 	// Initial state: not running
 	assert.False(t, ep.IsRunning())
@@ -923,7 +1052,7 @@ func TestEventProcessorStopViaContextCancel(t *testing.T) {
 	require.NoError(t, err)
 	defer database.Close()
 
-	ep := NewEventProcessor(nil, database, "eip155:1", true, true, logger)
+	ep := NewEventProcessor(nil, database, "eip155:1", true, true, nil, logger)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -988,7 +1117,7 @@ func TestProcessConfirmedEventsEnabledFlags(t *testing.T) {
 	t.Run("inbound disabled skips inbound events, leaves them CONFIRMED", func(t *testing.T) {
 		database := setupDB(t, makeEvents())
 		// inbound=false, outbound=false (no signer so outbound will also fail to vote, but that's ok)
-		ep := NewEventProcessor(nil, database, "eip155:1", false, false, logger)
+		ep := NewEventProcessor(nil, database, "eip155:1", false, false, nil, logger)
 
 		err := ep.processConfirmedEvents(ctx)
 		require.NoError(t, err)
@@ -1001,7 +1130,7 @@ func TestProcessConfirmedEventsEnabledFlags(t *testing.T) {
 
 	t.Run("outbound disabled skips outbound events, leaves them CONFIRMED", func(t *testing.T) {
 		database := setupDB(t, makeEvents())
-		ep := NewEventProcessor(nil, database, "eip155:1", false, false, logger)
+		ep := NewEventProcessor(nil, database, "eip155:1", false, false, nil, logger)
 
 		err := ep.processConfirmedEvents(ctx)
 		require.NoError(t, err)
@@ -1022,7 +1151,7 @@ func TestProcessConfirmedEventsEnabledFlags(t *testing.T) {
 				EventData: outboundEventData,
 			},
 		})
-		ep := NewEventProcessor(nil, database, "eip155:1", true, false, logger)
+		ep := NewEventProcessor(nil, database, "eip155:1", true, false, nil, logger)
 
 		err := ep.processConfirmedEvents(ctx)
 		require.NoError(t, err)
@@ -1043,7 +1172,7 @@ func TestProcessConfirmedEventsEnabledFlags(t *testing.T) {
 				EventData: inboundEventData,
 			},
 		})
-		ep := NewEventProcessor(nil, database, "eip155:1", false, true, logger)
+		ep := NewEventProcessor(nil, database, "eip155:1", false, true, nil, logger)
 
 		err := ep.processConfirmedEvents(ctx)
 		require.NoError(t, err)

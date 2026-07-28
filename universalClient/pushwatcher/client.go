@@ -24,13 +24,15 @@ type Client struct {
 	cancel        context.CancelFunc
 }
 
-// NewClient creates a new Push chain client
+// NewClient creates a new Push chain client.
+// readStoreResolver may be nil; the listener then skips read request polling.
 func NewClient(
 	database *db.DB,
 	chainConfig *config.ChainSpecificConfig,
 	pushCore *pushcore.Client,
 	chainID string,
 	logger zerolog.Logger,
+	readStoreResolver common.ReadStoreResolver,
 ) (*Client, error) {
 	// Normalize nil config so downstream uses don't need nil guards.
 	if chainConfig == nil {
@@ -43,6 +45,7 @@ func NewClient(
 		database,
 		logger,
 		chainConfig,
+		readStoreResolver,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create event listener: %w", err)

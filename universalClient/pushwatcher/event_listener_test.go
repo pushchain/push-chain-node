@@ -17,7 +17,7 @@ func TestNewEventListener(t *testing.T) {
 	client := newTestPushCoreClient()
 
 	t.Run("success with defaults", func(t *testing.T) {
-		el, err := NewEventListener(client, db, logger, nil)
+		el, err := NewEventListener(client, db, logger, nil, nil)
 		require.NoError(t, err)
 		require.NotNil(t, el)
 		assert.Equal(t, DefaultPollInterval, el.cfg.PollInterval)
@@ -25,19 +25,19 @@ func TestNewEventListener(t *testing.T) {
 	})
 
 	t.Run("nil client", func(t *testing.T) {
-		_, err := NewEventListener(nil, db, logger, nil)
+		_, err := NewEventListener(nil, db, logger, nil, nil)
 		assert.ErrorIs(t, err, ErrNilClient)
 	})
 
 	t.Run("nil database", func(t *testing.T) {
-		_, err := NewEventListener(client, nil, logger, nil)
+		_, err := NewEventListener(client, nil, logger, nil, nil)
 		assert.ErrorIs(t, err, ErrNilDatabase)
 	})
 
 	t.Run("custom poll interval from config", func(t *testing.T) {
 		poll := 10
 		cfg := config.ChainSpecificConfig{EventPollingIntervalSeconds: &poll}
-		el, err := NewEventListener(client, db, logger, &cfg)
+		el, err := NewEventListener(client, db, logger, &cfg, nil)
 		require.NoError(t, err)
 		assert.Equal(t, 10*time.Second, el.cfg.PollInterval)
 	})
@@ -45,14 +45,14 @@ func TestNewEventListener(t *testing.T) {
 	t.Run("zero poll interval uses default", func(t *testing.T) {
 		poll := 0
 		cfg := config.ChainSpecificConfig{EventPollingIntervalSeconds: &poll}
-		el, err := NewEventListener(client, db, logger, &cfg)
+		el, err := NewEventListener(client, db, logger, &cfg, nil)
 		require.NoError(t, err)
 		assert.Equal(t, DefaultPollInterval, el.cfg.PollInterval)
 	})
 }
 
 func TestEventListener_StartStop(t *testing.T) {
-	el, err := NewEventListener(newTestPushCoreClient(), newTestDB(t), zerolog.Nop(), nil)
+	el, err := NewEventListener(newTestPushCoreClient(), newTestDB(t), zerolog.Nop(), nil, nil)
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -73,7 +73,7 @@ func TestEventListener_StartStop(t *testing.T) {
 }
 
 func TestEventListener_RestartAfterStop(t *testing.T) {
-	el, err := NewEventListener(newTestPushCoreClient(), newTestDB(t), zerolog.Nop(), nil)
+	el, err := NewEventListener(newTestPushCoreClient(), newTestDB(t), zerolog.Nop(), nil, nil)
 	require.NoError(t, err)
 
 	ctx := context.Background()

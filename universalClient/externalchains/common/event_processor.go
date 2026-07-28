@@ -12,32 +12,44 @@ import (
 
 	"github.com/mr-tron/base58"
 	"github.com/pushchain/push-chain-node/universalClient/db"
-	"github.com/pushchain/push-chain-node/universalClient/pushsigner"
 	"github.com/pushchain/push-chain-node/universalClient/store"
+	"github.com/pushchain/push-chain-node/universalClient/uread"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	"github.com/rs/zerolog"
 )
 
+// VoteSigner is the subset of pushsigner.Signer used by EventProcessor.
+// Defined here (consumer-side) so tests can provide mock implementations.
+type VoteSigner interface {
+	VoteInbound(ctx context.Context, inbound *uexecutortypes.Inbound) (string, error)
+	VoteOutbound(ctx context.Context, txID string, utxID string, observation *uexecutortypes.OutboundObservation) (string, error)
+	VoteReadResult(ctx context.Context, requestID string, result *uread.ReadResult) (string, error)
+}
+
 // EventProcessor processes events from the chain's database and votes on them
 type EventProcessor struct {
-	signer          *pushsigner.Signer
+	signer          VoteSigner
 	chainStore      *ChainStore
 	logger          zerolog.Logger
 	chainID         string
 	inboundEnabled  bool
 	outboundEnabled bool
-	running         bool
-	stopCh          chan struct{}
-	wg              sync.WaitGroup
+	// reader executes READ_REQUEST events against this chain (the push event
+	// listener routes them into this chain's DB). Nil disables read processing.
+	reader  ChainReader
+	running bool
+	stopCh  chan struct{}
+	wg      sync.WaitGroup
 }
 
 // NewEventProcessor creates a new event processor
 func NewEventProcessor(
-	signer *pushsigner.Signer,
+	signer VoteSigner,
 	database *db.DB,
 	chainID string,
 	inboundEnabled bool,
 	outboundEnabled bool,
+	reader ChainReader,
 	logger zerolog.Logger,
 ) *EventProcessor {
 	return &EventProcessor{
@@ -46,6 +58,7 @@ func NewEventProcessor(
 		chainID:         chainID,
 		inboundEnabled:  inboundEnabled,
 		outboundEnabled: outboundEnabled,
+		reader:          reader,
 		logger:          logger.With().Str("component", "event_processor").Str("chain", chainID).Logger(),
 		stopCh:          make(chan struct{}),
 	}
@@ -111,7 +124,7 @@ func (ep *EventProcessor) processLoop(ctx context.Context) {
 	}
 }
 
-// processConfirmedEvents processes confirmed events (both inbound and outbound)
+// processConfirmedEvents processes confirmed events (inbound, outbound and read requests)
 func (ep *EventProcessor) processConfirmedEvents(ctx context.Context) error {
 	events, err := ep.chainStore.GetConfirmedEvents(1000)
 	if err != nil {
@@ -141,6 +154,18 @@ func (ep *EventProcessor) processConfirmedEvents(ctx context.Context) error {
 					Err(err).
 					Str("event_id", event.EventID).
 					Msg("failed to vote on outbound event")
+				continue
+			}
+		} else if event.Type == store.EventTypeReadRequest {
+			if ep.reader == nil {
+				ep.logger.Warn().Str("event_id", event.EventID).Msg("no reader configured, skipping read request event processing")
+				continue
+			}
+			if err := ep.processReadRequestEvent(ctx, &event); err != nil {
+				ep.logger.Error().
+					Err(err).
+					Str("event_id", event.EventID).
+					Msg("failed to vote on read request event")
 				continue
 			}
 		}
@@ -176,23 +201,7 @@ func (ep *EventProcessor) processOutboundEvent(ctx context.Context, event *store
 		return fmt.Errorf("failed to vote on outbound: %w", err)
 	}
 
-	// Atomically record vote hash and flip status in one DB write
-	rowsAffected, err := ep.chainStore.UpdateStatusAndVoteTxHash(event.EventID, store.StatusConfirmed, store.StatusCompleted, voteTxHash)
-	if err != nil {
-		return fmt.Errorf("failed to update event status and vote_tx_hash: %w", err)
-	}
-
-	if rowsAffected == 0 {
-		return nil // already completed by another validator
-	}
-
-	ep.logger.Info().
-		Str("event_id", event.EventID).
-		Str("type", event.Type).
-		Str("vote_tx_hash", voteTxHash).
-		Msg("event marked as COMPLETED")
-
-	return nil
+	return ep.markCompleted(event, voteTxHash)
 }
 
 // processInboundEvent processes an inbound event by voting on it and confirming it
@@ -217,14 +226,49 @@ func (ep *EventProcessor) processInboundEvent(ctx context.Context, event *store.
 		return err
 	}
 
-	// Atomically record vote hash and flip status in one DB write
+	return ep.markCompleted(event, voteTxHash)
+}
+
+// processReadRequestEvent executes an external read request against this chain
+// and votes the observation. Transient failures (RPC errors, vote failure)
+// keep the event CONFIRMED for retry; corrupt or expired requests flip to
+// REVERTED without voting (core's EndBlocker expires them on-chain).
+func (ep *EventProcessor) processReadRequestEvent(ctx context.Context, event *store.Event) error {
+	var req uread.ReadRequest
+	if err := json.Unmarshal(event.EventData, &req); err != nil {
+		ep.markReadReverted(event.EventID)
+		return fmt.Errorf("corrupt read request event data: %w", err)
+	}
+
+	if req.ExpiryTimestamp > 0 && time.Now().Unix() >= req.ExpiryTimestamp {
+		ep.logger.Info().Str("request_id", req.RequestID).Msg("read request expired; skipping (core EndBlocker expires it on-chain)")
+		ep.markReadReverted(event.EventID)
+		return nil
+	}
+
+	result, err := ep.reader.ExecuteRead(ctx, &req)
+	if err != nil {
+		return fmt.Errorf("read execution failed: %w", err)
+	}
+
+	voteTxHash, err := ep.signer.VoteReadResult(ctx, req.RequestID, result)
+	if err != nil {
+		// TODO(core): ErrVoteReadNotAvailable falls through here until MsgVoteReadResult lands.
+		return fmt.Errorf("failed to vote read result: %w", err)
+	}
+
+	return ep.markCompleted(event, voteTxHash)
+}
+
+// markCompleted atomically records the vote hash and flips CONFIRMED -> COMPLETED.
+func (ep *EventProcessor) markCompleted(event *store.Event, voteTxHash string) error {
 	rowsAffected, err := ep.chainStore.UpdateStatusAndVoteTxHash(event.EventID, store.StatusConfirmed, store.StatusCompleted, voteTxHash)
 	if err != nil {
 		return fmt.Errorf("failed to update event status after successful vote: %w", err)
 	}
 
 	if rowsAffected == 0 {
-		return nil // already completed by another validator
+		return nil // already completed
 	}
 
 	ep.logger.Info().
@@ -234,6 +278,12 @@ func (ep *EventProcessor) processInboundEvent(ctx context.Context, event *store.
 		Msg("event marked as COMPLETED")
 
 	return nil
+}
+
+func (ep *EventProcessor) markReadReverted(eventID string) {
+	if _, err := ep.chainStore.UpdateEventStatus(eventID, store.StatusConfirmed, store.StatusReverted); err != nil {
+		ep.logger.Error().Err(err).Str("event_id", eventID).Msg("failed to mark read request reverted")
+	}
 }
 
 // constructInbound creates an Inbound message from event data

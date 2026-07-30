@@ -7,7 +7,7 @@ replace (
 	// api v1.0.0 still lacks the cosmos/orm/* packages that cosmossdk.io/orm
 	// (and the ORM-backed x/uregistry and x/uvalidator modules) import.
 	cosmossdk.io/api/cosmos/orm => ./compat/orm-api
-	github.com/cosmos/evm => ../push-chain-evm
+	github.com/cosmos/evm => github.com/pushchain/evm v1.0.0-rc2.0.20260730063223-5ed249ea7d25
 	// NOTE(sdk-0.54): the pushchain/evm fork (v1.0.0-rc2 line) targets cosmos-sdk
 	// v0.53.6 and cannot compile against v0.54. Until the fork is rebased onto
 	// cosmos/evm v0.7.0, the app builds against upstream cosmos/evm v0.7.0.

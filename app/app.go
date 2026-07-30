@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"sync"
 	"time"
@@ -135,7 +136,7 @@ import (
 	icahostkeeper "github.com/cosmos/ibc-go/v11/modules/apps/27-interchain-accounts/host/keeper"
 	icahosttypes "github.com/cosmos/ibc-go/v11/modules/apps/27-interchain-accounts/host/types"
 	icatypes "github.com/cosmos/ibc-go/v11/modules/apps/27-interchain-accounts/types"
-	"github.com/cosmos/ibc-go/v11/modules/apps/packet-forward-middleware"
+	packetforward "github.com/cosmos/ibc-go/v11/modules/apps/packet-forward-middleware"
 	packetforwardkeeper "github.com/cosmos/ibc-go/v11/modules/apps/packet-forward-middleware/keeper"
 	packetforwardtypes "github.com/cosmos/ibc-go/v11/modules/apps/packet-forward-middleware/types"
 	ratelimit "github.com/cosmos/ibc-go/v11/modules/apps/rate-limiting"
@@ -669,8 +670,14 @@ func NewChainApp(
 	tracer := cast.ToString(appOpts.Get(srvflags.EVMTracer))
 
 	// cosmos/evm v0.7.0 takes a deterministic []storetypes.StoreKey instead of the key map.
-	allStoreKeys := make([]storetypes.StoreKey, 0, len(keys))
+	// It must carry the non-transient keys: the KV stores *and* the object stores — see
+	// upstream evmd/app.go, which appends both. Sorting keeps the slice deterministic
+	// (upstream iterates a map, which is not).
+	allStoreKeys := make([]storetypes.StoreKey, 0, len(keys)+len(okeys))
 	for _, key := range keys {
+		allStoreKeys = append(allStoreKeys, key)
+	}
+	for _, key := range okeys {
 		allStoreKeys = append(allStoreKeys, key)
 	}
 	sort.Slice(allStoreKeys, func(i, j int) bool { return allStoreKeys[i].Name() < allStoreKeys[j].Name() })
@@ -1595,8 +1602,17 @@ func BlockedAddresses() map[string]bool {
 	// allow the following addresses to receive funds
 	delete(blockedAddrs, authtypes.NewModuleAddress(govtypes.ModuleName).String())
 
-	blockedPrecompilesHex := evmtypes.AvailableStaticPrecompiles
-	for _, addr := range cosmoscorevm.PrecompiledAddressesBerlin {
+	// Native precompiles: use the Prague set (0x01–0x11), matching upstream
+	// evmd/config/permissions.go. The Berlin set previously used here covered only
+	// 0x01–0x09, leaving 0x0a (KZG point evaluation) through 0x11 (BLS12-381)
+	// able to receive funds that could never be spent again.
+	//
+	// This only became reachable from the EVM in cosmos/evm v0.7.0, which made
+	// BlockedAddresses() gate Keeper.SetBalance as well as bank sends.
+	//
+	// slices.Clone avoids appending into AvailableStaticPrecompiles' backing array.
+	blockedPrecompilesHex := slices.Clone(evmtypes.AvailableStaticPrecompiles)
+	for _, addr := range cosmoscorevm.PrecompiledAddressesPrague {
 		blockedPrecompilesHex = append(blockedPrecompilesHex, addr.Hex())
 	}
 

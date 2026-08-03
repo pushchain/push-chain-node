@@ -12,6 +12,7 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/db"
 	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
 	"github.com/pushchain/push-chain-node/universalClient/pushsigner"
+	"github.com/pushchain/push-chain-node/universalClient/store"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
@@ -96,16 +97,14 @@ func NewClient(
 
 	// Initialize components that don't require RPC client
 	if pushSigner != nil {
-		inboundEnabled := config.Enabled != nil && config.Enabled.IsInboundEnabled
-		outboundEnabled := config.Enabled != nil && config.Enabled.IsOutboundEnabled
-		client.eventProcessor = common.NewEventProcessor(
-			pushSigner,
-			database,
-			chainIDStr,
-			inboundEnabled,
-			outboundEnabled,
-			log,
-		)
+		ep := common.NewEventProcessor(database, chainIDStr, log)
+		if config.Enabled != nil && config.Enabled.IsInboundEnabled {
+			ep.RegisterHandler(store.EventTypeInbound, common.NewInboundObservationEventProcessor(pushSigner, database, log))
+		}
+		if config.Enabled != nil && config.Enabled.IsOutboundEnabled {
+			ep.RegisterHandler(store.EventTypeOutbound, common.NewOutboundObservationEventProcessor(pushSigner, database, log))
+		}
+		client.eventProcessor = ep
 	}
 
 	return client, nil
@@ -216,7 +215,6 @@ func (c *Client) GetReadRequestHandler() (common.ReadRequestHandler, error) {
 	}
 	return c, nil
 }
-
 
 // initializeComponents creates all components that require the RPC client
 func (c *Client) initializeComponents() error {

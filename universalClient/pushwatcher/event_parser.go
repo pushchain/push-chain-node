@@ -107,12 +107,13 @@ func convertReadRequestEvent(req *uread.ReadRequest) (*store.Event, error) {
 	}
 
 	return &store.Event{
-		EventID:          hashEventID(store.EventTypeReadRequest, req.RequestID),
-		BlockHeight:      req.CreatedAtHeight,
-		Type:             store.EventTypeReadRequest,
-		ConfirmationType: store.ConfirmationInstant,
-		Status:           store.StatusConfirmed,
-		EventData:        eventData,
+		EventID:           hashEventID(store.EventTypeReadRequest, req.RequestID),
+		BlockHeight:       req.CreatedAtHeight,
+		ExpiryBlockHeight: req.ExpiryBlockHeight,
+		Type:              store.EventTypeReadRequest,
+		ConfirmationType:  store.ConfirmationInstant,
+		Status:            store.StatusConfirmed,
+		EventData:         eventData,
 	}, nil
 }
 

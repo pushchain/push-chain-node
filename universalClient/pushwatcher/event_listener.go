@@ -272,9 +272,9 @@ func (el *EventListener) pollReadRequestEvents(ctx context.Context) int {
 
 	var newCount int
 	for _, req := range requests {
-		targetClient, err := el.chainResolver.GetClient(req.TargetChain)
+		targetClient, err := el.chainResolver.GetClient(req.DestinationChain)
 		if err != nil {
-			el.logger.Debug().Err(err).Str("request_id", req.RequestID).Str("target_chain", req.TargetChain).Msg("target chain not served; skipping read request")
+			el.logger.Debug().Err(err).Str("request_id", req.RequestID).Str("destination_chain", req.DestinationChain).Msg("target chain not served; skipping read request")
 			continue
 		}
 
@@ -286,13 +286,13 @@ func (el *EventListener) pollReadRequestEvents(ctx context.Context) int {
 
 		stored, err := targetClient.AddEvent(event)
 		if err != nil {
-			el.logger.Error().Err(err).Str("event_id", event.EventID).Str("target_chain", req.TargetChain).Msg("failed to store read request")
+			el.logger.Error().Err(err).Str("event_id", event.EventID).Str("destination_chain", req.DestinationChain).Msg("failed to store read request")
 			continue
 		}
 		if stored {
 			el.logger.Debug().
 				Str("event_id", event.EventID).
-				Str("target_chain", req.TargetChain).
+				Str("destination_chain", req.DestinationChain).
 				Msg("routed read request to target chain")
 			newCount++
 		}

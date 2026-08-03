@@ -1,6 +1,6 @@
 {
   "chain": "eip155:84532",
-  "address": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+  "address": "0x5c3504F0E3bA28FDc1F74234fE936518276AaBB8",
   "name": "USDC.base",
   "symbol": "USDC.base",
   "decimals": 6,
@@ -9,6 +9,6 @@
   "token_type": 1,
   "native_representation": {
     "denom": "",
-    "contract_address": "0x84B62e44F667F692F7739Ca6040cD17DA02068A8"
+    "contract_address": "0xD7C6cA1e2c0CE260BE0c0AD39C1540de460e3Be1"
   }
 }

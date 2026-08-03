@@ -84,6 +84,9 @@ type coordMockChainClient struct {
 func (m *coordMockChainClient) Start(context.Context) error { return nil }
 func (m *coordMockChainClient) Stop() error                 { return nil }
 func (m *coordMockChainClient) IsHealthy() bool             { return true }
+func (m *coordMockChainClient) GetReadRequestHandler() (common.ReadRequestHandler, error) {
+	return nil, nil
+}
 func (m *coordMockChainClient) GetTxBuilder() (common.TxBuilder, error) {
 	if m.builderErr != nil {
 		return nil, m.builderErr

@@ -5,8 +5,15 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/pushchain/push-chain-node/universalClient/uread"
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
+
+// ReadRequestHandler executes a read request on one destination chain.
+// Consumed by the push watcher's read processor.
+type ReadRequestHandler interface {
+	ExecuteRead(ctx context.Context, req *uread.ReadRequest) (*uread.ReadResult, error)
+}
 
 // EncodeUint256Result canonically encodes a balance/amount as abi.encode(uint256)
 // so read results are byte-identical across validators and decodable by the
@@ -38,6 +45,11 @@ type ChainClient interface {
 	// GetTxBuilder returns the TxBuilder for this chain
 	// Returns an error if txBuilder is not supported for this chain (e.g., Push chain)
 	GetTxBuilder() (TxBuilder, error)
+
+	// GetReadRequestHandler returns the handler executing read requests
+	// destined for this chain
+	// Returns an error if reads are not available (e.g. client not started)
+	GetReadRequestHandler() (ReadRequestHandler, error)
 }
 
 // FundMigrationData contains the data needed to build a fund migration transaction.

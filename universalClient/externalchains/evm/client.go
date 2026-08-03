@@ -94,7 +94,6 @@ func NewClient(
 			chainIDStr,
 			inboundEnabled,
 			outboundEnabled,
-			nil,
 			log,
 		)
 	}
@@ -198,6 +197,14 @@ func (c *Client) GetTxBuilder() (common.TxBuilder, error) {
 		return nil, fmt.Errorf("txBuilder not available for chain %s (gateway not configured)", c.chainIDStr)
 	}
 	return c.txBuilder, nil
+}
+
+// GetReadRequestHandler returns the read request handler for this chain
+func (c *Client) GetReadRequestHandler() (common.ReadRequestHandler, error) {
+	if c.rpcClient == nil {
+		return nil, fmt.Errorf("read handler not available for chain %s (client not started)", c.chainIDStr)
+	}
+	return c, nil
 }
 
 

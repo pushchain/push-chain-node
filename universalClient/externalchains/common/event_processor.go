@@ -13,7 +13,6 @@ import (
 	"github.com/mr-tron/base58"
 	"github.com/pushchain/push-chain-node/universalClient/db"
 	"github.com/pushchain/push-chain-node/universalClient/store"
-	"github.com/pushchain/push-chain-node/universalClient/uread"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	"github.com/rs/zerolog"
 )
@@ -23,19 +22,6 @@ import (
 type VoteSigner interface {
 	VoteInbound(ctx context.Context, inbound *uexecutortypes.Inbound) (string, error)
 	VoteOutbound(ctx context.Context, txID string, utxID string, observation *uexecutortypes.OutboundObservation) (string, error)
-	VoteReadResult(ctx context.Context, requestID string, result *uread.ReadResult) (string, error)
-}
-
-// ChainReader executes an external read request against one chain.
-// Implemented by the evm and svm chain clients.
-type ChainReader interface {
-	ExecuteRead(ctx context.Context, req *uread.ReadRequest) (*uread.ReadResult, error)
-}
-
-// ChainResolver resolves a CAIP-2 chain ID to its ChainReader.
-// Implemented by externalchains.Chains.
-type ChainResolver interface {
-	GetReader(chainID string) (ChainReader, error)
 }
 
 // EventProcessor processes events from the chain's database and votes on them
@@ -46,12 +32,9 @@ type EventProcessor struct {
 	chainID         string
 	inboundEnabled  bool
 	outboundEnabled bool
-	// readResolver resolves the destination chain of READ_REQUEST events (kept
-	// in the push chain DB). Nil disables read processing.
-	readResolver ChainResolver
-	running      bool
-	stopCh       chan struct{}
-	wg           sync.WaitGroup
+	running         bool
+	stopCh          chan struct{}
+	wg              sync.WaitGroup
 }
 
 // NewEventProcessor creates a new event processor
@@ -61,7 +44,6 @@ func NewEventProcessor(
 	chainID string,
 	inboundEnabled bool,
 	outboundEnabled bool,
-	readResolver ChainResolver,
 	logger zerolog.Logger,
 ) *EventProcessor {
 	return &EventProcessor{
@@ -70,7 +52,6 @@ func NewEventProcessor(
 		chainID:         chainID,
 		inboundEnabled:  inboundEnabled,
 		outboundEnabled: outboundEnabled,
-		readResolver:    readResolver,
 		logger:          logger.With().Str("component", "event_processor").Str("chain", chainID).Logger(),
 		stopCh:          make(chan struct{}),
 	}
@@ -136,7 +117,7 @@ func (ep *EventProcessor) processLoop(ctx context.Context) {
 	}
 }
 
-// processConfirmedEvents processes confirmed events (inbound, outbound and read requests)
+// processConfirmedEvents processes confirmed events (both inbound and outbound)
 func (ep *EventProcessor) processConfirmedEvents(ctx context.Context) error {
 	events, err := ep.chainStore.GetConfirmedEvents(1000)
 	if err != nil {
@@ -166,18 +147,6 @@ func (ep *EventProcessor) processConfirmedEvents(ctx context.Context) error {
 					Err(err).
 					Str("event_id", event.EventID).
 					Msg("failed to vote on outbound event")
-				continue
-			}
-		} else if event.Type == store.EventTypeReadRequest {
-			if ep.readResolver == nil {
-				ep.logger.Warn().Str("event_id", event.EventID).Msg("no read resolver configured, skipping read request event processing")
-				continue
-			}
-			if err := ep.processReadRequestEvent(ctx, &event); err != nil {
-				ep.logger.Error().
-					Err(err).
-					Str("event_id", event.EventID).
-					Msg("failed to vote on read request event")
 				continue
 			}
 		}
@@ -241,39 +210,6 @@ func (ep *EventProcessor) processInboundEvent(ctx context.Context, event *store.
 	return ep.markCompleted(event, voteTxHash)
 }
 
-// processReadRequestEvent executes an external read request against its
-// destination chain and votes the observation. Transient failures (chain not
-// served, RPC errors, vote failure) keep the event CONFIRMED for retry;
-// corrupt requests flip to REVERTED without voting. Expiry is core's job:
-// expired requests leave the pending query, so they stop being stored here.
-func (ep *EventProcessor) processReadRequestEvent(ctx context.Context, event *store.Event) error {
-	var req uread.ReadRequest
-	if err := json.Unmarshal(event.EventData, &req); err != nil {
-		ep.markReadReverted(event.EventID)
-		return fmt.Errorf("corrupt read request event data: %w", err)
-	}
-
-	reader, err := ep.readResolver.GetReader(req.DestinationChain)
-	if err != nil {
-		// destination not served by this validator yet; retry next tick
-		ep.logger.Debug().Err(err).Str("request_id", req.RequestID).Str("destination_chain", req.DestinationChain).Msg("no reader for destination chain")
-		return nil
-	}
-
-	result, err := reader.ExecuteRead(ctx, &req)
-	if err != nil {
-		return fmt.Errorf("read execution failed: %w", err)
-	}
-
-	voteTxHash, err := ep.signer.VoteReadResult(ctx, req.RequestID, result)
-	if err != nil {
-		// TODO(core): ErrVoteReadNotAvailable falls through here until MsgVoteReadResult lands.
-		return fmt.Errorf("failed to vote read result: %w", err)
-	}
-
-	return ep.markCompleted(event, voteTxHash)
-}
-
 // markCompleted atomically records the vote hash and flips CONFIRMED -> COMPLETED.
 func (ep *EventProcessor) markCompleted(event *store.Event, voteTxHash string) error {
 	rowsAffected, err := ep.chainStore.UpdateStatusAndVoteTxHash(event.EventID, store.StatusConfirmed, store.StatusCompleted, voteTxHash)
@@ -292,12 +228,6 @@ func (ep *EventProcessor) markCompleted(event *store.Event, voteTxHash string) e
 		Msg("event marked as COMPLETED")
 
 	return nil
-}
-
-func (ep *EventProcessor) markReadReverted(eventID string) {
-	if _, err := ep.chainStore.UpdateEventStatus(eventID, store.StatusConfirmed, store.StatusReverted); err != nil {
-		ep.logger.Error().Err(err).Str("event_id", eventID).Msg("failed to mark read request reverted")
-	}
 }
 
 // constructInbound creates an Inbound message from event data

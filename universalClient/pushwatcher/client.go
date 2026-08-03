@@ -16,18 +16,18 @@ import (
 
 // Client implements the ChainClient interface for Push chain
 type Client struct {
-	logger         zerolog.Logger
-	pushCore       *pushcore.Client
-	database       *db.DB
-	eventListener  *EventListener
-	eventCleaner   *common.EventCleaner
-	eventProcessor *common.EventProcessor
-	ctx            context.Context
-	cancel         context.CancelFunc
+	logger        zerolog.Logger
+	pushCore      *pushcore.Client
+	database      *db.DB
+	eventListener *EventListener
+	eventCleaner  *common.EventCleaner
+	readProcessor *ReadProcessor
+	ctx           context.Context
+	cancel        context.CancelFunc
 }
 
 // NewClient creates a new Push chain client.
-// pushSigner and readResolver may be nil; the event processor (read request
+// pushSigner and chainResolver may be nil; the read processor (read request
 // execution + voting) is only wired when both are present.
 func NewClient(
 	database *db.DB,
@@ -36,7 +36,7 @@ func NewClient(
 	chainID string,
 	logger zerolog.Logger,
 	pushSigner *pushsigner.Signer,
-	readResolver common.ChainResolver,
+	chainResolver ChainResolver,
 ) (*Client, error) {
 	// Normalize nil config so downstream uses don't need nil guards.
 	if chainConfig == nil {
@@ -70,18 +70,20 @@ func NewClient(
 		eventCleaner:  eventCleaner,
 	}
 
-	// The push DB holds READ_REQUEST events; the processor executes them on
-	// their destination chains (via readResolver) and votes the results.
-	if pushSigner != nil && readResolver != nil {
-		client.eventProcessor = common.NewEventProcessor(
+	// The push DB holds READ_REQUEST events; the read processor executes them
+	// on their destination chains (via chainResolver) and votes the results.
+	if pushSigner != nil && chainResolver != nil {
+		readProcessor, err := NewReadProcessor(
 			pushSigner,
+			chainResolver,
 			database,
-			chainID,
-			false,
-			false,
-			readResolver,
+			eventListener.cfg.PollInterval,
 			logger,
 		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create read processor: %w", err)
+		}
+		client.readProcessor = readProcessor
 	}
 
 	return client, nil
@@ -105,10 +107,10 @@ func (c *Client) Start(ctx context.Context) error {
 		}
 	}
 
-	// Start event processor if wired
-	if c.eventProcessor != nil {
-		if err := c.eventProcessor.Start(c.ctx); err != nil {
-			return fmt.Errorf("failed to start event processor: %w", err)
+	// Start read processor if wired
+	if c.readProcessor != nil {
+		if err := c.readProcessor.Start(c.ctx); err != nil {
+			return fmt.Errorf("failed to start read processor: %w", err)
 		}
 	}
 
@@ -137,10 +139,10 @@ func (c *Client) Stop() error {
 		c.eventCleaner.Stop()
 	}
 
-	// Stop event processor
-	if c.eventProcessor != nil {
-		if err := c.eventProcessor.Stop(); err != nil {
-			c.logger.Error().Err(err).Str("subsystem", "event_processor").Msg("subsystem failed to stop")
+	// Stop read processor
+	if c.readProcessor != nil {
+		if err := c.readProcessor.Stop(); err != nil {
+			c.logger.Error().Err(err).Str("subsystem", "read_processor").Msg("subsystem failed to stop")
 		}
 	}
 

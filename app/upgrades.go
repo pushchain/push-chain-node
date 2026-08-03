@@ -6,11 +6,14 @@ import (
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 
 	"github.com/pushchain/push-chain-node/app/upgrades"
+	evmderivedgasprice "github.com/pushchain/push-chain-node/app/upgrades/evm-derived-gas-price"
 	"github.com/pushchain/push-chain-node/app/upgrades/noop"
 )
 
 // Upgrades list of chain upgrades
-var Upgrades = []upgrades.Upgrade{}
+var Upgrades = []upgrades.Upgrade{
+	evmderivedgasprice.NewUpgrade(),
+}
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers
 func (app *ChainApp) RegisterUpgradeHandlers() {

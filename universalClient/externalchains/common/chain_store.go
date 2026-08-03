@@ -22,7 +22,6 @@ func NewChainStore(database *db.DB) *ChainStore {
 	}
 }
 
-
 // GetChainHeight returns the last processed block height for the chain.
 // Creates a new entry with height 0 if one doesn't exist (atomic via FirstOrCreate).
 func (cs *ChainStore) GetChainHeight() (uint64, error) {

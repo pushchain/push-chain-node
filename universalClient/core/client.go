@@ -31,7 +31,7 @@ type UniversalClient struct {
 	pushCore    *pushcore.Client
 	pushSigner  *pushsigner.Signer
 	chains      *externalchains.Chains
-	pushChain   *pushwatcher.Client
+	pushWatcher *pushwatcher.Client
 	tssNode     *tss.Node
 }
 
@@ -70,14 +70,13 @@ func NewUniversalClient(ctx context.Context, cfg *config.Config) (*UniversalClie
 
 	chainsManager := externalchains.NewChains(pushCore, pushSigner, cfg, log)
 
-	// Push chain DB is shared by the push chain client and the TSS node.
+	// Push chain DB is shared by the push watcher and the TSS node.
 	pushDB, err := openPushDB(cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	// chainsManager resolves destination chains for read request execution.
-	pushChain, err := pushwatcher.NewClient(
+	pushWatcher, err := pushwatcher.NewClient(
 		pushDB,
 		cfg.GetChainConfig(cfg.PushChainID),
 		pushCore,
@@ -87,7 +86,7 @@ func NewUniversalClient(ctx context.Context, cfg *config.Config) (*UniversalClie
 		chainsManager,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create push chain client: %w", err)
+		return nil, fmt.Errorf("failed to create push watcher: %w", err)
 	}
 
 	tssNode, err := initTSS(ctx, cfg, pushCore, chainsManager, pushSigner, pushDB, log)
@@ -105,7 +104,7 @@ func NewUniversalClient(ctx context.Context, cfg *config.Config) (*UniversalClie
 		pushCore:    pushCore,
 		pushSigner:  pushSigner,
 		chains:      chainsManager,
-		pushChain:   pushChain,
+		pushWatcher: pushWatcher,
 		tssNode:     tssNode,
 	}, nil
 }
@@ -133,8 +132,8 @@ func (uc *UniversalClient) Start() error {
 		return fmt.Errorf("failed to start chains manager: %w", err)
 	}
 
-	if err := uc.pushChain.Start(uc.ctx); err != nil {
-		return fmt.Errorf("failed to start push chain client: %w", err)
+	if err := uc.pushWatcher.Start(uc.ctx); err != nil {
+		return fmt.Errorf("failed to start push watcher: %w", err)
 	}
 
 	if uc.tssNode != nil {
@@ -169,9 +168,9 @@ func (uc *UniversalClient) shutdown() {
 		}
 	}
 
-	if uc.pushChain != nil {
-		if err := uc.pushChain.Stop(); err != nil {
-			uc.log.Error().Err(err).Str("subsystem", "push_chain").Msg("subsystem failed to stop")
+	if uc.pushWatcher != nil {
+		if err := uc.pushWatcher.Stop(); err != nil {
+			uc.log.Error().Err(err).Str("subsystem", "push_watcher").Msg("subsystem failed to stop")
 		}
 	}
 

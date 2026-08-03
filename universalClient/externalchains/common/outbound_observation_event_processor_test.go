@@ -35,7 +35,7 @@ func TestOutboundParseOutboundEventData(t *testing.T) {
 	})
 
 	t.Run("valid outbound event extracts IDs and gas fee", func(t *testing.T) {
-		eventData := OutboundEvent{
+		eventData := OutboundObservation{
 			TxID:          "0x1234",
 			UniversalTxID: "0xabcd",
 			GasFeeUsed:    "42000000000000",
@@ -55,7 +55,7 @@ func TestOutboundParseOutboundEventData(t *testing.T) {
 	})
 
 	t.Run("missing tx_id returns error", func(t *testing.T) {
-		eventData := OutboundEvent{
+		eventData := OutboundObservation{
 			TxID:          "",
 			UniversalTxID: "0xabcd",
 		}
@@ -73,7 +73,7 @@ func TestOutboundParseOutboundEventData(t *testing.T) {
 	})
 
 	t.Run("missing universal_tx_id returns error", func(t *testing.T) {
-		eventData := OutboundEvent{
+		eventData := OutboundObservation{
 			TxID:          "0x1234",
 			UniversalTxID: "",
 		}
@@ -95,7 +95,7 @@ func TestOutboundBuildOutboundObservation(t *testing.T) {
 	processor := NewOutboundObservationEventProcessor(nil, nil, zerolog.Nop())
 
 	t.Run("builds observation with gas fee from parsed data", func(t *testing.T) {
-		outboundData := &OutboundEvent{
+		outboundData := &OutboundObservation{
 			TxID:          "0x1234",
 			UniversalTxID: "0xabcd",
 			GasFeeUsed:    "42000000000000",
@@ -116,7 +116,7 @@ func TestOutboundBuildOutboundObservation(t *testing.T) {
 	})
 
 	t.Run("missing gas fee defaults to 0", func(t *testing.T) {
-		outboundData := &OutboundEvent{
+		outboundData := &OutboundObservation{
 			TxID:          "0x1234",
 			UniversalTxID: "0xabcd",
 		}
@@ -133,7 +133,7 @@ func TestOutboundBuildOutboundObservation(t *testing.T) {
 	})
 
 	t.Run("handles base58 tx hash", func(t *testing.T) {
-		outboundData := &OutboundEvent{
+		outboundData := &OutboundObservation{
 			TxID:          "0x1234",
 			UniversalTxID: "0xabcd",
 		}
@@ -166,7 +166,7 @@ func TestOutboundHandleEvent(t *testing.T) {
 	t.Run("vote failure returns error", func(t *testing.T) {
 		database := newTestDB(t)
 		processor := NewOutboundObservationEventProcessor(&fakeVoteSigner{err: fmt.Errorf("broadcast failed")}, database, zerolog.Nop())
-		eventData, _ := json.Marshal(OutboundEvent{TxID: "0xtxid", UniversalTxID: "0xutxid"})
+		eventData, _ := json.Marshal(OutboundObservation{TxID: "0xtxid", UniversalTxID: "0xutxid"})
 
 		err := processor.HandleEvent(ctx, &store.Event{EventID: "0xout:0", EventData: eventData})
 		require.Error(t, err)
@@ -177,7 +177,7 @@ func TestOutboundHandleEvent(t *testing.T) {
 		database := newTestDB(t)
 		signer := &fakeVoteSigner{txHash: "0xvote"}
 		processor := NewOutboundObservationEventProcessor(signer, database, zerolog.Nop())
-		eventData, _ := json.Marshal(OutboundEvent{TxID: "0xtxid", UniversalTxID: "0xutxid"})
+		eventData, _ := json.Marshal(OutboundObservation{TxID: "0xtxid", UniversalTxID: "0xutxid"})
 		seedConfirmedEvent(t, database, "0xout:0", store.EventTypeOutbound, eventData)
 
 		err := processor.HandleEvent(ctx, &store.Event{EventID: "0xout:0", Type: store.EventTypeOutbound, EventData: eventData})

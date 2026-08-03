@@ -119,33 +119,3 @@ type TxBuilder interface {
 	// BroadcastFundMigrationTx assembles and broadcasts a signed fund migration transaction.
 	BroadcastFundMigrationTx(ctx context.Context, req *UnsignedSigningReq, data *FundMigrationData, signature []byte) (string, error)
 }
-
-// UniversalTx Payload
-type UniversalTx struct {
-	SourceChain         string                   `json:"sourceChain"`
-	LogIndex            uint                     `json:"logIndex"`
-	Sender              string                   `json:"sender"`
-	Recipient           string                   `json:"recipient"`
-	Token               string                   `json:"bridgeToken"`
-	Amount              string `json:"bridgeAmount"` // uint256 as decimal string
-	RawPayload          string `json:"rawPayload,omitempty"` // hex-encoded raw payload bytes from source chain
-	VerificationData    string `json:"verificationData"`
-	RevertFundRecipient string                   `json:"revertFundRecipient,omitempty"`
-	TxType              uint                     `json:"txType"`              // enum backing uint as decimal string
-	FromCEA             bool                     `json:"fromCEA"`             // true if inbound is initiated by a CEA
-}
-
-// OutboundEvent represents an outbound observation event from the gateway contract
-// Event structure:
-// - txID at 1st indexed position (bytes32)
-// - universalTxID at 2nd indexed position (bytes32)
-type OutboundEvent struct {
-	TxID          string `json:"tx_id"`                  // bytes32 hex-encoded (0x...)
-	UniversalTxID string `json:"universal_tx_id"`        // bytes32 hex-encoded (0x...)
-	GasFeeUsed    string `json:"gas_fee_used,omitempty"` // gas fee used in wei (decimal string)
-	// PC20 export only: wrapper token address deployed/minted on the destination
-	// at settlement (observed in the finalize event). Core uses it to flip the
-	// PC20 deploy flag; empty for non-PC20 settlements.
-	Pc20WrapperAddress string `json:"pc20_wrapper_address,omitempty"`
-}
-

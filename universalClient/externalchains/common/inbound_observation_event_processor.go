@@ -12,6 +12,21 @@ import (
 	"github.com/rs/zerolog"
 )
 
+// InboundObservation is the inbound observation payload stored for INBOUND events
+type InboundObservation struct {
+	SourceChain         string `json:"sourceChain"`
+	LogIndex            uint   `json:"logIndex"`
+	Sender              string `json:"sender"`
+	Recipient           string `json:"recipient"`
+	Token               string `json:"bridgeToken"`
+	Amount              string `json:"bridgeAmount"`         // uint256 as decimal string
+	RawPayload          string `json:"rawPayload,omitempty"` // hex-encoded raw payload bytes from source chain
+	VerificationData    string `json:"verificationData"`
+	RevertFundRecipient string `json:"revertFundRecipient,omitempty"`
+	TxType              uint   `json:"txType"`  // enum backing uint as decimal string
+	FromCEA             bool   `json:"fromCEA"` // true if inbound is initiated by a CEA
+}
+
 // InboundObservationEventProcessor handles INBOUND events: it builds the
 // inbound observation from the stored event and votes it on Push chain.
 type InboundObservationEventProcessor struct {
@@ -56,7 +71,7 @@ func (p *InboundObservationEventProcessor) HandleEvent(ctx context.Context, even
 
 // buildInboundObservation builds an Inbound observation from event data
 func (p *InboundObservationEventProcessor) buildInboundObservation(event *store.Event) (*uexecutortypes.Inbound, error) {
-	var eventData UniversalTx
+	var eventData InboundObservation
 
 	if event == nil {
 		return nil, fmt.Errorf("event is nil")

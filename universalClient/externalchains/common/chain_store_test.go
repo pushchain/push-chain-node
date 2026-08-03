@@ -56,7 +56,6 @@ func TestChainStoreNilDatabase(t *testing.T) {
 		assert.Contains(t, err.Error(), "database is nil")
 	})
 
-
 	t.Run("InsertEventIfNotExists returns error for nil database", func(t *testing.T) {
 		inserted, err := store.InsertEventIfNotExists(nil)
 		require.Error(t, err)

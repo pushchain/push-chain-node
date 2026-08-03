@@ -11,6 +11,20 @@ import (
 	"github.com/rs/zerolog"
 )
 
+// OutboundObservation is the outbound observation payload stored for OUTBOUND events
+// Event structure:
+// - txID at 1st indexed position (bytes32)
+// - universalTxID at 2nd indexed position (bytes32)
+type OutboundObservation struct {
+	TxID          string `json:"tx_id"`                  // bytes32 hex-encoded (0x...)
+	UniversalTxID string `json:"universal_tx_id"`        // bytes32 hex-encoded (0x...)
+	GasFeeUsed    string `json:"gas_fee_used,omitempty"` // gas fee used in wei (decimal string)
+	// PC20 export only: wrapper token address deployed/minted on the destination
+	// at settlement (observed in the finalize event). Core uses it to flip the
+	// PC20 deploy flag; empty for non-PC20 settlements.
+	Pc20WrapperAddress string `json:"pc20_wrapper_address,omitempty"`
+}
+
 // OutboundObservationEventProcessor handles OUTBOUND events: it builds the
 // outbound observation from the stored event and votes it on Push chain.
 type OutboundObservationEventProcessor struct {
@@ -59,8 +73,8 @@ func (p *OutboundObservationEventProcessor) HandleEvent(ctx context.Context, eve
 	return markEventCompleted(p.chainStore, p.logger, event, voteTxHash)
 }
 
-// parseOutboundEventData unmarshals event data into an OutboundEvent struct
-func (p *OutboundObservationEventProcessor) parseOutboundEventData(event *store.Event) (*OutboundEvent, error) {
+// parseOutboundEventData unmarshals event data into an OutboundObservation struct
+func (p *OutboundObservationEventProcessor) parseOutboundEventData(event *store.Event) (*OutboundObservation, error) {
 	if event == nil {
 		return nil, fmt.Errorf("event is nil")
 	}
@@ -69,7 +83,7 @@ func (p *OutboundObservationEventProcessor) parseOutboundEventData(event *store.
 		return nil, fmt.Errorf("event data is empty")
 	}
 
-	var eventData OutboundEvent
+	var eventData OutboundObservation
 	if err := json.Unmarshal(event.EventData, &eventData); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal event data: %w", err)
 	}
@@ -86,7 +100,7 @@ func (p *OutboundObservationEventProcessor) parseOutboundEventData(event *store.
 }
 
 // buildOutboundObservation builds an OutboundObservation from event metadata and parsed outbound data
-func (p *OutboundObservationEventProcessor) buildOutboundObservation(event *store.Event, outboundData *OutboundEvent) (*uexecutortypes.OutboundObservation, error) {
+func (p *OutboundObservationEventProcessor) buildOutboundObservation(event *store.Event, outboundData *OutboundObservation) (*uexecutortypes.OutboundObservation, error) {
 	gasFeeUsed := "0"
 	if outboundData.GasFeeUsed != "" {
 		gasFeeUsed = outboundData.GasFeeUsed

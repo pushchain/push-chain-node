@@ -46,7 +46,7 @@ func TestInboundBuildInboundObservation(t *testing.T) {
 	})
 
 	t.Run("valid event data constructs inbound", func(t *testing.T) {
-		eventData := UniversalTx{
+		eventData := InboundObservation{
 			SourceChain: "eip155:1",
 			LogIndex:    5,
 			Sender:      "0xsender123",
@@ -73,7 +73,7 @@ func TestInboundBuildInboundObservation(t *testing.T) {
 	})
 
 	t.Run("passes all fields unconditionally to inbound", func(t *testing.T) {
-		eventData := UniversalTx{
+		eventData := InboundObservation{
 			SourceChain:         "eip155:1",
 			LogIndex:            3,
 			Sender:              "0xsender",
@@ -105,7 +105,7 @@ func TestInboundBuildInboundObservation(t *testing.T) {
 	})
 
 	t.Run("no revert instructions when revert recipient is empty", func(t *testing.T) {
-		eventData := UniversalTx{
+		eventData := InboundObservation{
 			SourceChain:         "eip155:1",
 			Sender:              "0xsender",
 			Amount:              "100",
@@ -125,7 +125,7 @@ func TestInboundBuildInboundObservation(t *testing.T) {
 	})
 
 	t.Run("falls back verification data to tx hash", func(t *testing.T) {
-		eventData := UniversalTx{
+		eventData := InboundObservation{
 			SourceChain:      "eip155:1",
 			VerificationData: "",
 			TxType:           0,
@@ -155,7 +155,7 @@ func TestInboundBuildInboundObservation(t *testing.T) {
 		}
 
 		for _, tc := range testCases {
-			eventData := UniversalTx{
+			eventData := InboundObservation{
 				SourceChain: "eip155:1",
 				TxType:      tc.txType,
 			}
@@ -189,7 +189,7 @@ func TestInboundHandleEvent(t *testing.T) {
 	t.Run("vote failure returns error", func(t *testing.T) {
 		database := newTestDB(t)
 		processor := NewInboundObservationEventProcessor(&fakeVoteSigner{err: fmt.Errorf("broadcast failed")}, database, zerolog.Nop())
-		eventData, _ := json.Marshal(UniversalTx{SourceChain: "eip155:1", TxType: 0})
+		eventData, _ := json.Marshal(InboundObservation{SourceChain: "eip155:1", TxType: 0})
 
 		err := processor.HandleEvent(ctx, &store.Event{EventID: "0xin:0", EventData: eventData})
 		require.Error(t, err)
@@ -200,7 +200,7 @@ func TestInboundHandleEvent(t *testing.T) {
 		database := newTestDB(t)
 		signer := &fakeVoteSigner{txHash: "0xvote"}
 		processor := NewInboundObservationEventProcessor(signer, database, zerolog.Nop())
-		eventData, _ := json.Marshal(UniversalTx{SourceChain: "eip155:1", TxType: 0})
+		eventData, _ := json.Marshal(InboundObservation{SourceChain: "eip155:1", TxType: 0})
 		seedConfirmedEvent(t, database, "0xin:0", store.EventTypeInbound, eventData)
 
 		err := processor.HandleEvent(ctx, &store.Event{EventID: "0xin:0", Type: store.EventTypeInbound, EventData: eventData})

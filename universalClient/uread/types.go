@@ -7,16 +7,14 @@ package uread
 
 // ReadRequest mirrors the pending read request tracked by x/uexecutor.
 type ReadRequest struct {
-	RequestID         string // uint256 as 0x-prefixed hex (from ReadRequested event)
-	TargetChain       string // CAIP-2, e.g. "eip155:1", "solana:mainnet-beta"
-	Owner             []byte // ReadSpec.account.owner (20-byte addr / 32-byte pubkey)
-	Query             []byte // chain-specific envelope, abi.encode(...)
-	MinConfirmations  uint16
-	MaxAgeSeconds     uint64
-	MaxDelaySeconds   uint64
-	PinnedBlockHeight uint64 // height all validators must query; 0 = not pinned by core
-	ExpiryTimestamp   int64  // unix seconds; 0 = no expiry known
-	CreatedAtHeight   uint64 // Push chain height at which the request was created
+	RequestID              string // uint256 as 0x-prefixed hex (from ReadRequested event)
+	DestinationChain       string // CAIP-2, e.g. "eip155:1", "solana:mainnet-beta"; web2 uses "web2:https"
+	Owner                  []byte // ReadSpec.account.owner (20-byte addr / 32-byte pubkey)
+	Query                  []byte // chain-specific envelope, abi.encode(...)
+	MinConfirmations       uint16
+	DestinationBlockHeight uint64 // destination chain height the read is made at; not applicable for web2
+	ExpiryBlockHeight      uint64 // Push chain height at which the request expires
+	CreatedAtHeight        uint64 // Push chain height at which the request was created
 }
 
 // ReadStatus is the observed outcome a validator votes on.

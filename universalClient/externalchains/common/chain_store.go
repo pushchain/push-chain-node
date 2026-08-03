@@ -154,24 +154,6 @@ func (cs *ChainStore) UpdateStatusAndEventData(eventID, oldStatus, newStatus str
 	return res.RowsAffected, nil
 }
 
-// UpdateVoteTxHash updates the vote_tx_hash field for an event
-func (cs *ChainStore) UpdateVoteTxHash(eventID string, voteTxHash string) error {
-	if cs.database == nil {
-		return fmt.Errorf("database is nil")
-	}
-
-	result := cs.database.Client().
-		Model(&store.Event{}).
-		Where("event_id = ?", eventID).
-		Update("vote_tx_hash", voteTxHash)
-
-	if result.Error != nil {
-		return fmt.Errorf("failed to update vote_tx_hash: %w", result.Error)
-	}
-
-	return nil
-}
-
 // DeleteTerminalEvents deletes events in terminal states (COMPLETED, REVERTED, EXPIRED)
 // that were updated before the given time
 func (cs *ChainStore) DeleteTerminalEvents(updatedBefore any) (int64, error) {

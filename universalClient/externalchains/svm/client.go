@@ -12,7 +12,6 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/db"
 	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
 	"github.com/pushchain/push-chain-node/universalClient/pushsigner"
-	"github.com/pushchain/push-chain-node/universalClient/store"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
@@ -99,15 +98,13 @@ func NewClient(
 	if pushSigner != nil {
 		inboundEnabled := config.Enabled != nil && config.Enabled.IsInboundEnabled
 		outboundEnabled := config.Enabled != nil && config.Enabled.IsOutboundEnabled
-		// client is the reader for READ_REQUEST events routed into this chain's
-		// DB by the push event listener.
 		client.eventProcessor = common.NewEventProcessor(
 			pushSigner,
 			database,
 			chainIDStr,
 			inboundEnabled,
 			outboundEnabled,
-			client,
+			nil,
 			log,
 		)
 	}
@@ -213,10 +210,6 @@ func (c *Client) GetTxBuilder() (common.TxBuilder, error) {
 	return c.txBuilder, nil
 }
 
-// AddEvent stores an externally-produced event in this chain's database.
-func (c *Client) AddEvent(event *store.Event) (bool, error) {
-	return common.NewChainStore(c.database).InsertEventIfNotExists(event)
-}
 
 // initializeComponents creates all components that require the RPC client
 func (c *Client) initializeComponents() error {

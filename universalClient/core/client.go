@@ -76,13 +76,14 @@ func NewUniversalClient(ctx context.Context, cfg *config.Config) (*UniversalClie
 		return nil, err
 	}
 
-	// chainsManager routes read request events into target chain DBs.
+	// chainsManager resolves destination chains for read request execution.
 	pushChain, err := pushwatcher.NewClient(
 		pushDB,
 		cfg.GetChainConfig(cfg.PushChainID),
 		pushCore,
 		cfg.PushChainID,
 		log,
+		pushSigner,
 		chainsManager,
 	)
 	if err != nil {

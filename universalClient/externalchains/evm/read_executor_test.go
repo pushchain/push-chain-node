@@ -50,6 +50,16 @@ type rpcFault struct {
 func newReadTestClient(t *testing.T, results map[string]any, faults map[string]rpcFault) *Client {
 	t.Helper()
 
+	// every read is gated on the chain tip; default to a comfortably deep chain
+	// unless the test overrides eth_blockNumber
+	if results != nil {
+		if _, ok := results["eth_blockNumber"]; !ok {
+			if _, ok := faults["eth_blockNumber"]; !ok {
+				results["eth_blockNumber"] = "0x1000"
+			}
+		}
+	}
+
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
 			ID     json.RawMessage `json:"id"`
@@ -83,11 +93,11 @@ func newReadTestClient(t *testing.T, results map[string]any, faults map[string]r
 func evmReadRequest(t *testing.T, queryType uint8, blockNumber uint64, payload []byte) *uread.ReadRequest {
 	t.Helper()
 	return &uread.ReadRequest{
-		RequestID:         "0xreq1",
-		TargetChain:       "eip155:11155111",
-		Query:             packEvmEnvelope(t, queryType, 0, blockNumber, payload),
-		MinConfirmations:  1,
-		PinnedBlockHeight: 100,
+		RequestID:              "0xreq1",
+		DestinationChain:       "eip155:11155111",
+		Query:                  packEvmEnvelope(t, queryType, 0, blockNumber, payload),
+		MinConfirmations:       1,
+		DestinationBlockHeight: 100,
 	}
 }
 
@@ -178,9 +188,9 @@ func TestExecuteRead_InvalidEnvelope(t *testing.T) {
 	client := newReadTestClient(t, nil, nil)
 
 	result, err := client.ExecuteRead(context.Background(), &uread.ReadRequest{
-		RequestID:         "0xreq1",
-		Query:             []byte{0x01, 0x02},
-		PinnedBlockHeight: 100,
+		RequestID:              "0xreq1",
+		Query:                  []byte{0x01, 0x02},
+		DestinationBlockHeight: 100,
 	})
 	require.NoError(t, err)
 	assert.Equal(t, uread.ReadStatusError, result.Status)
@@ -191,7 +201,7 @@ func TestExecuteRead_RPCFailureIsTransient(t *testing.T) {
 	payload, err := addressArgs.Pack(target)
 	require.NoError(t, err)
 
-	client := newReadTestClient(t, nil, map[string]rpcFault{
+	client := newReadTestClient(t, map[string]any{}, map[string]rpcFault{
 		"eth_getBlockByNumber": {code: -32000, message: "node is syncing"},
 	})
 
@@ -200,7 +210,7 @@ func TestExecuteRead_RPCFailureIsTransient(t *testing.T) {
 	assert.Nil(t, result)
 }
 
-func TestExecuteRead_EnvelopeBlockNumberFallback(t *testing.T) {
+func TestExecuteRead_EnvelopeBlockNumberUsedWhenNotPinned(t *testing.T) {
 	target := ethcommon.HexToAddress("0x1111111111111111111111111111111111111111")
 	payload, err := addressArgs.Pack(target)
 	require.NoError(t, err)
@@ -211,45 +221,60 @@ func TestExecuteRead_EnvelopeBlockNumberFallback(t *testing.T) {
 	}, nil)
 
 	req := evmReadRequest(t, uint8(evmQueryAccountBalance), 55, payload)
-	req.PinnedBlockHeight = 0 // TODO(core): fallback removed once core always pins
+	req.DestinationBlockHeight = 0 // client-provided height in the envelope
 
 	result, err := client.ExecuteRead(context.Background(), req)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(55), result.ObservedBlockHeight)
 }
 
-func TestExecuteRead_LatestHeightFallback(t *testing.T) {
+func TestExecuteRead_MissingHeightIsVotableError(t *testing.T) {
 	target := ethcommon.HexToAddress("0x1111111111111111111111111111111111111111")
 	payload, err := addressArgs.Pack(target)
 	require.NoError(t, err)
 
-	// TODO(core): delete along with the latest-minConfirmations fallback.
-	t.Run("uses latest minus min confirmations", func(t *testing.T) {
+	client := newReadTestClient(t, nil, nil)
+
+	req := evmReadRequest(t, uint8(evmQueryAccountBalance), 0, payload)
+	req.DestinationBlockHeight = 0
+
+	result, err := client.ExecuteRead(context.Background(), req)
+	require.NoError(t, err)
+	assert.Equal(t, uread.ReadStatusError, result.Status)
+}
+
+func TestExecuteRead_ConfirmationGate(t *testing.T) {
+	target := ethcommon.HexToAddress("0x1111111111111111111111111111111111111111")
+	payload, err := addressArgs.Pack(target)
+	require.NoError(t, err)
+
+	t.Run("height not deep enough is transient", func(t *testing.T) {
 		client := newReadTestClient(t, map[string]any{
-			"eth_blockNumber":      "0x64", // 100
-			"eth_getBlockByNumber": fakeHeader(99),
-			"eth_getBalance":       "0x1",
+			"eth_blockNumber": "0x64", // 100
 		}, nil)
 
 		req := evmReadRequest(t, uint8(evmQueryAccountBalance), 0, payload)
-		req.PinnedBlockHeight = 0
-
-		result, err := client.ExecuteRead(context.Background(), req)
-		require.NoError(t, err)
-		assert.Equal(t, uint64(99), result.ObservedBlockHeight)
-	})
-
-	t.Run("chain height below min confirmations is transient", func(t *testing.T) {
-		client := newReadTestClient(t, map[string]any{
-			"eth_blockNumber": "0x1",
-		}, nil)
-
-		req := evmReadRequest(t, uint8(evmQueryAccountBalance), 0, payload)
-		req.PinnedBlockHeight = 0
-		req.MinConfirmations = 5
+		req.DestinationBlockHeight = 100
+		req.MinConfirmations = 5 // needs chain at >= 105
 
 		result, err := client.ExecuteRead(context.Background(), req)
 		require.Error(t, err)
 		assert.Nil(t, result)
+	})
+
+	t.Run("executes once deep enough", func(t *testing.T) {
+		client := newReadTestClient(t, map[string]any{
+			"eth_blockNumber":      "0x69", // 105
+			"eth_getBlockByNumber": fakeHeader(100),
+			"eth_getBalance":       "0x1",
+		}, nil)
+
+		req := evmReadRequest(t, uint8(evmQueryAccountBalance), 0, payload)
+		req.DestinationBlockHeight = 100
+		req.MinConfirmations = 5
+
+		result, err := client.ExecuteRead(context.Background(), req)
+		require.NoError(t, err)
+		assert.Equal(t, uint64(100), result.ObservedBlockHeight)
 	})
 }

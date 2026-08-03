@@ -58,14 +58,25 @@ func (f *fakeChainReader) ExecuteRead(ctx context.Context, req *uread.ReadReques
 	return f.result, f.err
 }
 
+type fakeChainResolver struct {
+	reader ChainReader
+}
+
+func (f *fakeChainResolver) GetReader(chainID string) (ChainReader, error) {
+	if f.reader == nil {
+		return nil, fmt.Errorf("no reader for %s", chainID)
+	}
+	return f.reader, nil
+}
+
 func testReadRequest() *uread.ReadRequest {
 	return &uread.ReadRequest{
-		RequestID:         "0xabc123",
-		TargetChain:       "eip155:11155111",
-		Query:             []byte{0x01},
-		MinConfirmations:  1,
-		PinnedBlockHeight: 100,
-		CreatedAtHeight:   7,
+		RequestID:              "0xabc123",
+		DestinationChain:       "eip155:11155111",
+		Query:                  []byte{0x01},
+		MinConfirmations:       1,
+		DestinationBlockHeight: 100,
+		CreatedAtHeight:        7,
 	}
 }
 
@@ -73,7 +84,11 @@ func newReadTestProcessor(t *testing.T, signer VoteSigner, reader ChainReader) (
 	t.Helper()
 	database, err := ucdb.OpenInMemoryDB(true)
 	require.NoError(t, err)
-	ep := NewEventProcessor(signer, database, "eip155:11155111", false, false, reader, zerolog.Nop())
+	var resolver ChainResolver
+	if reader != nil {
+		resolver = &fakeChainResolver{reader: reader}
+	}
+	ep := NewEventProcessor(signer, database, "push_42101-1", false, false, resolver, zerolog.Nop())
 	return ep, NewChainStore(database)
 }
 
@@ -136,19 +151,6 @@ func TestProcessReadRequest_VoteFailureKeepsConfirmed(t *testing.T) {
 	assert.Equal(t, store.StatusConfirmed, eventStatus(t, cs, eventID))
 }
 
-func TestProcessReadRequest_ExpiredMarkedReverted(t *testing.T) {
-	req := testReadRequest()
-	req.ExpiryTimestamp = time.Now().Add(-time.Minute).Unix()
-	signer := &fakeVoteSigner{txHash: "VOTE_TX"}
-	ep, cs := newReadTestProcessor(t, signer, &fakeChainReader{result: &uread.ReadResult{Status: uread.ReadStatusSuccess}})
-	eventID := seedReadRequest(t, cs, req)
-
-	require.NoError(t, ep.processConfirmedEvents(context.Background()))
-
-	assert.Empty(t, signer.readVotes)
-	assert.Equal(t, store.StatusReverted, eventStatus(t, cs, eventID))
-}
-
 func TestProcessReadRequest_ExecutionFailureRetries(t *testing.T) {
 	req := testReadRequest()
 	signer := &fakeVoteSigner{txHash: "VOTE_TX"}
@@ -162,11 +164,27 @@ func TestProcessReadRequest_ExecutionFailureRetries(t *testing.T) {
 	assert.Equal(t, store.StatusConfirmed, eventStatus(t, cs, eventID))
 }
 
-func TestProcessReadRequest_NoReaderSkips(t *testing.T) {
+func TestProcessReadRequest_NoResolverSkips(t *testing.T) {
 	req := testReadRequest()
 	signer := &fakeVoteSigner{txHash: "VOTE_TX"}
-	// nil reader -> read events are skipped, left CONFIRMED
+	// nil resolver -> read events are skipped, left CONFIRMED
 	ep, cs := newReadTestProcessor(t, signer, nil)
+	eventID := seedReadRequest(t, cs, req)
+
+	require.NoError(t, ep.processConfirmedEvents(context.Background()))
+
+	assert.Empty(t, signer.readVotes)
+	assert.Equal(t, store.StatusConfirmed, eventStatus(t, cs, eventID))
+}
+
+func TestProcessReadRequest_UnservedChainRetries(t *testing.T) {
+	req := testReadRequest()
+	signer := &fakeVoteSigner{txHash: "VOTE_TX"}
+	database, err := ucdb.OpenInMemoryDB(true)
+	require.NoError(t, err)
+	// resolver present but has no reader for the destination chain
+	ep := NewEventProcessor(signer, database, "push_42101-1", false, false, &fakeChainResolver{}, zerolog.Nop())
+	cs := NewChainStore(database)
 	eventID := seedReadRequest(t, cs, req)
 
 	require.NoError(t, ep.processConfirmedEvents(context.Background()))
@@ -917,7 +935,7 @@ func TestEventProcessorStruct(t *testing.T) {
 		ep := &EventProcessor{}
 		assert.Nil(t, ep.signer)
 		assert.Nil(t, ep.chainStore)
-		assert.Nil(t, ep.reader)
+		assert.Nil(t, ep.readResolver)
 		assert.Empty(t, ep.chainID)
 		assert.False(t, ep.running)
 		assert.Nil(t, ep.stopCh)

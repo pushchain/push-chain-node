@@ -81,10 +81,9 @@ type coordMockChainClient struct {
 	builderErr error
 }
 
-func (m *coordMockChainClient) Start(context.Context) error               { return nil }
-func (m *coordMockChainClient) Stop() error                               { return nil }
-func (m *coordMockChainClient) IsHealthy() bool                           { return true }
-func (m *coordMockChainClient) AddEvent(event *store.Event) (bool, error) { return true, nil }
+func (m *coordMockChainClient) Start(context.Context) error { return nil }
+func (m *coordMockChainClient) Stop() error                 { return nil }
+func (m *coordMockChainClient) IsHealthy() bool             { return true }
 func (m *coordMockChainClient) GetTxBuilder() (common.TxBuilder, error) {
 	if m.builderErr != nil {
 		return nil, m.builderErr

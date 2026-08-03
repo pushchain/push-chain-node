@@ -72,10 +72,10 @@ func svmReadRequest(t *testing.T, queryType uint8, minSlot uint64, owner []byte)
 	})
 	require.NoError(t, err)
 	return &uread.ReadRequest{
-		RequestID:   "0xreq1",
-		TargetChain: "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
-		Owner:       owner,
-		Query:       query,
+		RequestID:        "0xreq1",
+		DestinationChain: "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+		Owner:            owner,
+		Query:            query,
 	}
 }
 

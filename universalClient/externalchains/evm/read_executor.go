@@ -15,16 +15,24 @@ import (
 var balanceOfSelector = []byte{0x70, 0xa0, 0x82, 0x31}
 
 // ExecuteRead implements common.ChainReader for EVM chains.
-// All validators must produce byte-identical results, so every query runs at a
-// deterministic block height.
+// All validators must produce byte-identical results, so every query runs at the
+// height pinned in the request; execution is gated until that height has
+// min_confirmations confirmations so a reorg cannot invalidate the read.
 func (c *Client) ExecuteRead(ctx context.Context, req *uread.ReadRequest) (*uread.ReadResult, error) {
 	env, err := decodeEvmQueryEnvelope(req.Query)
 	if err != nil {
 		return uread.NewErrorResult(err), nil
 	}
 
-	height, err := c.resolveReadHeight(ctx, req, env)
-	if err != nil {
+	height := req.DestinationBlockHeight
+	if height == 0 {
+		height = env.BlockNumber
+	}
+	if height == 0 {
+		return uread.NewErrorResult(fmt.Errorf("read request has no target height")), nil
+	}
+
+	if err := c.gateHeightConfirmed(ctx, height, uint64(req.MinConfirmations)); err != nil {
 		return nil, err
 	}
 	blockNum := new(big.Int).SetUint64(height)
@@ -102,24 +110,16 @@ func (c *Client) ExecuteRead(ctx context.Context, req *uread.ReadRequest) (*urea
 	}, nil
 }
 
-// resolveReadHeight picks the deterministic block height for a read.
-// TODO(core): once x/uexecutor pins the height at request creation,
-// PinnedBlockHeight is always set and the fallback below must be removed —
-// latest-minConfirmations is NOT identical across validators.
-func (c *Client) resolveReadHeight(ctx context.Context, req *uread.ReadRequest, env *evmQueryEnvelope) (uint64, error) {
-	if req.PinnedBlockHeight > 0 {
-		return req.PinnedBlockHeight, nil
-	}
-	if env.BlockNumber > 0 {
-		return env.BlockNumber, nil
-	}
+// gateHeightConfirmed blocks execution until the target height has at least
+// minConfirmations confirmations. An error is transient: the processor keeps
+// the event CONFIRMED and retries next tick.
+func (c *Client) gateHeightConfirmed(ctx context.Context, height, minConfirmations uint64) error {
 	latest, err := c.rpcClient.GetLatestBlock(ctx)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get latest block: %w", err)
+		return fmt.Errorf("failed to get latest block: %w", err)
 	}
-	conf := uint64(req.MinConfirmations)
-	if latest <= conf {
-		return 0, fmt.Errorf("chain height %d below min confirmations %d", latest, conf)
+	if latest < height+minConfirmations {
+		return fmt.Errorf("height %d needs %d confirmations, chain at %d; not final yet", height, minConfirmations, latest)
 	}
-	return latest - conf, nil
+	return nil
 }

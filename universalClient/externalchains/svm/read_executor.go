@@ -17,11 +17,10 @@ const splTokenAmountOffset = 64
 
 // ExecuteRead implements common.ChainReader for Solana chains.
 //
-// Determinism caveat: Solana RPC cannot query state at an exact past slot, only
-// ">= minSlot" via minContextSlot, so ObservedBlockHeight may differ across
-// validators. TODO(core): ballot key must cover ResultData only (drop
-// slot/hash) for solana, or quorum will never converge — flagged in
-// docs/read-from-chains-implementation-plan.md.
+// Solana cannot query state at an exact past slot, so reads run at finalized
+// commitment with minContextSlot as a staleness floor. ObservedBlockHeight (the
+// context slot) may differ across validators; core's ballot key covers the
+// result value only, never the observed slot.
 func (c *Client) ExecuteRead(ctx context.Context, req *uread.ReadRequest) (*uread.ReadResult, error) {
 	env, err := decodeSolanaQueryEnvelope(req.Query)
 	if err != nil {
@@ -33,7 +32,7 @@ func (c *Client) ExecuteRead(ctx context.Context, req *uread.ReadRequest) (*urea
 	}
 	account := solana.PublicKeyFromBytes(req.Owner)
 
-	minSlot := max(env.MinSlot, req.PinnedBlockHeight)
+	minSlot := max(env.MinSlot, req.DestinationBlockHeight)
 
 	switch env.QueryType {
 	case solanaQueryLamportBalance:

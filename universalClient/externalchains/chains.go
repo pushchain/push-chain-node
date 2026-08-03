@@ -343,6 +343,20 @@ func (c *Chains) StopAll() {
 	c.chainConfigs = make(map[string]*uregistrytypes.ChainConfig)
 }
 
+// GetReader implements common.ChainResolver: resolves a CAIP-2 chain ID to a
+// chain client that can execute external read requests.
+func (c *Chains) GetReader(chainID string) (common.ChainReader, error) {
+	client, err := c.GetClient(chainID)
+	if err != nil {
+		return nil, err
+	}
+	reader, ok := client.(common.ChainReader)
+	if !ok {
+		return nil, fmt.Errorf("chain client for %s does not support reads", chainID)
+	}
+	return reader, nil
+}
+
 // GetClient returns the chain client for the specified chain ID
 func (c *Chains) GetClient(chainID string) (common.ChainClient, error) {
 	c.chainsMu.RLock()
@@ -355,7 +369,6 @@ func (c *Chains) GetClient(chainID string) (common.ChainClient, error) {
 
 	return client, nil
 }
-
 
 // IsEVMChain returns true if the chain uses EVM (e.g. Ethereum, BSC). Used by coordinator for nonce behaviour.
 func (c *Chains) IsEVMChain(chainID string) bool {

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/pushchain/push-chain-node/universalClient/store"
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
@@ -39,11 +38,6 @@ type ChainClient interface {
 	// GetTxBuilder returns the TxBuilder for this chain
 	// Returns an error if txBuilder is not supported for this chain (e.g., Push chain)
 	GetTxBuilder() (TxBuilder, error)
-
-	// AddEvent stores an externally-produced event (e.g. a READ_REQUEST routed
-	// by the push watcher) in this chain's database for its event processor.
-	// Returns false if the event already exists.
-	AddEvent(event *store.Event) (bool, error)
 }
 
 // FundMigrationData contains the data needed to build a fund migration transaction.

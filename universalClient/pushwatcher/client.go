@@ -10,29 +10,33 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/db"
 	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
+	"github.com/pushchain/push-chain-node/universalClient/pushsigner"
 	"github.com/rs/zerolog"
 )
 
 // Client implements the ChainClient interface for Push chain
 type Client struct {
-	logger        zerolog.Logger
-	pushCore      *pushcore.Client
-	database      *db.DB
-	eventListener *EventListener
-	eventCleaner  *common.EventCleaner
-	ctx           context.Context
-	cancel        context.CancelFunc
+	logger         zerolog.Logger
+	pushCore       *pushcore.Client
+	database       *db.DB
+	eventListener  *EventListener
+	eventCleaner   *common.EventCleaner
+	eventProcessor *common.EventProcessor
+	ctx            context.Context
+	cancel         context.CancelFunc
 }
 
 // NewClient creates a new Push chain client.
-// chainResolver may be nil; the listener then skips read request polling.
+// pushSigner and readResolver may be nil; the event processor (read request
+// execution + voting) is only wired when both are present.
 func NewClient(
 	database *db.DB,
 	chainConfig *config.ChainSpecificConfig,
 	pushCore *pushcore.Client,
 	chainID string,
 	logger zerolog.Logger,
-	chainResolver ExternalChainResolver,
+	pushSigner *pushsigner.Signer,
+	readResolver common.ChainResolver,
 ) (*Client, error) {
 	// Normalize nil config so downstream uses don't need nil guards.
 	if chainConfig == nil {
@@ -45,7 +49,6 @@ func NewClient(
 		database,
 		logger,
 		chainConfig,
-		chainResolver,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create event listener: %w", err)
@@ -67,6 +70,20 @@ func NewClient(
 		eventCleaner:  eventCleaner,
 	}
 
+	// The push DB holds READ_REQUEST events; the processor executes them on
+	// their destination chains (via readResolver) and votes the results.
+	if pushSigner != nil && readResolver != nil {
+		client.eventProcessor = common.NewEventProcessor(
+			pushSigner,
+			database,
+			chainID,
+			false,
+			false,
+			readResolver,
+			logger,
+		)
+	}
+
 	return client, nil
 }
 
@@ -85,6 +102,13 @@ func (c *Client) Start(ctx context.Context) error {
 	if c.eventCleaner != nil {
 		if err := c.eventCleaner.Start(c.ctx); err != nil {
 			return fmt.Errorf("failed to start event cleaner: %w", err)
+		}
+	}
+
+	// Start event processor if wired
+	if c.eventProcessor != nil {
+		if err := c.eventProcessor.Start(c.ctx); err != nil {
+			return fmt.Errorf("failed to start event processor: %w", err)
 		}
 	}
 
@@ -111,6 +135,13 @@ func (c *Client) Stop() error {
 	// Stop event cleaner
 	if c.eventCleaner != nil {
 		c.eventCleaner.Stop()
+	}
+
+	// Stop event processor
+	if c.eventProcessor != nil {
+		if err := c.eventProcessor.Stop(); err != nil {
+			c.logger.Error().Err(err).Str("subsystem", "event_processor").Msg("subsystem failed to stop")
+		}
 	}
 
 	c.logger.Info().Msg("Push chain client stopped")

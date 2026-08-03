@@ -34,7 +34,7 @@ func TestNewClient(t *testing.T) {
 	pc := newTestPushCoreClient()
 
 	t.Run("success with nil config", func(t *testing.T) {
-		client, err := NewClient(database, nil, pc, "push-chain", logger, nil)
+		client, err := NewClient(database, nil, pc, "push-chain", logger, nil, nil)
 		require.NoError(t, err)
 		require.NotNil(t, client)
 		assert.NotNil(t, client.eventListener)
@@ -48,27 +48,27 @@ func TestNewClient(t *testing.T) {
 			CleanupIntervalSeconds: &cleanup,
 			RetentionPeriodSeconds: &retention,
 		}
-		client, err := NewClient(database, cfg, pc, "push-chain", logger, nil)
+		client, err := NewClient(database, cfg, pc, "push-chain", logger, nil, nil)
 		require.NoError(t, err)
 		require.NotNil(t, client)
 		assert.NotNil(t, client.eventCleaner)
 	})
 
 	t.Run("nil pushcore fails", func(t *testing.T) {
-		_, err := NewClient(database, nil, nil, "push-chain", logger, nil)
+		_, err := NewClient(database, nil, nil, "push-chain", logger, nil, nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "push client is nil")
 	})
 
 	t.Run("nil database fails", func(t *testing.T) {
-		_, err := NewClient(nil, nil, pc, "push-chain", logger, nil)
+		_, err := NewClient(nil, nil, pc, "push-chain", logger, nil, nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "database is nil")
 	})
 }
 
 func TestClient_StartStop(t *testing.T) {
-	client, err := NewClient(newTestDB(t), nil, newTestPushCoreClient(), "push-chain", zerolog.Nop(), nil)
+	client, err := NewClient(newTestDB(t), nil, newTestPushCoreClient(), "push-chain", zerolog.Nop(), nil, nil)
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -96,7 +96,7 @@ func TestClient_StopBeforeStart(t *testing.T) {
 	// Stop on a freshly created client (never started) should not panic.
 	// The cancel func is nil, eventListener.Stop() returns ErrNotRunning but
 	// the client logs and swallows that error, returning nil.
-	client, err := NewClient(newTestDB(t), nil, newTestPushCoreClient(), "push-chain", zerolog.Nop(), nil)
+	client, err := NewClient(newTestDB(t), nil, newTestPushCoreClient(), "push-chain", zerolog.Nop(), nil, nil)
 	require.NoError(t, err)
 
 	// Should not panic or return error
@@ -104,7 +104,7 @@ func TestClient_StopBeforeStart(t *testing.T) {
 }
 
 func TestClient_DoubleStop(t *testing.T) {
-	client, err := NewClient(newTestDB(t), nil, newTestPushCoreClient(), "push-chain", zerolog.Nop(), nil)
+	client, err := NewClient(newTestDB(t), nil, newTestPushCoreClient(), "push-chain", zerolog.Nop(), nil, nil)
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -122,7 +122,7 @@ func TestClient_StartStopWithEventCleaner(t *testing.T) {
 		CleanupIntervalSeconds: &cleanup,
 		RetentionPeriodSeconds: &retention,
 	}
-	client, err := NewClient(newTestDB(t), cfg, newTestPushCoreClient(), "push-chain", zerolog.Nop(), nil)
+	client, err := NewClient(newTestDB(t), cfg, newTestPushCoreClient(), "push-chain", zerolog.Nop(), nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, client.eventCleaner)
 
@@ -140,7 +140,7 @@ func TestClient_StartStopWithEventCleaner(t *testing.T) {
 
 func TestClient_StartStopLifecycleMultiple(t *testing.T) {
 	// Verify the client can be started and stopped multiple times (restart).
-	client, err := NewClient(newTestDB(t), nil, newTestPushCoreClient(), "push-chain", zerolog.Nop(), nil)
+	client, err := NewClient(newTestDB(t), nil, newTestPushCoreClient(), "push-chain", zerolog.Nop(), nil, nil)
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -183,7 +183,7 @@ func TestNewClient_CleanerAlwaysWired(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			client, err := NewClient(database, tc.cfg, pc, "push-chain", logger, nil)
+			client, err := NewClient(database, tc.cfg, pc, "push-chain", logger, nil, nil)
 			require.NoError(t, err)
 			require.NotNil(t, client.eventCleaner, "cleaner must always be wired up")
 		})
@@ -199,7 +199,7 @@ func TestNewClient_NegativePollInterval(t *testing.T) {
 	cfg := &config.ChainSpecificConfig{
 		EventPollingIntervalSeconds: &poll,
 	}
-	client, err := NewClient(database, cfg, pc, "push-chain", logger, nil)
+	client, err := NewClient(database, cfg, pc, "push-chain", logger, nil, nil)
 	require.NoError(t, err)
 	// Negative poll interval should fall back to default
 	assert.Equal(t, DefaultPollInterval, client.eventListener.cfg.PollInterval)
@@ -215,7 +215,7 @@ func TestStoreEvent(t *testing.T) {
 		pc := newTestPushCoreClient()
 		logger := zerolog.Nop()
 
-		el, err := NewEventListener(pc, database, logger, nil, nil)
+		el, err := NewEventListener(pc, database, logger, nil)
 		require.NoError(t, err)
 
 		event := &store.Event{
@@ -236,7 +236,7 @@ func TestStoreEvent(t *testing.T) {
 		pc := newTestPushCoreClient()
 		logger := zerolog.Nop()
 
-		el, err := NewEventListener(pc, database, logger, nil, nil)
+		el, err := NewEventListener(pc, database, logger, nil)
 		require.NoError(t, err)
 
 		event := &store.Event{
@@ -260,7 +260,7 @@ func TestStoreEvent(t *testing.T) {
 		pc := newTestPushCoreClient()
 		logger := zerolog.Nop()
 
-		el, err := NewEventListener(pc, database, logger, nil, nil)
+		el, err := NewEventListener(pc, database, logger, nil)
 		require.NoError(t, err)
 
 		for i := 0; i < 5; i++ {
@@ -282,7 +282,7 @@ func TestStoreEvent(t *testing.T) {
 		pc := newTestPushCoreClient()
 		logger := zerolog.Nop()
 
-		el, err := NewEventListener(pc, database, logger, nil, nil)
+		el, err := NewEventListener(pc, database, logger, nil)
 		require.NoError(t, err)
 
 		event := &store.Event{
@@ -310,7 +310,7 @@ func TestStoreEvent(t *testing.T) {
 		pc := newTestPushCoreClient()
 		logger := zerolog.Nop()
 
-		el, err := NewEventListener(pc, database, logger, nil, nil)
+		el, err := NewEventListener(pc, database, logger, nil)
 		require.NoError(t, err)
 
 		event := &store.Event{

@@ -32,6 +32,12 @@ type ChainReader interface {
 	ExecuteRead(ctx context.Context, req *uread.ReadRequest) (*uread.ReadResult, error)
 }
 
+// ChainResolver resolves a CAIP-2 chain ID to its ChainReader.
+// Implemented by externalchains.Chains.
+type ChainResolver interface {
+	GetReader(chainID string) (ChainReader, error)
+}
+
 // EventProcessor processes events from the chain's database and votes on them
 type EventProcessor struct {
 	signer          VoteSigner
@@ -40,12 +46,12 @@ type EventProcessor struct {
 	chainID         string
 	inboundEnabled  bool
 	outboundEnabled bool
-	// reader executes READ_REQUEST events against this chain (the push event
-	// listener routes them into this chain's DB). Nil disables read processing.
-	reader  ChainReader
-	running bool
-	stopCh  chan struct{}
-	wg      sync.WaitGroup
+	// readResolver resolves the destination chain of READ_REQUEST events (kept
+	// in the push chain DB). Nil disables read processing.
+	readResolver ChainResolver
+	running      bool
+	stopCh       chan struct{}
+	wg           sync.WaitGroup
 }
 
 // NewEventProcessor creates a new event processor
@@ -55,7 +61,7 @@ func NewEventProcessor(
 	chainID string,
 	inboundEnabled bool,
 	outboundEnabled bool,
-	reader ChainReader,
+	readResolver ChainResolver,
 	logger zerolog.Logger,
 ) *EventProcessor {
 	return &EventProcessor{
@@ -64,7 +70,7 @@ func NewEventProcessor(
 		chainID:         chainID,
 		inboundEnabled:  inboundEnabled,
 		outboundEnabled: outboundEnabled,
-		reader:          reader,
+		readResolver:    readResolver,
 		logger:          logger.With().Str("component", "event_processor").Str("chain", chainID).Logger(),
 		stopCh:          make(chan struct{}),
 	}
@@ -163,8 +169,8 @@ func (ep *EventProcessor) processConfirmedEvents(ctx context.Context) error {
 				continue
 			}
 		} else if event.Type == store.EventTypeReadRequest {
-			if ep.reader == nil {
-				ep.logger.Warn().Str("event_id", event.EventID).Msg("no reader configured, skipping read request event processing")
+			if ep.readResolver == nil {
+				ep.logger.Warn().Str("event_id", event.EventID).Msg("no read resolver configured, skipping read request event processing")
 				continue
 			}
 			if err := ep.processReadRequestEvent(ctx, &event); err != nil {
@@ -235,10 +241,11 @@ func (ep *EventProcessor) processInboundEvent(ctx context.Context, event *store.
 	return ep.markCompleted(event, voteTxHash)
 }
 
-// processReadRequestEvent executes an external read request against this chain
-// and votes the observation. Transient failures (RPC errors, vote failure)
-// keep the event CONFIRMED for retry; corrupt or expired requests flip to
-// REVERTED without voting (core's EndBlocker expires them on-chain).
+// processReadRequestEvent executes an external read request against its
+// destination chain and votes the observation. Transient failures (chain not
+// served, RPC errors, vote failure) keep the event CONFIRMED for retry;
+// corrupt requests flip to REVERTED without voting. Expiry is core's job:
+// expired requests leave the pending query, so they stop being stored here.
 func (ep *EventProcessor) processReadRequestEvent(ctx context.Context, event *store.Event) error {
 	var req uread.ReadRequest
 	if err := json.Unmarshal(event.EventData, &req); err != nil {
@@ -246,13 +253,14 @@ func (ep *EventProcessor) processReadRequestEvent(ctx context.Context, event *st
 		return fmt.Errorf("corrupt read request event data: %w", err)
 	}
 
-	if req.ExpiryTimestamp > 0 && time.Now().Unix() >= req.ExpiryTimestamp {
-		ep.logger.Info().Str("request_id", req.RequestID).Msg("read request expired; skipping (core EndBlocker expires it on-chain)")
-		ep.markReadReverted(event.EventID)
+	reader, err := ep.readResolver.GetReader(req.DestinationChain)
+	if err != nil {
+		// destination not served by this validator yet; retry next tick
+		ep.logger.Debug().Err(err).Str("request_id", req.RequestID).Str("destination_chain", req.DestinationChain).Msg("no reader for destination chain")
 		return nil
 	}
 
-	result, err := ep.reader.ExecuteRead(ctx, &req)
+	result, err := reader.ExecuteRead(ctx, &req)
 	if err != nil {
 		return fmt.Errorf("read execution failed: %w", err)
 	}

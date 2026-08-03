@@ -12,7 +12,7 @@ import (
 	"github.com/mr-tron/base58"
 	"github.com/rs/zerolog"
 
-	"github.com/pushchain/push-chain-node/universalClient/chains/common"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 )
 
@@ -159,7 +159,7 @@ func parseOutboundObservationEvent(log string, signature string, slot uint64, lo
 	switch eventType {
 	case EventTypeFinalizeUniversalTx:
 		// ...universal_tx_id(32) wrapper_address(32) gas_fee(8) gas_used(8) ...
-		const wrapperOffset = 8 + 32 + 32 // 72
+		const wrapperOffset = 8 + 32 + 32   // 72
 		readGasUsed(wrapperOffset + 32 + 8) // 112 (skip wrapper_address + gas_fee)
 		if len(decoded) >= wrapperOffset+32 {
 			var wrap [32]byte

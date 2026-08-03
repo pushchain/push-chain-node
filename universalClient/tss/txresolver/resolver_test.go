@@ -19,9 +19,9 @@ import (
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 
-	"github.com/pushchain/push-chain-node/universalClient/chains"
-	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/config"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 )
@@ -99,9 +99,9 @@ func makeOutboundEventData(txID, utxID, destChain string) []byte {
 	return b
 }
 
-func newTestChains(t *testing.T, chainID string, vmType uregistrytypes.VmType, client common.ChainClient) *chains.Chains {
+func newTestChains(t *testing.T, chainID string, vmType uregistrytypes.VmType, client common.ChainClient) *externalchains.Chains {
 	t.Helper()
-	c := chains.NewChains(nil, nil, &config.Config{PushChainID: "test-chain"}, zerolog.Nop())
+	c := externalchains.NewChains(nil, nil, &config.Config{PushChainID: "test-chain"}, zerolog.Nop())
 
 	v := reflect.ValueOf(c).Elem()
 
@@ -145,9 +145,9 @@ func getEvent(t *testing.T, db *gorm.DB, eventID string) store.Event {
 	return ev
 }
 
-func newTestChainsOutboundDisabled(t *testing.T, chainID string, vmType uregistrytypes.VmType, client common.ChainClient) *chains.Chains {
+func newTestChainsOutboundDisabled(t *testing.T, chainID string, vmType uregistrytypes.VmType, client common.ChainClient) *externalchains.Chains {
 	t.Helper()
-	c := chains.NewChains(nil, nil, &config.Config{PushChainID: "test-chain"}, zerolog.Nop())
+	c := externalchains.NewChains(nil, nil, &config.Config{PushChainID: "test-chain"}, zerolog.Nop())
 
 	v := reflect.ValueOf(c).Elem()
 
@@ -169,7 +169,7 @@ func newTestChainsOutboundDisabled(t *testing.T, chainID string, vmType uregistr
 	return c
 }
 
-func newResolver(evtStore *eventstore.Store, ch *chains.Chains) *Resolver {
+func newResolver(evtStore *eventstore.Store, ch *externalchains.Chains) *Resolver {
 	return NewResolver(Config{
 		EventStore:    evtStore,
 		Chains:        ch,
@@ -181,7 +181,7 @@ func newResolver(evtStore *eventstore.Store, ch *chains.Chains) *Resolver {
 // newResolverWithTSSAddress builds a Resolver that returns a fixed TSS address
 // from GetTSSAddress — needed by tests that exercise the EVM nonce-based
 // retry/revert path.
-func newResolverWithTSSAddress(evtStore *eventstore.Store, ch *chains.Chains, addr string) *Resolver {
+func newResolverWithTSSAddress(evtStore *eventstore.Store, ch *externalchains.Chains, addr string) *Resolver {
 	return NewResolver(Config{
 		EventStore:    evtStore,
 		Chains:        ch,
@@ -1144,7 +1144,7 @@ func TestResolveFundMigration_InvalidEventData_StaysBroadcasted(t *testing.T) {
 
 func TestGetBuilder_ChainNotRegistered_ReturnsError(t *testing.T) {
 	evtStore, _ := setupTestDB(t)
-	ch := chains.NewChains(nil, nil, &config.Config{PushChainID: "test-chain"}, zerolog.Nop())
+	ch := externalchains.NewChains(nil, nil, &config.Config{PushChainID: "test-chain"}, zerolog.Nop())
 	resolver := newResolver(evtStore, ch)
 
 	_, err := resolver.getBuilder("eip155:999")

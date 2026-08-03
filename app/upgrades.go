@@ -21,6 +21,7 @@ import (
 	evmrpcfix "github.com/pushchain/push-chain-node/app/upgrades/evm-rpc-fix"
 	evmv040 "github.com/pushchain/push-chain-node/app/upgrades/evm-v0-4-0"
 	evmv050 "github.com/pushchain/push-chain-node/app/upgrades/evm-v0-5-0"
+	evmderivedgasprice "github.com/pushchain/push-chain-node/app/upgrades/evm-derived-gas-price"
 	evmv060 "github.com/pushchain/push-chain-node/app/upgrades/evm-v0-6-0"
 	feeabs "github.com/pushchain/push-chain-node/app/upgrades/fee-abs"
 	gasoracle "github.com/pushchain/push-chain-node/app/upgrades/gas-oracle"
@@ -90,6 +91,9 @@ var Upgrades = []upgrades.Upgrade{
 	pc20.NewUpgrade(),
 	// sdk-v0.53 — Cosmos SDK v0.50.10 -> v0.53.7; no-op (no module ConsensusVersion changes)
 	sdkv053.NewUpgrade(),
+	// evm-derived-gas-price — cosmos/evm bump for the derived-tx gas price fix;
+	// no-op (JSON-RPC reporting only, no module ConsensusVersion changes)
+	evmderivedgasprice.NewUpgrade(),
 }
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers

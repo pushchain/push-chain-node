@@ -1,4 +1,4 @@
-package push
+package pushwatcher
 
 import (
 	"crypto/sha256"

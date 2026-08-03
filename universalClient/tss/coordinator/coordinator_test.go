@@ -15,9 +15,9 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	"github.com/pushchain/push-chain-node/universalClient/chains"
-	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/config"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
@@ -91,9 +91,9 @@ func (m *coordMockChainClient) GetTxBuilder() (common.TxBuilder, error) {
 	return m.builder, nil
 }
 
-func newTestChainsForCoordinator(t *testing.T, chainID string, vmType uregistrytypes.VmType, client common.ChainClient) *chains.Chains {
+func newTestChainsForCoordinator(t *testing.T, chainID string, vmType uregistrytypes.VmType, client common.ChainClient) *externalchains.Chains {
 	t.Helper()
-	c := chains.NewChains(nil, nil, &config.Config{PushChainID: "test-chain"}, zerolog.Nop())
+	c := externalchains.NewChains(nil, nil, &config.Config{PushChainID: "test-chain"}, zerolog.Nop())
 
 	v := reflect.ValueOf(c).Elem()
 

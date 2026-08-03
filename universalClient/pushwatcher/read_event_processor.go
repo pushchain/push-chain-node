@@ -3,8 +3,6 @@ package pushwatcher
 import (
 	"context"
 	"encoding/json"
-	"sync"
-	"time"
 
 	"github.com/pushchain/push-chain-node/universalClient/db"
 	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
@@ -12,8 +10,6 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/uread"
 	"github.com/rs/zerolog"
 )
-
-const readProcessBatchSize = 1000
 
 // ChainResolver resolves a CAIP-2 chain ID to its chain client.
 // Satisfied by externalchains.Chains.
@@ -27,135 +23,45 @@ type readVoter interface {
 	VoteReadResult(ctx context.Context, requestID string, result *uread.ReadResult) (string, error)
 }
 
-// ReadProcessor consumes READ_REQUEST events from the push chain DB, executes
-// each request on its destination chain via the resolved handler, and votes
-// the result. Transient failures (destination not served, RPC errors, vote
-// failure) keep the event CONFIRMED for retry; corrupt events flip to
-// REVERTED. Expiry is core's job: expired requests leave the pending query.
-type ReadProcessor struct {
+// ReadEventProcessor handles READ_REQUEST events: it executes each request on
+// its destination chain via the resolved read handler and votes the result.
+// Transient failures (destination not served, RPC errors, vote failure) keep
+// the event CONFIRMED for retry; corrupt events flip to REVERTED. Expiry is
+// core's job: expired requests leave the pending query.
+type ReadEventProcessor struct {
 	voter      readVoter
 	resolver   ChainResolver
 	chainStore *common.ChainStore
-	cfg        Config
 	logger     zerolog.Logger
-
-	mu      sync.Mutex
-	running bool
-	cancel  context.CancelFunc
-	wg      sync.WaitGroup
 }
 
-// NewReadProcessor creates a new read processor.
-func NewReadProcessor(
+// NewReadEventProcessor creates the handler for READ_REQUEST events.
+func NewReadEventProcessor(
 	voter readVoter,
 	resolver ChainResolver,
 	database *db.DB,
-	pollInterval time.Duration,
 	logger zerolog.Logger,
-) (*ReadProcessor, error) {
+) (*ReadEventProcessor, error) {
 	if database == nil {
 		return nil, ErrNilDatabase
 	}
 
-	if pollInterval <= 0 {
-		pollInterval = DefaultPollInterval
-	}
-
-	return &ReadProcessor{
+	return &ReadEventProcessor{
 		voter:      voter,
 		resolver:   resolver,
 		chainStore: common.NewChainStore(database),
-		cfg:        Config{PollInterval: pollInterval},
-		logger:     logger.With().Str("component", "push_read_processor").Logger(),
+		logger:     logger.With().Str("component", "push_read_event_processor").Logger(),
 	}, nil
 }
 
-// Start begins processing read request events.
-func (p *ReadProcessor) Start(ctx context.Context) error {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	if p.running {
-		return ErrAlreadyRunning
+// HandleEvent implements EventHandler for READ_REQUEST events.
+func (p *ReadEventProcessor) HandleEvent(ctx context.Context, event *store.Event) error {
+	if p.isExpired(event) {
+		p.logger.Info().Str("event_id", event.EventID).Msg("read request expired; marking reverted")
+		p.markReverted(event.EventID)
+		return nil
 	}
 
-	childCtx, cancel := context.WithCancel(ctx)
-	p.cancel = cancel
-	p.running = true
-
-	p.logger.Debug().
-		Dur("poll_interval", p.cfg.PollInterval).
-		Msg("starting read processor")
-
-	p.wg.Add(1)
-	go p.run(childCtx)
-
-	return nil
-}
-
-// Stop gracefully stops the processor.
-func (p *ReadProcessor) Stop() error {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	if !p.running {
-		return ErrNotRunning
-	}
-
-	p.cancel()
-	p.wg.Wait()
-	p.running = false
-
-	return nil
-}
-
-func (p *ReadProcessor) run(ctx context.Context) {
-	defer p.wg.Done()
-
-	p.processConfirmedReads(ctx)
-
-	ticker := time.NewTicker(p.cfg.PollInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			p.processConfirmedReads(ctx)
-		}
-	}
-}
-
-// processConfirmedReads executes and votes stored read request events.
-func (p *ReadProcessor) processConfirmedReads(ctx context.Context) {
-	events, err := p.chainStore.GetConfirmedEvents(readProcessBatchSize)
-	if err != nil {
-		p.logger.Error().Err(err).Msg("failed to query confirmed events")
-		return
-	}
-
-	for _, event := range events {
-		if event.Type != store.EventTypeReadRequest {
-			continue
-		}
-
-		select {
-		case <-ctx.Done():
-			return
-		default:
-		}
-
-		if err := p.processOne(ctx, &event); err != nil {
-			p.logger.Error().
-				Err(err).
-				Str("event_id", event.EventID).
-				Msg("failed to process read request event")
-		}
-	}
-}
-
-func (p *ReadProcessor) processOne(ctx context.Context, event *store.Event) error {
 	var req uread.ReadRequest
 	if err := json.Unmarshal(event.EventData, &req); err != nil {
 		p.markReverted(event.EventID)
@@ -208,7 +114,20 @@ func (p *ReadProcessor) processOne(ctx context.Context, event *store.Event) erro
 	return nil
 }
 
-func (p *ReadProcessor) markReverted(eventID string) {
+// isExpired reports whether the request's expiry Push chain height has been
+// reached, using the chain height persisted by the event listener.
+func (p *ReadEventProcessor) isExpired(event *store.Event) bool {
+	if event.ExpiryBlockHeight == 0 {
+		return false
+	}
+	pushHeight, err := p.chainStore.GetChainHeight()
+	if err != nil {
+		return false
+	}
+	return pushHeight >= event.ExpiryBlockHeight
+}
+
+func (p *ReadEventProcessor) markReverted(eventID string) {
 	if _, err := p.chainStore.UpdateEventStatus(eventID, store.StatusConfirmed, store.StatusReverted); err != nil {
 		p.logger.Error().Err(err).Str("event_id", eventID).Msg("failed to mark read request reverted")
 	}

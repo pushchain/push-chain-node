@@ -3,7 +3,9 @@ package web2
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"math/big"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -278,6 +280,74 @@ func TestExecuteRead_TransientErrors(t *testing.T) {
 		require.Error(t, err)
 		assert.Nil(t, result)
 	})
+}
+
+func TestExecuteRead_SSRFGuard(t *testing.T) {
+	// guard is active only when allowInsecureURL is false
+	blocked := []string{
+		"https://127.0.0.1/x",
+		"https://[::1]/x",
+		"https://169.254.169.254/latest/meta-data/",
+		"https://10.0.0.1/x",
+		"https://192.168.1.1/x",
+		"https://172.16.0.1/x",
+		"https://100.64.0.1/x",
+		"https://0.0.0.0/x",
+	}
+	for _, target := range blocked {
+		t.Run(target, func(t *testing.T) {
+			e := NewExecutor(zerolog.Nop())
+			req := web2Request(t, rawWeb2Envelope{
+				Method:    uint8(web2MethodGet),
+				Url:       target,
+				TimeoutMs: 1000,
+				Extract:   []rawWeb2Extract{extractSpec("$.x", valueTypeString, 0)},
+			})
+			result, err := e.ExecuteRead(context.Background(), req)
+			require.NoError(t, err) // deterministic, not transient
+			assert.Equal(t, uread.ReadStatusError, result.Status)
+		})
+	}
+}
+
+func TestCheckRedirect(t *testing.T) {
+	e := NewExecutor(zerolog.Nop())
+
+	mustReq := func(rawURL string) *http.Request {
+		r, err := http.NewRequest(http.MethodGet, rawURL, nil)
+		require.NoError(t, err)
+		return r
+	}
+
+	// https redirect within the hop budget is allowed
+	assert.NoError(t, e.checkRedirect(mustReq("https://example.com/next"), make([]*http.Request, 1)))
+
+	// scheme downgrade to http is blocked
+	err := e.checkRedirect(mustReq("http://example.com/next"), make([]*http.Request, 1))
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, errBlockedRequest))
+
+	// too many redirects is blocked
+	err = e.checkRedirect(mustReq("https://example.com/next"), make([]*http.Request, maxRedirects))
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, errBlockedRequest))
+}
+
+func TestIsDisallowedIP(t *testing.T) {
+	disallowed := []string{
+		"127.0.0.1", "::1", "10.1.2.3", "172.16.5.5", "192.168.0.1",
+		"169.254.169.254", "100.64.0.1", "0.0.0.0", "fe80::1", "fc00::1", "224.0.0.1",
+		// IPv4-mapped IPv6 must not slip past the v4-range checks
+		"::ffff:127.0.0.1", "::ffff:169.254.169.254", "::ffff:10.0.0.1",
+	}
+	for _, s := range disallowed {
+		assert.True(t, isDisallowedIP(net.ParseIP(s)), "%s should be blocked", s)
+	}
+
+	allowed := []string{"8.8.8.8", "1.1.1.1", "93.184.216.34", "2606:2800:220:1::1", "100.63.255.255", "100.128.0.1"}
+	for _, s := range allowed {
+		assert.False(t, isDisallowedIP(net.ParseIP(s)), "%s should be allowed", s)
+	}
 }
 
 func TestScaledInteger(t *testing.T) {

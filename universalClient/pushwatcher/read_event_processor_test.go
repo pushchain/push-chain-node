@@ -78,7 +78,7 @@ func testReadRequest() *uread.ReadRequest {
 func newTestReadEventProcessor(t *testing.T, voter readVoter, destClient common.ChainClient) (*ReadEventProcessor, *common.ChainStore) {
 	t.Helper()
 	database := newTestDB(t)
-	p, err := NewReadEventProcessor(voter, &fakeChainResolver{client: destClient}, database, zerolog.Nop())
+	p, err := NewReadEventProcessor(voter, &fakeChainResolver{client: destClient}, nil, database, zerolog.Nop())
 	require.NoError(t, err)
 	return p, common.NewChainStore(database)
 }
@@ -212,4 +212,41 @@ func TestReadEventProcessor_NotExpiredProcessesNormally(t *testing.T) {
 
 	require.Contains(t, voter.votes, req.RequestID)
 	assertStatus(t, cs, event.EventID, store.StatusCompleted)
+}
+
+
+func TestReadEventProcessor_Web2Dispatch(t *testing.T) {
+	req := testReadRequest()
+	req.DestinationChain = "web2:https"
+	result := &uread.ReadResult{Status: uread.ReadStatusSuccess, ResultData: []byte{0xbb}}
+
+	t.Run("dispatches to web2 handler", func(t *testing.T) {
+		database := newTestDB(t)
+		voter := &fakeReadVoter{txHash: "VOTE_TX"}
+		web2Handler := &fakeDestClient{result: result}
+		p, err := NewReadEventProcessor(voter, &fakeChainResolver{}, web2Handler, database, zerolog.Nop())
+		require.NoError(t, err)
+		cs := common.NewChainStore(database)
+		event := seedReadRequest(t, cs, req)
+
+		require.NoError(t, p.HandleEvent(context.Background(), event))
+
+		require.Contains(t, voter.votes, req.RequestID)
+		assert.Equal(t, result, voter.votes[req.RequestID])
+		assertStatus(t, cs, event.EventID, store.StatusCompleted)
+	})
+
+	t.Run("no web2 handler retries", func(t *testing.T) {
+		database := newTestDB(t)
+		voter := &fakeReadVoter{txHash: "VOTE_TX"}
+		p, err := NewReadEventProcessor(voter, &fakeChainResolver{}, nil, database, zerolog.Nop())
+		require.NoError(t, err)
+		cs := common.NewChainStore(database)
+		event := seedReadRequest(t, cs, req)
+
+		require.NoError(t, p.HandleEvent(context.Background(), event))
+
+		assert.Empty(t, voter.votes)
+		assertStatus(t, cs, event.EventID, store.StatusConfirmed)
+	})
 }

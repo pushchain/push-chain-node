@@ -3,9 +3,12 @@ package pushwatcher
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"strings"
 
 	"github.com/pushchain/push-chain-node/universalClient/db"
 	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains/web2"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/uread"
 	"github.com/rs/zerolog"
@@ -29,16 +32,19 @@ type readVoter interface {
 // the event CONFIRMED for retry; corrupt events flip to REVERTED. Expiry is
 // core's job: expired requests leave the pending query.
 type ReadEventProcessor struct {
-	voter      readVoter
-	resolver   ChainResolver
-	chainStore *common.ChainStore
-	logger     zerolog.Logger
+	voter       readVoter
+	resolver    ChainResolver
+	web2Handler common.ReadRequestHandler
+	chainStore  *common.ChainStore
+	logger      zerolog.Logger
 }
 
 // NewReadEventProcessor creates the handler for READ_REQUEST events.
+// web2Handler serves web2 destinations; nil means web2 reads are not served.
 func NewReadEventProcessor(
 	voter readVoter,
 	resolver ChainResolver,
+	web2Handler common.ReadRequestHandler,
 	database *db.DB,
 	logger zerolog.Logger,
 ) (*ReadEventProcessor, error) {
@@ -47,10 +53,11 @@ func NewReadEventProcessor(
 	}
 
 	return &ReadEventProcessor{
-		voter:      voter,
-		resolver:   resolver,
-		chainStore: common.NewChainStore(database),
-		logger:     logger.With().Str("component", "push_read_event_processor").Logger(),
+		voter:       voter,
+		resolver:    resolver,
+		web2Handler: web2Handler,
+		chainStore:  common.NewChainStore(database),
+		logger:      logger.With().Str("component", "push_read_event_processor").Logger(),
 	}, nil
 }
 
@@ -70,17 +77,10 @@ func (p *ReadEventProcessor) HandleEvent(ctx context.Context, event *store.Event
 
 	log := p.logger.With().Str("request_id", req.RequestID).Logger()
 
-	destClient, err := p.resolver.GetClient(req.DestinationChain)
+	handler, err := p.resolveHandler(req.DestinationChain)
 	if err != nil {
 		// destination not served by this validator yet; retry next tick
-		log.Debug().Err(err).Str("destination_chain", req.DestinationChain).Msg("destination chain not served")
-		return nil
-	}
-
-	handler, err := destClient.GetReadRequestHandler()
-	if err != nil {
-		// destination client not ready to serve reads yet; retry next tick
-		log.Debug().Err(err).Str("destination_chain", req.DestinationChain).Msg("read handler not available")
+		log.Debug().Err(err).Str("destination_chain", req.DestinationChain).Msg("destination not served")
 		return nil
 	}
 
@@ -112,6 +112,23 @@ func (p *ReadEventProcessor) HandleEvent(ctx context.Context, event *store.Event
 		Msg("read request voted")
 
 	return nil
+}
+
+// resolveHandler returns the read handler for a destination: the web2 executor
+// for web2 destinations, otherwise the destination chain client's handler.
+func (p *ReadEventProcessor) resolveHandler(destination string) (common.ReadRequestHandler, error) {
+	if strings.HasPrefix(destination, web2.DestinationPrefix) {
+		if p.web2Handler == nil {
+			return nil, fmt.Errorf("web2 reads not served")
+		}
+		return p.web2Handler, nil
+	}
+
+	destClient, err := p.resolver.GetClient(destination)
+	if err != nil {
+		return nil, err
+	}
+	return destClient.GetReadRequestHandler()
 }
 
 // isExpired reports whether the request's expiry Push chain height has been

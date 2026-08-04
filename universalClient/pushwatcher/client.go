@@ -9,6 +9,7 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/config"
 	"github.com/pushchain/push-chain-node/universalClient/db"
 	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains/web2"
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/pushsigner"
 	"github.com/pushchain/push-chain-node/universalClient/store"
@@ -79,7 +80,7 @@ func NewClient(
 	// READ_REQUEST events are executed on their destination chains (via
 	// chainResolver) and the results voted back.
 	if pushSigner != nil && chainResolver != nil {
-		readEventProcessor, err := NewReadEventProcessor(pushSigner, chainResolver, database, logger)
+		readEventProcessor, err := NewReadEventProcessor(pushSigner, chainResolver, web2.NewExecutor(logger), database, logger)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create read event processor: %w", err)
 		}

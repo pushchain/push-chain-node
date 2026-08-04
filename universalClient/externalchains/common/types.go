@@ -9,12 +9,6 @@ import (
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
-// ReadRequestHandler executes a read request on one destination chain.
-// Consumed by the push watcher's read processor.
-type ReadRequestHandler interface {
-	ExecuteRead(ctx context.Context, req *uread.ReadRequest) (*uread.ReadResult, error)
-}
-
 // EncodeUint256Result canonically encodes a balance/amount as abi.encode(uint256)
 // so read results are byte-identical across validators and decodable by the
 // requesting contract. The bounds check guards against a malicious RPC value
@@ -118,4 +112,10 @@ type TxBuilder interface {
 
 	// BroadcastFundMigrationTx assembles and broadcasts a signed fund migration transaction.
 	BroadcastFundMigrationTx(ctx context.Context, req *UnsignedSigningReq, data *FundMigrationData, signature []byte) (string, error)
+}
+
+// ReadRequestHandler executes a read request on one destination chain.
+// Consumed by the push watcher's read processor.
+type ReadRequestHandler interface {
+	ExecuteRead(ctx context.Context, req *uread.ReadRequest) (*uread.ReadResult, error)
 }

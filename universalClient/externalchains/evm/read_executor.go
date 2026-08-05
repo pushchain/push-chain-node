@@ -5,14 +5,9 @@ import (
 	"fmt"
 	"math/big"
 
-	ethcommon "github.com/ethereum/go-ethereum/common"
-
 	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
 	"github.com/pushchain/push-chain-node/universalClient/uread"
 )
-
-// balanceOfSelector is the 4-byte selector for balanceOf(address).
-var balanceOfSelector = []byte{0x70, 0xa0, 0x82, 0x31}
 
 // ExecuteRead implements common.ChainReader for EVM chains.
 // All validators must produce byte-identical results, so every query runs at the
@@ -54,21 +49,6 @@ func (c *Client) ExecuteRead(ctx context.Context, req *uread.ReadRequest) (*urea
 			return nil, rpcErr
 		}
 		resultData, err = common.EncodeUint256Result(balance)
-
-	case evmQueryERC20Balance:
-		token, owner, decErr := decodeERC20BalancePayload(env.Payload)
-		if decErr != nil {
-			return uread.NewErrorResult(decErr), nil
-		}
-		callData := append(append([]byte{}, balanceOfSelector...), ethcommon.LeftPadBytes(owner.Bytes(), 32)...)
-		ret, rpcErr := c.rpcClient.CallContract(ctx, token, callData, blockNum)
-		if rpcErr != nil {
-			return nil, rpcErr
-		}
-		if len(ret) < 32 {
-			return uread.NewErrorResult(fmt.Errorf("balanceOf returned %d bytes", len(ret))), nil
-		}
-		resultData, err = common.EncodeUint256Result(new(big.Int).SetBytes(ret[:32]))
 
 	case evmQueryContractCall:
 		target, callData, decErr := decodeContractCallPayload(env.Payload)

@@ -119,23 +119,6 @@ func TestExecuteRead_AccountBalance(t *testing.T) {
 	assert.Len(t, result.ObservedBlockHash, 32)
 }
 
-func TestExecuteRead_ERC20Balance(t *testing.T) {
-	token := ethcommon.HexToAddress("0x2222222222222222222222222222222222222222")
-	owner := ethcommon.HexToAddress("0x3333333333333333333333333333333333333333")
-	payload, err := addressPairArgs.Pack(token, owner)
-	require.NoError(t, err)
-
-	client := newReadTestClient(t, map[string]any{
-		"eth_getBlockByNumber": fakeHeader(100),
-		"eth_call":             "0x" + fmt.Sprintf("%064x", 42),
-	}, nil)
-
-	result, err := client.ExecuteRead(context.Background(), evmReadRequest(t, uint8(evmQueryERC20Balance), 0, payload))
-	require.NoError(t, err)
-	assert.Equal(t, uread.ReadStatusSuccess, result.Status)
-	assert.Equal(t, big.NewInt(42), new(big.Int).SetBytes(result.ResultData))
-}
-
 func TestExecuteRead_ContractCall(t *testing.T) {
 	target := ethcommon.HexToAddress("0x2222222222222222222222222222222222222222")
 	payload, err := addressBytesArgs.Pack(target, []byte{0xde, 0xad})

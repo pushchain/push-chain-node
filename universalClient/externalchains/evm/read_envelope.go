@@ -12,9 +12,8 @@ type evmQueryType uint8
 
 const (
 	evmQueryAccountBalance evmQueryType = 0
-	evmQueryERC20Balance   evmQueryType = 1
-	evmQueryContractCall   evmQueryType = 2
-	evmQueryStorageSlot    evmQueryType = 3
+	evmQueryContractCall   evmQueryType = 1
+	evmQueryStorageSlot    evmQueryType = 2
 )
 
 // evmBlockRefType mirrors the EvmBlockRefType enum. Only AT_NUMBER exists in v1.
@@ -41,7 +40,6 @@ var (
 	}})
 
 	addressArgs        = mustReadArgs(abi.ArgumentMarshaling{Type: "address"})
-	addressPairArgs    = mustReadArgs(abi.ArgumentMarshaling{Type: "address"}, abi.ArgumentMarshaling{Type: "address"})
 	addressBytesArgs   = mustReadArgs(abi.ArgumentMarshaling{Type: "address"}, abi.ArgumentMarshaling{Type: "bytes"})
 	addressBytes32Args = mustReadArgs(abi.ArgumentMarshaling{Type: "address"}, abi.ArgumentMarshaling{Type: "bytes32"})
 )
@@ -100,15 +98,6 @@ func decodeAccountBalancePayload(payload []byte) (ethcommon.Address, error) {
 		return ethcommon.Address{}, fmt.Errorf("failed to unpack AccountBalance payload: %w", err)
 	}
 	return vals[0].(ethcommon.Address), nil
-}
-
-// decodeERC20BalancePayload decodes abi.encode(address token, address owner).
-func decodeERC20BalancePayload(payload []byte) (token, owner ethcommon.Address, err error) {
-	vals, err := addressPairArgs.Unpack(payload)
-	if err != nil {
-		return ethcommon.Address{}, ethcommon.Address{}, fmt.Errorf("failed to unpack ERC20Balance payload: %w", err)
-	}
-	return vals[0].(ethcommon.Address), vals[1].(ethcommon.Address), nil
 }
 
 // decodeContractCallPayload decodes abi.encode(address target, bytes callData).

@@ -53,14 +53,6 @@ func TestDecodeEvmQueryEnvelope_Invalid(t *testing.T) {
 
 func TestDecodeEvmPayloads(t *testing.T) {
 	token := ethcommon.HexToAddress("0x2222222222222222222222222222222222222222")
-	owner := ethcommon.HexToAddress("0x3333333333333333333333333333333333333333")
-
-	erc20Payload, err := addressPairArgs.Pack(token, owner)
-	require.NoError(t, err)
-	gotToken, gotOwner, err := decodeERC20BalancePayload(erc20Payload)
-	require.NoError(t, err)
-	assert.Equal(t, token, gotToken)
-	assert.Equal(t, owner, gotOwner)
 
 	callData := []byte{0xde, 0xad, 0xbe, 0xef}
 	callPayload, err := addressBytesArgs.Pack(token, callData)

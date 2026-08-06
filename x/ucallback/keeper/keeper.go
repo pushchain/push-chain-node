@@ -36,6 +36,8 @@ type Keeper struct {
 	// Push transaction can be listed together.
 	ReadsByTxHash collections.KeySet[collections.Pair[string, string]]
 
+	uvalidatorKeeper types.UValidatorKeeper
+
 	authority string
 }
 
@@ -45,6 +47,7 @@ func NewKeeper(
 	storeService storetypes.KVStoreService,
 	logger log.Logger,
 	authority string,
+	uvalidatorKeeper types.UValidatorKeeper,
 ) Keeper {
 	logger = logger.With(log.ModuleKey, "x/"+types.ModuleName)
 
@@ -73,7 +76,8 @@ func NewKeeper(
 			collections.PairKeyCodec(collections.StringKey, collections.StringKey),
 		),
 
-		authority: authority,
+		uvalidatorKeeper: uvalidatorKeeper,
+		authority:        authority,
 	}
 
 	schema, err := sb.Build()

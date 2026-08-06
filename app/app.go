@@ -684,12 +684,17 @@ func NewChainApp(
 	// If evidence needs to be handled for the app, set routes in router here and seal
 	app.EvidenceKeeper = *evidenceKeeper
 
-	// Create the ucallback Keeper
+	// Create the ucallback Keeper.
+	//
+	// UvalidatorKeeper is constructed further down, so this takes a pointer to the
+	// field rather than its value — same pattern as UexecutorKeeper below. The
+	// pointer is stable; the value it refers to is populated before any tx runs.
 	app.UcallbackKeeper = ucallbackkeeper.NewKeeper(
 		appCodec,
 		runtime.NewKVStoreService(keys[ucallbacktypes.StoreKey]),
 		logger,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+		&app.UvalidatorKeeper,
 	)
 
 	app.FeeMarketKeeper = feemarketkeeper.NewKeeper(

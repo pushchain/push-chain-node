@@ -18,6 +18,7 @@ import (
 
 	modulev1 "github.com/pushchain/push-chain-node/api/ucallback/module/v1"
 	"github.com/pushchain/push-chain-node/x/ucallback/keeper"
+	"github.com/pushchain/push-chain-node/x/ucallback/types"
 )
 
 var _ appmodule.AppModule = AppModule{}
@@ -44,6 +45,8 @@ type ModuleInputs struct {
 
 	StakingKeeper  stakingkeeper.Keeper
 	SlashingKeeper slashingkeeper.Keeper
+
+	UvalidatorKeeper types.UValidatorKeeper
 }
 
 type ModuleOutputs struct {
@@ -56,7 +59,7 @@ type ModuleOutputs struct {
 func ProvideModule(in ModuleInputs) ModuleOutputs {
 	govAddr := authtypes.NewModuleAddress(govtypes.ModuleName).String()
 
-	k := keeper.NewKeeper(in.Cdc, in.StoreService, log.NewLogger(os.Stderr), govAddr)
+	k := keeper.NewKeeper(in.Cdc, in.StoreService, log.NewLogger(os.Stderr), govAddr, in.UvalidatorKeeper)
 	m := NewAppModule(in.Cdc, k)
 
 	return ModuleOutputs{Module: m, Keeper: k, Out: depinject.Out{}}

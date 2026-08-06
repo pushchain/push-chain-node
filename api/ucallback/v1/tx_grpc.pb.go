@@ -19,13 +19,17 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Msg_UpdateParams_FullMethodName = "/ucallback.v1.Msg/UpdateParams"
+	Msg_VoteReadResult_FullMethodName = "/ucallback.v1.Msg/VoteReadResult"
+	Msg_UpdateParams_FullMethodName   = "/ucallback.v1.Msg/UpdateParams"
 )
 
 // MsgClient is the client API for Msg service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type MsgClient interface {
+	// VoteReadResult submits one universal validator's observation of a read
+	// request's outcome on the destination chain.
+	VoteReadResult(ctx context.Context, in *MsgVoteReadResult, opts ...grpc.CallOption) (*MsgVoteReadResultResponse, error)
 	// UpdateParams defines a governance operation for updating the parameters.
 	//
 	// Since: cosmos-sdk 0.47
@@ -38,6 +42,15 @@ type msgClient struct {
 
 func NewMsgClient(cc grpc.ClientConnInterface) MsgClient {
 	return &msgClient{cc}
+}
+
+func (c *msgClient) VoteReadResult(ctx context.Context, in *MsgVoteReadResult, opts ...grpc.CallOption) (*MsgVoteReadResultResponse, error) {
+	out := new(MsgVoteReadResultResponse)
+	err := c.cc.Invoke(ctx, Msg_VoteReadResult_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *msgClient) UpdateParams(ctx context.Context, in *MsgUpdateParams, opts ...grpc.CallOption) (*MsgUpdateParamsResponse, error) {
@@ -53,6 +66,9 @@ func (c *msgClient) UpdateParams(ctx context.Context, in *MsgUpdateParams, opts 
 // All implementations must embed UnimplementedMsgServer
 // for forward compatibility
 type MsgServer interface {
+	// VoteReadResult submits one universal validator's observation of a read
+	// request's outcome on the destination chain.
+	VoteReadResult(context.Context, *MsgVoteReadResult) (*MsgVoteReadResultResponse, error)
 	// UpdateParams defines a governance operation for updating the parameters.
 	//
 	// Since: cosmos-sdk 0.47
@@ -64,6 +80,9 @@ type MsgServer interface {
 type UnimplementedMsgServer struct {
 }
 
+func (UnimplementedMsgServer) VoteReadResult(context.Context, *MsgVoteReadResult) (*MsgVoteReadResultResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method VoteReadResult not implemented")
+}
 func (UnimplementedMsgServer) UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateParams not implemented")
 }
@@ -78,6 +97,24 @@ type UnsafeMsgServer interface {
 
 func RegisterMsgServer(s grpc.ServiceRegistrar, srv MsgServer) {
 	s.RegisterService(&Msg_ServiceDesc, srv)
+}
+
+func _Msg_VoteReadResult_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgVoteReadResult)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).VoteReadResult(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_VoteReadResult_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).VoteReadResult(ctx, req.(*MsgVoteReadResult))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _Msg_UpdateParams_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -105,6 +142,10 @@ var Msg_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "ucallback.v1.Msg",
 	HandlerType: (*MsgServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "VoteReadResult",
+			Handler:    _Msg_VoteReadResult_Handler,
+		},
 		{
 			MethodName: "UpdateParams",
 			Handler:    _Msg_UpdateParams_Handler,

@@ -42,6 +42,14 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					RpcMethod: "UpdateParams",
 					Skip:      false, // set to true if authority gated
 				},
+				{
+					RpcMethod: "VoteReadResult",
+					Use:       "vote-read-result <request-id>",
+					Short:     "Vote on the observed outcome of a read request",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{
+						{ProtoField: "request_id"},
+					},
+				},
 			},
 		},
 	}

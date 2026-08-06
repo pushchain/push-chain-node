@@ -3,14 +3,20 @@ package ucallback.v1;
 
 import "cosmos/msg/v1/msg.proto";
 import "ucallback/v1/genesis.proto";
+import "ucallback/v1/types.proto";
 import "gogoproto/gogo.proto";
 import "cosmos_proto/cosmos.proto";
+import "amino/amino.proto";
 
 option go_package = "github.com/pushchain/push-chain-node/x/ucallback/types";
 
 // Msg defines the Msg service.
 service Msg {
   option (cosmos.msg.v1.service) = true;
+
+  // VoteReadResult submits one universal validator's observation of a read
+  // request's outcome on the destination chain.
+  rpc VoteReadResult(MsgVoteReadResult) returns (MsgVoteReadResultResponse);
 
   // UpdateParams defines a governance operation for updating the parameters.
   //
@@ -38,3 +44,30 @@ message MsgUpdateParams {
 //
 // Since: cosmos-sdk 0.47
 message MsgUpdateParamsResponse {}
+
+// MsgVoteReadResult is broadcast by a universal validator that has executed a
+// read request against the destination chain.
+//
+// The ballot the vote lands on is derived from (request_id, result), so two
+// validators reporting the same observation converge on one ballot and any
+// disagreement produces a distinct ballot that never reaches quorum. Nothing
+// validator-local may appear in `result` for that reason — notably there is no
+// error message field.
+message MsgVoteReadResult {
+  option (amino.name) = "ucallback/MsgVoteReadResult";
+  option (cosmos.msg.v1.signer) = "signer";
+
+  // signer is the Cosmos address of the voting universal validator.
+  string signer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // request_id identifies the read request being voted on.
+  string request_id = 2;
+
+  // result is the observation. Every field participates in the ballot key.
+  ReadResult result = 3;
+}
+
+message MsgVoteReadResultResponse {
+  // finalized reports whether this vote carried the ballot to quorum.
+  bool finalized = 1;
+}

@@ -1,0 +1,123 @@
+syntax = "proto3";
+package ucallback.v1;
+
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+import "uexecutor/v1/types.proto";
+
+option go_package = "github.com/pushchain/push-chain-node/x/ucallback/types";
+
+// ReadStatus is the outcome a universal validator observed for a read.
+enum ReadStatus {
+  option (gogoproto.goproto_enum_stringer) = true;
+
+  READ_STATUS_UNSPECIFIED = 0;
+  READ_STATUS_SUCCESS     = 1;
+  READ_STATUS_ERROR       = 2;
+}
+
+// UniversalReadStatus is the lifecycle state of a read request on Push Chain.
+enum UniversalReadStatus {
+  option (gogoproto.goproto_enum_stringer) = true;
+
+  UNIVERSAL_READ_STATUS_UNSPECIFIED = 0;
+  UNIVERSAL_READ_STATUS_PENDING     = 1; // ingested, awaiting votes
+  UNIVERSAL_READ_STATUS_VOTING      = 2; // at least one vote, no quorum yet
+  UNIVERSAL_READ_STATUS_FULFILLED   = 3; // callback dispatched successfully
+  UNIVERSAL_READ_STATUS_EXPIRED     = 4; // expireExternalRead submitted
+  UNIVERSAL_READ_STATUS_FAILED      = 5; // quorum reached but the callback reverted
+}
+
+// ReadRequest is one external read requested by an app on Push Chain.
+//
+// Every field is derived from the UniversalCallback.ReadRequested event, except
+// created_at_height / requested_tx_hash / requested_log_index which come from the
+// block the log was emitted in.
+//
+// NOTE: callbackGasLimit is deliberately absent. It is an argument to
+// requestExternalReadSelf and is stored in the contract's _pending entry, but it is
+// NOT emitted in ReadRequested. It has to be read back via getPendingRead(requestId)
+// at fulfilment time, when the gas budget is actually needed.
+message ReadRequest {
+  option (gogoproto.equal) = true;
+
+  string request_id                = 1; // uint256 requestId as 0x-prefixed hex
+  string destination_chain         = 2; // CAIP-2, e.g. "eip155:1"; web2 uses "web2:https"
+  bytes  owner                     = 3; // 20-byte address or 32-byte pubkey
+  bytes  query                     = 4; // chain-specific envelope, abi.encode(...)
+  uint32 min_confirmations         = 5; // uint16 on the contract; proto3 has no uint16
+  uint64 destination_block_height  = 6; // height on the destination chain; unused for web2
+  uint64 expiry_block_height       = 7; // Push Chain height at which the request expires
+  uint64 created_at_height         = 8; // Push Chain height the request was observed at
+
+  // Bookkeeping — recorded for operators, not consumed by universal validators.
+  string callback_target           = 9;  // the app contract the callback routes to
+  string original_funder           = 10; // who paid the fee (the app, not the end user)
+  string fees_deposited            = 11; // uint256 as a decimal string
+  string max_fee                   = 12; // uint256 as a decimal string
+  string requested_tx_hash         = 13; // Push Chain tx that emitted ReadRequested
+  uint64 requested_log_index       = 14; // log index within that tx
+}
+
+// ReadResult is the observation a universal validator votes on.
+//
+// Fields 1-4 are covered by the ballot key, so they must be byte-identical across
+// validators for a ballot to converge. There is deliberately no error message field:
+// local error text differs per node and would prevent agreement.
+message ReadResult {
+  option (gogoproto.equal) = true;
+
+  ReadStatus status               = 1;
+  bytes      result_data          = 2; // ABI-encoded payload delivered to the app
+  uint64     observed_block_height = 3; // block number (EVM) or slot (SVM); 0 for web2
+  bytes      observed_block_hash   = 4; // 32 bytes; empty when the chain cannot pin one
+
+  // v2 ONLY — always empty in v1. See AggregateValue.
+  repeated AggregateValue aggregates = 5;
+}
+
+// AggregateValue is one field the module combines across validators instead of
+// requiring byte-equality on — a price, say, where honest nodes legitimately differ.
+//
+// NOT USED IN v1. The universal client rejects any extract mode other than IDENTICAL
+// (externalchains/web2/read_envelope.go), so this list is always empty today. The field
+// is reserved now because adding it later would change how ballots are keyed on a live
+// chain, which is consensus-breaking. In v1 the ballot key covers all of fields 1-4; in
+// v2 it must cover only fields 1-4 with `aggregates` EXCLUDED, so computing the key over
+// "the identical subset" from the start keeps v2 purely additive.
+//
+// v2 ALSO REQUIRES REPLACING THE BALLOT MECHANISM, not just populating this field.
+// Ballots today store a binary VoteResult{SUCCESS|FAILURE} against an ID that encodes the
+// observation, so distinct observations produce distinct ballots and none reaches quorum
+// when validators report different numbers. Ballots therefore cannot retain per-validator
+// values, which is exactly what a median needs. v2 has to keep each validator's
+// AggregateValue set in module state and reduce at quorum — the pattern x/uexecutor
+// already uses for gas-price medians in keeper/chain_meta.go, which bypasses ballots for
+// the same reason.
+message AggregateValue {
+  option (gogoproto.equal) = true;
+
+  uint32 extract_index = 1; // index into the query envelope's extract list
+  uint32 mode          = 2; // aggregation mode; only MEDIAN is planned
+  bytes  value         = 3; // big-endian uint256/int256
+}
+
+// UniversalRead is the full lifecycle record of one read request.
+//
+// The read-side sibling of uexecutor's UniversalTx, but deliberately not the same
+// shape: a read is triggered by a Push Chain event rather than an external inbound,
+// performs no external write, and settles in exactly one Push Chain transaction.
+message UniversalRead {
+  option (amino.name) = "ucallback/universal_read";
+  option (gogoproto.equal) = true;
+
+  string id                    = 1; // requestId, same value as request.request_id
+  ReadRequest request          = 2;
+  ReadResult  result           = 3; // set once the ballot finalises
+  UniversalReadStatus status   = 4;
+  string ballot_key            = 5;
+
+  // Push Chain execution attempts — fulfilExternalCallback and expireExternalRead.
+  // Repeated because fulfilment can be retried and may be followed by an expiry.
+  repeated uexecutor.v1.PCTx pc_tx = 6;
+}

@@ -47,6 +47,14 @@ func (k Keeper) SetUniversalRead(ctx context.Context, ur types.UniversalRead) er
 		} else if err := k.PendingByExpiry.Set(ctx, key); err != nil {
 			return err
 		}
+
+		// reads-by-tx: written once, never removed — it is provenance, not state
+		if ur.Request.RequestedTxHash != "" {
+			if err := k.ReadsByTxHash.Set(ctx,
+				collections.Join(ur.Request.RequestedTxHash, ur.Id)); err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil
@@ -92,6 +100,33 @@ func (k Keeper) IterateExpiredBy(ctx context.Context, height uint64, fn func(typ
 		}
 		if key.K1() > height {
 			break
+		}
+		ur, found := k.getUniversalReadRaw(ctx, key.K2())
+		if !found {
+			continue
+		}
+		if !fn(ur) {
+			return nil
+		}
+	}
+	return nil
+}
+
+// IterateReadsByTxHash calls fn for every read requested by the given Push tx.
+// A single transaction can emit several ReadRequested logs; each is its own
+// record, and this is how the batch is reassembled.
+func (k Keeper) IterateReadsByTxHash(ctx context.Context, txHash string, fn func(types.UniversalRead) bool) error {
+	rng := collections.NewPrefixedPairRange[string, string](txHash)
+	iter, err := k.ReadsByTxHash.Iterate(ctx, rng)
+	if err != nil {
+		return err
+	}
+	defer iter.Close()
+
+	for ; iter.Valid(); iter.Next() {
+		key, err := iter.Key()
+		if err != nil {
+			return err
 		}
 		ur, found := k.getUniversalReadRaw(ctx, key.K2())
 		if !found {

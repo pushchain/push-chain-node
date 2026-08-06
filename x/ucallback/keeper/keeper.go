@@ -32,6 +32,10 @@ type Keeper struct {
 	// can range-scan by height.
 	PendingByExpiry collections.KeySet[collections.Pair[uint64, string]]
 
+	// ReadsByTxHash holds (pushTxHash, requestId) so every read emitted by one
+	// Push transaction can be listed together.
+	ReadsByTxHash collections.KeySet[collections.Pair[string, string]]
+
 	authority string
 }
 
@@ -63,6 +67,10 @@ func NewKeeper(
 		PendingByExpiry: collections.NewKeySet(
 			sb, types.PendingByExpiryKey, "pending_by_expiry",
 			collections.PairKeyCodec(collections.Uint64Key, collections.StringKey),
+		),
+		ReadsByTxHash: collections.NewKeySet(
+			sb, types.ReadsByTxHashKey, "reads_by_tx_hash",
+			collections.PairKeyCodec(collections.StringKey, collections.StringKey),
 		),
 
 		authority: authority,

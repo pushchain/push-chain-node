@@ -85,3 +85,50 @@ func TestSetUniversalRead_SettledLeavesInFlightSet(t *testing.T) {
 	require.Empty(t, collectDueBy(t, f, 999), "settled reads are not swept")
 	require.True(t, f.k.HasUniversalRead(f.ctx, "0xaaa"), "the record survives")
 }
+
+func collectByTx(t *testing.T, f *testFixture, txHash string) []string {
+	t.Helper()
+	var got []string
+	err := f.k.IterateReadsByTxHash(f.ctx, txHash, func(ur types.UniversalRead) bool {
+		got = append(got, ur.Id)
+		return true
+	})
+	require.NoError(t, err)
+	return got
+}
+
+// One Push tx emitting several ReadRequested logs produces several independent
+// records that are still reassemblable as a batch.
+func TestSetUniversalRead_BatchedRequestsShareTxHash(t *testing.T) {
+	f := SetupTest(t)
+
+	for _, id := range []string{"0xaaa", "0xbbb", "0xccc"} {
+		require.NoError(t, f.k.SetUniversalRead(f.ctx,
+			newRead(id, "0xBATCH", 100, types.UniversalReadStatus_UNIVERSAL_READ_STATUS_PENDING)))
+	}
+	// a read from a different tx must not leak into the batch
+	require.NoError(t, f.k.SetUniversalRead(f.ctx,
+		newRead("0xddd", "0xOTHER", 100, types.UniversalReadStatus_UNIVERSAL_READ_STATUS_PENDING)))
+
+	require.ElementsMatch(t, []string{"0xaaa", "0xbbb", "0xccc"}, collectByTx(t, f, "0xBATCH"))
+	require.Equal(t, []string{"0xddd"}, collectByTx(t, f, "0xOTHER"))
+}
+
+// Siblings from one batch settle independently — one FULFILLED, one still pending.
+func TestSetUniversalRead_BatchSiblingsSettleIndependently(t *testing.T) {
+	f := SetupTest(t)
+
+	require.NoError(t, f.k.SetUniversalRead(f.ctx,
+		newRead("0xaaa", "0xBATCH", 100, types.UniversalReadStatus_UNIVERSAL_READ_STATUS_PENDING)))
+	require.NoError(t, f.k.SetUniversalRead(f.ctx,
+		newRead("0xbbb", "0xBATCH", 100, types.UniversalReadStatus_UNIVERSAL_READ_STATUS_PENDING)))
+
+	// settle only one of them
+	settled := newRead("0xaaa", "0xBATCH", 100, types.UniversalReadStatus_UNIVERSAL_READ_STATUS_FULFILLED)
+	require.NoError(t, f.k.SetUniversalRead(f.ctx, settled))
+
+	// the settled one drops out of the expiry sweep, its sibling does not
+	require.Equal(t, []string{"0xbbb"}, collectDueBy(t, f, 100))
+	// but both remain listed under the batch — reads-by-tx is provenance, not state
+	require.ElementsMatch(t, []string{"0xaaa", "0xbbb"}, collectByTx(t, f, "0xBATCH"))
+}

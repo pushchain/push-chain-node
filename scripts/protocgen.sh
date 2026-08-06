@@ -28,7 +28,11 @@ rm -rf github.com
 
 # Copy files over for dep injection
 rm -rf api && mkdir api
-custom_modules=$(find . -name 'module' -type d -not -path "./proto/*" -not -path "./.cache/*")
+# NOTE: exclude ./compat/* — compat/orm-api/module is a vendored compatibility shim, not a
+# generated proto module. Without this it is matched here, moved into ./api/ and then deleted by
+# the `rm -rf $module` below, which breaks the `cosmossdk.io/api/cosmos/orm => ./compat/orm-api`
+# replace in go.mod and fails the `go mod tidy` at the end of `make proto-gen`.
+custom_modules=$(find . -name 'module' -type d -not -path "./proto/*" -not -path "./.cache/*" -not -path "./compat/*")
 
 # get the 1 up directory (so ./cosmos/mint/module becomes ./cosmos/mint)
 # remove the relative path starter from base namespaces. so ./cosmos/mint becomes cosmos/mint

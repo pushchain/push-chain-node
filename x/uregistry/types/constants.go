@@ -51,6 +51,16 @@ var SYSTEM_CONTRACTS = map[string]ContractAddresses{
 		ProxyAdmin:     "0xF2000000000000000000000000000000000000C1",
 		Implementation: "0xF1000000000000000000000000000000000000C1",
 	},
+	// UNIVERSAL_CALLBACK is the read-request contract x/ucallback listens to.
+	// Promoted out of the RESERVED_C2 auto-reservation below: same address, same
+	// admin, same implementation, and (until the real contract ships) the same
+	// placeholder bytecode — so genesis state is byte-identical to before the
+	// rename, and chains that already deployed 0xC2 skip it as already-deployed.
+	"UNIVERSAL_CALLBACK": {
+		Address:        "0x00000000000000000000000000000000000000C2",
+		ProxyAdmin:     "0xF2000000000000000000000000000000000000C2",
+		Implementation: "0xF1000000000000000000000000000000000000C2",
+	},
 	"VAULT_PC": {
 		Address:        "0x00000000000000000000000000000000000000B0",
 		ProxyAdmin:     "0xF2000000000000000000000000000000000000b0",
@@ -142,7 +152,8 @@ func reservedProxyBytecode(slotByte byte) []byte {
 // Range policy:
 //   - 0xA0-0xAF: Proxy Admins / low-level modules (0xAA pre-occupied by uexecutor)
 //   - 0xB0-0xBF: Vaults + utility (0xB0 = VAULT_PC; 0xB1 = VAULT_PC20; 0xB2 = RESERVED_2; 0xBC = UNIVERSAL_BATCH_CALL)
-//   - 0xC0-0xCF: Chain abstraction (0xC0 = UNIVERSAL_CORE; 0xC1 = UNIVERSAL_GATEWAY_PC)
+//   - 0xC0-0xCF: Chain abstraction (0xC0 = UNIVERSAL_CORE; 0xC1 = UNIVERSAL_GATEWAY_PC;
+//     0xC2 = UNIVERSAL_CALLBACK)
 //   - 0xD0-0xFF: NOT reserved — left to other chains / future debug use
 //
 // Choice of full triples (vs bytecode-only): future activation of a reserved
@@ -154,6 +165,16 @@ func init() {
 		0xB0: true, 0xB1: true, 0xB2: true, // VAULT_PC / VAULT_PC20 / RESERVED_2
 		0xBC: true,
 		0xC0: true, 0xC1: true, // UNIVERSAL_CORE, UNIVERSAL_GATEWAY_PC
+		0xC2: true, // UNIVERSAL_CALLBACK
+	}
+
+	// Placeholder bytecode for UNIVERSAL_CALLBACK, identical to what RESERVED_C2
+	// carried before the promotion. Replaced with the real compiled contract in
+	// the commit that deploys it.
+	BYTECODE["UNIVERSAL_CALLBACK"] = ByteCodes{
+		IMPL_RUNTIME:  ReservedImplRuntimeBytecode,
+		PROXY_RUNTIME: reservedProxyBytecode(0xC2),
+		ADMIN_RUNTIME: ProxyAdminRuntimeBytecode,
 	}
 
 	for _, hi := range []byte{0xA, 0xB, 0xC} {

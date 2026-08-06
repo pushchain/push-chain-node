@@ -43,3 +43,45 @@ func TestSetUniversalRead_RejectsEmptyID(t *testing.T) {
 	f := SetupTest(t)
 	require.Error(t, f.k.SetUniversalRead(f.ctx, types.UniversalRead{}))
 }
+
+func collectDueBy(t *testing.T, f *testFixture, height uint64) []string {
+	t.Helper()
+	var got []string
+	err := f.k.IterateExpiredBy(f.ctx, height, func(ur types.UniversalRead) bool {
+		got = append(got, ur.Id)
+		return true
+	})
+	require.NoError(t, err)
+	return got
+}
+
+// The sweep is bounded by height and ordered ascending.
+func TestIterateExpiredBy_RespectsHeight(t *testing.T) {
+	f := SetupTest(t)
+
+	require.NoError(t, f.k.SetUniversalRead(f.ctx,
+		newRead("0xlow", "0xTX", 50, types.UniversalReadStatus_UNIVERSAL_READ_STATUS_PENDING)))
+	require.NoError(t, f.k.SetUniversalRead(f.ctx,
+		newRead("0xmid", "0xTX", 100, types.UniversalReadStatus_UNIVERSAL_READ_STATUS_VOTING)))
+	require.NoError(t, f.k.SetUniversalRead(f.ctx,
+		newRead("0xhigh", "0xTX", 150, types.UniversalReadStatus_UNIVERSAL_READ_STATUS_PENDING)))
+
+	require.Equal(t, []string{"0xlow"}, collectDueBy(t, f, 50))
+	require.Equal(t, []string{"0xlow", "0xmid"}, collectDueBy(t, f, 100), "ascending by expiry height")
+	require.Equal(t, []string{"0xlow", "0xmid", "0xhigh"}, collectDueBy(t, f, 999))
+}
+
+// Settling a read removes it from the in-flight set; the record itself remains.
+func TestSetUniversalRead_SettledLeavesInFlightSet(t *testing.T) {
+	f := SetupTest(t)
+
+	ur := newRead("0xaaa", "0xTX", 100, types.UniversalReadStatus_UNIVERSAL_READ_STATUS_PENDING)
+	require.NoError(t, f.k.SetUniversalRead(f.ctx, ur))
+	require.Equal(t, []string{"0xaaa"}, collectDueBy(t, f, 100))
+
+	ur.Status = types.UniversalReadStatus_UNIVERSAL_READ_STATUS_FULFILLED
+	require.NoError(t, f.k.SetUniversalRead(f.ctx, ur))
+
+	require.Empty(t, collectDueBy(t, f, 999), "settled reads are not swept")
+	require.True(t, f.k.HasUniversalRead(f.ctx, "0xaaa"), "the record survives")
+}

@@ -27,6 +27,11 @@ type Keeper struct {
 	// are always derived — never a source of truth.
 	UniversalReads collections.Map[string, types.UniversalRead]
 
+	// PendingByExpiry holds (expiryHeight, requestId) for reads that have not
+	// settled — the module's in-flight set. Ordered composite key so the sweeper
+	// can range-scan by height.
+	PendingByExpiry collections.KeySet[collections.Pair[uint64, string]]
+
 	authority string
 }
 
@@ -54,6 +59,10 @@ func NewKeeper(
 		UniversalReads: collections.NewMap(
 			sb, types.UniversalReadsKey, "universal_reads",
 			collections.StringKey, codec.CollValue[types.UniversalRead](cdc),
+		),
+		PendingByExpiry: collections.NewKeySet(
+			sb, types.PendingByExpiryKey, "pending_by_expiry",
+			collections.PairKeyCodec(collections.Uint64Key, collections.StringKey),
 		),
 
 		authority: authority,

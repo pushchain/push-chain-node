@@ -16,6 +16,11 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					Use:       "params",
 					Short:     "Query the current consensus parameters",
 				},
+				{
+					RpcMethod: "AllPendingReadRequests",
+					Use:       "pending-read-requests",
+					Short:     "List read requests awaiting an observation",
+				},
 			},
 		},
 		Tx: &autocliv1.ServiceCommandDescriptor{

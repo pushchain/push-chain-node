@@ -1,8 +1,11 @@
 syntax = "proto3";
 package ucallback.v1;
 
+import "gogoproto/gogo.proto";
 import "google/api/annotations.proto";
+import "cosmos/base/query/v1beta1/pagination.proto";
 import "ucallback/v1/genesis.proto";
+import "ucallback/v1/types.proto";
 
 option go_package = "github.com/pushchain/push-chain-node/x/ucallback/types";
 
@@ -11,6 +14,12 @@ service Query {
   // Params queries all parameters of the module.
   rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
     option (google.api.http).get = "/ucallback/v1/params";
+  }
+
+  // AllPendingReadRequests lists read requests still awaiting an observation.
+  // This is the endpoint universal validators poll.
+  rpc AllPendingReadRequests(QueryAllPendingReadRequestsRequest) returns (QueryAllPendingReadRequestsResponse) {
+    option (google.api.http).get = "/ucallback/v1/pending_read_requests";
   }
 }
 
@@ -21,4 +30,16 @@ message QueryParamsRequest {}
 message QueryParamsResponse {
   // params defines the parameters of the module.
   Params params = 1;
+}
+
+message QueryAllPendingReadRequestsRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+message QueryAllPendingReadRequestsResponse {
+  // Reads that are unsettled AND not yet past their expiry height. Requests past
+  // expiry are withheld here even before the sweeper retires them, so validators
+  // never take on work that can no longer be fulfilled in time.
+  repeated UniversalRead reads = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
 }

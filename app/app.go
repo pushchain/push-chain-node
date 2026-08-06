@@ -10,7 +10,6 @@ import (
 	"sort"
 	"sync"
 	"time"
-
 	autocliv1 "cosmossdk.io/api/cosmos/autocli/v1"
 	reflectionv1 "cosmossdk.io/api/cosmos/reflection/v1"
 	"cosmossdk.io/client/v2/autocli"
@@ -119,7 +118,6 @@ import (
 	feemarketkeeper "github.com/cosmos/evm/x/feemarket/keeper"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	"github.com/cosmos/evm/x/vm"
-
 	// _ "github.com/ethereum/go-ethereum/core/tracers/js"
 	// _ "github.com/ethereum/go-ethereum/core/tracers/native"
 	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
@@ -153,12 +151,10 @@ import (
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 	ibckeeper "github.com/cosmos/ibc-go/v10/modules/core/keeper"
 	ibctm "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
-
 	// "github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/common"
 	cosmoscorevm "github.com/ethereum/go-ethereum/core/vm"
 	chainante "github.com/pushchain/push-chain-node/app/ante"
-
 	usigverifierprecompile "github.com/pushchain/push-chain-node/precompiles/usigverifier"
 	pushtypes "github.com/pushchain/push-chain-node/types"
 	uexecutor "github.com/pushchain/push-chain-node/x/uexecutor"
@@ -178,8 +174,10 @@ import (
 	tokenfactorybindings "github.com/strangelove-ventures/tokenfactory/x/tokenfactory/bindings"
 	tokenfactorykeeper "github.com/strangelove-ventures/tokenfactory/x/tokenfactory/keeper"
 	tokenfactorytypes "github.com/strangelove-ventures/tokenfactory/x/tokenfactory/types"
-
 	ibccallbacks "github.com/cosmos/ibc-go/v10/modules/apps/callbacks"
+	ucallback "github.com/pushchain/push-chain-node/x/ucallback"
+	ucallbackkeeper "github.com/pushchain/push-chain-node/x/ucallback/keeper"
+	ucallbacktypes "github.com/pushchain/push-chain-node/x/ucallback/types"
 )
 
 const (
@@ -337,6 +335,7 @@ type ChainApp struct {
 	UregistryKeeper  uregistrykeeper.Keeper
 	UvalidatorKeeper uvalidatorkeeper.Keeper
 	UtssKeeper       utsskeeper.Keeper
+	UcallbackKeeper ucallbackkeeper.Keeper
 
 	// the module manager
 	ModuleManager      *module.Manager
@@ -451,6 +450,7 @@ func NewChainApp(
 		uregistrytypes.StoreKey,
 		uvalidatortypes.StoreKey,
 		utsstypes.StoreKey,
+		ucallbacktypes.StoreKey,
 	)
 
 	tkeys := storetypes.NewTransientStoreKeys(
@@ -683,6 +683,14 @@ func NewChainApp(
 	)
 	// If evidence needs to be handled for the app, set routes in router here and seal
 	app.EvidenceKeeper = *evidenceKeeper
+
+	// Create the ucallback Keeper
+	app.UcallbackKeeper = ucallbackkeeper.NewKeeper(
+		appCodec,
+		runtime.NewKVStoreService(keys[ucallbacktypes.StoreKey]),
+		logger,
+		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+	)
 
 	app.FeeMarketKeeper = feemarketkeeper.NewKeeper(
 		appCodec,
@@ -1061,6 +1069,8 @@ func NewChainApp(
 		uregistry.NewAppModule(appCodec, app.UregistryKeeper, app.EVMKeeper),
 		uvalidator.NewAppModule(appCodec, app.UvalidatorKeeper, app.BankKeeper, app.AccountKeeper, app.DistrKeeper, app.StakingKeeper, app.SlashingKeeper, &app.UtssKeeper),
 		utss.NewAppModule(appCodec, app.UtssKeeper, app.UvalidatorKeeper),
+		ucallback.NewAppModule(appCodec, app.UcallbackKeeper),
+
 	)
 
 	// BasicModuleManager defines the module BasicManager is in charge of setting up basic,
@@ -1111,6 +1121,7 @@ func NewChainApp(
 		uexecutortypes.ModuleName,
 		uregistrytypes.ModuleName,
 		utsstypes.ModuleName,
+		ucallbacktypes.ModuleName,
 	)
 
 	app.ModuleManager.SetOrderEndBlockers(
@@ -1134,6 +1145,7 @@ func NewChainApp(
 		uregistrytypes.ModuleName,
 		uvalidatortypes.ModuleName,
 		utsstypes.ModuleName,
+		ucallbacktypes.ModuleName,
 	)
 
 	// NOTE: The genutils module must occur after staking so that pools are
@@ -1184,6 +1196,7 @@ func NewChainApp(
 		uregistrytypes.ModuleName,
 		uvalidatortypes.ModuleName,
 		utsstypes.ModuleName,
+		ucallbacktypes.ModuleName,
 	}
 	app.ModuleManager.SetOrderInitGenesis(genesisModuleOrder...)
 	app.ModuleManager.SetOrderExportGenesis(genesisModuleOrder...)
@@ -1663,6 +1676,7 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 	paramsKeeper.Subspace(uregistrytypes.ModuleName)
 	paramsKeeper.Subspace(uvalidatortypes.ModuleName)
 	paramsKeeper.Subspace(utsstypes.ModuleName)
+	paramsKeeper.Subspace(ucallbacktypes.ModuleName)
 
 	return paramsKeeper
 }

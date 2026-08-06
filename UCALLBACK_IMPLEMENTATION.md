@@ -525,8 +525,22 @@ app/upgrades/<name>/upgrade.go
 app/upgrades.go
 ```
 
-New store key → `StoreUpgrades.Added: []string{"ucallback"}`. Everything else is a no-op
-`RunMigrations`.
+New store key → `StoreUpgrades.Added: []string{"ucallback"}`.
+
+**Not a no-op `RunMigrations` — the handler must also deploy UniversalCallback at 0xC2.**
+Verified against donut (chain 42101, height 20,791,174): `0x…C2`, `0xF2…C2` and `0xF1…C2` are all
+empty — `code: 0x`, balance 0, nonce 0. Only the explicitly-named `SYSTEM_CONTRACTS` entries
+(`0xAA 0xB0 0xB1 0xB2 0xBC 0xC0 0xC1`) are live; every `RESERVED_*` slot (`0xA0 0xA5 0xB3 0xC2 0xCF`)
+is empty, because the deploy loop in `x/uregistry/keeper/genesis.go` runs at `InitGenesis` only and
+donut's genesis predates the `init()` that added those reservations.
+
+So promoting `RESERVED_C2` → `UNIVERSAL_CALLBACK` is free on donut (nothing there either way), but the
+real contract will not appear on its own — the handler has to deploy the admin + impl + proxy triple
+explicitly, the way genesis would have.
+
+> Related, and worth raising with the team separately: the F-2026-17025 squatting defence is **not in
+> effect on donut**. The A/B/C reserved slots are empty and claimable there. Pre-existing, but we are
+> about to place a contract in that range.
 
 **Verify with a real upgrade simulation** from the current donut release to this branch — the
 established flow: start the old binary, submit `MsgSoftwareUpgrade` at a height well past the end of

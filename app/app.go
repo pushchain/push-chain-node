@@ -799,7 +799,13 @@ func NewChainApp(
 		),
 	)
 
-	app.EVMKeeper.SetHooks(uexecutorkeeper.NewEVMHooks(app.UexecutorKeeper))
+	// SetHooks panics if called twice, so every EVM post-tx consumer registers
+	// here. Hooks run in order and share a transaction: an error from any one of
+	// them reverts the whole EVM tx, including the work earlier hooks did.
+	app.EVMKeeper.SetHooks(evmkeeper.NewMultiEvmHooks(
+		uexecutorkeeper.NewEVMHooks(app.UexecutorKeeper),
+		ucallbackkeeper.NewEVMHooks(app.UcallbackKeeper),
+	))
 
 	// NOTE: we are adding all available EVM extensions.
 	// Not all of them need to be enabled, which can be configured on a per-chain basis.

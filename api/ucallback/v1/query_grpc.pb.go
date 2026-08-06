@@ -21,6 +21,8 @@ const _ = grpc.SupportPackageIsVersion7
 const (
 	Query_Params_FullMethodName                 = "/ucallback.v1.Query/Params"
 	Query_AllPendingReadRequests_FullMethodName = "/ucallback.v1.Query/AllPendingReadRequests"
+	Query_UniversalRead_FullMethodName          = "/ucallback.v1.Query/UniversalRead"
+	Query_ReadsByTx_FullMethodName              = "/ucallback.v1.Query/ReadsByTx"
 )
 
 // QueryClient is the client API for Query service.
@@ -32,6 +34,11 @@ type QueryClient interface {
 	// AllPendingReadRequests lists read requests still awaiting an observation.
 	// This is the endpoint universal validators poll.
 	AllPendingReadRequests(ctx context.Context, in *QueryAllPendingReadRequestsRequest, opts ...grpc.CallOption) (*QueryAllPendingReadRequestsResponse, error)
+	// UniversalRead returns one read by request id, at any point in its lifecycle.
+	UniversalRead(ctx context.Context, in *QueryUniversalReadRequest, opts ...grpc.CallOption) (*QueryUniversalReadResponse, error)
+	// ReadsByTxHash returns every read requested by one Push transaction. A single
+	// transaction can emit several ReadRequested logs; this reassembles that batch.
+	ReadsByTx(ctx context.Context, in *QueryReadsByTxRequest, opts ...grpc.CallOption) (*QueryReadsByTxResponse, error)
 }
 
 type queryClient struct {
@@ -60,6 +67,24 @@ func (c *queryClient) AllPendingReadRequests(ctx context.Context, in *QueryAllPe
 	return out, nil
 }
 
+func (c *queryClient) UniversalRead(ctx context.Context, in *QueryUniversalReadRequest, opts ...grpc.CallOption) (*QueryUniversalReadResponse, error) {
+	out := new(QueryUniversalReadResponse)
+	err := c.cc.Invoke(ctx, Query_UniversalRead_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) ReadsByTx(ctx context.Context, in *QueryReadsByTxRequest, opts ...grpc.CallOption) (*QueryReadsByTxResponse, error) {
+	out := new(QueryReadsByTxResponse)
+	err := c.cc.Invoke(ctx, Query_ReadsByTx_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // QueryServer is the server API for Query service.
 // All implementations must embed UnimplementedQueryServer
 // for forward compatibility
@@ -69,6 +94,11 @@ type QueryServer interface {
 	// AllPendingReadRequests lists read requests still awaiting an observation.
 	// This is the endpoint universal validators poll.
 	AllPendingReadRequests(context.Context, *QueryAllPendingReadRequestsRequest) (*QueryAllPendingReadRequestsResponse, error)
+	// UniversalRead returns one read by request id, at any point in its lifecycle.
+	UniversalRead(context.Context, *QueryUniversalReadRequest) (*QueryUniversalReadResponse, error)
+	// ReadsByTxHash returns every read requested by one Push transaction. A single
+	// transaction can emit several ReadRequested logs; this reassembles that batch.
+	ReadsByTx(context.Context, *QueryReadsByTxRequest) (*QueryReadsByTxResponse, error)
 	mustEmbedUnimplementedQueryServer()
 }
 
@@ -81,6 +111,12 @@ func (UnimplementedQueryServer) Params(context.Context, *QueryParamsRequest) (*Q
 }
 func (UnimplementedQueryServer) AllPendingReadRequests(context.Context, *QueryAllPendingReadRequestsRequest) (*QueryAllPendingReadRequestsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AllPendingReadRequests not implemented")
+}
+func (UnimplementedQueryServer) UniversalRead(context.Context, *QueryUniversalReadRequest) (*QueryUniversalReadResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UniversalRead not implemented")
+}
+func (UnimplementedQueryServer) ReadsByTx(context.Context, *QueryReadsByTxRequest) (*QueryReadsByTxResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReadsByTx not implemented")
 }
 func (UnimplementedQueryServer) mustEmbedUnimplementedQueryServer() {}
 
@@ -131,6 +167,42 @@ func _Query_AllPendingReadRequests_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Query_UniversalRead_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryUniversalReadRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).UniversalRead(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_UniversalRead_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).UniversalRead(ctx, req.(*QueryUniversalReadRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_ReadsByTx_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryReadsByTxRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).ReadsByTx(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_ReadsByTx_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).ReadsByTx(ctx, req.(*QueryReadsByTxRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Query_ServiceDesc is the grpc.ServiceDesc for Query service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -145,6 +217,14 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AllPendingReadRequests",
 			Handler:    _Query_AllPendingReadRequests_Handler,
+		},
+		{
+			MethodName: "UniversalRead",
+			Handler:    _Query_UniversalRead_Handler,
+		},
+		{
+			MethodName: "ReadsByTx",
+			Handler:    _Query_ReadsByTx_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

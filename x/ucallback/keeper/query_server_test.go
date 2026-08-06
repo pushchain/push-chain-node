@@ -65,3 +65,67 @@ func TestAllPendingReadRequests_NilRequest(t *testing.T) {
 	_, err := f.queryServer.AllPendingReadRequests(f.ctx, nil)
 	require.Error(t, err)
 }
+
+// A read is served at any lifecycle stage — this endpoint answers "what happened
+// to my request", so unlike the pending list it must not filter.
+func TestUniversalRead_ServesSettledAndExpired(t *testing.T) {
+	f := SetupTest(t)
+	f.ctx = f.ctx.WithBlockHeight(100)
+
+	for id, st := range map[string]types.UniversalReadStatus{
+		"0xpending": types.UniversalReadStatus_UNIVERSAL_READ_STATUS_PENDING,
+		"0xdone":    types.UniversalReadStatus_UNIVERSAL_READ_STATUS_FULFILLED,
+		"0xgone":    types.UniversalReadStatus_UNIVERSAL_READ_STATUS_EXPIRED,
+	} {
+		require.NoError(t, f.k.SetUniversalRead(f.ctx, newRead(id, "0xTX", 50, st)))
+	}
+
+	for _, id := range []string{"0xpending", "0xdone", "0xgone"} {
+		res, err := f.queryServer.UniversalRead(f.ctx,
+			&types.QueryUniversalReadRequest{RequestId: id})
+		require.NoError(t, err, id)
+		require.Equal(t, id, res.Read.Id)
+	}
+
+	// ...even though only one of them is visible to validators
+	require.Empty(t, pendingIDs(t, f))
+}
+
+func TestUniversalRead_NotFound(t *testing.T) {
+	f := SetupTest(t)
+
+	_, err := f.queryServer.UniversalRead(f.ctx,
+		&types.QueryUniversalReadRequest{RequestId: "0xmissing"})
+	require.Error(t, err)
+
+	_, err = f.queryServer.UniversalRead(f.ctx, &types.QueryUniversalReadRequest{})
+	require.Error(t, err, "empty request_id is rejected, not treated as not-found")
+}
+
+// The batch view returns siblings regardless of how each one settled.
+func TestReadsByTx_ReturnsWholeBatch(t *testing.T) {
+	f := SetupTest(t)
+
+	require.NoError(t, f.k.SetUniversalRead(f.ctx,
+		newRead("0xaaa", "0xBATCH", 500, types.UniversalReadStatus_UNIVERSAL_READ_STATUS_PENDING)))
+	require.NoError(t, f.k.SetUniversalRead(f.ctx,
+		newRead("0xbbb", "0xBATCH", 500, types.UniversalReadStatus_UNIVERSAL_READ_STATUS_FULFILLED)))
+	require.NoError(t, f.k.SetUniversalRead(f.ctx,
+		newRead("0xccc", "0xOTHER", 500, types.UniversalReadStatus_UNIVERSAL_READ_STATUS_PENDING)))
+
+	res, err := f.queryServer.ReadsByTx(f.ctx, &types.QueryReadsByTxRequest{TxHash: "0xBATCH"})
+	require.NoError(t, err)
+	ids := []string{}
+	for _, r := range res.Reads {
+		ids = append(ids, r.Id)
+	}
+	require.ElementsMatch(t, []string{"0xaaa", "0xbbb"}, ids)
+
+	// an unknown tx is an empty batch, not an error
+	res, err = f.queryServer.ReadsByTx(f.ctx, &types.QueryReadsByTxRequest{TxHash: "0xNOPE"})
+	require.NoError(t, err)
+	require.Empty(t, res.Reads)
+
+	_, err = f.queryServer.ReadsByTx(f.ctx, &types.QueryReadsByTxRequest{})
+	require.Error(t, err)
+}

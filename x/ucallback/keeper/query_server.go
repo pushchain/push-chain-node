@@ -72,3 +72,46 @@ func (k Querier) AllPendingReadRequests(goCtx context.Context, req *types.QueryA
 		Pagination: pageRes,
 	}, nil
 }
+
+// UniversalRead implements types.QueryServer.
+//
+// Serves a read at any point in its lifecycle, settled or not — this is the
+// endpoint for "what happened to my request", so it must not filter the way
+// AllPendingReadRequests does.
+func (k Querier) UniversalRead(goCtx context.Context, req *types.QueryUniversalReadRequest) (*types.QueryUniversalReadResponse, error) {
+	if req == nil || req.RequestId == "" {
+		return nil, status.Error(codes.InvalidArgument, "request_id is required")
+	}
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	ur, found := k.Keeper.GetUniversalRead(ctx, req.RequestId)
+	if !found {
+		return nil, status.Errorf(codes.NotFound, "no read request with id %s", req.RequestId)
+	}
+
+	return &types.QueryUniversalReadResponse{Read: ur}, nil
+}
+
+// ReadsByTx implements types.QueryServer.
+//
+// Returns every read a single Push transaction requested, settled or not. Batches
+// are the reason this exists: one transaction can emit several ReadRequested logs,
+// each becoming an independent record that settles on its own schedule.
+//
+// Unpaginated by design — the fan-out is bounded by what fits in one transaction.
+func (k Querier) ReadsByTx(goCtx context.Context, req *types.QueryReadsByTxRequest) (*types.QueryReadsByTxResponse, error) {
+	if req == nil || req.TxHash == "" {
+		return nil, status.Error(codes.InvalidArgument, "tx_hash is required")
+	}
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	reads := []types.UniversalRead{}
+	if err := k.Keeper.IterateReadsByTxHash(ctx, req.TxHash, func(ur types.UniversalRead) bool {
+		reads = append(reads, ur)
+		return true
+	}); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &types.QueryReadsByTxResponse{Reads: reads}, nil
+}

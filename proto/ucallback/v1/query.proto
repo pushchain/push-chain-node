@@ -21,6 +21,17 @@ service Query {
   rpc AllPendingReadRequests(QueryAllPendingReadRequestsRequest) returns (QueryAllPendingReadRequestsResponse) {
     option (google.api.http).get = "/ucallback/v1/pending_read_requests";
   }
+
+  // UniversalRead returns one read by request id, at any point in its lifecycle.
+  rpc UniversalRead(QueryUniversalReadRequest) returns (QueryUniversalReadResponse) {
+    option (google.api.http).get = "/ucallback/v1/universal_reads/{request_id}";
+  }
+
+  // ReadsByTxHash returns every read requested by one Push transaction. A single
+  // transaction can emit several ReadRequested logs; this reassembles that batch.
+  rpc ReadsByTx(QueryReadsByTxRequest) returns (QueryReadsByTxResponse) {
+    option (google.api.http).get = "/ucallback/v1/reads_by_tx/{tx_hash}";
+  }
 }
 
 // QueryParamsRequest is the request type for the Query/Params RPC method.
@@ -42,4 +53,21 @@ message QueryAllPendingReadRequestsResponse {
   // never take on work that can no longer be fulfilled in time.
   repeated UniversalRead reads = 1 [(gogoproto.nullable) = false];
   cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+message QueryUniversalReadRequest {
+  string request_id = 1;
+}
+
+message QueryUniversalReadResponse {
+  UniversalRead read = 1 [(gogoproto.nullable) = false];
+}
+
+message QueryReadsByTxRequest {
+  string tx_hash = 1;
+}
+
+message QueryReadsByTxResponse {
+  // Every read the transaction requested, settled or not, in request-id order.
+  repeated UniversalRead reads = 1 [(gogoproto.nullable) = false];
 }

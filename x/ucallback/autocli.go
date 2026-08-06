@@ -21,6 +21,18 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					Use:       "pending-read-requests",
 					Short:     "List read requests awaiting an observation",
 				},
+				{
+					RpcMethod:      "UniversalRead",
+					Use:            "universal-read <request-id>",
+					Short:          "Query one read request by id",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "request_id"}},
+				},
+				{
+					RpcMethod:      "ReadsByTx",
+					Use:            "reads-by-tx <tx-hash>",
+					Short:          "List every read requested by one Push transaction",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "tx_hash"}},
+				},
 			},
 		},
 		Tx: &autocliv1.ServiceCommandDescriptor{

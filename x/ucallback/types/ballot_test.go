@@ -89,8 +89,40 @@ func TestGetReadBallotKey_Rejects(t *testing.T) {
 	require.Error(t, err)
 }
 
-// Ballot expiry must stay inert, so the request's own deadline is the only clock.
-func TestDefaultExpiryAfterBlocks_IsInert(t *testing.T) {
-	require.Equal(t, 100_000_000, types.DefaultExpiryAfterBlocks,
-		"a shorter ballot expiry would let a ballot die while its request is live")
+// The ballot's deadline must land exactly on the request's, since x/uvalidator
+// stores expiry as created + delta while the request carries an absolute height.
+func TestBallotExpiryAfterBlocks_LandsOnRequestDeadline(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		expiry  uint64
+		current int64
+		want    int64
+	}{
+		{"future deadline", 500, 100, 400},
+		{"next block", 101, 100, 1},
+		{"from genesis", 900_000, 0, 900_000},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := types.BallotExpiryAfterBlocks(tc.expiry, tc.current)
+			require.Equal(t, tc.want, got)
+			require.Equal(t, int64(tc.expiry), tc.current+got,
+				"created + delta must equal the request's own deadline")
+		})
+	}
+}
+
+// A ballot must never be born already expired, even if the caller slipped a
+// past-deadline request through.
+func TestBallotExpiryAfterBlocks_NeverBornExpired(t *testing.T) {
+	for _, tc := range []struct {
+		expiry  uint64
+		current int64
+	}{
+		{100, 100}, // exactly at the deadline
+		{50, 100},  // past it
+		{0, 100},   // unset
+	} {
+		require.Equal(t, int64(1), types.BallotExpiryAfterBlocks(tc.expiry, tc.current),
+			"expiry=%d current=%d", tc.expiry, tc.current)
+	}
 }

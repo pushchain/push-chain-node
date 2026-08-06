@@ -27,39 +27,39 @@ split out of the skeleton, and the protocgen fix was unplanned:
 
 ---
 
-## OPEN — expiry semantics, to confirm with the team
+## RESOLVED — expiry semantics
 
-**Not resolved. Do not treat the C8 sweeper design as settled until this is answered.**
-
-There are **two independent expiry clocks**, and the interaction between them is unspecified:
+**Team decision: `expiryPushChainHeight` is the ballot expiry.** The two clocks are fused, not
+independent — a read ballot expires exactly when its request does.
 
 | | clock | set by | enforced at |
 |---|---|---|---|
-| **A** | `ReadSpec.expiryPushChainHeight` → our `ReadRequest.expiry_block_height` | the app, per request | `UniversalCallback.sol:121` on request, `:207` in `expireExternalRead` |
-| **B** | `Ballot.block_height_expiry` | us, as arg 8 to `VoteOnBallot` | `x/uvalidator/keeper/ballot.go:344` |
+| **A** | `ReadSpec.expiryPushChainHeight` → `ReadRequest.expiry_block_height` | the app, per request | `UniversalCallback.sol:121` on request, `:207` in `expireExternalRead` |
+| **B** | `Ballot.block_height_expiry` | **derived from A** | `x/uvalidator/keeper/ballot.go:344` |
 
-Questions, in the order they change the design:
+x/uvalidator stores `BlockHeightExpiry = createdHeight + expiryAfterBlocks`
+(`x/uvalidator/types/ballot.go:109`), so an absolute deadline has to be handed over as a delta —
+`types.BallotExpiryAfterBlocks(expiryHeight, currentHeight)`, floored at 1 so a ballot is never born
+expired. We do **not** copy x/uexecutor's inert `DefaultExpiryAfterBlocks = 100_000_000`.
 
-1. **Is late fulfilment intended?** `fulfillExternalCallback` has **no expiry check** — the only guard
-   is `fulfilledRequests`. A quorum reached long after `expiryHeight` still fulfils and still calls the
-   app's callback. So A is not a deadline on fulfilment; it is one side of a fulfil-vs-expire race.
-2. **Does expiry need to be prompt at all?** `expireExternalRead` **refunds nothing**. Prompt sweeping
-   frees contract storage and moves our record off `PENDING` — nothing a user feels. If the answer is
-   "no", the sweeper does not need per-block cadence, and the case for keeping `PendingByExpiry` rests
-   only on "don't scan an unboundedly-growing map", not on frequency.
-3. **Should B be disabled?** uexecutor passes `DefaultExpiryAfterBlocks = 100_000_000` (~19 yrs) with
-   *"Ballots should not expire without an escape hatch for stuck pending items."* If we copy that, A is
-   the only real deadline. If we don't, a ballot can die while its read is still live — leaving a record
-   that can neither fulfil nor expire until A fires. Two clocks on one lifecycle is how records get stuck.
+**What this changed downstream:**
 
-**Consequences that are parked on this**: sweeper cadence (every block vs every N) and the
-inclusive/exclusive boundary at exactly `expiryHeight`.
+- An `EXPIRED` ballot now means *the request itself is over*, so the terminal hook retires it —
+  `expireExternalRead` + status `EXPIRED` — instead of leaving it for the sweeper. A request is
+  unvotable past its deadline anyway, so waiting would only delay closing it on the contract.
+- `REJECTED` still leaves the request in flight; that is not a deadline.
+- The C8 sweeper is **still needed**, for requests nobody ever voted on: no vote means no ballot,
+  which means no terminal hook ever fires. Both paths mark the record terminal, which removes it from
+  the in-flight set, so whichever runs first the other will not find it.
 
-**No longer parked on it: `PendingByExpiry` itself.** C3 dropped the `ballotKey → requestId` index and
-made the ballot terminal hook scan `PendingByExpiry` instead, so that set now has two consumers. It
-stays whichever way the cadence question is answered.
+Still open from the original three questions:
 
----
+1. **Is late fulfilment intended?** `fulfillExternalCallback` has no expiry check — only the
+   `fulfilledRequests` guard. With the clocks fused this is now narrower in practice (an expired
+   ballot retires the request promptly), but a quorum reached in the same block as expiry is still a
+   race between the two paths.
+2. **`expireExternalRead` refunds nothing.** Unchanged and unaddressed: the funder's fee stays with
+   the protocol whichever way a request ends.
 
 ## Reference points in existing code
 
@@ -376,7 +376,8 @@ func (k Keeper) VoteOnReadBallot(ctx, universalValidator sdk.ValAddress,
         uvalidatortypes.BallotObservationType_BALLOT_OBSERVATION_TYPE_READ_RESULT,
         universalValidator.String(),
         uvalidatortypes.VoteResult_VOTE_RESULT_SUCCESS,
-        voterAddrStrs, int64(votesNeeded), int64(types.DefaultExpiryAfterBlocks),
+        voterAddrStrs, int64(votesNeeded),
+        types.BallotExpiryAfterBlocks(req.ExpiryBlockHeight, ctx.BlockHeight()),
     )
     // ballotKey is stored on the UniversalRead itself; there is no reverse index.
     // AfterBallotTerminal resolves it by scanning PendingByExpiry — see
@@ -501,9 +502,11 @@ func (k Keeper) SweepExpired(ctx sdk.Context) error {
 
 Bound it per block — unbounded makes a fat EndBlocker, too low and a backlog never drains.
 
-> **Blocked on the open expiry question at the top of this file.** Cadence, whether `PendingByExpiry`
-> exists at all, and the boundary at exactly `expiryHeight` are all downstream of that answer. The
-> sketch above assumes per-block; that assumption is the thing under review.
+> **Narrower than originally planned.** With ballot expiry fused to the request deadline (see
+> RESOLVED at the top), the terminal hook already retires any request that attracted at least one
+> vote. The sweeper's remaining job is requests that were *never voted on* — no vote means no ballot,
+> so no hook ever fires for them. Cadence is therefore not urgent: nothing user-visible depends on
+> prompt expiry, and `expireExternalRead` refunds nothing either way.
 
 > The contract's `expireExternalRead` **transfers nothing** (verified: zero value-transfer statements),
 > so the funder's fee is trapped. That is a contracts bug, not ours — but our sweeper is what makes it

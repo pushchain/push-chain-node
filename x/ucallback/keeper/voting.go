@@ -13,13 +13,16 @@ import (
 // VoteOnReadBallot casts one validator's vote on the ballot for (requestID, result)
 // and reports whether that vote carried it to quorum.
 //
-// Mirrors x/uexecutor's VoteOnOutboundBallot: same >2/3 threshold, same eligible
-// voter set, same inert ballot expiry.
+// Mirrors x/uexecutor's VoteOnOutboundBallot for the threshold and voter set, but
+// not for expiry: the ballot is given the request's own deadline rather than
+// uexecutor's inert 100M blocks, so the two cannot disagree about when the request
+// is over.
 func (k Keeper) VoteOnReadBallot(
 	ctx context.Context,
 	universalValidator sdk.ValAddress,
 	requestID string,
 	result *types.ReadResult,
+	expiryHeight uint64,
 ) (ballotKey string, isFinalized bool, isNew bool, err error) {
 	ballotKey, err = types.GetReadBallotKey(requestID, result)
 	if err != nil {
@@ -43,12 +46,17 @@ func (k Keeper) VoteOnReadBallot(
 		voterAddrs[i] = v.IdentifyInfo.CoreValidatorAddress
 	}
 
+	expiryAfterBlocks := types.BallotExpiryAfterBlocks(
+		expiryHeight, sdk.UnwrapSDKContext(ctx).BlockHeight())
+
 	k.Logger().Debug("voting on read ballot",
 		"ballot_key", ballotKey,
 		"request_id", requestID,
 		"validator", universalValidator.String(),
 		"total_validators", len(voters),
 		"votes_needed", votesNeeded,
+		"expiry_height", expiryHeight,
+		"expiry_after_blocks", expiryAfterBlocks,
 	)
 
 	_, isFinalized, isNew, err = k.uvalidatorKeeper.VoteOnBallot(
@@ -63,7 +71,7 @@ func (k Keeper) VoteOnReadBallot(
 		uvalidatortypes.VoteResult_VOTE_RESULT_SUCCESS,
 		voterAddrs,
 		int64(votesNeeded),
-		int64(types.DefaultExpiryAfterBlocks),
+		expiryAfterBlocks,
 	)
 	if err != nil {
 		return "", false, false, err
@@ -107,11 +115,15 @@ func (k Keeper) VoteReadResult(
 		return false, fmt.Errorf("read request %s is already %s", requestID, ur.Status)
 	}
 
+	if ur.Request == nil {
+		return false, fmt.Errorf("read request %s has no request body", requestID)
+	}
+
 	// Reject votes on a request whose deadline has passed. AllPendingReadRequests
 	// already withholds these, so an honest validator will not be voting on one —
 	// but the query is a convenience, not the enforcement point.
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
-	if ur.Request != nil && ur.Request.ExpiryBlockHeight <= uint64(sdkCtx.BlockHeight()) {
+	if ur.Request.ExpiryBlockHeight <= uint64(sdkCtx.BlockHeight()) {
 		return false, fmt.Errorf("read request %s expired at height %d",
 			requestID, ur.Request.ExpiryBlockHeight)
 	}
@@ -119,7 +131,8 @@ func (k Keeper) VoteReadResult(
 	// Cache the vote so a failure partway through leaves no half-written ballot.
 	tmpCtx, commit := sdkCtx.CacheContext()
 
-	ballotKey, isFinalized, _, err := k.VoteOnReadBallot(tmpCtx, universalValidator, requestID, result)
+	ballotKey, isFinalized, _, err := k.VoteOnReadBallot(
+		tmpCtx, universalValidator, requestID, result, ur.Request.ExpiryBlockHeight)
 	if err != nil {
 		return false, err
 	}

@@ -111,5 +111,14 @@ func (f *fakeUValidator) VoteOnBallot(
 // validators diverged on what they observed.
 func (f *fakeUValidator) ballotCount() int { return len(f.ballots) }
 
+// expiryOf returns the relative expiry a ballot was created with.
+func (f *fakeUValidator) expiryOf(id string) int64 {
+	b, ok := f.ballots[id]
+	if !ok {
+		return -1
+	}
+	return b.expiryBlocks
+}
+
 // errTest is a sentinel for injecting failures into the fake.
 var errTest = fmt.Errorf("injected test failure")

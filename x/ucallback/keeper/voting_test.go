@@ -233,3 +233,57 @@ func TestVoteReadResult_BallotResolvesBackToRequest(t *testing.T) {
 	require.True(t, found, "the terminal hook must be able to find this request")
 	require.Equal(t, "0xaa", back.Id)
 }
+
+// The ballot's deadline must be the request's own. x/uvalidator stores expiry as
+// created + delta, so the delta handed to VoteOnBallot has to close exactly that
+// gap — otherwise the two clocks disagree about when the request is over.
+func TestVoteReadResult_BallotInheritsRequestDeadline(t *testing.T) {
+	f := SetupTest(t)
+	f.ctx = f.ctx.WithBlockHeight(120)
+	v := seedVoters(t, f, 4)
+	seedRead(t, f, "0xaa", 500)
+
+	_, err := f.k.VoteReadResult(f.ctx, v[0], "0xaa", obs(0x01))
+	require.NoError(t, err)
+
+	ur, _ := f.k.GetUniversalRead(f.ctx, "0xaa")
+	delta := f.uvalidator.expiryOf(ur.BallotKey)
+	require.Equal(t, int64(380), delta, "500 - 120")
+	require.Equal(t, int64(500), f.ctx.BlockHeight()+delta,
+		"ballot expires exactly when the request does")
+}
+
+// Requests with different deadlines must not share one expiry.
+func TestVoteReadResult_DeadlineIsPerRequest(t *testing.T) {
+	f := SetupTest(t)
+	f.ctx = f.ctx.WithBlockHeight(100)
+	v := seedVoters(t, f, 4)
+
+	seedRead(t, f, "0xsoon", 150)
+	seedRead(t, f, "0xlate", 9_000)
+
+	_, err := f.k.VoteReadResult(f.ctx, v[0], "0xsoon", obs(0x01))
+	require.NoError(t, err)
+	_, err = f.k.VoteReadResult(f.ctx, v[0], "0xlate", obs(0x01))
+	require.NoError(t, err)
+
+	soon, _ := f.k.GetUniversalRead(f.ctx, "0xsoon")
+	late, _ := f.k.GetUniversalRead(f.ctx, "0xlate")
+
+	require.Equal(t, int64(50), f.uvalidator.expiryOf(soon.BallotKey))
+	require.Equal(t, int64(8_900), f.uvalidator.expiryOf(late.BallotKey))
+}
+
+func TestVoteReadResult_RejectsMissingRequestBody(t *testing.T) {
+	f := SetupTest(t)
+	f.ctx = f.ctx.WithBlockHeight(10)
+	v := seedVoters(t, f, 4)
+
+	require.NoError(t, f.k.SetUniversalRead(f.ctx, types.UniversalRead{
+		Id:     "0xnobody",
+		Status: types.UniversalReadStatus_UNIVERSAL_READ_STATUS_PENDING,
+	}))
+
+	_, err := f.k.VoteReadResult(f.ctx, v[0], "0xnobody", obs(0x01))
+	require.ErrorContains(t, err, "no request body")
+}

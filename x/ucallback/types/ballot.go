@@ -21,14 +21,29 @@ const (
 	VotesThresholdDenominator = 3
 )
 
-// DefaultExpiryAfterBlocks is the ballot-level expiry passed to VoteOnBallot.
+// BallotExpiryAfterBlocks converts a read request's absolute deadline into the
+// relative argument VoteOnBallot expects.
 //
-// Set high enough to be inert (~19 years at 6s blocks), matching x/uexecutor. A
-// read request already has its own deadline — ReadRequest.ExpiryBlockHeight, set
-// by the app and enforced by the contract. Giving the ballot a second, shorter
-// clock would let it die while its request is still live, stranding a record that
-// can neither fulfil nor expire until the real deadline arrives.
-const DefaultExpiryAfterBlocks = 100_000_000
+// x/uvalidator stores BlockHeightExpiry as createdHeight + expiryAfterBlocks
+// (types/ballot.go:109), so an absolute target has to be expressed as a delta from
+// the height the ballot is created at.
+//
+// The two clocks are deliberately fused: the ballot expires exactly when the
+// request does. x/uexecutor instead passes an inert 100M-block expiry to keep
+// ballots alive indefinitely, but a read has a real deadline of its own — set by
+// the app, enforced by the contract at UniversalCallback.sol:207 — and a ballot
+// that outlived it could only ever finalize into a request no longer worth
+// fulfilling.
+//
+// Returns at least 1 so a ballot is never created already expired. Callers reject
+// past-deadline requests before reaching here; this is the backstop.
+func BallotExpiryAfterBlocks(expiryHeight uint64, currentHeight int64) int64 {
+	delta := int64(expiryHeight) - currentHeight
+	if delta < 1 {
+		return 1
+	}
+	return delta
+}
 
 // GetReadBallotKey derives the ballot a (requestId, observation) pair votes on.
 //

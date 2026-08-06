@@ -22,6 +22,11 @@ type Keeper struct {
 	Schema collections.Schema
 	Params collections.Item[types.Params]
 
+	// UniversalReads is the canonical record for every read request, keyed by
+	// requestId. Indexes over it are added alongside the lookups they serve, and
+	// are always derived — never a source of truth.
+	UniversalReads collections.Map[string, types.UniversalRead]
+
 	authority string
 }
 
@@ -45,6 +50,11 @@ func NewKeeper(
 		logger: logger,
 
 		Params: collections.NewItem(sb, types.ParamsKey, "params", codec.CollValue[types.Params](cdc)),
+
+		UniversalReads: collections.NewMap(
+			sb, types.UniversalReadsKey, "universal_reads",
+			collections.StringKey, codec.CollValue[types.UniversalRead](cdc),
+		),
 
 		authority: authority,
 	}

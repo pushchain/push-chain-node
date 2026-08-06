@@ -112,6 +112,41 @@ func (k Keeper) IterateExpiredBy(ctx context.Context, height uint64, fn func(typ
 	return nil
 }
 
+// GetUniversalReadByBallot resolves a ballot key to its read. AfterBallotTerminal
+// hands us only a ballot ID, and ballot IDs are one-way digests over the
+// observation — not reversible — so this scans rather than indexes.
+//
+// The scan is over PendingByExpiry, not UniversalReads: entries leave that set the
+// moment a read settles, so it holds only in-flight work. This mirrors uexecutor's
+// ballot hook, which walks PendingInbounds for the same reason
+// (x/uexecutor/keeper/ballot_hooks.go:86) — the pending set is small and transient,
+// and this path only runs on terminal transitions.
+//
+// Returns false if no pending read owns the ballot: it may have already settled by
+// another path, or the ballot may not belong to this module at all.
+func (k Keeper) GetUniversalReadByBallot(ctx context.Context, ballotKey string) (types.UniversalRead, bool) {
+	if ballotKey == "" {
+		return types.UniversalRead{}, false
+	}
+
+	var (
+		found types.UniversalRead
+		ok    bool
+	)
+	err := k.PendingByExpiry.Walk(ctx, nil, func(key collections.Pair[uint64, string]) (bool, error) {
+		ur, exists := k.getUniversalReadRaw(ctx, key.K2())
+		if exists && ur.BallotKey == ballotKey {
+			found, ok = ur, true
+			return true, nil
+		}
+		return false, nil
+	})
+	if err != nil {
+		return types.UniversalRead{}, false
+	}
+	return found, ok
+}
+
 // IterateReadsByTxHash calls fn for every read requested by the given Push tx.
 // A single transaction can emit several ReadRequested logs; each is its own
 // record, and this is how the batch is reassembled.

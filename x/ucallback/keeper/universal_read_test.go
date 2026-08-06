@@ -132,3 +132,66 @@ func TestSetUniversalRead_BatchSiblingsSettleIndependently(t *testing.T) {
 	// but both remain listed under the batch — reads-by-tx is provenance, not state
 	require.ElementsMatch(t, []string{"0xaaa", "0xbbb"}, collectByTx(t, f, "0xBATCH"))
 }
+
+// Repointing a read's ballot key must not leave the old key resolvable.
+func TestGetUniversalReadByBallot_Repointed(t *testing.T) {
+	f := SetupTest(t)
+
+	ur := newRead("0xaaa", "0xTX", 100, types.UniversalReadStatus_UNIVERSAL_READ_STATUS_PENDING)
+	ur.BallotKey = "ballot-old"
+	require.NoError(t, f.k.SetUniversalRead(f.ctx, ur))
+
+	ur.BallotKey = "ballot-new"
+	require.NoError(t, f.k.SetUniversalRead(f.ctx, ur))
+
+	_, found := f.k.GetUniversalReadByBallot(f.ctx, "ballot-old")
+	require.False(t, found, "the old ballot key must no longer resolve")
+
+	byNew, found := f.k.GetUniversalReadByBallot(f.ctx, "ballot-new")
+	require.True(t, found)
+	require.Equal(t, "0xaaa", byNew.Id)
+}
+
+// The lookup scans the in-flight set, so a settled read is deliberately NOT
+// findable by ballot. The ballot terminal hook must treat "not found" as
+// "already handled", exactly as uexecutor's hook does.
+func TestGetUniversalReadByBallot_SettledReadIsNotFound(t *testing.T) {
+	f := SetupTest(t)
+
+	ur := newRead("0xaaa", "0xTX", 100, types.UniversalReadStatus_UNIVERSAL_READ_STATUS_PENDING)
+	ur.BallotKey = "ballot-1"
+	require.NoError(t, f.k.SetUniversalRead(f.ctx, ur))
+
+	_, found := f.k.GetUniversalReadByBallot(f.ctx, "ballot-1")
+	require.True(t, found, "resolvable while in flight")
+
+	ur.Status = types.UniversalReadStatus_UNIVERSAL_READ_STATUS_FULFILLED
+	require.NoError(t, f.k.SetUniversalRead(f.ctx, ur))
+
+	_, found = f.k.GetUniversalReadByBallot(f.ctx, "ballot-1")
+	require.False(t, found, "settled reads leave the in-flight set")
+
+	// the record itself is untouched — only the index dropped it
+	got, ok := f.k.GetUniversalRead(f.ctx, "0xaaa")
+	require.True(t, ok)
+	require.Equal(t, "ballot-1", got.BallotKey)
+}
+
+// Only the read owning the ballot is returned, never a sibling sharing the scan.
+func TestGetUniversalReadByBallot_PicksTheRightRead(t *testing.T) {
+	f := SetupTest(t)
+
+	for i, id := range []string{"0xaaa", "0xbbb", "0xccc"} {
+		ur := newRead(id, "0xBATCH", uint64(100+i),
+			types.UniversalReadStatus_UNIVERSAL_READ_STATUS_PENDING)
+		ur.BallotKey = "ballot-" + id
+		require.NoError(t, f.k.SetUniversalRead(f.ctx, ur))
+	}
+
+	got, found := f.k.GetUniversalReadByBallot(f.ctx, "ballot-0xbbb")
+	require.True(t, found)
+	require.Equal(t, "0xbbb", got.Id)
+
+	_, found = f.k.GetUniversalReadByBallot(f.ctx, "ballot-unknown")
+	require.False(t, found)
+}

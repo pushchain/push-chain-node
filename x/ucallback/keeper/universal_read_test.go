@@ -195,3 +195,34 @@ func TestGetUniversalReadByBallot_PicksTheRightRead(t *testing.T) {
 	_, found = f.k.GetUniversalReadByBallot(f.ctx, "ballot-unknown")
 	require.False(t, found)
 }
+
+// Genesis round-trips records, and rebuilds every index from them.
+func TestGenesis_RoundTripRebuildsIndexes(t *testing.T) {
+	f := SetupTest(t)
+	require.NoError(t, f.k.InitGenesis(f.ctx, types.DefaultGenesis()))
+
+	pending := newRead("0xaaa", "0xTX", 100, types.UniversalReadStatus_UNIVERSAL_READ_STATUS_PENDING)
+	pending.BallotKey = "ballot-1"
+	require.NoError(t, f.k.SetUniversalRead(f.ctx, pending))
+	require.NoError(t, f.k.SetUniversalRead(f.ctx,
+		newRead("0xbbb", "0xTX", 100, types.UniversalReadStatus_UNIVERSAL_READ_STATUS_FULFILLED)))
+
+	exported := f.k.ExportGenesis(f.ctx)
+	require.Len(t, exported.UniversalReads, 2)
+
+	// re-import into a clean fixture
+	g := SetupTest(t)
+	require.NoError(t, g.k.InitGenesis(g.ctx, exported))
+
+	_, found := g.k.GetUniversalRead(g.ctx, "0xaaa")
+	require.True(t, found)
+
+	// indexes are rebuilt, not imported
+	byBallot, found := g.k.GetUniversalReadByBallot(g.ctx, "ballot-1")
+	require.True(t, found)
+	require.Equal(t, "0xaaa", byBallot.Id)
+
+	require.ElementsMatch(t, []string{"0xaaa", "0xbbb"}, collectByTx(t, g, "0xTX"))
+	require.Equal(t, []string{"0xaaa"}, collectDueBy(t, g, 100),
+		"only the unsettled read is pending after re-import")
+}

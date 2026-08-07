@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/pushchain/push-chain-node/universalClient/store"
+	ucallbacktypes "github.com/pushchain/push-chain-node/x/ucallback/types"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 )
@@ -397,6 +398,56 @@ func TestConvertFundMigrationEvent(t *testing.T) {
 	})
 }
 
+func TestConvertReadRequestEvent(t *testing.T) {
+	t.Run("nil request returns error", func(t *testing.T) {
+		result, err := convertReadRequestEvent(nil)
+		require.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "read request is nil or missing request id")
+	})
+
+	t.Run("empty request id returns error", func(t *testing.T) {
+		result, err := convertReadRequestEvent(&ucallbacktypes.ReadRequest{RequestId: ""})
+		require.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "read request is nil or missing request id")
+	})
+
+	t.Run("valid request converts correctly", func(t *testing.T) {
+		req := &ucallbacktypes.ReadRequest{
+			RequestId:              "0x00000000000000000000000000000000000000000000000000000000000000a1",
+			DestinationChain:       "eip155:11155111",
+			Owner:                  []byte{0x01, 0x02},
+			Query:                  []byte{0xde, 0xad},
+			MinConfirmations:       3,
+			DestinationBlockHeight: 500,
+			ExpiryBlockHeight:      900,
+			CreatedAtHeight:        420,
+		}
+
+		result, err := convertReadRequestEvent(req)
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		// EventID is the on-chain requestId verbatim (no hashing)
+		assert.Equal(t, req.RequestId, result.EventID)
+		assert.Equal(t, store.EventTypeReadRequest, result.Type)
+		assert.Equal(t, store.StatusConfirmed, result.Status)
+		assert.Equal(t, store.ConfirmationInstant, result.ConfirmationType)
+		assert.Equal(t, uint64(420), result.BlockHeight, "block height is the request's created-at height")
+		assert.Equal(t, uint64(900), result.ExpiryBlockHeight, "expiry height must be stamped for the processor's expiry check")
+
+		// EventData round-trips back to the request
+		var decoded ucallbacktypes.ReadRequest
+		require.NoError(t, json.Unmarshal(result.EventData, &decoded))
+		assert.Equal(t, req.RequestId, decoded.RequestId)
+		assert.Equal(t, req.DestinationChain, decoded.DestinationChain)
+		assert.Equal(t, req.Query, decoded.Query)
+		assert.Equal(t, req.MinConfirmations, decoded.MinConfirmations)
+		assert.Equal(t, req.DestinationBlockHeight, decoded.DestinationBlockHeight)
+	})
+}
+
 func TestHashEventID(t *testing.T) {
 	t.Run("deterministic output", func(t *testing.T) {
 		id1 := hashEventID("keygen", "123")
@@ -421,4 +472,3 @@ func TestHashEventID(t *testing.T) {
 		assert.Len(t, id, 64) // sha256 = 32 bytes = 64 hex chars
 	})
 }
-

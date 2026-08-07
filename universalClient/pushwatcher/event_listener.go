@@ -243,10 +243,6 @@ func (el *EventListener) pollFundMigrationEvents(ctx context.Context) int {
 func (el *EventListener) pollReadRequestEvents(ctx context.Context) int {
 	requests, err := el.pushCore.GetAllPendingReadRequests(ctx)
 	if err != nil {
-		if errors.Is(err, pushcore.ErrReadQueriesNotAvailable) {
-			// TODO(core): remove once Query/PendingReadRequests lands.
-			return 0
-		}
 		el.logger.Error().Err(err).Msg("failed to fetch pending read requests")
 		return 0
 	}
@@ -255,7 +251,7 @@ func (el *EventListener) pollReadRequestEvents(ctx context.Context) int {
 	for _, req := range requests {
 		event, err := convertReadRequestEvent(req)
 		if err != nil {
-			el.logger.Warn().Err(err).Str("request_id", req.RequestID).Msg("failed to convert read request")
+			el.logger.Warn().Err(err).Str("request_id", req.RequestId).Msg("failed to convert read request")
 			continue
 		}
 

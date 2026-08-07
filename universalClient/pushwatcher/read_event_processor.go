@@ -10,7 +10,7 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
 	"github.com/pushchain/push-chain-node/universalClient/externalchains/web2"
 	"github.com/pushchain/push-chain-node/universalClient/store"
-	"github.com/pushchain/push-chain-node/universalClient/uread"
+	ucallbacktypes "github.com/pushchain/push-chain-node/x/ucallback/types"
 	"github.com/rs/zerolog"
 )
 
@@ -23,7 +23,7 @@ type ChainResolver interface {
 // readVoter submits a read observation vote to Push Chain.
 // Satisfied by *pushsigner.Signer.
 type readVoter interface {
-	VoteReadResult(ctx context.Context, requestID string, result *uread.ReadResult) (string, error)
+	VoteReadResult(ctx context.Context, requestID string, result *ucallbacktypes.ReadResult) (string, error)
 }
 
 // ReadEventProcessor handles READ_REQUEST events: it executes each request on
@@ -69,13 +69,13 @@ func (p *ReadEventProcessor) HandleEvent(ctx context.Context, event *store.Event
 		return nil
 	}
 
-	var req uread.ReadRequest
+	var req ucallbacktypes.ReadRequest
 	if err := json.Unmarshal(event.EventData, &req); err != nil {
 		p.markReverted(event.EventID)
 		return err
 	}
 
-	log := p.logger.With().Str("request_id", req.RequestID).Logger()
+	log := p.logger.With().Str("request_id", req.RequestId).Logger()
 
 	handler, err := p.resolveHandler(req.DestinationChain)
 	if err != nil {
@@ -90,9 +90,8 @@ func (p *ReadEventProcessor) HandleEvent(ctx context.Context, event *store.Event
 		return nil
 	}
 
-	voteTxHash, err := p.voter.VoteReadResult(ctx, req.RequestID, result)
+	voteTxHash, err := p.voter.VoteReadResult(ctx, req.RequestId, result)
 	if err != nil {
-		// TODO(core): ErrVoteReadNotAvailable falls through here until MsgVoteReadResult lands.
 		log.Warn().Err(err).Msg("failed to vote read result; will retry")
 		return nil
 	}

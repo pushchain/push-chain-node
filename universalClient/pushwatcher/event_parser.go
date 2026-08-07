@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/pushchain/push-chain-node/universalClient/store"
-	"github.com/pushchain/push-chain-node/universalClient/uread"
+	ucallbacktypes "github.com/pushchain/push-chain-node/x/ucallback/types"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 )
@@ -96,8 +96,8 @@ func convertFundMigrationEvent(migration *utsstypes.FundMigration) (*store.Event
 }
 
 // convertReadRequestEvent converts a pending external read request to a store.Event.
-func convertReadRequestEvent(req *uread.ReadRequest) (*store.Event, error) {
-	if req == nil || req.RequestID == "" {
+func convertReadRequestEvent(req *ucallbacktypes.ReadRequest) (*store.Event, error) {
+	if req == nil || req.RequestId == "" {
 		return nil, fmt.Errorf("read request is nil or missing request id")
 	}
 
@@ -107,7 +107,7 @@ func convertReadRequestEvent(req *uread.ReadRequest) (*store.Event, error) {
 	}
 
 	return &store.Event{
-		EventID:           hashEventID(store.EventTypeReadRequest, req.RequestID),
+		EventID:           req.RequestId, // globally unique on-chain nonce; no hashing needed
 		BlockHeight:       req.CreatedAtHeight,
 		ExpiryBlockHeight: req.ExpiryBlockHeight,
 		Type:              store.EventTypeReadRequest,

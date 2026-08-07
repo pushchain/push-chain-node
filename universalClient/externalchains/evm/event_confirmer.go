@@ -181,7 +181,7 @@ func (ec *EventConfirmer) processPendingEvents(ctx context.Context) error {
 				gasFeeUsed := new(big.Int).Mul(gasUsed, gasPrice).String()
 
 				// Unmarshal, set GasFeeUsed, re-marshal
-				var outboundEvent chaincommon.OutboundEvent
+				var outboundEvent chaincommon.OutboundObservation
 				if unmarshalErr := json.Unmarshal(event.EventData, &outboundEvent); unmarshalErr != nil {
 					ec.logger.Error().
 						Err(unmarshalErr).

@@ -413,6 +413,9 @@ type mockChainClient struct {
 func (m *mockChainClient) Start(ctx context.Context) error { m.startCalled = true; return nil }
 func (m *mockChainClient) Stop() error                     { m.stopCalled = true; return m.stopErr }
 func (m *mockChainClient) IsHealthy() bool                 { return true }
+func (m *mockChainClient) GetReadRequestHandler() (common.ReadRequestHandler, error) {
+	return nil, nil
+}
 func (m *mockChainClient) GetTxBuilder() (common.TxBuilder, error) {
 	return nil, nil
 }

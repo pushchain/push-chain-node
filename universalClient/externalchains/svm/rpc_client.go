@@ -386,6 +386,53 @@ func (rc *RPCClient) GetAccountData(ctx context.Context, pubkey solana.PublicKey
 	return accountData, err
 }
 
+// GetBalanceWithSlot fetches the lamport balance for an account at finalized
+// commitment, returning the context slot the value was observed at.
+func (rc *RPCClient) GetBalanceWithSlot(ctx context.Context, pubkey solana.PublicKey) (uint64, uint64, error) {
+	var balance, slot uint64
+	err := rc.executeWithFailover(ctx, "get_balance", func(client *rpc.Client) error {
+		resp, innerErr := client.GetBalance(ctx, pubkey, rpc.CommitmentFinalized)
+		if innerErr != nil {
+			return innerErr
+		}
+		balance = resp.Value
+		slot = resp.RPCContext.Context.Slot
+		return nil
+	})
+	return balance, slot, err
+}
+
+// GetAccountInfoWithSlot fetches account data at finalized commitment with an
+// optional minimum context slot, returning the context slot it was observed at.
+// found=false means the account does not exist (a valid, votable observation).
+func (rc *RPCClient) GetAccountInfoWithSlot(ctx context.Context, pubkey solana.PublicKey, minContextSlot uint64) (data []byte, owner solana.PublicKey, found bool, slot uint64, err error) {
+	err = rc.executeWithFailover(ctx, "get_account_info", func(client *rpc.Client) error {
+		opts := &rpc.GetAccountInfoOpts{Commitment: rpc.CommitmentFinalized}
+		if minContextSlot > 0 {
+			opts.MinContextSlot = &minContextSlot
+		}
+		resp, innerErr := client.GetAccountInfoWithOpts(ctx, pubkey, opts)
+		if innerErr != nil {
+			if innerErr == rpc.ErrNotFound {
+				found = false
+				return nil
+			}
+			return innerErr
+		}
+		if resp.Value == nil {
+			found = false
+			slot = resp.RPCContext.Context.Slot
+			return nil
+		}
+		found = true
+		data = resp.Value.Data.GetBinary()
+		owner = resp.Value.Owner
+		slot = resp.RPCContext.Context.Slot
+		return nil
+	})
+	return data, owner, found, slot, err
+}
+
 // Close closes all RPC connections
 func (rc *RPCClient) Close() {
 	rc.mu.Lock()

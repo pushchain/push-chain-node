@@ -3,52 +3,65 @@ package common
 import (
 	"context"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/mr-tron/base58"
 	"github.com/pushchain/push-chain-node/universalClient/db"
-	"github.com/pushchain/push-chain-node/universalClient/pushsigner"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	"github.com/rs/zerolog"
 )
 
-// EventProcessor processes events from the chain's database and votes on them
-type EventProcessor struct {
-	signer          *pushsigner.Signer
-	chainStore      *ChainStore
-	logger          zerolog.Logger
-	chainID         string
-	inboundEnabled  bool
-	outboundEnabled bool
-	running         bool
-	stopCh          chan struct{}
-	wg              sync.WaitGroup
+const eventProcessBatchSize = 1000
+
+// VoteSigner is the subset of pushsigner.Signer used by the event processors.
+// Defined here (consumer-side) so tests can provide mock implementations.
+type VoteSigner interface {
+	VoteInbound(ctx context.Context, inbound *uexecutortypes.Inbound) (string, error)
+	VoteOutbound(ctx context.Context, txID string, utxID string, observation *uexecutortypes.OutboundObservation) (string, error)
 }
 
-// NewEventProcessor creates a new event processor
+// EventHandler processes one CONFIRMED event of a registered type.
+// Handlers own the event's status transitions; a returned error is logged and
+// the event is retried next tick.
+type EventHandler interface {
+	HandleEvent(ctx context.Context, event *store.Event) error
+}
+
+// EventProcessor drains CONFIRMED events from the chain's database and
+// dispatches them to the handler registered for their type. Event types
+// without a handler are ignored.
+type EventProcessor struct {
+	chainStore *ChainStore
+	handlers   map[string]EventHandler
+	chainID    string
+	logger     zerolog.Logger
+	running    bool
+	stopCh     chan struct{}
+	wg         sync.WaitGroup
+}
+
+// NewEventProcessor creates a new event processor. Register handlers before Start.
 func NewEventProcessor(
-	signer *pushsigner.Signer,
 	database *db.DB,
 	chainID string,
-	inboundEnabled bool,
-	outboundEnabled bool,
 	logger zerolog.Logger,
 ) *EventProcessor {
 	return &EventProcessor{
-		signer:          signer,
-		chainStore:      NewChainStore(database),
-		chainID:         chainID,
-		inboundEnabled:  inboundEnabled,
-		outboundEnabled: outboundEnabled,
-		logger:          logger.With().Str("component", "event_processor").Str("chain", chainID).Logger(),
-		stopCh:          make(chan struct{}),
+		chainStore: NewChainStore(database),
+		handlers:   make(map[string]EventHandler),
+		chainID:    chainID,
+		logger:     logger.With().Str("component", "event_processor").Str("chain", chainID).Logger(),
+		stopCh:     make(chan struct{}),
 	}
+}
+
+// RegisterHandler registers a handler for an event type. Must be called before Start.
+func (ep *EventProcessor) RegisterHandler(eventType string, handler EventHandler) {
+	ep.handlers[eventType] = handler
 }
 
 // Start begins processing events
@@ -103,7 +116,6 @@ func (ep *EventProcessor) processLoop(ctx context.Context) {
 			ep.logger.Debug().Msg("stop signal received, stopping event processor")
 			return
 		case <-ticker.C:
-			// Fetch 1000 CONFIRMED events and process them
 			if err := ep.processConfirmedEvents(ctx); err != nil {
 				ep.logger.Error().Err(err).Msg("failed to process confirmed events")
 			}
@@ -111,123 +123,43 @@ func (ep *EventProcessor) processLoop(ctx context.Context) {
 	}
 }
 
-// processConfirmedEvents processes confirmed events (both inbound and outbound)
+// processConfirmedEvents dispatches CONFIRMED events to their registered handlers.
 func (ep *EventProcessor) processConfirmedEvents(ctx context.Context) error {
-	events, err := ep.chainStore.GetConfirmedEvents(1000)
+	events, err := ep.chainStore.GetConfirmedEvents(eventProcessBatchSize)
 	if err != nil {
 		return fmt.Errorf("failed to get confirmed events: %w", err)
 	}
 
 	for _, event := range events {
-		if event.Type == store.EventTypeInbound {
-			if !ep.inboundEnabled {
-				ep.logger.Warn().Str("event_id", event.EventID).Msg("inbound disabled, skipping inbound event processing")
-				continue
-			}
-			if err := ep.processInboundEvent(ctx, &event); err != nil {
-				ep.logger.Error().
-					Err(err).
-					Str("event_id", event.EventID).
-					Msg("failed to vote on inbound event")
-				continue
-			}
-		} else if event.Type == store.EventTypeOutbound {
-			if !ep.outboundEnabled {
-				ep.logger.Warn().Str("event_id", event.EventID).Msg("outbound disabled, skipping outbound event processing")
-				continue
-			}
-			if err := ep.processOutboundEvent(ctx, &event); err != nil {
-				ep.logger.Error().
-					Err(err).
-					Str("event_id", event.EventID).
-					Msg("failed to vote on outbound event")
-				continue
-			}
+		handler, ok := ep.handlers[event.Type]
+		if !ok {
+			continue
+		}
+
+		if err := handler.HandleEvent(ctx, &event); err != nil {
+			ep.logger.Error().
+				Err(err).
+				Str("event_id", event.EventID).
+				Str("type", event.Type).
+				Msg("failed to process event")
 		}
 	}
 
 	return nil
 }
 
-// processOutboundEvent processes an outbound event by voting on it
-func (ep *EventProcessor) processOutboundEvent(ctx context.Context, event *store.Event) error {
-	ep.logger.Debug().
-		Str("event_id", event.EventID).
-		Msg("processing outbound event")
-
-	// Parse outbound event data once
-	outboundData, err := ep.parseOutboundEventData(event)
-	if err != nil {
-		return fmt.Errorf("failed to parse outbound event data: %w", err)
-	}
-
-	txID := outboundData.TxID
-	utxID := outboundData.UniversalTxID
-
-	// Build observation from parsed data
-	observation, err := ep.buildOutboundObservation(event, outboundData)
-	if err != nil {
-		return fmt.Errorf("failed to build outbound observation: %w", err)
-	}
-
-	// Vote on outbound
-	voteTxHash, err := ep.signer.VoteOutbound(ctx, txID, utxID, observation)
-	if err != nil {
-		return fmt.Errorf("failed to vote on outbound: %w", err)
-	}
-
-	// Atomically record vote hash and flip status in one DB write
-	rowsAffected, err := ep.chainStore.UpdateStatusAndVoteTxHash(event.EventID, store.StatusConfirmed, store.StatusCompleted, voteTxHash)
-	if err != nil {
-		return fmt.Errorf("failed to update event status and vote_tx_hash: %w", err)
-	}
-
-	if rowsAffected == 0 {
-		return nil // already completed by another validator
-	}
-
-	ep.logger.Info().
-		Str("event_id", event.EventID).
-		Str("type", event.Type).
-		Str("vote_tx_hash", voteTxHash).
-		Msg("event marked as COMPLETED")
-
-	return nil
-}
-
-// processInboundEvent processes an inbound event by voting on it and confirming it
-func (ep *EventProcessor) processInboundEvent(ctx context.Context, event *store.Event) error {
-	ep.logger.Debug().
-		Str("event_id", event.EventID).
-		Msg("processing inbound event")
-
-	// Extract inbound data from event
-	inbound, err := ep.constructInbound(event)
-	if err != nil {
-		return fmt.Errorf("failed to construct inbound: %w", err)
-	}
-
-	// Execute vote on blockchain
-	voteTxHash, err := ep.signer.VoteInbound(ctx, inbound)
-	if err != nil {
-		ep.logger.Error().
-			Str("event_id", event.EventID).
-			Err(err).
-			Msg("failed to vote on event - keeping status for retry")
-		return err
-	}
-
-	// Atomically record vote hash and flip status in one DB write
-	rowsAffected, err := ep.chainStore.UpdateStatusAndVoteTxHash(event.EventID, store.StatusConfirmed, store.StatusCompleted, voteTxHash)
+// markEventCompleted atomically records the vote hash and flips CONFIRMED -> COMPLETED.
+func markEventCompleted(chainStore *ChainStore, logger zerolog.Logger, event *store.Event, voteTxHash string) error {
+	rowsAffected, err := chainStore.UpdateStatusAndVoteTxHash(event.EventID, store.StatusConfirmed, store.StatusCompleted, voteTxHash)
 	if err != nil {
 		return fmt.Errorf("failed to update event status after successful vote: %w", err)
 	}
 
 	if rowsAffected == 0 {
-		return nil // already completed by another validator
+		return nil // already completed
 	}
 
-	ep.logger.Info().
+	logger.Info().
 		Str("event_id", event.EventID).
 		Str("type", event.Type).
 		Str("vote_tx_hash", voteTxHash).
@@ -236,86 +168,25 @@ func (ep *EventProcessor) processInboundEvent(ctx context.Context, event *store.
 	return nil
 }
 
-// constructInbound creates an Inbound message from event data
-func (ep *EventProcessor) constructInbound(event *store.Event) (*uexecutortypes.Inbound, error) {
-	var eventData UniversalTx
-
-	if event == nil {
-		return nil, fmt.Errorf("event is nil")
-	}
-
-	if event.EventData == nil {
-		return nil, fmt.Errorf("event data is missing for event_id: %s", event.EventID)
-	}
-
-	if err := json.Unmarshal(event.EventData, &eventData); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal event data: %w", err)
-	}
-
-	// Map txType from eventData to proper enum value
-	txType := uexecutortypes.TxType_UNSPECIFIED_TX
-	switch eventData.TxType {
-	case 0:
-		txType = uexecutortypes.TxType_GAS
-	case 1:
-		txType = uexecutortypes.TxType_GAS_AND_PAYLOAD
-	case 2:
-		txType = uexecutortypes.TxType_FUNDS
-	case 3:
-		txType = uexecutortypes.TxType_FUNDS_AND_PAYLOAD
-	default:
-		txType = uexecutortypes.TxType_UNSPECIFIED_TX
-	}
-
-	// Extract txHash from EventID (format: "txHash:logIndex")
+// eventTxHash extracts the tx hash from an EventID (format: "txHash:logIndex"
+// or "signature:logIndex"), converting base58 signatures to 0x-prefixed hex.
+// Falls back to the raw value if conversion fails.
+func eventTxHash(eventID string) string {
 	txHash := ""
-	parts := strings.Split(event.EventID, ":")
+	parts := strings.Split(eventID, ":")
 	if len(parts) > 0 {
 		txHash = parts[0]
 	}
 
-	// Convert txHash to hex format if it's in base58
-	txHashHex, err := ep.base58ToHex(txHash)
+	txHashHex, err := base58ToHex(txHash)
 	if err != nil {
-		ep.logger.Warn().
-			Str("tx_hash", txHash).
-			Err(err).
-			Msg("failed to convert txHash to hex, using original value")
-		txHashHex = txHash
+		return txHash
 	}
-
-	inboundMsg := &uexecutortypes.Inbound{
-		SourceChain: eventData.SourceChain,
-		TxHash:      txHashHex,
-		Sender:      eventData.Sender,
-		Recipient:   eventData.Recipient,
-		Amount:      eventData.Amount,
-		AssetAddr:   eventData.Token,
-		LogIndex:    strconv.FormatUint(uint64(eventData.LogIndex), 10),
-		TxType:      txType,
-		IsCEA:       eventData.FromCEA,
-		RawPayload:  eventData.RawPayload,
-	}
-
-	// Set revert instructions if revert fund recipient is present
-	if eventData.RevertFundRecipient != "" {
-		inboundMsg.RevertInstructions = &uexecutortypes.RevertInstructions{
-			FundRecipient: eventData.RevertFundRecipient,
-		}
-	}
-
-	// Use event's VerificationData if present, otherwise fall back to txHash
-	if eventData.VerificationData == "" || eventData.VerificationData == "0x" {
-		inboundMsg.VerificationData = txHashHex
-	} else {
-		inboundMsg.VerificationData = eventData.VerificationData
-	}
-
-	return inboundMsg, nil
+	return txHashHex
 }
 
 // base58ToHex converts a base58 encoded string to hex format (0x...)
-func (ep *EventProcessor) base58ToHex(base58Str string) (string, error) {
+func base58ToHex(base58Str string) (string, error) {
 	if base58Str == "" {
 		return "0x", nil
 	}
@@ -333,66 +204,4 @@ func (ep *EventProcessor) base58ToHex(base58Str string) (string, error) {
 
 	// Convert to hex with 0x prefix
 	return "0x" + hex.EncodeToString(decoded), nil
-}
-
-// parseOutboundEventData unmarshals event data into an OutboundEvent struct
-func (ep *EventProcessor) parseOutboundEventData(event *store.Event) (*OutboundEvent, error) {
-	if event == nil {
-		return nil, fmt.Errorf("event is nil")
-	}
-
-	if len(event.EventData) == 0 {
-		return nil, fmt.Errorf("event data is empty")
-	}
-
-	var eventData OutboundEvent
-	if err := json.Unmarshal(event.EventData, &eventData); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal event data: %w", err)
-	}
-
-	if eventData.TxID == "" {
-		return nil, fmt.Errorf("tx_id not found in event data")
-	}
-
-	if eventData.UniversalTxID == "" {
-		return nil, fmt.Errorf("universal_tx_id not found in event data")
-	}
-
-	return &eventData, nil
-}
-
-// buildOutboundObservation builds an OutboundObservation from event metadata and parsed outbound data
-func (ep *EventProcessor) buildOutboundObservation(event *store.Event, outboundData *OutboundEvent) (*uexecutortypes.OutboundObservation, error) {
-	// Extract txHash from EventID (format: "txHash:logIndex" or "signature:logIndex")
-	txHash := ""
-	parts := strings.Split(event.EventID, ":")
-	if len(parts) > 0 {
-		txHash = parts[0]
-	}
-
-	// Convert txHash to hex format if it's in base58
-	txHashHex, err := ep.base58ToHex(txHash)
-	if err != nil {
-		ep.logger.Warn().
-			Str("tx_hash", txHash).
-			Err(err).
-			Msg("failed to convert txHash to hex, using original value")
-		txHashHex = txHash
-	}
-
-	gasFeeUsed := "0"
-	if outboundData.GasFeeUsed != "" {
-		gasFeeUsed = outboundData.GasFeeUsed
-	}
-
-	observation := &uexecutortypes.OutboundObservation{
-		Success:            true,
-		BlockHeight:        event.BlockHeight,
-		TxHash:             txHashHex,
-		ErrorMsg:           "",
-		GasFeeUsed:         gasFeeUsed,
-		Pc20WrapperAddress: outboundData.Pc20WrapperAddress,
-	}
-
-	return observation, nil
 }

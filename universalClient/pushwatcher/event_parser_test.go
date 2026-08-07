@@ -421,3 +421,4 @@ func TestHashEventID(t *testing.T) {
 		assert.Len(t, id, 64) // sha256 = 32 bytes = 64 hex chars
 	})
 }
+

@@ -337,7 +337,7 @@ func TestParseOutboundObservation_PC20Wrapper(t *testing.T) {
 
 	wrapperOf := func(t *testing.T, e *store.Event) string {
 		t.Helper()
-		var ob common.OutboundEvent
+		var ob common.OutboundObservation
 		require.NoError(t, json.Unmarshal(e.EventData, &ob))
 		return ob.Pc20WrapperAddress
 	}
@@ -544,21 +544,21 @@ func TestDecodePayload(t *testing.T) {
 		big.NewInt(int64(len(inner))).FillBytes(data[160:192])
 		copy(data[192:196], inner)
 
-		payload := &common.UniversalTx{}
+		payload := &common.InboundObservation{}
 		decodePayload(data, 160, payload, logger)
 		assert.Equal(t, "0xdeadbeef", payload.RawPayload)
 	})
 
 	t.Run("offset too small is ignored", func(t *testing.T) {
 		data := make([]byte, 256)
-		payload := &common.UniversalTx{}
+		payload := &common.InboundObservation{}
 		decodePayload(data, 32, payload, logger) // < 32*5
 		assert.Empty(t, payload.RawPayload)
 	})
 
 	t.Run("offset zero is ignored", func(t *testing.T) {
 		data := make([]byte, 256)
-		payload := &common.UniversalTx{}
+		payload := &common.InboundObservation{}
 		decodePayload(data, 0, payload, logger)
 		assert.Empty(t, payload.RawPayload)
 	})
@@ -566,7 +566,7 @@ func TestDecodePayload(t *testing.T) {
 	t.Run("readDynamicBytes fails gracefully", func(t *testing.T) {
 		// Data is too short for the length word at the offset
 		data := make([]byte, 168) // offset 160 + only 8 bytes; need 32 for length
-		payload := &common.UniversalTx{}
+		payload := &common.InboundObservation{}
 		decodePayload(data, 160, payload, logger)
 		assert.Empty(t, payload.RawPayload)
 	})
@@ -634,13 +634,13 @@ func TestFinalizeEvent(t *testing.T) {
 
 	t.Run("txType 0 sets FAST confirmation", func(t *testing.T) {
 		event := &store.Event{}
-		payload := &common.UniversalTx{TxType: 0, Sender: "0xabc"}
+		payload := &common.InboundObservation{TxType: 0, Sender: "0xabc"}
 		finalizeEvent(event, payload, logger)
 
 		assert.Equal(t, store.ConfirmationFast, event.ConfirmationType)
 		assert.NotNil(t, event.EventData)
 
-		var decoded common.UniversalTx
+		var decoded common.InboundObservation
 		err := json.Unmarshal(event.EventData, &decoded)
 		require.NoError(t, err)
 		assert.Equal(t, "0xabc", decoded.Sender)
@@ -648,7 +648,7 @@ func TestFinalizeEvent(t *testing.T) {
 
 	t.Run("txType 1 sets FAST confirmation", func(t *testing.T) {
 		event := &store.Event{}
-		payload := &common.UniversalTx{TxType: 1}
+		payload := &common.InboundObservation{TxType: 1}
 		finalizeEvent(event, payload, logger)
 
 		assert.Equal(t, store.ConfirmationFast, event.ConfirmationType)
@@ -656,7 +656,7 @@ func TestFinalizeEvent(t *testing.T) {
 
 	t.Run("txType 2 sets STANDARD confirmation", func(t *testing.T) {
 		event := &store.Event{}
-		payload := &common.UniversalTx{TxType: 2}
+		payload := &common.InboundObservation{TxType: 2}
 		finalizeEvent(event, payload, logger)
 
 		assert.Equal(t, store.ConfirmationStandard, event.ConfirmationType)
@@ -664,7 +664,7 @@ func TestFinalizeEvent(t *testing.T) {
 
 	t.Run("txType 3 sets STANDARD confirmation", func(t *testing.T) {
 		event := &store.Event{}
-		payload := &common.UniversalTx{TxType: 3}
+		payload := &common.InboundObservation{TxType: 3}
 		finalizeEvent(event, payload, logger)
 
 		assert.Equal(t, store.ConfirmationStandard, event.ConfirmationType)
@@ -672,7 +672,7 @@ func TestFinalizeEvent(t *testing.T) {
 
 	t.Run("high txType sets STANDARD confirmation", func(t *testing.T) {
 		event := &store.Event{}
-		payload := &common.UniversalTx{TxType: 255}
+		payload := &common.InboundObservation{TxType: 255}
 		finalizeEvent(event, payload, logger)
 
 		assert.Equal(t, store.ConfirmationStandard, event.ConfirmationType)
@@ -680,7 +680,7 @@ func TestFinalizeEvent(t *testing.T) {
 
 	t.Run("event data is valid JSON", func(t *testing.T) {
 		event := &store.Event{}
-		payload := &common.UniversalTx{
+		payload := &common.InboundObservation{
 			SourceChain: "eip155:1",
 			Sender:      "0xsender",
 			Recipient:   "0xrecipient",
@@ -690,7 +690,7 @@ func TestFinalizeEvent(t *testing.T) {
 		}
 		finalizeEvent(event, payload, logger)
 
-		var decoded common.UniversalTx
+		var decoded common.InboundObservation
 		err := json.Unmarshal(event.EventData, &decoded)
 		require.NoError(t, err)
 		assert.Equal(t, "eip155:1", decoded.SourceChain)

@@ -2,10 +2,28 @@ package common
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 
+	"github.com/pushchain/push-chain-node/universalClient/uread"
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
+
+// EncodeUint256Result canonically encodes a balance/amount as abi.encode(uint256)
+// so read results are byte-identical across validators and decodable by the
+// requesting contract. The bounds check guards against a malicious RPC value
+// that would not fit (FillBytes panics on overflow).
+func EncodeUint256Result(v *big.Int) ([]byte, error) {
+	if v == nil {
+		v = big.NewInt(0)
+	}
+	if v.Sign() < 0 || v.BitLen() > 256 {
+		return nil, fmt.Errorf("value out of uint256 range")
+	}
+	out := make([]byte, 32)
+	v.FillBytes(out)
+	return out, nil
+}
 
 // ChainClient defines the interface for chain-specific implementations
 type ChainClient interface {
@@ -21,6 +39,11 @@ type ChainClient interface {
 	// GetTxBuilder returns the TxBuilder for this chain
 	// Returns an error if txBuilder is not supported for this chain (e.g., Push chain)
 	GetTxBuilder() (TxBuilder, error)
+
+	// GetReadRequestHandler returns the handler executing read requests
+	// destined for this chain
+	// Returns an error if reads are not available (e.g. client not started)
+	GetReadRequestHandler() (ReadRequestHandler, error)
 }
 
 // FundMigrationData contains the data needed to build a fund migration transaction.
@@ -91,32 +114,8 @@ type TxBuilder interface {
 	BroadcastFundMigrationTx(ctx context.Context, req *UnsignedSigningReq, data *FundMigrationData, signature []byte) (string, error)
 }
 
-// UniversalTx Payload
-type UniversalTx struct {
-	SourceChain         string                   `json:"sourceChain"`
-	LogIndex            uint                     `json:"logIndex"`
-	Sender              string                   `json:"sender"`
-	Recipient           string                   `json:"recipient"`
-	Token               string                   `json:"bridgeToken"`
-	Amount              string `json:"bridgeAmount"` // uint256 as decimal string
-	RawPayload          string `json:"rawPayload,omitempty"` // hex-encoded raw payload bytes from source chain
-	VerificationData    string `json:"verificationData"`
-	RevertFundRecipient string                   `json:"revertFundRecipient,omitempty"`
-	TxType              uint                     `json:"txType"`              // enum backing uint as decimal string
-	FromCEA             bool                     `json:"fromCEA"`             // true if inbound is initiated by a CEA
+// ReadRequestHandler executes a read request on one destination chain.
+// Consumed by the push watcher's read processor.
+type ReadRequestHandler interface {
+	ExecuteRead(ctx context.Context, req *uread.ReadRequest) (*uread.ReadResult, error)
 }
-
-// OutboundEvent represents an outbound observation event from the gateway contract
-// Event structure:
-// - txID at 1st indexed position (bytes32)
-// - universalTxID at 2nd indexed position (bytes32)
-type OutboundEvent struct {
-	TxID          string `json:"tx_id"`                  // bytes32 hex-encoded (0x...)
-	UniversalTxID string `json:"universal_tx_id"`        // bytes32 hex-encoded (0x...)
-	GasFeeUsed    string `json:"gas_fee_used,omitempty"` // gas fee used in wei (decimal string)
-	// PC20 export only: wrapper token address deployed/minted on the destination
-	// at settlement (observed in the finalize event). Core uses it to flip the
-	// PC20 deploy flag; empty for non-PC20 settlements.
-	Pc20WrapperAddress string `json:"pc20_wrapper_address,omitempty"`
-}
-

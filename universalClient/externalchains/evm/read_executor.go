@@ -2,8 +2,12 @@ package evm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
+	"strings"
+
+	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
 	ucallbacktypes "github.com/pushchain/push-chain-node/x/ucallback/types"
@@ -57,8 +61,14 @@ func (c *Client) ExecuteRead(ctx context.Context, req *ucallbacktypes.ReadReques
 		}
 		ret, rpcErr := c.rpcClient.CallContract(ctx, target, callData, blockNum)
 		if rpcErr != nil {
-			// eth_call reverts are deterministic at a pinned height — observable as ERROR.
-			return common.NewReadErrorResult(rpcErr), nil
+			// Only a genuine execution revert is deterministic at the pinned
+			// height and safe to vote. A transport error or a node-state error
+			// (e.g. missing trie node on a pruned node) is not deterministic and
+			// must be retried, never voted.
+			if isExecutionRevert(rpcErr) {
+				return common.NewReadErrorResult(rpcErr), nil
+			}
+			return nil, rpcErr
 		}
 		resultData = ret
 
@@ -88,6 +98,21 @@ func (c *Client) ExecuteRead(ctx context.Context, req *ucallbacktypes.ReadReques
 		ObservedBlockHeight: height,
 		ObservedBlockHash:   header.Hash().Bytes(),
 	}, nil
+}
+
+// isExecutionRevert reports whether an eth_call error is a deterministic EVM
+// revert (the node executed the call and it reverted) rather than a transient
+// transport or node-state failure. Only a revert is safe to vote as ERROR.
+func isExecutionRevert(err error) bool {
+	var dataErr rpc.DataError
+	if errors.As(err, &dataErr) && dataErr.ErrorData() != nil {
+		return true
+	}
+	var rpcErr rpc.Error
+	if errors.As(err, &rpcErr) && rpcErr.ErrorCode() == 3 {
+		return true
+	}
+	return strings.Contains(strings.ToLower(err.Error()), "execution reverted")
 }
 
 // gateHeightConfirmed blocks execution until the target height has at least

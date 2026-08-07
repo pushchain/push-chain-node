@@ -227,9 +227,12 @@ func (e *Executor) fetch(ctx context.Context, env *web2QueryEnvelope) ([]byte, *
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	// 4xx is a deterministic answer from the endpoint; 5xx is the endpoint
-	// having a bad moment
-	if resp.StatusCode >= 500 {
+	// 5xx, plus the transient 4xx codes 408 (Request Timeout) and 429 (Too Many
+	// Requests), mean "try again" — retry, never vote. Every other non-2xx is a
+	// deterministic answer from the endpoint and is votable.
+	if resp.StatusCode >= 500 ||
+		resp.StatusCode == http.StatusRequestTimeout ||
+		resp.StatusCode == http.StatusTooManyRequests {
 		return nil, nil, fmt.Errorf("endpoint returned status %d", resp.StatusCode)
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {

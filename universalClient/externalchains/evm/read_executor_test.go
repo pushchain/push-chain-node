@@ -148,6 +148,20 @@ func TestExecuteRead_ContractCall(t *testing.T) {
 		assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_ERROR, result.Status)
 		assert.Empty(t, result.ResultData)
 	})
+
+	t.Run("non-revert rpc error is transient, not voted", func(t *testing.T) {
+		// a pruned/unsynced node (missing trie node) is node-specific, not a
+		// deterministic revert; it must retry, never produce an ERROR vote
+		client := newReadTestClient(t, map[string]any{
+			"eth_getBlockByNumber": fakeHeader(100),
+		}, map[string]rpcFault{
+			"eth_call": {code: -32000, message: "missing trie node"},
+		})
+
+		result, err := client.ExecuteRead(context.Background(), evmReadRequest(t, uint8(evmQueryContractCall), 0, payload))
+		require.Error(t, err)
+		assert.Nil(t, result)
+	})
 }
 
 func TestExecuteRead_StorageSlot(t *testing.T) {
@@ -191,6 +205,44 @@ func TestExecuteRead_RPCFailureIsTransient(t *testing.T) {
 	result, err := client.ExecuteRead(context.Background(), evmReadRequest(t, uint8(evmQueryAccountBalance), 0, payload))
 	require.Error(t, err)
 	assert.Nil(t, result)
+}
+
+func TestExecuteRead_PrunedStateIsTransient(t *testing.T) {
+	// A pruned node can serve the header but not old state. This is node-specific,
+	// not deterministic (an archive node returns the real value), so it must
+	// retry/abstain, never produce an ERROR vote — otherwise a pruned majority
+	// could wrongly quorum an ERROR for an address that has a balance.
+	t.Run("account balance", func(t *testing.T) {
+		target := ethcommon.HexToAddress("0x1111111111111111111111111111111111111111")
+		payload, err := addressArgs.Pack(target)
+		require.NoError(t, err)
+
+		client := newReadTestClient(t, map[string]any{
+			"eth_getBlockByNumber": fakeHeader(100),
+		}, map[string]rpcFault{
+			"eth_getBalance": {code: -32000, message: "missing trie node"},
+		})
+
+		result, err := client.ExecuteRead(context.Background(), evmReadRequest(t, uint8(evmQueryAccountBalance), 0, payload))
+		require.Error(t, err)
+		assert.Nil(t, result)
+	})
+
+	t.Run("storage slot", func(t *testing.T) {
+		target := ethcommon.HexToAddress("0x2222222222222222222222222222222222222222")
+		payload, err := addressBytes32Args.Pack(target, [32]byte{0x01})
+		require.NoError(t, err)
+
+		client := newReadTestClient(t, map[string]any{
+			"eth_getBlockByNumber": fakeHeader(100),
+		}, map[string]rpcFault{
+			"eth_getStorageAt": {code: -32000, message: "missing trie node"},
+		})
+
+		result, err := client.ExecuteRead(context.Background(), evmReadRequest(t, uint8(evmQueryStorageSlot), 0, payload))
+		require.Error(t, err)
+		assert.Nil(t, result)
+	})
 }
 
 func TestExecuteRead_EnvelopeBlockNumberUsedWhenNotPinned(t *testing.T) {

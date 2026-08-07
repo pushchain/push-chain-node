@@ -280,6 +280,29 @@ func TestExecuteRead_TransientErrors(t *testing.T) {
 		require.Error(t, err)
 		assert.Nil(t, result)
 	})
+
+	// 408 and 429 are retryable 4xx codes: retry, never vote.
+	for _, tc := range []struct {
+		name string
+		code int
+	}{
+		{"408 request timeout", http.StatusRequestTimeout},
+		{"429 too many requests", http.StatusTooManyRequests},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			e, url := newTestExecutor(t, func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(tc.code)
+			})
+			req := web2Request(t, rawWeb2Envelope{
+				Method:  uint8(web2MethodGet),
+				Url:     url,
+				Extract: []rawWeb2Extract{extractSpec("$.a", valueTypeString, 0)},
+			})
+			result, err := e.ExecuteRead(context.Background(), req)
+			require.Error(t, err)
+			assert.Nil(t, result)
+		})
+	}
 }
 
 func TestExecuteRead_SSRFGuard(t *testing.T) {

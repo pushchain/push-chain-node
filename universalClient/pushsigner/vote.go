@@ -8,6 +8,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/rs/zerolog"
 
+	ucallbacktypes "github.com/pushchain/push-chain-node/x/ucallback/types"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 )
@@ -103,6 +104,24 @@ func waitForTxConfirmation(ctx context.Context, client chainClient, txHash strin
 			}
 		}
 	}
+}
+
+// voteReadResult votes on an external read observation
+func voteReadResult(
+	ctx context.Context,
+	signer *Signer,
+	log zerolog.Logger,
+	granter string,
+	requestID string,
+	result *ucallbacktypes.ReadResult,
+) (string, error) {
+	msg := &ucallbacktypes.MsgVoteReadResult{
+		Signer:    granter,
+		RequestId: requestID,
+		Result:    result,
+	}
+	memo := fmt.Sprintf("Vote read result: %s", requestID)
+	return vote(ctx, signer, log, msg, memo)
 }
 
 // voteInbound votes on an inbound transaction

@@ -18,6 +18,7 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/config"
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/pushsigner/keys"
+	ucallbacktypes "github.com/pushchain/push-chain-node/x/ucallback/types"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
@@ -623,6 +624,36 @@ func TestVoteFundMigrationFailure(t *testing.T) {
 	txHash, err := signer.VoteFundMigration(context.Background(), 2, "0xdef456", false)
 	require.NoError(t, err)
 	assert.Equal(t, "VOTE_OK", txHash)
+}
+
+func TestVoteReadResult(t *testing.T) {
+	result := &ucallbacktypes.ReadResult{
+		Status:              ucallbacktypes.ReadStatus_READ_STATUS_SUCCESS,
+		ResultData:          []byte{0xaa},
+		ObservedBlockHeight: 100,
+	}
+
+	t.Run("successful vote", func(t *testing.T) {
+		signer := createTestSigner(t, successMock(t))
+		txHash, err := signer.VoteReadResult(context.Background(), "0xreq1", result)
+		require.NoError(t, err)
+		assert.Equal(t, "VOTE_OK", txHash)
+	})
+
+	t.Run("error observation votes too", func(t *testing.T) {
+		signer := createTestSigner(t, successMock(t))
+		errResult := &ucallbacktypes.ReadResult{Status: ucallbacktypes.ReadStatus_READ_STATUS_ERROR}
+		txHash, err := signer.VoteReadResult(context.Background(), "0xreq2", errResult)
+		require.NoError(t, err)
+		assert.Equal(t, "VOTE_OK", txHash)
+	})
+
+	t.Run("broadcast failure", func(t *testing.T) {
+		signer := createTestSigner(t, failMock(t))
+		_, err := signer.VoteReadResult(context.Background(), "0xreq1", result)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to broadcast vote")
+	})
 }
 
 func TestVoteOnChainRejection(t *testing.T) {

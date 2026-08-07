@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/pushchain/push-chain-node/universalClient/uread"
+	ucallbacktypes "github.com/pushchain/push-chain-node/x/ucallback/types"
 )
 
 // accountInfoResult builds a getAccountInfo result with base64 data.
@@ -62,7 +62,7 @@ func newReadTestClient(t *testing.T, results map[string]any) *Client {
 	}
 }
 
-func svmReadRequest(t *testing.T, queryType uint8, minSlot uint64, owner []byte) *uread.ReadRequest {
+func svmReadRequest(t *testing.T, queryType uint8, minSlot uint64, owner []byte) *ucallbacktypes.ReadRequest {
 	t.Helper()
 	query, err := svmEnvelopeArgs.Pack(rawSvmEnvelope{
 		QueryType: queryType,
@@ -71,8 +71,8 @@ func svmReadRequest(t *testing.T, queryType uint8, minSlot uint64, owner []byte)
 		}{minSlot},
 	})
 	require.NoError(t, err)
-	return &uread.ReadRequest{
-		RequestID:        "0xreq1",
+	return &ucallbacktypes.ReadRequest{
+		RequestId:        "0xreq1",
 		DestinationChain: "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
 		Owner:            owner,
 		Query:            query,
@@ -96,7 +96,7 @@ func TestExecuteRead_LamportBalance(t *testing.T) {
 
 		result, err := client.ExecuteRead(context.Background(), svmReadRequest(t, uint8(solanaQueryLamportBalance), 800, account.Bytes()))
 		require.NoError(t, err)
-		assert.Equal(t, uread.ReadStatusSuccess, result.Status)
+		assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_SUCCESS, result.Status)
 		assert.Equal(t, big.NewInt(5_000_000), new(big.Int).SetBytes(result.ResultData))
 		assert.Equal(t, uint64(900), result.ObservedBlockHeight)
 	})
@@ -131,7 +131,7 @@ func TestExecuteRead_SPLTokenAccount(t *testing.T) {
 
 		result, err := client.ExecuteRead(context.Background(), svmReadRequest(t, uint8(solanaQuerySPLTokenAccount), 800, account.Bytes()))
 		require.NoError(t, err)
-		assert.Equal(t, uread.ReadStatusSuccess, result.Status)
+		assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_SUCCESS, result.Status)
 		assert.Equal(t, big.NewInt(777), new(big.Int).SetBytes(result.ResultData))
 		assert.Equal(t, uint64(900), result.ObservedBlockHeight)
 	})
@@ -143,7 +143,7 @@ func TestExecuteRead_SPLTokenAccount(t *testing.T) {
 
 		result, err := client.ExecuteRead(context.Background(), svmReadRequest(t, uint8(solanaQuerySPLTokenAccount), 0, account.Bytes()))
 		require.NoError(t, err)
-		assert.Equal(t, uread.ReadStatusError, result.Status)
+		assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_ERROR, result.Status)
 	})
 
 	t.Run("truncated account data is a votable ERROR", func(t *testing.T) {
@@ -153,7 +153,7 @@ func TestExecuteRead_SPLTokenAccount(t *testing.T) {
 
 		result, err := client.ExecuteRead(context.Background(), svmReadRequest(t, uint8(solanaQuerySPLTokenAccount), 0, account.Bytes()))
 		require.NoError(t, err)
-		assert.Equal(t, uread.ReadStatusError, result.Status)
+		assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_ERROR, result.Status)
 	})
 
 	t.Run("missing account is a votable ERROR", func(t *testing.T) {
@@ -166,7 +166,7 @@ func TestExecuteRead_SPLTokenAccount(t *testing.T) {
 
 		result, err := client.ExecuteRead(context.Background(), svmReadRequest(t, uint8(solanaQuerySPLTokenAccount), 0, account.Bytes()))
 		require.NoError(t, err)
-		assert.Equal(t, uread.ReadStatusError, result.Status)
+		assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_ERROR, result.Status)
 	})
 }
 
@@ -180,7 +180,7 @@ func TestExecuteRead_RawAccountData(t *testing.T) {
 
 	result, err := client.ExecuteRead(context.Background(), svmReadRequest(t, uint8(solanaQueryRawAccountData), 0, account.Bytes()))
 	require.NoError(t, err)
-	assert.Equal(t, uread.ReadStatusSuccess, result.Status)
+	assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_SUCCESS, result.Status)
 	assert.Equal(t, raw, result.ResultData)
 	assert.Equal(t, uint64(900), result.ObservedBlockHeight)
 }
@@ -191,13 +191,13 @@ func TestExecuteRead_InvalidInputs(t *testing.T) {
 	t.Run("invalid envelope is a votable ERROR", func(t *testing.T) {
 		client := newReadTestClient(t, nil)
 
-		result, err := client.ExecuteRead(context.Background(), &uread.ReadRequest{
-			RequestID: "0xreq1",
+		result, err := client.ExecuteRead(context.Background(), &ucallbacktypes.ReadRequest{
+			RequestId: "0xreq1",
 			Owner:     account.Bytes(),
 			Query:     []byte{0x01},
 		})
 		require.NoError(t, err)
-		assert.Equal(t, uread.ReadStatusError, result.Status)
+		assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_ERROR, result.Status)
 	})
 
 	t.Run("owner not 32 bytes is a votable ERROR", func(t *testing.T) {
@@ -205,6 +205,6 @@ func TestExecuteRead_InvalidInputs(t *testing.T) {
 
 		result, err := client.ExecuteRead(context.Background(), svmReadRequest(t, uint8(solanaQueryLamportBalance), 0, []byte{0x01, 0x02}))
 		require.NoError(t, err)
-		assert.Equal(t, uread.ReadStatusError, result.Status)
+		assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_ERROR, result.Status)
 	})
 }

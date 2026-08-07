@@ -21,7 +21,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/rs/zerolog"
 
-	"github.com/pushchain/push-chain-node/universalClient/uread"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
+	ucallbacktypes "github.com/pushchain/push-chain-node/x/ucallback/types"
 )
 
 const (
@@ -141,14 +142,14 @@ func isDisallowedIP(ip net.IP) bool {
 // declared fields, and abi-encodes them in extract order. Deterministic
 // failures (bad envelope, non-JSON response, missing path, 4xx) are votable
 // ERROR observations; transport failures and 5xx are transient errors.
-func (e *Executor) ExecuteRead(ctx context.Context, req *uread.ReadRequest) (*uread.ReadResult, error) {
+func (e *Executor) ExecuteRead(ctx context.Context, req *ucallbacktypes.ReadRequest) (*ucallbacktypes.ReadResult, error) {
 	env, err := decodeWeb2QueryEnvelope(req.Query)
 	if err != nil {
-		return uread.NewErrorResult(err), nil
+		return common.NewReadErrorResult(err), nil
 	}
 
 	if err := e.validateEnvelope(env); err != nil {
-		return uread.NewErrorResult(err), nil
+		return common.NewReadErrorResult(err), nil
 	}
 
 	body, errResult, err := e.fetch(ctx, env)
@@ -161,12 +162,12 @@ func (e *Executor) ExecuteRead(ctx context.Context, req *uread.ReadRequest) (*ur
 
 	resultData, err := extractAndEncode(body, env.Extract)
 	if err != nil {
-		return uread.NewErrorResult(err), nil
+		return common.NewReadErrorResult(err), nil
 	}
 
 	// web2 has no block height or hash; the ballot covers result data only
-	return &uread.ReadResult{
-		Status:     uread.ReadStatusSuccess,
+	return &ucallbacktypes.ReadResult{
+		Status:     ucallbacktypes.ReadStatus_READ_STATUS_SUCCESS,
 		ResultData: resultData,
 	}, nil
 }
@@ -185,7 +186,7 @@ func (e *Executor) validateEnvelope(env *web2QueryEnvelope) error {
 // fetch performs the HTTP request. Returns (body, nil, nil) on success,
 // (nil, errorResult, nil) on deterministic failure, (nil, nil, err) on
 // transient failure.
-func (e *Executor) fetch(ctx context.Context, env *web2QueryEnvelope) ([]byte, *uread.ReadResult, error) {
+func (e *Executor) fetch(ctx context.Context, env *web2QueryEnvelope) ([]byte, *ucallbacktypes.ReadResult, error) {
 	timeout := defaultTimeout
 	if env.TimeoutMs > 0 {
 		timeout = min(time.Duration(env.TimeoutMs)*time.Millisecond, maxTimeout)
@@ -202,13 +203,13 @@ func (e *Executor) fetch(ctx context.Context, env *web2QueryEnvelope) ([]byte, *
 
 	httpReq, err := http.NewRequestWithContext(reqCtx, method, env.URL, reqBody)
 	if err != nil {
-		return nil, uread.NewErrorResult(fmt.Errorf("invalid request: %w", err)), nil
+		return nil, common.NewReadErrorResult(fmt.Errorf("invalid request: %w", err)), nil
 	}
 
 	if len(env.Headers) > 0 {
 		var headers map[string]string
 		if err := json.Unmarshal(env.Headers, &headers); err != nil {
-			return nil, uread.NewErrorResult(fmt.Errorf("invalid headers encoding: %w", err)), nil
+			return nil, common.NewReadErrorResult(fmt.Errorf("invalid headers encoding: %w", err)), nil
 		}
 		for name, value := range headers {
 			httpReq.Header.Set(name, value)
@@ -220,7 +221,7 @@ func (e *Executor) fetch(ctx context.Context, env *web2QueryEnvelope) ([]byte, *
 		// A guard rejection is the same for every validator: votable ERROR.
 		// Any other transport error may be transient.
 		if errors.Is(err, errBlockedRequest) {
-			return nil, uread.NewErrorResult(fmt.Errorf("request blocked: %w", err)), nil
+			return nil, common.NewReadErrorResult(fmt.Errorf("request blocked: %w", err)), nil
 		}
 		return nil, nil, fmt.Errorf("request failed: %w", err) // transient
 	}
@@ -232,7 +233,7 @@ func (e *Executor) fetch(ctx context.Context, env *web2QueryEnvelope) ([]byte, *
 		return nil, nil, fmt.Errorf("endpoint returned status %d", resp.StatusCode)
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, uread.NewErrorResult(fmt.Errorf("endpoint returned status %d", resp.StatusCode)), nil
+		return nil, common.NewReadErrorResult(fmt.Errorf("endpoint returned status %d", resp.StatusCode)), nil
 	}
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes+1))
@@ -240,7 +241,7 @@ func (e *Executor) fetch(ctx context.Context, env *web2QueryEnvelope) ([]byte, *
 		return nil, nil, fmt.Errorf("failed to read response: %w", err) // transient
 	}
 	if len(body) > maxResponseBytes {
-		return nil, uread.NewErrorResult(fmt.Errorf("response exceeds %d bytes", maxResponseBytes)), nil
+		return nil, common.NewReadErrorResult(fmt.Errorf("response exceeds %d bytes", maxResponseBytes)), nil
 	}
 
 	return body, nil, nil

@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/pushchain/push-chain-node/universalClient/uread"
+	ucallbacktypes "github.com/pushchain/push-chain-node/x/ucallback/types"
 )
 
 // fakeHeader is a minimal valid block header JSON accepted by types.Header.
@@ -90,10 +90,10 @@ func newReadTestClient(t *testing.T, results map[string]any, faults map[string]r
 	}
 }
 
-func evmReadRequest(t *testing.T, queryType uint8, blockNumber uint64, payload []byte) *uread.ReadRequest {
+func evmReadRequest(t *testing.T, queryType uint8, blockNumber uint64, payload []byte) *ucallbacktypes.ReadRequest {
 	t.Helper()
-	return &uread.ReadRequest{
-		RequestID:              "0xreq1",
+	return &ucallbacktypes.ReadRequest{
+		RequestId:              "0xreq1",
 		DestinationChain:       "eip155:11155111",
 		Query:                  packEvmEnvelope(t, queryType, 0, blockNumber, payload),
 		MinConfirmations:       1,
@@ -113,7 +113,7 @@ func TestExecuteRead_AccountBalance(t *testing.T) {
 
 	result, err := client.ExecuteRead(context.Background(), evmReadRequest(t, uint8(evmQueryAccountBalance), 0, payload))
 	require.NoError(t, err)
-	assert.Equal(t, uread.ReadStatusSuccess, result.Status)
+	assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_SUCCESS, result.Status)
 	assert.Equal(t, big.NewInt(1_000_000), new(big.Int).SetBytes(result.ResultData))
 	assert.Equal(t, uint64(100), result.ObservedBlockHeight)
 	assert.Len(t, result.ObservedBlockHash, 32)
@@ -132,7 +132,7 @@ func TestExecuteRead_ContractCall(t *testing.T) {
 
 		result, err := client.ExecuteRead(context.Background(), evmReadRequest(t, uint8(evmQueryContractCall), 0, payload))
 		require.NoError(t, err)
-		assert.Equal(t, uread.ReadStatusSuccess, result.Status)
+		assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_SUCCESS, result.Status)
 		assert.Equal(t, []byte{0xca, 0xfe, 0xba, 0xbe}, result.ResultData)
 	})
 
@@ -145,7 +145,7 @@ func TestExecuteRead_ContractCall(t *testing.T) {
 
 		result, err := client.ExecuteRead(context.Background(), evmReadRequest(t, uint8(evmQueryContractCall), 0, payload))
 		require.NoError(t, err)
-		assert.Equal(t, uread.ReadStatusError, result.Status)
+		assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_ERROR, result.Status)
 		assert.Empty(t, result.ResultData)
 	})
 }
@@ -162,7 +162,7 @@ func TestExecuteRead_StorageSlot(t *testing.T) {
 
 	result, err := client.ExecuteRead(context.Background(), evmReadRequest(t, uint8(evmQueryStorageSlot), 0, payload))
 	require.NoError(t, err)
-	assert.Equal(t, uread.ReadStatusSuccess, result.Status)
+	assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_SUCCESS, result.Status)
 	require.Len(t, result.ResultData, 32)
 	assert.Equal(t, big.NewInt(7), new(big.Int).SetBytes(result.ResultData))
 }
@@ -170,13 +170,13 @@ func TestExecuteRead_StorageSlot(t *testing.T) {
 func TestExecuteRead_InvalidEnvelope(t *testing.T) {
 	client := newReadTestClient(t, nil, nil)
 
-	result, err := client.ExecuteRead(context.Background(), &uread.ReadRequest{
-		RequestID:              "0xreq1",
+	result, err := client.ExecuteRead(context.Background(), &ucallbacktypes.ReadRequest{
+		RequestId:              "0xreq1",
 		Query:                  []byte{0x01, 0x02},
 		DestinationBlockHeight: 100,
 	})
 	require.NoError(t, err)
-	assert.Equal(t, uread.ReadStatusError, result.Status)
+	assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_ERROR, result.Status)
 }
 
 func TestExecuteRead_RPCFailureIsTransient(t *testing.T) {
@@ -223,7 +223,7 @@ func TestExecuteRead_MissingHeightIsVotableError(t *testing.T) {
 
 	result, err := client.ExecuteRead(context.Background(), req)
 	require.NoError(t, err)
-	assert.Equal(t, uread.ReadStatusError, result.Status)
+	assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_ERROR, result.Status)
 }
 
 func TestExecuteRead_ConfirmationGate(t *testing.T) {

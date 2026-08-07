@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/pushchain/push-chain-node/universalClient/uread"
+	ucallbacktypes "github.com/pushchain/push-chain-node/x/ucallback/types"
 )
 
 func packEnvelope(t *testing.T, env rawWeb2Envelope) []byte {
@@ -46,10 +46,10 @@ func jsonHandler(t *testing.T, wantMethod string, response any) http.HandlerFunc
 	}
 }
 
-func web2Request(t *testing.T, env rawWeb2Envelope) *uread.ReadRequest {
+func web2Request(t *testing.T, env rawWeb2Envelope) *ucallbacktypes.ReadRequest {
 	t.Helper()
-	return &uread.ReadRequest{
-		RequestID:        "0xreq1",
+	return &ucallbacktypes.ReadRequest{
+		RequestId:        "0xreq1",
 		DestinationChain: "web2:https",
 		Query:            packEnvelope(t, env),
 	}
@@ -74,7 +74,7 @@ func TestExecuteRead_GetIdenticalFields(t *testing.T) {
 
 	result, err := e.ExecuteRead(context.Background(), req)
 	require.NoError(t, err)
-	require.Equal(t, uread.ReadStatusSuccess, result.Status)
+	require.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_SUCCESS, result.Status)
 	assert.Zero(t, result.ObservedBlockHeight)
 
 	stringTy, _ := abi.NewType("string", "", nil)
@@ -100,7 +100,7 @@ func TestExecuteRead_DecimalScaling(t *testing.T) {
 
 	result, err := e.ExecuteRead(context.Background(), req)
 	require.NoError(t, err)
-	require.Equal(t, uread.ReadStatusSuccess, result.Status)
+	require.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_SUCCESS, result.Status)
 
 	assert.Equal(t, big.NewInt(351244710000), new(big.Int).SetBytes(result.ResultData))
 }
@@ -127,7 +127,7 @@ func TestExecuteRead_PostBody(t *testing.T) {
 
 	result, err := e.ExecuteRead(context.Background(), req)
 	require.NoError(t, err)
-	require.Equal(t, uread.ReadStatusSuccess, result.Status)
+	require.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_SUCCESS, result.Status)
 	assert.Equal(t, big.NewInt(18), new(big.Int).SetBytes(result.ResultData))
 }
 
@@ -144,7 +144,7 @@ func TestExecuteRead_ArrayIndexPath(t *testing.T) {
 
 	result, err := e.ExecuteRead(context.Background(), req)
 	require.NoError(t, err)
-	require.Equal(t, uread.ReadStatusSuccess, result.Status)
+	require.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_SUCCESS, result.Status)
 
 	boolTy, _ := abi.NewType("bool", "", nil)
 	vals, err := abi.Arguments{{Type: boolTy}}.Unpack(result.ResultData)
@@ -155,9 +155,9 @@ func TestExecuteRead_ArrayIndexPath(t *testing.T) {
 func TestExecuteRead_VotableErrors(t *testing.T) {
 	t.Run("invalid envelope", func(t *testing.T) {
 		e := NewExecutor(zerolog.Nop())
-		result, err := e.ExecuteRead(context.Background(), &uread.ReadRequest{Query: []byte{0x01}})
+		result, err := e.ExecuteRead(context.Background(), &ucallbacktypes.ReadRequest{Query: []byte{0x01}})
 		require.NoError(t, err)
-		assert.Equal(t, uread.ReadStatusError, result.Status)
+		assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_ERROR, result.Status)
 	})
 
 	t.Run("non-https url", func(t *testing.T) {
@@ -169,7 +169,7 @@ func TestExecuteRead_VotableErrors(t *testing.T) {
 		})
 		result, err := e.ExecuteRead(context.Background(), req)
 		require.NoError(t, err)
-		assert.Equal(t, uread.ReadStatusError, result.Status)
+		assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_ERROR, result.Status)
 	})
 
 	t.Run("non-identical mode not supported", func(t *testing.T) {
@@ -183,7 +183,7 @@ func TestExecuteRead_VotableErrors(t *testing.T) {
 		})
 		result, err := e.ExecuteRead(context.Background(), req)
 		require.NoError(t, err)
-		assert.Equal(t, uread.ReadStatusError, result.Status)
+		assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_ERROR, result.Status)
 	})
 
 	t.Run("GET with body", func(t *testing.T) {
@@ -196,7 +196,7 @@ func TestExecuteRead_VotableErrors(t *testing.T) {
 		})
 		result, err := e.ExecuteRead(context.Background(), req)
 		require.NoError(t, err)
-		assert.Equal(t, uread.ReadStatusError, result.Status)
+		assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_ERROR, result.Status)
 	})
 
 	t.Run("missing path", func(t *testing.T) {
@@ -208,7 +208,7 @@ func TestExecuteRead_VotableErrors(t *testing.T) {
 		})
 		result, err := e.ExecuteRead(context.Background(), req)
 		require.NoError(t, err)
-		assert.Equal(t, uread.ReadStatusError, result.Status)
+		assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_ERROR, result.Status)
 	})
 
 	t.Run("type mismatch", func(t *testing.T) {
@@ -220,7 +220,7 @@ func TestExecuteRead_VotableErrors(t *testing.T) {
 		})
 		result, err := e.ExecuteRead(context.Background(), req)
 		require.NoError(t, err)
-		assert.Equal(t, uread.ReadStatusError, result.Status)
+		assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_ERROR, result.Status)
 	})
 
 	t.Run("non-JSON response", func(t *testing.T) {
@@ -234,7 +234,7 @@ func TestExecuteRead_VotableErrors(t *testing.T) {
 		})
 		result, err := e.ExecuteRead(context.Background(), req)
 		require.NoError(t, err)
-		assert.Equal(t, uread.ReadStatusError, result.Status)
+		assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_ERROR, result.Status)
 	})
 
 	t.Run("404 status", func(t *testing.T) {
@@ -248,7 +248,7 @@ func TestExecuteRead_VotableErrors(t *testing.T) {
 		})
 		result, err := e.ExecuteRead(context.Background(), req)
 		require.NoError(t, err)
-		assert.Equal(t, uread.ReadStatusError, result.Status)
+		assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_ERROR, result.Status)
 	})
 }
 
@@ -305,7 +305,7 @@ func TestExecuteRead_SSRFGuard(t *testing.T) {
 			})
 			result, err := e.ExecuteRead(context.Background(), req)
 			require.NoError(t, err) // deterministic, not transient
-			assert.Equal(t, uread.ReadStatusError, result.Status)
+			assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_ERROR, result.Status)
 		})
 	}
 }
@@ -359,7 +359,7 @@ func TestScaledInteger(t *testing.T) {
 		{"3512.4471", 8, "351244710000"},
 		{"100", 0, "100"},
 		{"0.5", 2, "50"},
-		{"1.999", 0, "1"},   // truncates
+		{"1.999", 0, "1"}, // truncates
 		{"-2.5", 1, "-25"},
 	}
 	for _, tc := range cases {

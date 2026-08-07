@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/pushchain/push-chain-node/universalClient/uread"
+	ucallbacktypes "github.com/pushchain/push-chain-node/x/ucallback/types"
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
@@ -117,5 +117,13 @@ type TxBuilder interface {
 // ReadRequestHandler executes a read request on one destination chain.
 // Consumed by the push watcher's read processor.
 type ReadRequestHandler interface {
-	ExecuteRead(ctx context.Context, req *uread.ReadRequest) (*uread.ReadResult, error)
+	ExecuteRead(ctx context.Context, req *ucallbacktypes.ReadRequest) (*ucallbacktypes.ReadResult, error)
+}
+
+// NewReadErrorResult builds an ERROR observation. ResultData stays empty so every
+// validator voting ERROR converges on the same ballot regardless of local error
+// text; core's ReadResult has no error field for that reason, so err is logged by
+// the caller, not carried on the vote.
+func NewReadErrorResult(err error) *ucallbacktypes.ReadResult {
+	return &ucallbacktypes.ReadResult{Status: ucallbacktypes.ReadStatus_READ_STATUS_ERROR}
 }

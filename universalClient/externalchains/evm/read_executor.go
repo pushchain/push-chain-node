@@ -6,17 +6,17 @@ import (
 	"math/big"
 
 	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
-	"github.com/pushchain/push-chain-node/universalClient/uread"
+	ucallbacktypes "github.com/pushchain/push-chain-node/x/ucallback/types"
 )
 
 // ExecuteRead implements common.ChainReader for EVM chains.
 // All validators must produce byte-identical results, so every query runs at the
 // height pinned in the request; execution is gated until that height has
 // min_confirmations confirmations so a reorg cannot invalidate the read.
-func (c *Client) ExecuteRead(ctx context.Context, req *uread.ReadRequest) (*uread.ReadResult, error) {
+func (c *Client) ExecuteRead(ctx context.Context, req *ucallbacktypes.ReadRequest) (*ucallbacktypes.ReadResult, error) {
 	env, err := decodeEvmQueryEnvelope(req.Query)
 	if err != nil {
-		return uread.NewErrorResult(err), nil
+		return common.NewReadErrorResult(err), nil
 	}
 
 	height := req.DestinationBlockHeight
@@ -24,7 +24,7 @@ func (c *Client) ExecuteRead(ctx context.Context, req *uread.ReadRequest) (*urea
 		height = env.BlockNumber
 	}
 	if height == 0 {
-		return uread.NewErrorResult(fmt.Errorf("read request has no target height")), nil
+		return common.NewReadErrorResult(fmt.Errorf("read request has no target height")), nil
 	}
 
 	if err := c.gateHeightConfirmed(ctx, height, uint64(req.MinConfirmations)); err != nil {
@@ -42,7 +42,7 @@ func (c *Client) ExecuteRead(ctx context.Context, req *uread.ReadRequest) (*urea
 	case evmQueryAccountBalance:
 		target, decErr := decodeAccountBalancePayload(env.Payload)
 		if decErr != nil {
-			return uread.NewErrorResult(decErr), nil
+			return common.NewReadErrorResult(decErr), nil
 		}
 		balance, rpcErr := c.rpcClient.GetBalanceAt(ctx, target, blockNum)
 		if rpcErr != nil {
@@ -53,19 +53,19 @@ func (c *Client) ExecuteRead(ctx context.Context, req *uread.ReadRequest) (*urea
 	case evmQueryContractCall:
 		target, callData, decErr := decodeContractCallPayload(env.Payload)
 		if decErr != nil {
-			return uread.NewErrorResult(decErr), nil
+			return common.NewReadErrorResult(decErr), nil
 		}
 		ret, rpcErr := c.rpcClient.CallContract(ctx, target, callData, blockNum)
 		if rpcErr != nil {
 			// eth_call reverts are deterministic at a pinned height — observable as ERROR.
-			return uread.NewErrorResult(rpcErr), nil
+			return common.NewReadErrorResult(rpcErr), nil
 		}
 		resultData = ret
 
 	case evmQueryStorageSlot:
 		target, slot, decErr := decodeStorageSlotPayload(env.Payload)
 		if decErr != nil {
-			return uread.NewErrorResult(decErr), nil
+			return common.NewReadErrorResult(decErr), nil
 		}
 		value, rpcErr := c.rpcClient.GetStorageAt(ctx, target, slot, blockNum)
 		if rpcErr != nil {
@@ -76,14 +76,14 @@ func (c *Client) ExecuteRead(ctx context.Context, req *uread.ReadRequest) (*urea
 		resultData = slotValue[:]
 
 	default:
-		return uread.NewErrorResult(fmt.Errorf("unknown EvmQueryType %d", env.QueryType)), nil
+		return common.NewReadErrorResult(fmt.Errorf("unknown EvmQueryType %d", env.QueryType)), nil
 	}
 	if err != nil {
-		return uread.NewErrorResult(err), nil
+		return common.NewReadErrorResult(err), nil
 	}
 
-	return &uread.ReadResult{
-		Status:              uread.ReadStatusSuccess,
+	return &ucallbacktypes.ReadResult{
+		Status:              ucallbacktypes.ReadStatus_READ_STATUS_SUCCESS,
 		ResultData:          resultData,
 		ObservedBlockHeight: height,
 		ObservedBlockHash:   header.Hash().Bytes(),

@@ -78,6 +78,11 @@ func GetReadBallotKey(requestID string, result *ReadResult) (string, error) {
 
 // readResultFields renders the consensus-relevant part of an observation.
 //
+// error_code is included: disagreement about WHY a read failed is real
+// disagreement. One validator reporting REVERTED and another NOT_FOUND saw
+// different things, and splitting the ballot is the correct outcome — letting both
+// collapse onto a bare ERROR would paper over it.
+//
 // `aggregates` is deliberately absent. It is reserved for v2 MEDIAN mode, where
 // validators submit differing per-field values that are reduced afterwards — the
 // opposite of the identical-observation model this key assumes. Hashing it now
@@ -88,6 +93,7 @@ func GetReadBallotKey(requestID string, result *ReadResult) (string, error) {
 func readResultFields(r *ReadResult) []string {
 	return []string{
 		fmt.Sprintf("%d", int32(r.Status)),
+		fmt.Sprintf("%d", int32(r.ErrorCode)),
 		hex.EncodeToString(r.ResultData),
 		fmt.Sprintf("%d", r.ObservedBlockHeight),
 		hex.EncodeToString(r.ObservedBlockHash),
@@ -107,4 +113,48 @@ func hashFields(domain collections.Prefix, parts ...string) string {
 	}
 	final := sha256.Sum256([]byte(strings.Join(hashed, ":")))
 	return hex.EncodeToString(final[:])
+}
+
+// ValidateReadResult rejects observations that cannot be honest, before they reach
+// a ballot.
+//
+// These are not defensive niceties: each rejected shape would produce a ballot key
+// that no other validator observing the same thing could reach, so an accepted one
+// would sit alone and never reach quorum. Failing loudly at submission turns a
+// silent stall into an error the operator can see.
+func ValidateReadResult(r *ReadResult) error {
+	if r == nil {
+		return fmt.Errorf("read result is required")
+	}
+
+	switch r.Status {
+	case ReadStatus_READ_STATUS_SUCCESS:
+		if r.ErrorCode != ReadErrorCode_READ_ERROR_UNSPECIFIED {
+			return fmt.Errorf("successful read must not carry error code %s", r.ErrorCode)
+		}
+
+	case ReadStatus_READ_STATUS_ERROR:
+		// result_data must be empty. A failed read has no payload to deliver, and
+		// error detail differs per provider — one validator attaching a revert
+		// blob and another attaching nothing would split the ballot.
+		if len(r.ResultData) != 0 {
+			return fmt.Errorf("failed read must not carry result data (%d bytes)", len(r.ResultData))
+		}
+
+	default:
+		return fmt.Errorf("read status %s is not a valid observation", r.Status)
+	}
+
+	if len(r.ObservedBlockHash) != 0 && len(r.ObservedBlockHash) != 32 {
+		return fmt.Errorf("observed block hash must be empty or 32 bytes, got %d", len(r.ObservedBlockHash))
+	}
+
+	// Reserved for v2 MEDIAN; a v1 validator populating it is running code this
+	// chain cannot interpret, and it is excluded from the ballot key so the
+	// divergence would be invisible.
+	if len(r.Aggregates) != 0 {
+		return fmt.Errorf("aggregates are not supported in v1")
+	}
+
+	return nil
 }

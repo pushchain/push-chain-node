@@ -99,8 +99,8 @@ func (k Keeper) VoteReadResult(
 	requestID string,
 	result *types.ReadResult,
 ) (bool, error) {
-	if result == nil {
-		return false, fmt.Errorf("read result is required")
+	if err := types.ValidateReadResult(result); err != nil {
+		return false, err
 	}
 
 	ur, found := k.GetUniversalRead(ctx, requestID)

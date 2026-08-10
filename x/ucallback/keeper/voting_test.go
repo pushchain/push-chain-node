@@ -9,12 +9,19 @@ import (
 	"github.com/pushchain/push-chain-node/x/ucallback/types"
 )
 
+// blockHash builds a realistic 32-byte hash; the vote path rejects anything else.
+func blockHash(tag byte) []byte {
+	h := make([]byte, 32)
+	h[31] = tag
+	return h
+}
+
 func obs(data byte) *types.ReadResult {
 	return &types.ReadResult{
 		Status:              types.ReadStatus_READ_STATUS_SUCCESS,
 		ResultData:          []byte{data},
 		ObservedBlockHeight: 8_000_000,
-		ObservedBlockHash:   []byte{0xbe, 0xef},
+		ObservedBlockHash:   blockHash(0xef),
 	}
 }
 
@@ -286,4 +293,80 @@ func TestVoteReadResult_RejectsMissingRequestBody(t *testing.T) {
 
 	_, err := f.k.VoteReadResult(f.ctx, v[0], "0xnobody", obs(0x01))
 	require.ErrorContains(t, err, "no request body")
+}
+
+// Validators that agree the read failed but disagree on why must not finalize.
+func TestVoteReadResult_ErrorCodesSplitBallots(t *testing.T) {
+	f := SetupTest(t)
+	f.ctx = f.ctx.WithBlockHeight(10)
+	v := seedVoters(t, f, 4)
+	seedRead(t, f, "0xaa", 500)
+
+	errVote := func(code types.ReadErrorCode) *types.ReadResult {
+		return &types.ReadResult{Status: types.ReadStatus_READ_STATUS_ERROR, ErrorCode: code}
+	}
+
+	for i, code := range []types.ReadErrorCode{
+		types.ReadErrorCode_READ_ERROR_REVERTED,
+		types.ReadErrorCode_READ_ERROR_NOT_FOUND,
+		types.ReadErrorCode_READ_ERROR_INVALID_QUERY,
+	} {
+		finalized, err := f.k.VoteReadResult(f.ctx, v[i], "0xaa", errVote(code))
+		require.NoError(t, err)
+		require.False(t, finalized, "%s must not finalize alone", code)
+	}
+	require.Equal(t, 3, f.uvalidator.ballotCount(), "one ballot per reason")
+}
+
+// Agreeing on the reason reaches quorum, and the code is recorded.
+func TestVoteReadResult_AgreedErrorFinalizes(t *testing.T) {
+	f := SetupTest(t)
+	f.ctx = f.ctx.WithBlockHeight(10)
+	v := seedVoters(t, f, 4)
+	seedRead(t, f, "0xaa", 500)
+
+	same := func() *types.ReadResult {
+		return &types.ReadResult{
+			Status:    types.ReadStatus_READ_STATUS_ERROR,
+			ErrorCode: types.ReadErrorCode_READ_ERROR_NOT_FOUND,
+		}
+	}
+	for i := 0; i < 2; i++ {
+		_, err := f.k.VoteReadResult(f.ctx, v[i], "0xaa", same())
+		require.NoError(t, err)
+	}
+	finalized, err := f.k.VoteReadResult(f.ctx, v[2], "0xaa", same())
+	require.NoError(t, err)
+	require.True(t, finalized)
+
+	ur, _ := f.k.GetUniversalRead(f.ctx, "0xaa")
+	require.Equal(t, types.ReadStatus_READ_STATUS_ERROR, ur.Result.Status)
+	require.Equal(t, types.ReadErrorCode_READ_ERROR_NOT_FOUND, ur.Result.ErrorCode)
+	require.Equal(t, 1, f.uvalidator.ballotCount())
+}
+
+// Malformed observations are refused before they can open a lonely ballot.
+func TestVoteReadResult_RejectsInvalidObservations(t *testing.T) {
+	f := SetupTest(t)
+	f.ctx = f.ctx.WithBlockHeight(10)
+	v := seedVoters(t, f, 4)
+	seedRead(t, f, "0xaa", 500)
+
+	for name, bad := range map[string]*types.ReadResult{
+		"nil": nil,
+		"success with error code": {
+			Status:    types.ReadStatus_READ_STATUS_SUCCESS,
+			ErrorCode: types.ReadErrorCode_READ_ERROR_REVERTED},
+		"error with data": {
+			Status: types.ReadStatus_READ_STATUS_ERROR, ResultData: []byte{1}},
+		"short hash": {
+			Status: types.ReadStatus_READ_STATUS_SUCCESS, ObservedBlockHash: []byte{0xbe}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := f.k.VoteReadResult(f.ctx, v[0], "0xaa", bad)
+			require.Error(t, err)
+		})
+	}
+
+	require.Equal(t, 0, f.uvalidator.ballotCount(), "no ballot opened by a rejected vote")
 }

@@ -8,6 +8,19 @@ import "uexecutor/v1/types.proto";
 option go_package = "github.com/pushchain/push-chain-node/x/ucallback/types";
 
 // ReadStatus is the outcome a universal validator observed for a read.
+// ReadErrorCode is the deterministic reason a read produced an ERROR observation.
+// Only non-transient failures appear here; transient failures never vote — the
+// validator retries locally instead.
+enum ReadErrorCode {
+  READ_ERROR_UNSPECIFIED    = 0; // catch-all / other
+  READ_ERROR_INVALID_QUERY  = 1; // envelope or params could not be decoded for this chain
+  READ_ERROR_UNSUPPORTED    = 2; // chain does not support this query type or option
+  READ_ERROR_REVERTED       = 3; // destination executed the request and returned a failure (EVM revert, HTTP 4xx)
+  READ_ERROR_NOT_FOUND      = 4; // queried account, state, or field does not exist at the pinned point
+  READ_ERROR_INVALID_RESULT = 5; // destination returned data that could not be interpreted or encoded
+  READ_ERROR_REJECTED       = 6; // request refused by validator policy before execution (web2 SSRF/blacklist)
+}
+
 enum ReadStatus {
   option (gogoproto.goproto_enum_stringer) = true;
 
@@ -74,6 +87,16 @@ message ReadResult {
 
   // v2 ONLY — always empty in v1. See AggregateValue.
   repeated AggregateValue aggregates = 5;
+
+  // Why the read failed. Meaningful only when status is READ_STATUS_ERROR, and
+  // must be READ_ERROR_UNSPECIFIED otherwise — a SUCCESS vote carrying a code
+  // would hash to a different ballot than an honest SUCCESS vote and split quorum.
+  //
+  // An enum rather than free text on purpose: it participates in the ballot key,
+  // so it must be a value validators independently converge on. A string invites
+  // fmt.Sprintf("%v", err), whose text varies by RPC provider even for identical
+  // on-chain failures.
+  ReadErrorCode error_code = 6;
 }
 
 // AggregateValue is one field the module combines across validators instead of

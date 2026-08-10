@@ -37,8 +37,15 @@ enum UniversalReadStatus {
   UNIVERSAL_READ_STATUS_PENDING     = 1; // ingested, awaiting votes
   UNIVERSAL_READ_STATUS_VOTING      = 2; // at least one vote, no quorum yet
   UNIVERSAL_READ_STATUS_FULFILLED   = 3; // callback dispatched successfully
-  UNIVERSAL_READ_STATUS_EXPIRED     = 4; // expireExternalRead submitted
+  UNIVERSAL_READ_STATUS_EXPIRED     = 4; // expireExternalRead accepted by the contract
   UNIVERSAL_READ_STATUS_FAILED      = 5; // quorum reached but the callback reverted
+
+  // Gave up: expireExternalRead failed MaxExpiryAttempts times and the contract
+  // never acknowledged the request. Distinct from EXPIRED because the contract may
+  // still hold it as pending — and since expireExternalRead is module-gated, no
+  // other caller can settle it. Requires manual intervention, the same sense as
+  // uexecutor's ABORTED. See error_msg on UniversalRead for the last failure.
+  UNIVERSAL_READ_STATUS_ABORTED     = 6;
 }
 
 // ReadRequest is one external read requested by an app on Push Chain.
@@ -143,4 +150,9 @@ message UniversalRead {
   // Push Chain execution attempts — fulfilExternalCallback and expireExternalRead.
   // Repeated because fulfilment can be retried and may be followed by an expiry.
   repeated uexecutor.v1.PCTx pc_tx = 6;
+
+  // Why the chain stopped acting on this read. Populated on the ABORTED and FAILED
+  // paths from the EVM result, so it is identical on every node — this is our own
+  // execution outcome, not a validator's observation, and it never touches a ballot.
+  string error_msg = 7;
 }

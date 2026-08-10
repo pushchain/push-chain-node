@@ -15,7 +15,8 @@ func isSettled(s types.UniversalReadStatus) bool {
 	switch s {
 	case types.UniversalReadStatus_UNIVERSAL_READ_STATUS_FULFILLED,
 		types.UniversalReadStatus_UNIVERSAL_READ_STATUS_EXPIRED,
-		types.UniversalReadStatus_UNIVERSAL_READ_STATUS_FAILED:
+		types.UniversalReadStatus_UNIVERSAL_READ_STATUS_FAILED,
+		types.UniversalReadStatus_UNIVERSAL_READ_STATUS_ABORTED:
 		return true
 	default:
 		return false
@@ -103,6 +104,15 @@ func (k Keeper) IterateExpiredBy(ctx context.Context, height uint64, fn func(typ
 		}
 		ur, found := k.getUniversalReadRaw(ctx, key.K2())
 		if !found {
+			continue
+		}
+		// Defence in depth. Settled reads are removed from this set by
+		// SetUniversalRead, so one should never appear here — but the key embeds
+		// ExpiryBlockHeight, and if a record were ever rewritten with a different
+		// deadline the old key would be orphaned and outlive the removal. The
+		// sweeper acting on such an entry would call expireExternalRead on an
+		// already-fulfilled request.
+		if isSettled(ur.Status) {
 			continue
 		}
 		if !fn(ur) {

@@ -146,6 +146,7 @@ func TestExecuteRead_ContractCall(t *testing.T) {
 		result, err := client.ExecuteRead(context.Background(), evmReadRequest(t, uint8(evmQueryContractCall), 0, payload))
 		require.NoError(t, err)
 		assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_ERROR, result.Status)
+		assert.Equal(t, ucallbacktypes.ReadErrorCode_READ_ERROR_REVERTED, result.ErrorCode)
 		assert.Empty(t, result.ResultData)
 	})
 
@@ -191,6 +192,7 @@ func TestExecuteRead_InvalidEnvelope(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_ERROR, result.Status)
+	assert.Equal(t, ucallbacktypes.ReadErrorCode_READ_ERROR_INVALID_QUERY, result.ErrorCode)
 }
 
 func TestExecuteRead_RPCFailureIsTransient(t *testing.T) {

@@ -1277,3 +1277,84 @@ func TestValidatorsSnapshot(t *testing.T) {
 		assert.NotNil(t, coord.validatorsSnapshot())
 	})
 }
+
+func TestIsKnownPeer(t *testing.T) {
+	uv := func(peerID string, status types.UVStatus) *types.UniversalValidator {
+		return &types.UniversalValidator{
+			IdentifyInfo:  &types.IdentityInfo{CoreValidatorAddress: "addr-" + peerID},
+			NetworkInfo:   &types.NetworkInfo{PeerId: peerID, MultiAddrs: []string{"/ip4/127.0.0.1/tcp/9001"}},
+			LifecycleInfo: &types.LifecycleInfo{CurrentStatus: status},
+		}
+	}
+
+	setValidators := func(coord *Coordinator, vs []*types.UniversalValidator) {
+		coord.mu.Lock()
+		coord.allValidators = vs
+		coord.lastValidatorsRefreshAt = time.Now()
+		coord.mu.Unlock()
+	}
+
+	coord, _, _ := setupTestCoordinator(t)
+
+	t.Run("eligible statuses admitted", func(t *testing.T) {
+		setValidators(coord, []*types.UniversalValidator{
+			uv("active", types.UVStatus_UV_STATUS_ACTIVE),
+			uv("joining", types.UVStatus_UV_STATUS_PENDING_JOIN),
+			uv("leaving", types.UVStatus_UV_STATUS_PENDING_LEAVE),
+		})
+		assert.True(t, coord.IsKnownPeer("active"))
+		assert.True(t, coord.IsKnownPeer("joining"))
+		assert.True(t, coord.IsKnownPeer("leaving"))
+	})
+
+	t.Run("inactive and unspecified rejected", func(t *testing.T) {
+		setValidators(coord, []*types.UniversalValidator{
+			uv("active", types.UVStatus_UV_STATUS_ACTIVE),
+			uv("inactive", types.UVStatus_UV_STATUS_INACTIVE),
+			uv("unspecified", types.UVStatus_UV_STATUS_UNSPECIFIED),
+		})
+		assert.False(t, coord.IsKnownPeer("inactive"))
+		assert.False(t, coord.IsKnownPeer("unspecified"))
+	})
+
+	t.Run("unknown peer rejected", func(t *testing.T) {
+		setValidators(coord, []*types.UniversalValidator{
+			uv("active", types.UVStatus_UV_STATUS_ACTIVE),
+		})
+		assert.False(t, coord.IsKnownPeer("stranger"))
+	})
+
+	t.Run("nil lifecycle info rejected", func(t *testing.T) {
+		noLifecycle := uv("ghost", types.UVStatus_UV_STATUS_ACTIVE)
+		noLifecycle.LifecycleInfo = nil
+		setValidators(coord, []*types.UniversalValidator{
+			uv("active", types.UVStatus_UV_STATUS_ACTIVE),
+			noLifecycle,
+		})
+		assert.False(t, coord.IsKnownPeer("ghost"))
+	})
+
+	t.Run("bootstrap keygen peers admitted without any active validator", func(t *testing.T) {
+		// Fresh network: everyone is Pending Join. Strict filter must still
+		// admit them so keygen can start; Inactive stays rejected even here.
+		setValidators(coord, []*types.UniversalValidator{
+			uv("joining", types.UVStatus_UV_STATUS_PENDING_JOIN),
+			uv("joining2", types.UVStatus_UV_STATUS_PENDING_JOIN),
+			uv("inactive", types.UVStatus_UV_STATUS_INACTIVE),
+		})
+		assert.True(t, coord.IsKnownPeer("joining"))
+		assert.True(t, coord.IsKnownPeer("joining2"))
+		assert.False(t, coord.IsKnownPeer("inactive"))
+		assert.False(t, coord.IsKnownPeer("stranger"))
+	})
+
+	t.Run("stale cache fails closed", func(t *testing.T) {
+		setValidators(coord, []*types.UniversalValidator{
+			uv("active", types.UVStatus_UV_STATUS_ACTIVE),
+		})
+		coord.mu.Lock()
+		coord.lastValidatorsRefreshAt = time.Now().Add(-time.Hour)
+		coord.mu.Unlock()
+		assert.False(t, coord.IsKnownPeer("active"))
+	})
+}

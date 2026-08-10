@@ -285,34 +285,9 @@ func (n *Node) Start(ctx context.Context) error {
 
 	n.logger.Debug().Msg("starting TSS node")
 
-	// Start libp2p network
-	net, err := libp2pnet.New(ctx, n.networkCfg, n.logger)
-	if err != nil {
-		return fmt.Errorf("failed to start libp2p network: %w", err)
-	}
-	n.network = net
-
-	// Register global message handler
-	if err := net.RegisterHandler(n.onReceive); err != nil {
-		net.Close()
-		return fmt.Errorf("failed to register message handler: %w", err)
-	}
-
-	// Recover IN_PROGRESS events on startup. Two-pass:
-	//   1. Rows whose event_data already carries signing_data → SIGNED
-	//      (signature was persisted but status got clobbered by a race).
-	//   2. Remaining IN_PROGRESS → CONFIRMED (genuine mid-session crashes).
-	signedRecovered, confirmedReset, err := n.eventStore.RecoverInProgressEvents()
-	if err != nil {
-		n.logger.Warn().Err(err).Msg("failed to recover IN_PROGRESS events, continuing anyway")
-	} else if signedRecovered > 0 || confirmedReset > 0 {
-		n.logger.Info().
-			Int64("signed_recovered", signedRecovered).
-			Int64("confirmed_reset", confirmedReset).
-			Msg("recovered IN_PROGRESS events on node startup")
-	}
-
-	// Create coordinator with send function using node's Send method
+	// Create coordinator with send function using node's Send method.
+	// Created before the network so the connection gater and message handler
+	// never observe a nil coordinator or session manager.
 	if n.coordinator == nil {
 		coord := coordinator.NewCoordinator(
 			n.eventStore,
@@ -349,6 +324,36 @@ func (n *Node) Start(ctx context.Context) error {
 			n.pushSigner,
 		)
 		n.sessionManager = sessionMgr
+	}
+
+	// Only Universal Validators may connect and open TSS streams
+	n.networkCfg.Authorizer = n.coordinator.IsKnownPeer
+
+	// Start libp2p network
+	net, err := libp2pnet.New(ctx, n.networkCfg, n.logger)
+	if err != nil {
+		return fmt.Errorf("failed to start libp2p network: %w", err)
+	}
+	n.network = net
+
+	// Register global message handler
+	if err := net.RegisterHandler(n.onReceive); err != nil {
+		net.Close()
+		return fmt.Errorf("failed to register message handler: %w", err)
+	}
+
+	// Recover IN_PROGRESS events on startup. Two-pass:
+	//   1. Rows whose event_data already carries signing_data → SIGNED
+	//      (signature was persisted but status got clobbered by a race).
+	//   2. Remaining IN_PROGRESS → CONFIRMED (genuine mid-session crashes).
+	signedRecovered, confirmedReset, err := n.eventStore.RecoverInProgressEvents()
+	if err != nil {
+		n.logger.Warn().Err(err).Msg("failed to recover IN_PROGRESS events, continuing anyway")
+	} else if signedRecovered > 0 || confirmedReset > 0 {
+		n.logger.Info().
+			Int64("signed_recovered", signedRecovered).
+			Int64("confirmed_reset", confirmedReset).
+			Msg("recovered IN_PROGRESS events on node startup")
 	}
 
 	// Start coordinator

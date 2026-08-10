@@ -795,7 +795,10 @@ func NewChainApp(
 			app.UtssKeeper.Hooks(),
 			uexecutorkeeper.NewUValidatorHooks(app.UexecutorKeeper),
 		),
-		Ballot: uexecutorkeeper.NewBallotHooks(app.UexecutorKeeper),
+		Ballot: uvalidatorkeeper.NewMultiBallotHooks(
+			uexecutorkeeper.NewBallotHooks(app.UexecutorKeeper),
+			ucallbackkeeper.NewBallotHooks(app.UcallbackKeeper),
+		),
 	})
 
 	// NOTE: stakingKeeper above is passed by reference, so it picks up these hooks.

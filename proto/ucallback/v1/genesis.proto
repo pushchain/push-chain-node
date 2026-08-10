@@ -19,6 +19,13 @@ message GenesisState {
   // than exported — so they cannot be imported out of sync with the records they
   // point at.
   repeated UniversalReadEntry universal_reads = 2 [(gogoproto.nullable) = false];
+
+  // module_account_nonce is the EVM nonce of the x/ucallback module account.
+  //
+  // Must round-trip through genesis: it is the nonce of a real EVM account, and
+  // exporting state without it would make every module call after an import reuse
+  // nonces the chain had already consumed.
+  uint64 module_account_nonce = 3;
 }
 
 // UniversalReadEntry is one key-value pair from the UniversalReads map.

@@ -22,6 +22,13 @@ var (
 	// UniversalRead, and this index is what reassembles the batch.
 	// Key is (pushTxHash, requestId).
 	ReadsByTxHashKey = collections.NewPrefix(3)
+
+	// ModuleAccountNonceKey tracks the EVM nonce of the x/ucallback module
+	// account. x/ucallback owns this counter because it owns the account: the
+	// UniversalCallback contract's access control is keyed to this module's
+	// address, so no other module ever sends from it.
+	ModuleAccountNonceKey  = collections.NewPrefix(4)
+	ModuleAccountNonceName = "module_account_nonce"
 )
 
 const (

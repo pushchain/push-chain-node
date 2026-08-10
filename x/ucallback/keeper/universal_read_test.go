@@ -226,3 +226,26 @@ func TestGenesis_RoundTripRebuildsIndexes(t *testing.T) {
 	require.Equal(t, []string{"0xaaa"}, collectDueBy(t, g, 100),
 		"only the unsettled read is pending after re-import")
 }
+
+// The module account nonce must survive an export/import cycle. Losing it would
+// make every call after a restart reuse nonces the chain already consumed.
+func TestGenesis_RoundTripsModuleNonce(t *testing.T) {
+	f := SetupTest(t)
+	require.NoError(t, f.k.InitGenesis(f.ctx, types.DefaultGenesis()))
+
+	n, err := f.k.GetModuleAccountNonce(f.ctx)
+	require.NoError(t, err)
+	require.Equal(t, uint64(0), n, "fresh genesis starts at zero")
+
+	require.NoError(t, f.k.ModuleAccountNonce.Set(f.ctx, 42))
+
+	exported := f.k.ExportGenesis(f.ctx)
+	require.Equal(t, uint64(42), exported.ModuleAccountNonce)
+
+	g := SetupTest(t)
+	require.NoError(t, g.k.InitGenesis(g.ctx, exported))
+
+	got, err := g.k.GetModuleAccountNonce(g.ctx)
+	require.NoError(t, err)
+	require.Equal(t, uint64(42), got)
+}

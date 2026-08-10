@@ -48,6 +48,8 @@ type testFixture struct {
 	msgServer   types.MsgServer
 	queryServer types.QueryServer
 	uvalidator  *fakeUValidator
+	evm         *fakeEVM
+	account     *fakeAccount
 	appModule   *module.AppModule
 
 	accountkeeper authkeeper.AccountKeeper
@@ -88,7 +90,10 @@ func SetupTest(t *testing.T) *testFixture {
 
 	// Setup Keeper.
 	f.uvalidator = newFakeUValidator()
-	f.k = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(keys[types.ModuleName]), logger, f.govModAddr, f.uvalidator)
+	f.evm = &fakeEVM{}
+	f.account = &fakeAccount{}
+	f.k = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(keys[types.ModuleName]), logger, f.govModAddr,
+		f.uvalidator, f.evm, f.account)
 	f.msgServer = keeper.NewMsgServerImpl(f.k)
 	f.queryServer = keeper.NewQuerier(f.k)
 	f.appModule = module.NewAppModule(encCfg.Codec, f.k)

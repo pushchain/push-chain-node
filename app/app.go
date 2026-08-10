@@ -265,6 +265,7 @@ var maccPerms = map[string][]string{
 	erc20types.ModuleName:        {authtypes.Minter, authtypes.Burner},
 	uexecutortypes.ModuleName:    {authtypes.Minter, authtypes.Burner},
 	uvalidatortypes.ModuleName:   nil,
+	ucallbacktypes.ModuleName:    nil,
 }
 
 var (
@@ -695,6 +696,8 @@ func NewChainApp(
 		logger,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 		&app.UvalidatorKeeper,
+		app.EVMKeeper,
+		app.AccountKeeper,
 	)
 
 	app.FeeMarketKeeper = feemarketkeeper.NewKeeper(

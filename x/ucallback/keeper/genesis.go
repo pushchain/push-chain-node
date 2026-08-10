@@ -27,6 +27,14 @@ func (k *Keeper) InitGenesis(ctx context.Context, data *types.GenesisState) erro
 		}
 	}
 
+	// Only written when non-zero so a fresh genesis leaves the item unset and
+	// GetModuleAccountNonce's default applies.
+	if data.ModuleAccountNonce > 0 {
+		if err := k.ModuleAccountNonce.Set(ctx, data.ModuleAccountNonce); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -45,8 +53,14 @@ func (k *Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 		panic(err)
 	}
 
+	nonce, err := k.GetModuleAccountNonce(ctx)
+	if err != nil {
+		panic(err)
+	}
+
 	return &types.GenesisState{
-		Params:         params,
-		UniversalReads: reads,
+		Params:             params,
+		UniversalReads:     reads,
+		ModuleAccountNonce: nonce,
 	}
 }

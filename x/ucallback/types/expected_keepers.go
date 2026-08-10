@@ -13,13 +13,14 @@ import (
 	uvalidatortypes "github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
-// UValidatorKeeper is the slice of x/uvalidator that x/ucallback needs to run a
-// read-result ballot. Narrower than x/uexecutor's equivalent — read voting needs
-// the voter set, the ballot primitive, and the two eligibility checks, nothing more.
+// UValidatorKeeper is the slice of x/uvalidator that x/ucallback needs: the voter
+// set and ballot primitive for read voting, the two eligibility checks, and the
+// admin address that gates the expiry escape hatch.
 type UValidatorKeeper interface {
 	IsBondedUniversalValidator(ctx context.Context, universalValidator string) (bool, error)
 	IsTombstonedUniversalValidator(ctx context.Context, universalValidator string) (bool, error)
 	GetEligibleVoters(ctx context.Context) ([]uvalidatortypes.UniversalValidator, error)
+	GetAdmin(ctx context.Context) (string, error)
 	VoteOnBallot(
 		ctx context.Context,
 		id string,

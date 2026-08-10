@@ -18,6 +18,7 @@ type fakeUValidator struct {
 	voters     []string
 	bonded     map[string]bool
 	tombstoned map[string]bool
+	admin      string
 
 	ballots map[string]*fakeBallot
 
@@ -45,7 +46,12 @@ func newFakeUValidator(voters ...string) *fakeUValidator {
 	for _, v := range voters {
 		f.bonded[v] = true
 	}
+	f.admin = "push1adminadminadminadminadminadminadmin"
 	return f
+}
+
+func (f *fakeUValidator) GetAdmin(context.Context) (string, error) {
+	return f.admin, nil
 }
 
 func (f *fakeUValidator) IsBondedUniversalValidator(_ context.Context, v string) (bool, error) {

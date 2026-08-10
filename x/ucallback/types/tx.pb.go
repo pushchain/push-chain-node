@@ -246,47 +246,165 @@ func (m *MsgVoteReadResultResponse) GetFinalized() bool {
 	return false
 }
 
+// MsgRetryReadExpiry is an admin escape hatch. For a read left ABORTED after
+// MaxExpiryAttempts, this makes one more attempt at expireExternalRead.
+//
+// Needed because ABORTED is a dead end that nothing else can leave. The contract
+// may still hold the request as pending with the funder's refund uncredited, and
+// expireExternalRead is module-gated — no user, relayer or admin can call it
+// directly. The sweeper will not retry either: ABORTED is terminal, so the record
+// is out of PendingByExpiry.
+//
+// Each message is worth exactly one attempt: the attempt count is the record's own
+// PCTx history, which is already at the limit, so a failure returns it to ABORTED
+// with the new reason rather than granting a fresh budget.
+type MsgRetryReadExpiry struct {
+	// signer must equal uvalidator Params.Admin
+	Signer string `protobuf:"bytes,1,opt,name=signer,proto3" json:"signer,omitempty"`
+	// request_id of the abandoned read.
+	RequestId string `protobuf:"bytes,2,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+}
+
+func (m *MsgRetryReadExpiry) Reset()         { *m = MsgRetryReadExpiry{} }
+func (m *MsgRetryReadExpiry) String() string { return proto.CompactTextString(m) }
+func (*MsgRetryReadExpiry) ProtoMessage()    {}
+func (*MsgRetryReadExpiry) Descriptor() ([]byte, []int) {
+	return fileDescriptor_9cc90e16cf6966ee, []int{4}
+}
+func (m *MsgRetryReadExpiry) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgRetryReadExpiry) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgRetryReadExpiry.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgRetryReadExpiry) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgRetryReadExpiry.Merge(m, src)
+}
+func (m *MsgRetryReadExpiry) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgRetryReadExpiry) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgRetryReadExpiry.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgRetryReadExpiry proto.InternalMessageInfo
+
+func (m *MsgRetryReadExpiry) GetSigner() string {
+	if m != nil {
+		return m.Signer
+	}
+	return ""
+}
+
+func (m *MsgRetryReadExpiry) GetRequestId() string {
+	if m != nil {
+		return m.RequestId
+	}
+	return ""
+}
+
+type MsgRetryReadExpiryResponse struct {
+	// settled reports whether the contract accepted the expiry this time.
+	Settled bool `protobuf:"varint,1,opt,name=settled,proto3" json:"settled,omitempty"`
+}
+
+func (m *MsgRetryReadExpiryResponse) Reset()         { *m = MsgRetryReadExpiryResponse{} }
+func (m *MsgRetryReadExpiryResponse) String() string { return proto.CompactTextString(m) }
+func (*MsgRetryReadExpiryResponse) ProtoMessage()    {}
+func (*MsgRetryReadExpiryResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_9cc90e16cf6966ee, []int{5}
+}
+func (m *MsgRetryReadExpiryResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgRetryReadExpiryResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgRetryReadExpiryResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgRetryReadExpiryResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgRetryReadExpiryResponse.Merge(m, src)
+}
+func (m *MsgRetryReadExpiryResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgRetryReadExpiryResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgRetryReadExpiryResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgRetryReadExpiryResponse proto.InternalMessageInfo
+
+func (m *MsgRetryReadExpiryResponse) GetSettled() bool {
+	if m != nil {
+		return m.Settled
+	}
+	return false
+}
+
 func init() {
 	proto.RegisterType((*MsgUpdateParams)(nil), "ucallback.v1.MsgUpdateParams")
 	proto.RegisterType((*MsgUpdateParamsResponse)(nil), "ucallback.v1.MsgUpdateParamsResponse")
 	proto.RegisterType((*MsgVoteReadResult)(nil), "ucallback.v1.MsgVoteReadResult")
 	proto.RegisterType((*MsgVoteReadResultResponse)(nil), "ucallback.v1.MsgVoteReadResultResponse")
+	proto.RegisterType((*MsgRetryReadExpiry)(nil), "ucallback.v1.MsgRetryReadExpiry")
+	proto.RegisterType((*MsgRetryReadExpiryResponse)(nil), "ucallback.v1.MsgRetryReadExpiryResponse")
 }
 
 func init() { proto.RegisterFile("ucallback/v1/tx.proto", fileDescriptor_9cc90e16cf6966ee) }
 
 var fileDescriptor_9cc90e16cf6966ee = []byte{
-	// 480 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x53, 0x3f, 0x6f, 0xd3, 0x40,
-	0x1c, 0xcd, 0x51, 0x88, 0xf0, 0x51, 0x15, 0xd5, 0x0a, 0xaa, 0x63, 0xa8, 0x5b, 0x45, 0x42, 0x54,
-	0x41, 0xb1, 0x69, 0x90, 0x2a, 0xd1, 0x8d, 0x6c, 0x0c, 0x91, 0x2a, 0xf3, 0x67, 0xe8, 0x52, 0x5d,
-	0xec, 0xe3, 0x72, 0x22, 0xf6, 0x99, 0xfb, 0x9d, 0xab, 0x96, 0x09, 0x31, 0x22, 0x21, 0xf1, 0x51,
-	0x32, 0x30, 0xb3, 0xb0, 0x74, 0xac, 0x98, 0x98, 0x10, 0x4a, 0x86, 0x7c, 0x0d, 0x94, 0xf3, 0xa5,
-	0xae, 0x1b, 0xa9, 0x5d, 0xac, 0x9f, 0xdf, 0x7b, 0xf7, 0xee, 0xbd, 0xf3, 0x19, 0x3f, 0xc8, 0x23,
-	0x32, 0x1a, 0x0d, 0x48, 0xf4, 0x21, 0x38, 0xde, 0x0d, 0xd4, 0x89, 0x9f, 0x49, 0xa1, 0x84, 0xbd,
-	0x7a, 0x01, 0xfb, 0xc7, 0xbb, 0xee, 0x46, 0x24, 0x20, 0x11, 0x10, 0x24, 0xc0, 0xe6, 0xaa, 0x04,
-	0x58, 0x21, 0x73, 0xdd, 0xca, 0x6a, 0x46, 0x53, 0x0a, 0x1c, 0x0c, 0xe7, 0x54, 0x9d, 0x4f, 0x33,
-	0xba, 0x60, 0x1a, 0x4c, 0x30, 0xa1, 0xc7, 0x60, 0x3e, 0x19, 0xb4, 0x59, 0x6c, 0x72, 0x54, 0x10,
-	0xc5, 0x8b, 0xa1, 0xd6, 0x49, 0xc2, 0x53, 0x11, 0xe8, 0x67, 0x01, 0xb5, 0xbe, 0x21, 0x7c, 0xbf,
-	0x0f, 0xec, 0x6d, 0x16, 0x13, 0x45, 0x0f, 0x88, 0x24, 0x09, 0xd8, 0x7b, 0xd8, 0x22, 0xb9, 0x1a,
-	0x0a, 0xc9, 0xd5, 0xa9, 0x83, 0xb6, 0xd1, 0x8e, 0xd5, 0x73, 0x7e, 0xff, 0xe8, 0x34, 0x8c, 0xd7,
-	0xcb, 0x38, 0x96, 0x14, 0xe0, 0xb5, 0x92, 0x3c, 0x65, 0x61, 0x29, 0xb5, 0xbb, 0xb8, 0x9e, 0x69,
-	0x07, 0xe7, 0xd6, 0x36, 0xda, 0xb9, 0xd7, 0x6d, 0xf8, 0x97, 0xdb, 0xfb, 0x85, 0x7b, 0xef, 0xf6,
-	0xd9, 0xdf, 0xad, 0x5a, 0x68, 0x94, 0xfb, 0x6b, 0x5f, 0x66, 0xe3, 0x76, 0xe9, 0xd1, 0x6a, 0xe2,
-	0x8d, 0x2b, 0x71, 0x42, 0x0a, 0x99, 0x48, 0x81, 0xb6, 0x7e, 0x21, 0xbc, 0xde, 0x07, 0xf6, 0x4e,
-	0x28, 0x1a, 0x52, 0x12, 0x87, 0x14, 0xf2, 0x91, 0xb2, 0x9f, 0xe1, 0x3a, 0x70, 0x96, 0x52, 0x79,
-	0x63, 0x52, 0xa3, 0xb3, 0x37, 0x31, 0x96, 0xf4, 0x63, 0x4e, 0x41, 0x1d, 0xf1, 0x58, 0x47, 0xb5,
-	0x42, 0xcb, 0x20, 0xaf, 0xe2, 0xb9, 0xa1, 0xd4, 0xd6, 0xce, 0x8a, 0x6e, 0xe1, 0x54, 0x5b, 0x94,
-	0x5b, 0x87, 0x46, 0xb7, 0xff, 0x74, 0xde, 0xc1, 0xb8, 0x7f, 0x9d, 0x8d, 0xdb, 0x0f, 0xcb, 0x2f,
-	0xb6, 0x94, 0xb7, 0xf5, 0x02, 0x37, 0x97, 0xc0, 0x45, 0x45, 0xfb, 0x11, 0xb6, 0xde, 0xf3, 0x94,
-	0x8c, 0xf8, 0x27, 0x1a, 0xeb, 0x3e, 0x77, 0xc3, 0x12, 0xe8, 0xfe, 0x44, 0x78, 0xa5, 0x0f, 0xcc,
-	0x3e, 0xc4, 0x6b, 0x57, 0x0e, 0x61, 0xab, 0x9a, 0x71, 0x69, 0x03, 0xf7, 0xc9, 0x0d, 0x82, 0x8b,
-	0x04, 0x6f, 0xf0, 0x6a, 0xe5, 0x2e, 0x6c, 0x2e, 0x2d, 0xbc, 0x4c, 0xbb, 0x8f, 0xaf, 0xa5, 0x17,
-	0xae, 0xee, 0x9d, 0xcf, 0xb3, 0x71, 0x1b, 0xf5, 0x0e, 0xce, 0x26, 0x1e, 0x3a, 0x9f, 0x78, 0xe8,
-	0xdf, 0xc4, 0x43, 0xdf, 0xa7, 0x5e, 0xed, 0x7c, 0xea, 0xd5, 0xfe, 0x4c, 0xbd, 0xda, 0xe1, 0x1e,
-	0xe3, 0x6a, 0x98, 0x0f, 0xfc, 0x48, 0x24, 0x41, 0x96, 0xc3, 0x30, 0x1a, 0x12, 0x9e, 0xea, 0xa9,
-	0xa3, 0xc7, 0x4e, 0x2a, 0x62, 0x1a, 0x9c, 0x04, 0xe5, 0xc9, 0xea, 0x1f, 0x61, 0x50, 0xd7, 0xb7,
-	0xf8, 0xf9, 0xff, 0x00, 0x00, 0x00, 0xff, 0xff, 0x27, 0x12, 0xf6, 0x0b, 0x7f, 0x03, 0x00, 0x00,
+	// 547 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x54, 0xcf, 0x8b, 0xd3, 0x40,
+	0x14, 0x6e, 0x76, 0x75, 0xb5, 0xe3, 0xb2, 0xcb, 0x86, 0xca, 0xa6, 0x71, 0x37, 0x5b, 0x02, 0x62,
+	0xa9, 0xb6, 0x71, 0x2b, 0x14, 0xec, 0xcd, 0x82, 0x07, 0x0f, 0x85, 0x25, 0xfe, 0x38, 0x2c, 0xc8,
+	0x92, 0x36, 0xe3, 0x74, 0xb0, 0xc9, 0xc4, 0x79, 0x93, 0xa5, 0xf5, 0x24, 0x1e, 0x05, 0x41, 0xf0,
+	0xec, 0xff, 0xd0, 0x83, 0xff, 0x81, 0x97, 0x3d, 0x2e, 0x9e, 0x3c, 0x89, 0xb4, 0x87, 0xfe, 0x1b,
+	0xd2, 0x49, 0xda, 0x6c, 0x12, 0xb0, 0x17, 0x2f, 0xe1, 0xcd, 0xf7, 0xbe, 0xf7, 0xbd, 0xf7, 0xbd,
+	0x61, 0x82, 0x6e, 0x87, 0x7d, 0x67, 0x38, 0xec, 0x39, 0xfd, 0xb7, 0xd6, 0xf9, 0xb1, 0x25, 0x46,
+	0x8d, 0x80, 0x33, 0xc1, 0xd4, 0xed, 0x15, 0xdc, 0x38, 0x3f, 0xd6, 0xf7, 0xfb, 0x0c, 0x3c, 0x06,
+	0x96, 0x07, 0x64, 0xc1, 0xf2, 0x80, 0x44, 0x34, 0x5d, 0x4f, 0x55, 0x13, 0xec, 0x63, 0xa0, 0x10,
+	0xe7, 0xb4, 0xb4, 0xf2, 0x38, 0xc0, 0xcb, 0x4c, 0x89, 0x30, 0xc2, 0x64, 0x68, 0x2d, 0xa2, 0x18,
+	0x2d, 0x47, 0x4d, 0xce, 0xa2, 0x44, 0x74, 0x88, 0x53, 0x7b, 0x8e, 0x47, 0x7d, 0x66, 0xc9, 0x6f,
+	0x04, 0x99, 0x9f, 0x15, 0xb4, 0xdb, 0x05, 0xf2, 0x32, 0x70, 0x1d, 0x81, 0x4f, 0x1c, 0xee, 0x78,
+	0xa0, 0xb6, 0x50, 0xd1, 0x09, 0xc5, 0x80, 0x71, 0x2a, 0xc6, 0x9a, 0x52, 0x51, 0xaa, 0xc5, 0x8e,
+	0xf6, 0xf3, 0x7b, 0xbd, 0x14, 0x6b, 0x3d, 0x71, 0x5d, 0x8e, 0x01, 0x9e, 0x0b, 0x4e, 0x7d, 0x62,
+	0x27, 0x54, 0xb5, 0x89, 0xb6, 0x02, 0xa9, 0xa0, 0x6d, 0x54, 0x94, 0xea, 0xad, 0x66, 0xa9, 0x71,
+	0xd5, 0x7d, 0x23, 0x52, 0xef, 0x5c, 0xbb, 0xf8, 0x7d, 0x54, 0xb0, 0x63, 0x66, 0x7b, 0xe7, 0xe3,
+	0x7c, 0x52, 0x4b, 0x34, 0xcc, 0x32, 0xda, 0xcf, 0x8c, 0x63, 0x63, 0x08, 0x98, 0x0f, 0xd8, 0xfc,
+	0xa1, 0xa0, 0xbd, 0x2e, 0x90, 0x57, 0x4c, 0x60, 0x1b, 0x3b, 0xae, 0x8d, 0x21, 0x1c, 0x0a, 0xf5,
+	0x21, 0xda, 0x02, 0x4a, 0x7c, 0xcc, 0xd7, 0x4e, 0x1a, 0xf3, 0xd4, 0x43, 0x84, 0x38, 0x7e, 0x17,
+	0x62, 0x10, 0x67, 0xd4, 0x95, 0xa3, 0x16, 0xed, 0x62, 0x8c, 0x3c, 0x73, 0x17, 0x82, 0x5c, 0x4a,
+	0x6b, 0x9b, 0xd2, 0x85, 0x96, 0x76, 0x91, 0xb4, 0xb6, 0x63, 0x5e, 0xfb, 0xfe, 0xc2, 0x43, 0xac,
+	0xfe, 0x69, 0x3e, 0xa9, 0xdd, 0x49, 0x6e, 0x2c, 0x37, 0xaf, 0xf9, 0x18, 0x95, 0x73, 0xe0, 0xd2,
+	0xa2, 0x7a, 0x80, 0x8a, 0x6f, 0xa8, 0xef, 0x0c, 0xe9, 0x7b, 0xec, 0x4a, 0x3f, 0x37, 0xed, 0x04,
+	0x30, 0xbf, 0x2a, 0x48, 0xed, 0x02, 0xb1, 0xb1, 0xe0, 0xe3, 0x45, 0xf1, 0xd3, 0x51, 0x40, 0xf9,
+	0xf8, 0xbf, 0x6f, 0xa0, 0xfd, 0x20, 0xe3, 0xe7, 0x20, 0xe5, 0x27, 0xd3, 0xde, 0x6c, 0x21, 0x3d,
+	0x8f, 0xae, 0x1c, 0x69, 0xe8, 0x06, 0x60, 0x21, 0x86, 0x2b, 0x3f, 0xcb, 0x63, 0xf3, 0xdb, 0x06,
+	0xda, 0xec, 0x02, 0x51, 0x4f, 0xd1, 0x4e, 0xe6, 0x4a, 0x8f, 0xd2, 0x1b, 0xcf, 0xad, 0x4b, 0xbf,
+	0xb7, 0x86, 0xb0, 0xea, 0xfe, 0x1a, 0xed, 0x66, 0xb7, 0x55, 0xc9, 0xd5, 0x66, 0x18, 0x7a, 0x75,
+	0x1d, 0x63, 0x25, 0xff, 0x02, 0x6d, 0xa7, 0x1e, 0xce, 0x61, 0xae, 0xf2, 0x6a, 0x5a, 0xbf, 0xfb,
+	0xcf, 0xf4, 0x52, 0x55, 0xbf, 0xfe, 0x61, 0x3e, 0xa9, 0x29, 0x9d, 0x93, 0x8b, 0xa9, 0xa1, 0x5c,
+	0x4e, 0x0d, 0xe5, 0xcf, 0xd4, 0x50, 0xbe, 0xcc, 0x8c, 0xc2, 0xe5, 0xcc, 0x28, 0xfc, 0x9a, 0x19,
+	0x85, 0xd3, 0x16, 0xa1, 0x62, 0x10, 0xf6, 0x1a, 0x7d, 0xe6, 0x59, 0x41, 0x08, 0x83, 0xfe, 0xc0,
+	0xa1, 0xbe, 0x8c, 0xea, 0x32, 0xac, 0xfb, 0xcc, 0xc5, 0xd6, 0xc8, 0x4a, 0xae, 0x4d, 0xfe, 0x35,
+	0x7a, 0x5b, 0xf2, 0xc9, 0x3f, 0xfa, 0x1b, 0x00, 0x00, 0xff, 0xff, 0x6b, 0xde, 0x55, 0x43, 0xac,
+	0x04, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -304,6 +422,8 @@ type MsgClient interface {
 	// VoteReadResult submits one universal validator's observation of a read
 	// request's outcome on the destination chain.
 	VoteReadResult(ctx context.Context, in *MsgVoteReadResult, opts ...grpc.CallOption) (*MsgVoteReadResultResponse, error)
+	// RetryReadExpiry reopens the expiry of a read the chain abandoned.
+	RetryReadExpiry(ctx context.Context, in *MsgRetryReadExpiry, opts ...grpc.CallOption) (*MsgRetryReadExpiryResponse, error)
 	// UpdateParams defines a governance operation for updating the parameters.
 	//
 	// Since: cosmos-sdk 0.47
@@ -327,6 +447,15 @@ func (c *msgClient) VoteReadResult(ctx context.Context, in *MsgVoteReadResult, o
 	return out, nil
 }
 
+func (c *msgClient) RetryReadExpiry(ctx context.Context, in *MsgRetryReadExpiry, opts ...grpc.CallOption) (*MsgRetryReadExpiryResponse, error) {
+	out := new(MsgRetryReadExpiryResponse)
+	err := c.cc.Invoke(ctx, "/ucallback.v1.Msg/RetryReadExpiry", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *msgClient) UpdateParams(ctx context.Context, in *MsgUpdateParams, opts ...grpc.CallOption) (*MsgUpdateParamsResponse, error) {
 	out := new(MsgUpdateParamsResponse)
 	err := c.cc.Invoke(ctx, "/ucallback.v1.Msg/UpdateParams", in, out, opts...)
@@ -341,6 +470,8 @@ type MsgServer interface {
 	// VoteReadResult submits one universal validator's observation of a read
 	// request's outcome on the destination chain.
 	VoteReadResult(context.Context, *MsgVoteReadResult) (*MsgVoteReadResultResponse, error)
+	// RetryReadExpiry reopens the expiry of a read the chain abandoned.
+	RetryReadExpiry(context.Context, *MsgRetryReadExpiry) (*MsgRetryReadExpiryResponse, error)
 	// UpdateParams defines a governance operation for updating the parameters.
 	//
 	// Since: cosmos-sdk 0.47
@@ -353,6 +484,9 @@ type UnimplementedMsgServer struct {
 
 func (*UnimplementedMsgServer) VoteReadResult(ctx context.Context, req *MsgVoteReadResult) (*MsgVoteReadResultResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method VoteReadResult not implemented")
+}
+func (*UnimplementedMsgServer) RetryReadExpiry(ctx context.Context, req *MsgRetryReadExpiry) (*MsgRetryReadExpiryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RetryReadExpiry not implemented")
 }
 func (*UnimplementedMsgServer) UpdateParams(ctx context.Context, req *MsgUpdateParams) (*MsgUpdateParamsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateParams not implemented")
@@ -376,6 +510,24 @@ func _Msg_VoteReadResult_Handler(srv interface{}, ctx context.Context, dec func(
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MsgServer).VoteReadResult(ctx, req.(*MsgVoteReadResult))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Msg_RetryReadExpiry_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgRetryReadExpiry)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).RetryReadExpiry(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/ucallback.v1.Msg/RetryReadExpiry",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).RetryReadExpiry(ctx, req.(*MsgRetryReadExpiry))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -405,6 +557,10 @@ var _Msg_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "VoteReadResult",
 			Handler:    _Msg_VoteReadResult_Handler,
+		},
+		{
+			MethodName: "RetryReadExpiry",
+			Handler:    _Msg_RetryReadExpiry_Handler,
 		},
 		{
 			MethodName: "UpdateParams",
@@ -560,6 +716,76 @@ func (m *MsgVoteReadResultResponse) MarshalToSizedBuffer(dAtA []byte) (int, erro
 	return len(dAtA) - i, nil
 }
 
+func (m *MsgRetryReadExpiry) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgRetryReadExpiry) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgRetryReadExpiry) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.RequestId) > 0 {
+		i -= len(m.RequestId)
+		copy(dAtA[i:], m.RequestId)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.RequestId)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Signer) > 0 {
+		i -= len(m.Signer)
+		copy(dAtA[i:], m.Signer)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Signer)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgRetryReadExpiryResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgRetryReadExpiryResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgRetryReadExpiryResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Settled {
+		i--
+		if m.Settled {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintTx(dAtA []byte, offset int, v uint64) int {
 	offset -= sovTx(v)
 	base := offset
@@ -623,6 +849,35 @@ func (m *MsgVoteReadResultResponse) Size() (n int) {
 	var l int
 	_ = l
 	if m.Finalized {
+		n += 2
+	}
+	return n
+}
+
+func (m *MsgRetryReadExpiry) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Signer)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	l = len(m.RequestId)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	return n
+}
+
+func (m *MsgRetryReadExpiryResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Settled {
 		n += 2
 	}
 	return n
@@ -998,6 +1253,190 @@ func (m *MsgVoteReadResultResponse) Unmarshal(dAtA []byte) error {
 				}
 			}
 			m.Finalized = bool(v != 0)
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgRetryReadExpiry) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgRetryReadExpiry: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgRetryReadExpiry: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Signer", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Signer = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field RequestId", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.RequestId = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgRetryReadExpiryResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgRetryReadExpiryResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgRetryReadExpiryResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Settled", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Settled = bool(v != 0)
 		default:
 			iNdEx = preIndex
 			skippy, err := skipTx(dAtA[iNdEx:])

@@ -19,8 +19,9 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Msg_VoteReadResult_FullMethodName = "/ucallback.v1.Msg/VoteReadResult"
-	Msg_UpdateParams_FullMethodName   = "/ucallback.v1.Msg/UpdateParams"
+	Msg_VoteReadResult_FullMethodName  = "/ucallback.v1.Msg/VoteReadResult"
+	Msg_RetryReadExpiry_FullMethodName = "/ucallback.v1.Msg/RetryReadExpiry"
+	Msg_UpdateParams_FullMethodName    = "/ucallback.v1.Msg/UpdateParams"
 )
 
 // MsgClient is the client API for Msg service.
@@ -30,6 +31,8 @@ type MsgClient interface {
 	// VoteReadResult submits one universal validator's observation of a read
 	// request's outcome on the destination chain.
 	VoteReadResult(ctx context.Context, in *MsgVoteReadResult, opts ...grpc.CallOption) (*MsgVoteReadResultResponse, error)
+	// RetryReadExpiry reopens the expiry of a read the chain abandoned.
+	RetryReadExpiry(ctx context.Context, in *MsgRetryReadExpiry, opts ...grpc.CallOption) (*MsgRetryReadExpiryResponse, error)
 	// UpdateParams defines a governance operation for updating the parameters.
 	//
 	// Since: cosmos-sdk 0.47
@@ -53,6 +56,15 @@ func (c *msgClient) VoteReadResult(ctx context.Context, in *MsgVoteReadResult, o
 	return out, nil
 }
 
+func (c *msgClient) RetryReadExpiry(ctx context.Context, in *MsgRetryReadExpiry, opts ...grpc.CallOption) (*MsgRetryReadExpiryResponse, error) {
+	out := new(MsgRetryReadExpiryResponse)
+	err := c.cc.Invoke(ctx, Msg_RetryReadExpiry_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *msgClient) UpdateParams(ctx context.Context, in *MsgUpdateParams, opts ...grpc.CallOption) (*MsgUpdateParamsResponse, error) {
 	out := new(MsgUpdateParamsResponse)
 	err := c.cc.Invoke(ctx, Msg_UpdateParams_FullMethodName, in, out, opts...)
@@ -69,6 +81,8 @@ type MsgServer interface {
 	// VoteReadResult submits one universal validator's observation of a read
 	// request's outcome on the destination chain.
 	VoteReadResult(context.Context, *MsgVoteReadResult) (*MsgVoteReadResultResponse, error)
+	// RetryReadExpiry reopens the expiry of a read the chain abandoned.
+	RetryReadExpiry(context.Context, *MsgRetryReadExpiry) (*MsgRetryReadExpiryResponse, error)
 	// UpdateParams defines a governance operation for updating the parameters.
 	//
 	// Since: cosmos-sdk 0.47
@@ -82,6 +96,9 @@ type UnimplementedMsgServer struct {
 
 func (UnimplementedMsgServer) VoteReadResult(context.Context, *MsgVoteReadResult) (*MsgVoteReadResultResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method VoteReadResult not implemented")
+}
+func (UnimplementedMsgServer) RetryReadExpiry(context.Context, *MsgRetryReadExpiry) (*MsgRetryReadExpiryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RetryReadExpiry not implemented")
 }
 func (UnimplementedMsgServer) UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateParams not implemented")
@@ -117,6 +134,24 @@ func _Msg_VoteReadResult_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Msg_RetryReadExpiry_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgRetryReadExpiry)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).RetryReadExpiry(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_RetryReadExpiry_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).RetryReadExpiry(ctx, req.(*MsgRetryReadExpiry))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Msg_UpdateParams_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(MsgUpdateParams)
 	if err := dec(in); err != nil {
@@ -145,6 +180,10 @@ var Msg_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "VoteReadResult",
 			Handler:    _Msg_VoteReadResult_Handler,
+		},
+		{
+			MethodName: "RetryReadExpiry",
+			Handler:    _Msg_RetryReadExpiry_Handler,
 		},
 		{
 			MethodName: "UpdateParams",

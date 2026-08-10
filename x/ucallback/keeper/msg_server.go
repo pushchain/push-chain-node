@@ -68,3 +68,53 @@ func (ms msgServer) VoteReadResult(ctx context.Context, msg *types.MsgVoteReadRe
 
 	return &types.MsgVoteReadResultResponse{Finalized: finalized}, nil
 }
+
+// RetryReadExpiry implements types.MsgServer — the admin escape hatch.
+//
+// Only reaches records already at ABORTED, which is a state nothing else can leave:
+// the sweeper skips it (terminal, so out of PendingByExpiry) and the contract's
+// expireExternalRead admits only this module. Without this path the funder's refund
+// stays uncredited permanently.
+func (ms msgServer) RetryReadExpiry(ctx context.Context, msg *types.MsgRetryReadExpiry) (*types.MsgRetryReadExpiryResponse, error) {
+	ms.k.Logger().Info("msg: RetryReadExpiry", "signer", msg.Signer, "request_id", msg.RequestId)
+
+	admin, err := ms.k.uvalidatorKeeper.GetAdmin(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read uvalidator admin")
+	}
+	if admin != msg.Signer {
+		return nil, errors.Wrapf(govtypes.ErrInvalidSigner,
+			"invalid admin; expected %s, got %s", admin, msg.Signer)
+	}
+
+	if msg.RequestId == "" {
+		return nil, fmt.Errorf("request_id is required")
+	}
+
+	ur, found := ms.k.GetUniversalRead(ctx, msg.RequestId)
+	if !found {
+		return nil, fmt.Errorf("read request not found: %s", msg.RequestId)
+	}
+
+	// Deliberately narrow. Any other status either settled cleanly or is still
+	// moving on its own, and re-running expiry on it would call the contract for a
+	// request the chain has no business closing.
+	if ur.Status != types.UniversalReadStatus_UNIVERSAL_READ_STATUS_ABORTED {
+		return nil, fmt.Errorf("read request %s is %s, only ABORTED requests can be retried",
+			msg.RequestId, ur.Status)
+	}
+
+	if err := ms.k.ExpireRead(sdk.UnwrapSDKContext(ctx), ur); err != nil {
+		return nil, err
+	}
+
+	// ExpireRead leaves it EXPIRED on success and back at ABORTED on failure, with
+	// ErrorMsg refreshed either way.
+	after, _ := ms.k.GetUniversalRead(ctx, msg.RequestId)
+	settled := after.Status == types.UniversalReadStatus_UNIVERSAL_READ_STATUS_EXPIRED
+
+	ms.k.Logger().Info("admin retry of read expiry",
+		"request_id", msg.RequestId, "settled", settled, "status", after.Status.String())
+
+	return &types.MsgRetryReadExpiryResponse{Settled: settled}, nil
+}

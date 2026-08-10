@@ -48,6 +48,12 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					Skip:      false, // set to true if authority gated
 				},
 				{
+					RpcMethod:      "RetryReadExpiry",
+					Use:            "retry-read-expiry <request-id>",
+					Short:          "Admin: reattempt expiry for an abandoned read",
+					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "request_id"}},
+				},
+				{
 					RpcMethod: "VoteReadResult",
 					Use:       "vote-read-result <request-id>",
 					Short:     "Vote on the observed outcome of a read request",

@@ -59,24 +59,21 @@ func (h BallotHooks) afterReadBallotTerminal(
 		return nil
 	}
 
-	switch status {
-	case uvalidatortypes.BallotStatus_BALLOT_STATUS_PASSED:
-		// fall through to fulfilment below
-
-	case uvalidatortypes.BallotStatus_BALLOT_STATUS_EXPIRED:
-		// The ballot carries the request's own deadline, so an expired ballot means
-		// the request itself is over — votes accumulated but never reached quorum
-		// in time. Retire it now rather than leaving it for the sweeper: the record
-		// is unvotable from here (VoteReadResult rejects past-deadline requests), so
-		// waiting would only delay closing it on the contract.
-		h.k.Logger().Info("read ballot expired, retiring request",
-			"ballot_id", ballotID, "request_id", ur.Id)
-		return h.k.ExpireRead(ctx, ur)
-
-	default:
-		// REJECTED. Not a deadline — the request keeps its remaining time and other
-		// observations may still win.
-		h.k.Logger().Info("read ballot rejected, request stays in flight",
+	if status != uvalidatortypes.BallotStatus_BALLOT_STATUS_PASSED {
+		// EXPIRED or REJECTED — neither retires the request here.
+		//
+		// Expiry belongs to the sweeper, not to this hook. A request's deadline is a
+		// property of the request, and PendingByExpiry already tracks it directly;
+		// an expiring ballot is only a shadow of that. Worse, ballot expiry is lazy
+		// — x/uvalidator runs ExpireBallotsBeforeHeight from inside CreateBallot,
+		// with no EndBlocker — so this hook fires only when some unrelated ballot
+		// happens to be created. The sweeper covers strictly more (requests nobody
+		// ever voted on have no ballot at all) and, running every block, never
+		// later. A second path here would add a race and buy nothing.
+		//
+		// REJECTED is not a deadline either: the request keeps its remaining time
+		// and another observation may still win.
+		h.k.Logger().Debug("read ballot did not pass, leaving request to the sweeper",
 			"ballot_id", ballotID, "request_id", ur.Id, "status", status.String())
 		return nil
 	}
@@ -122,8 +119,9 @@ func (k Keeper) FulfilRead(ctx sdk.Context, ur types.UniversalRead) error {
 		// not the callback reverted. Retrying would revert with
 		// RequestAlreadyFulfilled forever.
 		ur.Status = types.UniversalReadStatus_UNIVERSAL_READ_STATUS_FAILED
+		ur.ErrorMsg = pcTxError(res, callErr)
 		k.Logger().Error("read fulfilment failed",
-			"request_id", ur.Id, "error", pcTxError(res, callErr))
+			"request_id", ur.Id, "error", ur.ErrorMsg)
 	}
 
 	return k.SetUniversalRead(ctx, ur)
@@ -146,40 +144,4 @@ func pcTxError(res *evmtypes.MsgEthereumTxResponse, callErr error) string {
 		return res.VmError
 	}
 	return "unknown"
-}
-
-// ExpireRead closes a request the chain will no longer act on, telling the contract
-// so its pending entry can be released.
-//
-// Reached from two directions: a ballot that carried the request's deadline and
-// expired (above), and the sweeper for requests nobody ever voted on. Both mark the
-// record terminal, which removes it from the in-flight set — so whichever runs
-// first, the other will not find it.
-//
-// Note the contract refunds nothing here; the funder's fee stays with the protocol
-// either way. Expiring promptly buys contract-storage cleanup, not a refund.
-func (k Keeper) ExpireRead(ctx sdk.Context, ur types.UniversalRead) error {
-	_, moduleHex := k.GetModuleAddress(ctx)
-
-	tmpCtx, commit := ctx.CacheContext()
-	res, callErr := k.CallExpireExternalRead(tmpCtx, ur.Id)
-	succeeded := callErr == nil && (res == nil || res.VmError == "")
-	if succeeded {
-		commit()
-	}
-
-	ur.PcTx = append(ur.PcTx, pcTxFrom(ctx, moduleHex, res, callErr))
-
-	// EXPIRED either way. A revert here is almost always RequestAlreadyFulfilled —
-	// the contract closed the request by another route — and in every case the
-	// chain is done with it. Leaving it pending would mean retrying forever.
-	ur.Status = types.UniversalReadStatus_UNIVERSAL_READ_STATUS_EXPIRED
-	if succeeded {
-		k.Logger().Info("read request expired", "request_id", ur.Id, "tx_hash", pcTxHash(res))
-	} else {
-		k.Logger().Error("read expiry call failed, request retired anyway",
-			"request_id", ur.Id, "error", pcTxError(res, callErr))
-	}
-
-	return k.SetUniversalRead(ctx, ur)
 }

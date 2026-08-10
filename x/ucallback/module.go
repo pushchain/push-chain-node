@@ -2,6 +2,8 @@ package module
 
 import (
 	"context"
+
+	"cosmossdk.io/core/appmodule"
 	"encoding/json"
 
 	"github.com/gorilla/mux"
@@ -31,6 +33,11 @@ var (
 	_ module.AppModuleBasic   = AppModuleBasic{}
 	_ module.AppModuleGenesis = AppModule{}
 	_ module.AppModule        = AppModule{}
+
+	// Compile-time proof that EndBlock is the shape the module manager looks for.
+	// The manager finds it by runtime type assertion, so without this a signature
+	// typo would compile fine and the sweeper would simply never run.
+	_ appmodule.HasEndBlocker = AppModule{}
 
 	_ autocli.HasAutoCLIConfig = AppModule{}
 )
@@ -145,6 +152,20 @@ func (a AppModule) RegisterServices(cfg module.Configurator) {
 // module. It should be incremented on each consensus-breaking change
 // introduced by the module. To avoid wrong/empty versions, the initial version
 // should be set to 1.
+// EndBlock retires read requests whose deadline has passed.
+//
+// Errors are logged rather than returned: a failure to sweep is not worth halting
+// the chain over, and the work is idempotent — anything missed is still in
+// PendingByExpiry and gets picked up next block.
+func (a AppModule) EndBlock(ctx context.Context) error {
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	if err := a.keeper.SweepExpired(sdkCtx); err != nil {
+		sdkCtx.Logger().Error("ucallback: expiry sweep failed",
+			"height", sdkCtx.BlockHeight(), "err", err.Error())
+	}
+	return nil
+}
+
 func (a AppModule) ConsensusVersion() uint64 {
 	return ConsensusVersion
 }

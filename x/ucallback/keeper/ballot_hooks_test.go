@@ -180,8 +180,31 @@ func TestAfterBallotTerminal_IsIdempotent(t *testing.T) {
 	require.Len(t, ur.PcTx, 1, "and only one attempt recorded")
 }
 
-// A rejected ballot is not a deadline: the request keeps its remaining time and
-// other observations may still win.
+// Neither EXPIRED nor REJECTED retires a request here — expiry belongs to the
+// sweeper, which sees every overdue request rather than only those with a ballot.
+func TestAfterBallotTerminal_NonPassedLeavesToSweeper(t *testing.T) {
+	for _, status := range []uvalidatortypes.BallotStatus{
+		uvalidatortypes.BallotStatus_BALLOT_STATUS_EXPIRED,
+		uvalidatortypes.BallotStatus_BALLOT_STATUS_REJECTED,
+	} {
+		t.Run(status.String(), func(t *testing.T) {
+			f := SetupTest(t)
+			f.ctx = f.ctx.WithBlockHeight(10)
+
+			seedRead(t, f, "0xaa", 500)
+			key := voteToQuorum(t, f, "0xaa", obs(0x01))
+
+			require.NoError(t, fireTerminal(f, key, status))
+
+			require.Empty(t, f.evm.calls, "the hook must not call the contract")
+			ur, _ := f.k.GetUniversalRead(f.ctx, "0xaa")
+			require.Equal(t, types.UniversalReadStatus_UNIVERSAL_READ_STATUS_VOTING, ur.Status)
+			require.Equal(t, []string{"0xaa"}, pendingIDs(t, f),
+				"still in flight, so the sweeper can find it")
+		})
+	}
+}
+
 func TestAfterBallotTerminal_RejectedLeavesInFlight(t *testing.T) {
 	f := SetupTest(t)
 	f.ctx = f.ctx.WithBlockHeight(10)
@@ -198,45 +221,7 @@ func TestAfterBallotTerminal_RejectedLeavesInFlight(t *testing.T) {
 		"still offered — validators may yet agree")
 }
 
-// The ballot carries the request's deadline, so an expired ballot means the request
-// is over. Retire it against the contract rather than waiting for the sweeper.
-func TestAfterBallotTerminal_ExpiredRetiresRequest(t *testing.T) {
-	f := SetupTest(t)
-	f.ctx = f.ctx.WithBlockHeight(10)
 
-	seedRead(t, f, "0xaa", 500)
-	key := voteToQuorum(t, f, "0xaa", obs(0x01))
-
-	require.NoError(t, fireTerminal(f, key, uvalidatortypes.BallotStatus_BALLOT_STATUS_EXPIRED))
-
-	require.Len(t, f.evm.calls, 1)
-	require.Equal(t, types.MethodExpireExternalRead, f.evm.lastCall().method)
-	require.Equal(t, big.NewInt(0xaa), f.evm.lastCall().args[0])
-
-	ur, _ := f.k.GetUniversalRead(f.ctx, "0xaa")
-	require.Equal(t, types.UniversalReadStatus_UNIVERSAL_READ_STATUS_EXPIRED, ur.Status)
-	require.Len(t, ur.PcTx, 1)
-	require.Equal(t, "SUCCESS", ur.PcTx[0].Status)
-	require.Empty(t, pendingIDs(t, f))
-}
-
-// A revert on expiry still retires the request — almost always
-// RequestAlreadyFulfilled, and in every case the chain is done with it.
-func TestAfterBallotTerminal_ExpiryRevertStillRetires(t *testing.T) {
-	f := SetupTest(t)
-	f.ctx = f.ctx.WithBlockHeight(10)
-	f.evm.vmErrors = []string{"RequestAlreadyFulfilled"}
-
-	seedRead(t, f, "0xaa", 500)
-	key := voteToQuorum(t, f, "0xaa", obs(0x01))
-
-	require.NoError(t, fireTerminal(f, key, uvalidatortypes.BallotStatus_BALLOT_STATUS_EXPIRED))
-
-	ur, _ := f.k.GetUniversalRead(f.ctx, "0xaa")
-	require.Equal(t, types.UniversalReadStatus_UNIVERSAL_READ_STATUS_EXPIRED, ur.Status)
-	require.Equal(t, "FAILED", ur.PcTx[0].Status)
-	require.Empty(t, pendingIDs(t, f), "not retried")
-}
 
 // Ballots belonging to other modules must be ignored outright.
 func TestAfterBallotTerminal_IgnoresOtherBallotTypes(t *testing.T) {
@@ -285,3 +270,4 @@ func TestAfterBallotTerminal_BatchSiblingsIndependent(t *testing.T) {
 	require.Equal(t, types.UniversalReadStatus_UNIVERSAL_READ_STATUS_PENDING, b.Status)
 	require.Equal(t, []string{"0xbb"}, pendingIDs(t, f))
 }
+

@@ -27,6 +27,13 @@ var (
 	// account. x/ucallback owns this counter because it owns the account: the
 	// UniversalCallback contract's access control is keyed to this module's
 	// address, so no other module ever sends from it.
+	// AbortedReadsKey indexes reads the chain gave up on — expiry that never
+	// landed after MaxExpiryAttempts. Small and operationally meaningful: these are
+	// exactly the requests needing manual intervention, and enumerating them by
+	// scanning UniversalReads would mean walking every read the chain has ever
+	// seen. Mirrors x/uexecutor's ExpiredInbounds.
+	AbortedReadsKey = collections.NewPrefix(5)
+
 	ModuleAccountNonceKey  = collections.NewPrefix(4)
 	ModuleAccountNonceName = "module_account_nonce"
 )

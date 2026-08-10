@@ -115,3 +115,36 @@ func (k Querier) ReadsByTx(goCtx context.Context, req *types.QueryReadsByTxReque
 
 	return &types.QueryReadsByTxResponse{Reads: reads}, nil
 }
+
+// AllAbortedReadRequests implements types.QueryServer.
+//
+// Paginates the AbortedReads index rather than filtering UniversalReads. Abandoned
+// reads should be rare, so a status filter over the full history could walk every
+// read the chain has ever seen just to fill one page — a soft DoS on a public
+// endpoint. The index holds only the abandoned ones.
+func (k Querier) AllAbortedReadRequests(goCtx context.Context, req *types.QueryAllAbortedReadRequestsRequest) (*types.QueryAllAbortedReadRequestsResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid request")
+	}
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	reads, pageRes, err := query.CollectionPaginate(
+		ctx, k.Keeper.AbortedReads, req.Pagination,
+		func(requestID string, _ collections.NoValue) (types.UniversalRead, error) {
+			ur, found := k.Keeper.GetUniversalRead(ctx, requestID)
+			if !found {
+				// index entry with no record — skip rather than fail the page
+				return types.UniversalRead{}, nil
+			}
+			return ur, nil
+		},
+	)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &types.QueryAllAbortedReadRequestsResponse{
+		Reads:      reads,
+		Pagination: pageRes,
+	}, nil
+}

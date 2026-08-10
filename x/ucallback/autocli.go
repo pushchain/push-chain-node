@@ -28,6 +28,11 @@ func (am AppModule) AutoCLIOptions() *autocliv1.ModuleOptions {
 					PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "request_id"}},
 				},
 				{
+					RpcMethod: "AllAbortedReadRequests",
+					Use:       "aborted-read-requests",
+					Short:     "List reads the chain gave up on; these need manual intervention",
+				},
+				{
 					RpcMethod:      "ReadsByTx",
 					Use:            "reads-by-tx <tx-hash>",
 					Short:          "List every read requested by one Push transaction",

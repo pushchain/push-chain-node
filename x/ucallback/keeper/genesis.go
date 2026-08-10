@@ -8,7 +8,8 @@ import (
 
 // InitGenesis initializes the module's state from a genesis state.
 //
-// Only UniversalReads is imported. The PendingByExpiry and ReadsByTxHash indexes
+// Only UniversalReads is imported. The PendingByExpiry, ReadsByTxHash and
+// AbortedReads indexes
 // are rebuilt here from the records themselves, via SetUniversalRead — importing
 // them separately would allow a genesis file to carry indexes that disagree with
 // the records they point at.

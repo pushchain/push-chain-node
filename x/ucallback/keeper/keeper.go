@@ -40,6 +40,10 @@ type Keeper struct {
 	// Push transaction can be listed together.
 	ReadsByTxHash collections.KeySet[collections.Pair[string, string]]
 
+	// AbortedReads holds the ids of reads the chain abandoned. Derived from
+	// status like the other indexes — see SetUniversalRead.
+	AbortedReads collections.KeySet[string]
+
 	// ModuleAccountNonce is the EVM nonce of this module's account. x/ucallback
 	// owns it because it owns the account — UniversalCallback admits only this
 	// module's address, so nothing else ever sends from it.
@@ -87,6 +91,10 @@ func NewKeeper(
 		ReadsByTxHash: collections.NewKeySet(
 			sb, types.ReadsByTxHashKey, "reads_by_tx_hash",
 			collections.PairKeyCodec(collections.StringKey, collections.StringKey),
+		),
+
+		AbortedReads: collections.NewKeySet(
+			sb, types.AbortedReadsKey, "aborted_reads", collections.StringKey,
 		),
 
 		ModuleAccountNonce: collections.NewItem(

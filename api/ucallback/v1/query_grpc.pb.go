@@ -22,6 +22,7 @@ const (
 	Query_Params_FullMethodName                 = "/ucallback.v1.Query/Params"
 	Query_AllPendingReadRequests_FullMethodName = "/ucallback.v1.Query/AllPendingReadRequests"
 	Query_UniversalRead_FullMethodName          = "/ucallback.v1.Query/UniversalRead"
+	Query_AllAbortedReadRequests_FullMethodName = "/ucallback.v1.Query/AllAbortedReadRequests"
 	Query_ReadsByTx_FullMethodName              = "/ucallback.v1.Query/ReadsByTx"
 )
 
@@ -36,6 +37,10 @@ type QueryClient interface {
 	AllPendingReadRequests(ctx context.Context, in *QueryAllPendingReadRequestsRequest, opts ...grpc.CallOption) (*QueryAllPendingReadRequestsResponse, error)
 	// UniversalRead returns one read by request id, at any point in its lifecycle.
 	UniversalRead(ctx context.Context, in *QueryUniversalReadRequest, opts ...grpc.CallOption) (*QueryUniversalReadResponse, error)
+	// AllAbortedReadRequests lists reads the chain gave up on. These need manual
+	// intervention: the contract may still hold them as pending and the funder's
+	// refund is unsettled.
+	AllAbortedReadRequests(ctx context.Context, in *QueryAllAbortedReadRequestsRequest, opts ...grpc.CallOption) (*QueryAllAbortedReadRequestsResponse, error)
 	// ReadsByTxHash returns every read requested by one Push transaction. A single
 	// transaction can emit several ReadRequested logs; this reassembles that batch.
 	ReadsByTx(ctx context.Context, in *QueryReadsByTxRequest, opts ...grpc.CallOption) (*QueryReadsByTxResponse, error)
@@ -76,6 +81,15 @@ func (c *queryClient) UniversalRead(ctx context.Context, in *QueryUniversalReadR
 	return out, nil
 }
 
+func (c *queryClient) AllAbortedReadRequests(ctx context.Context, in *QueryAllAbortedReadRequestsRequest, opts ...grpc.CallOption) (*QueryAllAbortedReadRequestsResponse, error) {
+	out := new(QueryAllAbortedReadRequestsResponse)
+	err := c.cc.Invoke(ctx, Query_AllAbortedReadRequests_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *queryClient) ReadsByTx(ctx context.Context, in *QueryReadsByTxRequest, opts ...grpc.CallOption) (*QueryReadsByTxResponse, error) {
 	out := new(QueryReadsByTxResponse)
 	err := c.cc.Invoke(ctx, Query_ReadsByTx_FullMethodName, in, out, opts...)
@@ -96,6 +110,10 @@ type QueryServer interface {
 	AllPendingReadRequests(context.Context, *QueryAllPendingReadRequestsRequest) (*QueryAllPendingReadRequestsResponse, error)
 	// UniversalRead returns one read by request id, at any point in its lifecycle.
 	UniversalRead(context.Context, *QueryUniversalReadRequest) (*QueryUniversalReadResponse, error)
+	// AllAbortedReadRequests lists reads the chain gave up on. These need manual
+	// intervention: the contract may still hold them as pending and the funder's
+	// refund is unsettled.
+	AllAbortedReadRequests(context.Context, *QueryAllAbortedReadRequestsRequest) (*QueryAllAbortedReadRequestsResponse, error)
 	// ReadsByTxHash returns every read requested by one Push transaction. A single
 	// transaction can emit several ReadRequested logs; this reassembles that batch.
 	ReadsByTx(context.Context, *QueryReadsByTxRequest) (*QueryReadsByTxResponse, error)
@@ -114,6 +132,9 @@ func (UnimplementedQueryServer) AllPendingReadRequests(context.Context, *QueryAl
 }
 func (UnimplementedQueryServer) UniversalRead(context.Context, *QueryUniversalReadRequest) (*QueryUniversalReadResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UniversalRead not implemented")
+}
+func (UnimplementedQueryServer) AllAbortedReadRequests(context.Context, *QueryAllAbortedReadRequestsRequest) (*QueryAllAbortedReadRequestsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AllAbortedReadRequests not implemented")
 }
 func (UnimplementedQueryServer) ReadsByTx(context.Context, *QueryReadsByTxRequest) (*QueryReadsByTxResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReadsByTx not implemented")
@@ -185,6 +206,24 @@ func _Query_UniversalRead_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Query_AllAbortedReadRequests_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryAllAbortedReadRequestsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).AllAbortedReadRequests(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_AllAbortedReadRequests_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).AllAbortedReadRequests(ctx, req.(*QueryAllAbortedReadRequestsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Query_ReadsByTx_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(QueryReadsByTxRequest)
 	if err := dec(in); err != nil {
@@ -221,6 +260,10 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UniversalRead",
 			Handler:    _Query_UniversalRead_Handler,
+		},
+		{
+			MethodName: "AllAbortedReadRequests",
+			Handler:    _Query_AllAbortedReadRequests_Handler,
 		},
 		{
 			MethodName: "ReadsByTx",

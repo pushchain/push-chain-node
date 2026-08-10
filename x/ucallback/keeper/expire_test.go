@@ -279,3 +279,79 @@ func TestFulfil_RecordsErrorMsg(t *testing.T) {
 	require.Equal(t, types.UniversalReadStatus_UNIVERSAL_READ_STATUS_FAILED, ur.Status)
 	require.Equal(t, "execution reverted: app broke", ur.ErrorMsg)
 }
+
+// abortedIDs lists what the operator-facing query returns.
+func abortedIDs(t *testing.T, f *testFixture) []string {
+	t.Helper()
+	res, err := f.queryServer.AllAbortedReadRequests(f.ctx,
+		&types.QueryAllAbortedReadRequestsRequest{})
+	require.NoError(t, err)
+	got := make([]string, 0, len(res.Reads))
+	for _, r := range res.Reads {
+		got = append(got, r.Id)
+	}
+	return got
+}
+
+// abandon drives one request all the way to ABORTED.
+func abandon(t *testing.T, f *testFixture, id string, reason string) {
+	t.Helper()
+	seedRead(t, f, id, 50)
+	for i := 0; i < keeper.MaxExpiryAttempts; i++ {
+		f.evm.vmErrors = append(f.evm.vmErrors, reason)
+		require.NoError(t, f.k.SweepExpired(f.ctx))
+	}
+	ur, _ := f.k.GetUniversalRead(f.ctx, id)
+	require.Equal(t, types.UniversalReadStatus_UNIVERSAL_READ_STATUS_ABORTED, ur.Status)
+}
+
+// Only abandoned reads appear, and they carry the reason.
+func TestAllAbortedReadRequests(t *testing.T) {
+	f := SetupTest(t)
+	f.ctx = f.ctx.WithBlockHeight(100)
+
+	require.Empty(t, abortedIDs(t, f), "nothing abandoned yet")
+
+	abandon(t, f, "0xaa", "RequestNotYetExpired")
+
+	// a healthy expiry and a live request must not show up
+	seedRead(t, f, "0xbb", 50)
+	require.NoError(t, f.k.SweepExpired(f.ctx))
+	seedRead(t, f, "0xcc", 9000)
+
+	require.Equal(t, []string{"0xaa"}, abortedIDs(t, f))
+
+	res, err := f.queryServer.AllAbortedReadRequests(f.ctx,
+		&types.QueryAllAbortedReadRequestsRequest{})
+	require.NoError(t, err)
+	require.Contains(t, res.Reads[0].ErrorMsg, "RequestNotYetExpired",
+		"the operator needs the reason, not just the id")
+	require.Len(t, res.Reads[0].PcTx, keeper.MaxExpiryAttempts)
+
+	// the healthy one settled cleanly
+	bb, _ := f.k.GetUniversalRead(f.ctx, "0xbb")
+	require.Equal(t, types.UniversalReadStatus_UNIVERSAL_READ_STATUS_EXPIRED, bb.Status)
+}
+
+// A read that leaves ABORTED — an admin retry that finally lands — drops off the
+// list, so the query always reflects what still needs attention.
+func TestAllAbortedReadRequests_ClearsOnRecovery(t *testing.T) {
+	f := SetupTest(t)
+	f.ctx = f.ctx.WithBlockHeight(100)
+
+	abandon(t, f, "0xaa", "boom")
+	require.Equal(t, []string{"0xaa"}, abortedIDs(t, f))
+
+	// recovery: the request finally settles
+	ur, _ := f.k.GetUniversalRead(f.ctx, "0xaa")
+	ur.Status = types.UniversalReadStatus_UNIVERSAL_READ_STATUS_EXPIRED
+	require.NoError(t, f.k.SetUniversalRead(f.ctx, ur))
+
+	require.Empty(t, abortedIDs(t, f), "no longer needs intervention")
+}
+
+func TestAllAbortedReadRequests_NilRequest(t *testing.T) {
+	f := SetupTest(t)
+	_, err := f.queryServer.AllAbortedReadRequests(f.ctx, nil)
+	require.Error(t, err)
+}

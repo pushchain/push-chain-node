@@ -49,6 +49,16 @@ func (k Keeper) SetUniversalRead(ctx context.Context, ur types.UniversalRead) er
 			return err
 		}
 
+		// aborted: present only while the read is in the abandoned state, so an
+		// admin retry that later succeeds takes it off the list.
+		if ur.Status == types.UniversalReadStatus_UNIVERSAL_READ_STATUS_ABORTED {
+			if err := k.AbortedReads.Set(ctx, ur.Id); err != nil {
+				return err
+			}
+		} else if err := k.AbortedReads.Remove(ctx, ur.Id); err != nil {
+			return err
+		}
+
 		// reads-by-tx: written once, never removed — it is provenance, not state
 		if ur.Request.RequestedTxHash != "" {
 			if err := k.ReadsByTxHash.Set(ctx,

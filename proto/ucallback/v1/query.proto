@@ -27,6 +27,13 @@ service Query {
     option (google.api.http).get = "/ucallback/v1/universal_reads/{request_id}";
   }
 
+  // AllAbortedReadRequests lists reads the chain gave up on. These need manual
+  // intervention: the contract may still hold them as pending and the funder's
+  // refund is unsettled.
+  rpc AllAbortedReadRequests(QueryAllAbortedReadRequestsRequest) returns (QueryAllAbortedReadRequestsResponse) {
+    option (google.api.http).get = "/ucallback/v1/aborted_read_requests";
+  }
+
   // ReadsByTxHash returns every read requested by one Push transaction. A single
   // transaction can emit several ReadRequested logs; this reassembles that batch.
   rpc ReadsByTx(QueryReadsByTxRequest) returns (QueryReadsByTxResponse) {
@@ -70,4 +77,14 @@ message QueryReadsByTxRequest {
 message QueryReadsByTxResponse {
   // Every read the transaction requested, settled or not, in request-id order.
   repeated UniversalRead reads = 1 [(gogoproto.nullable) = false];
+}
+
+message QueryAllAbortedReadRequestsRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+message QueryAllAbortedReadRequestsResponse {
+  // Reads whose expiry call never landed. Each carries error_msg explaining why.
+  repeated UniversalRead reads = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
 }

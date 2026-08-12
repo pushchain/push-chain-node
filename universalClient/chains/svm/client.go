@@ -411,10 +411,8 @@ func (c *Client) applyDefaults() componentConfig {
 		config.standardConfirmations = uint64(c.registryConfig.BlockConfirmation.StandardInbound)
 	}
 
-	// A registry-configured 0 disables the reorg-safety depth (confirm at the
-	// inclusion slot). Honor it only when zero-confirmation mode is explicitly
-	// enabled (testnet instant routes); otherwise fall back to a safe default so
-	// mainnet cannot silently finalize inbounds prematurely. See F-2026-18139.
+	// A registry-configured 0 disables the reorg-safety depth. Honor it only
+	// when instant routes are enabled; otherwise fall back to a safe default.
 	if !c.allowZeroConfirmations {
 		if config.fastConfirmations == 0 {
 			config.fastConfirmations = 5

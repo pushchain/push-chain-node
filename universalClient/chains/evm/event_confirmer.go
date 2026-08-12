@@ -163,9 +163,7 @@ func (ec *EventConfirmer) processPendingEvents(ctx context.Context) error {
 		txBlock := receipt.BlockNumber.Uint64()
 		confirmations, ok := chaincommon.ConfirmationDepth(latestBlock, txBlock)
 		if !ok {
-			// Cross-RPC height skew: the endpoint that served the receipt is
-			// ahead of the one that served the latest block. Defer rather than
-			// trust a wrapped depth; a later poll with a consistent view resolves it.
+			// RPC height skew: latest block is behind the tx block. Defer.
 			ec.logger.Warn().
 				Str("event_id", event.EventID).
 				Uint64("latest_block", latestBlock).
@@ -257,17 +255,13 @@ func (ec *EventConfirmer) getTxHashFromEventID(eventID string) string {
 	return parts[0]
 }
 
-// getRequiredConfirmations returns the required number of confirmations based on
-// confirmation type. The values are already resolved by the client's
-// applyDefaults (registry value, or a safe fallback when the registry is 0 and
-// zero-confirmation mode is not enabled), so a 0 here is an intentional instant
-// route and is honored as-is.
+// getRequiredConfirmations returns the depth for a confirmation type. Values are
+// resolved by applyDefaults, so a 0 here is an intentional instant route.
 func (ec *EventConfirmer) getRequiredConfirmations(confirmationType string) uint64 {
 	switch confirmationType {
 	case store.ConfirmationFast:
 		return ec.fastConfirmations
 	default:
-		// Standard and unknown types both use the standard depth.
 		return ec.standardConfirmations
 	}
 }

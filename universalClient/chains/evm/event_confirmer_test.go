@@ -375,10 +375,8 @@ func TestEventConfirmer_PendingEventsWithBlockHeightZero(t *testing.T) {
 	assert.Equal(t, uint64(0), pending[0].BlockHeight)
 }
 
-// The confirmer honors whatever depth it is given: the safe-fallback vs
-// zero-confirmation policy is resolved upstream in the client's applyDefaults
-// (see TestApplyDefaults_ZeroConfirmations). A 0 here is an intentional instant
-// route. Regression for F-2026-18139.
+// The confirmer honors whatever depth it is given; the fallback policy lives in
+// applyDefaults, so a 0 here is an intentional instant route.
 func TestEventConfirmer_GetRequiredConfirmations_ZeroValues(t *testing.T) {
 	logger := zerolog.Nop()
 

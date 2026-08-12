@@ -130,8 +130,7 @@ func TestEventConfirmerGetRequiredConfirmations(t *testing.T) {
 	})
 
 	t.Run("FAST confirmation type with zero honored as instant", func(t *testing.T) {
-		// Fallback policy lives in the client's applyDefaults; the confirmer
-		// honors a resolved 0 as an instant route. See F-2026-18139.
+		// Fallback policy lives in applyDefaults; the confirmer honors a resolved 0.
 		confirmer := NewEventConfirmer(nil, nil, "solana:mainnet", 5, 0, 12, logger)
 		confirmations := confirmer.getRequiredConfirmations(store.ConfirmationFast)
 		assert.Equal(t, uint64(0), confirmations)
@@ -329,8 +328,6 @@ func TestEventConfirmerGetRequiredConfirmations_MoreEdgeCases(t *testing.T) {
 	})
 
 	t.Run("zero fast honored as instant", func(t *testing.T) {
-		// Fallback policy lives in applyDefaults; the confirmer honors a
-		// resolved 0 as an instant route. See F-2026-18139.
 		ec := NewEventConfirmer(nil, nil, "solana:mainnet", 5, 0, 20, logger)
 		result := ec.getRequiredConfirmations(store.ConfirmationFast)
 		assert.Equal(t, uint64(0), result)

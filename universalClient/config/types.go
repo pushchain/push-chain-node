@@ -13,20 +13,16 @@ const (
 	KeyringBackendFile KeyringBackend = "file"
 )
 
-// NetworkTestnet is the Network value that unlocks testnet-only relaxed behavior.
 const NetworkTestnet = "testnet"
 
-// IsTestnet reports whether this node is configured for testnet. Any value other
-// than "testnet" (including unset) is treated as mainnet so relaxed behaviors
-// fail safe. See [Config.AllowsZeroConfirmations].
+// IsTestnet reports whether this node is on testnet. Any other value, including
+// unset, is treated as mainnet.
 func (c *Config) IsTestnet() bool {
-	return strings.EqualFold(strings.TrimSpace(c.Network), NetworkTestnet)
+	return strings.EqualFold(strings.TrimSpace(c.PushNetwork), NetworkTestnet)
 }
 
-// AllowsZeroConfirmations reports whether zero-confirmation ("instant") inbound
-// routes are permitted. Only testnet may honor a registry-configured
-// confirmation depth of 0; on mainnet a 0 falls back to a safe depth so inbounds
-// cannot finalize at their inclusion block. See F-2026-18139.
+// AllowsZeroConfirmations reports whether a registry confirmation depth of 0 is
+// honored (instant routes) instead of falling back to a safe depth.
 func (c *Config) AllowsZeroConfirmations() bool {
 	return c.IsTestnet()
 }
@@ -48,11 +44,8 @@ type Config struct {
 	ConfigRefreshIntervalSeconds int      `json:"config_refresh_interval_seconds"`
 	MaxRetries                   int      `json:"max_retries"`
 
-	// Network identifies the deployment network: "mainnet" or "testnet".
-	// Unset/unknown is treated as mainnet, the safe default. Testnet unlocks
-	// relaxed behaviors that must never apply to mainnet — currently
-	// zero-confirmation ("instant") inbound routes. See F-2026-18139.
-	Network string `json:"network"`
+	// PushNetwork is "mainnet" or "testnet"; unset/unknown is treated as mainnet.
+	PushNetwork string `json:"push_network"`
 
 	// Query Server
 	QueryServerPort int `json:"query_server_port"`

@@ -431,10 +431,8 @@ func TestApplyDefaults(t *testing.T) {
 	})
 }
 
-// TestApplyDefaults_ZeroConfirmations covers the zero-confirmation policy from
-// F-2026-18139: a registry-configured 0 must fall back to a safe depth on
-// mainnet (allowZeroConfirmations=false) and be honored as an instant route
-// only on testnet (allowZeroConfirmations=true).
+// A registry-configured 0 falls back to a safe depth unless instant routes are
+// enabled, in which case it is honored.
 func TestApplyDefaults_ZeroConfirmations(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
 

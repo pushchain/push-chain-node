@@ -322,13 +322,10 @@ func TestGetChainCleanupSettings(t *testing.T) {
 	})
 }
 
-// Regression for F-2026-18139: network gating must fail safe. Any value other
-// than "testnet" (including unset) is mainnet, and only testnet unlocks
-// zero-confirmation instant routes.
 func TestNetworkGating(t *testing.T) {
 	cases := []struct {
-		network      string
-		wantTestnet  bool
+		network     string
+		wantTestnet bool
 	}{
 		{"", false},
 		{"mainnet", false},
@@ -340,7 +337,7 @@ func TestNetworkGating(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run("network="+tc.network, func(t *testing.T) {
-			c := &Config{Network: tc.network}
+			c := &Config{PushNetwork: tc.network}
 			assert.Equal(t, tc.wantTestnet, c.IsTestnet())
 			assert.Equal(t, tc.wantTestnet, c.AllowsZeroConfirmations())
 		})

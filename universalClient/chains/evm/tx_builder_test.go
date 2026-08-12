@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/hex"
 	"math/big"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -1198,13 +1201,14 @@ func TestBroadcastFundMigrationTx_RejectsMissingAmount(t *testing.T) {
 // GetBalance call. This is the determinism guarantee the coordinator's
 // verification path depends on.
 func TestGetFundMigrationSigningRequest_UsesProvidedBalance(t *testing.T) {
-	tb := newTestTxBuilder(t)
-
 	gasPrice := big.NewInt(20_000_000_000)
 	gasLimit := uint64(21000)
 	expectedAmount := big.NewInt(1_000_000_000_000_000)
 	gasCost := new(big.Int).Mul(gasPrice, new(big.Int).SetUint64(gasLimit))
 	balance := new(big.Int).Add(expectedAmount, gasCost)
+
+	// Live balance is sufficient (equal to the provided balance).
+	tb := txBuilderWithBalance(t, new(big.Int).Set(balance))
 
 	data := &common.FundMigrationData{
 		From:     "0x1111111111111111111111111111111111111111",
@@ -1262,4 +1266,80 @@ func TestBroadcastFundMigrationTx_DoesNotQueryBalance(t *testing.T) {
 	require.Error(t, err)
 	assert.NotContains(t, err.Error(), "get_balance", "broadcast must not call GetBalance")
 	assert.NotContains(t, err.Error(), "failed to get balance", "broadcast must not call GetBalance")
+}
+
+// txBuilderWithBalance returns a TxBuilder whose RPC pool answers eth_getBalance
+// with the given wei value (Sepolia chain id).
+func txBuilderWithBalance(t *testing.T, balanceWei *big.Int) *TxBuilder {
+	t.Helper()
+	balHex := "0x" + balanceWei.Text(16)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		body := make([]byte, r.ContentLength)
+		r.Body.Read(body)
+		switch {
+		case strings.Contains(string(body), "eth_chainId"):
+			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":"0xaa36a7"}`)) // 11155111
+		case strings.Contains(string(body), "eth_getBalance"):
+			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":"` + balHex + `"}`))
+		default:
+			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":null}`))
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	rc, err := NewRPCClient([]string{server.URL}, 11155111, zerolog.Nop())
+	require.NoError(t, err)
+	t.Cleanup(func() { rc.Close() })
+
+	return &TxBuilder{
+		rpcClient:  rc,
+		chainID:    "eip155:11155111",
+		chainIDInt: 11155111,
+		logger:     zerolog.Nop(),
+	}
+}
+
+// A dust transfer to the old TSS EOA between the coordinator's build and a
+// follower's verify must not change the pinned-balance signing hash, and a
+// pinned amount larger than the live balance must be rejected.
+func TestGetFundMigrationSigningRequest_PinnedBalance(t *testing.T) {
+	from := "0x1111111111111111111111111111111111111111"
+	to := "0x2222222222222222222222222222222222222222"
+	gasPrice := big.NewInt(20_000_000_000)
+	gasLimit := uint64(21000)
+	amount := big.NewInt(1_000_000_000_000_000) // 0.001 ETH
+	fees := new(big.Int).Mul(gasPrice, new(big.Int).SetUint64(gasLimit))
+	pinned := new(big.Int).Add(amount, fees) // balance = amount + fees
+
+	data := func() *common.FundMigrationData {
+		return &common.FundMigrationData{
+			From:     from,
+			To:       to,
+			GasPrice: gasPrice,
+			GasLimit: gasLimit,
+			Balance:  new(big.Int).Set(pinned),
+		}
+	}
+
+	t.Run("hash unchanged by +1 wei dust inflow", func(t *testing.T) {
+		tbExact := txBuilderWithBalance(t, new(big.Int).Set(pinned))
+		reqExact, err := tbExact.GetFundMigrationSigningRequest(context.Background(), data(), 7)
+		require.NoError(t, err)
+
+		tbDust := txBuilderWithBalance(t, new(big.Int).Add(pinned, big.NewInt(1)))
+		reqDust, err := tbDust.GetFundMigrationSigningRequest(context.Background(), data(), 7)
+		require.NoError(t, err)
+
+		assert.Equal(t, reqExact.SigningHash, reqDust.SigningHash)
+		assert.Equal(t, 0, reqExact.TSSFundMigrationAmount.Cmp(amount))
+		assert.Equal(t, 0, reqDust.TSSFundMigrationAmount.Cmp(amount))
+	})
+
+	t.Run("rejects pinned amount above live balance", func(t *testing.T) {
+		tbShort := txBuilderWithBalance(t, new(big.Int).Sub(pinned, big.NewInt(1)))
+		_, err := tbShort.GetFundMigrationSigningRequest(context.Background(), data(), 7)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "exceeds live balance")
+	})
 }

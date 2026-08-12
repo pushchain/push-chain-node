@@ -1029,6 +1029,10 @@ func (sm *SessionManager) verifyFundMigrationSigningRequest(ctx context.Context,
 			req.Nonce, finalizedNonce, oldTSSAddr)
 	}
 
+	if req.TSSFundMigrationAmount == nil {
+		return fmt.Errorf("coordinator's signing request is missing TSSFundMigrationAmount")
+	}
+
 	// Rebuild fund migration signing request with coordinator's nonce.
 	// Parsing must match what the coordinator did; otherwise the reconstructed
 	// hash on OP-stack chains diverges and the verification below rejects it.
@@ -1038,12 +1042,23 @@ func (sm *SessionManager) verifyFundMigrationSigningRequest(ctx context.Context,
 	l1GasFee := new(big.Int)
 	l1GasFee.SetString(migrationData.L1GasFee, 10)
 
+	// Pin balance from the coordinator's amount (balance = amount + gas + l1)
+	// instead of re-querying the live tip, so dust sent to the old TSS EOA between
+	// the coordinator's build and this verify cannot desync the hash. The builder
+	// still checks the pinned amount is backed by the live balance.
+	pinnedBalance := new(big.Int).Set(req.TSSFundMigrationAmount)
+	pinnedBalance.Add(pinnedBalance, new(big.Int).Mul(gasPrice, new(big.Int).SetUint64(migrationData.GasLimit)))
+	if l1GasFee.Sign() > 0 {
+		pinnedBalance.Add(pinnedBalance, l1GasFee)
+	}
+
 	migrationFundData := &common.FundMigrationData{
 		From:     oldTSSAddr,
 		To:       currentTSSAddr,
 		GasPrice: gasPrice,
 		GasLimit: migrationData.GasLimit,
 		L1GasFee: l1GasFee,
+		Balance:  pinnedBalance,
 	}
 	signingReq, err := builder.GetFundMigrationSigningRequest(ctx, migrationFundData, req.Nonce)
 	if err != nil {
@@ -1058,17 +1073,6 @@ func (sm *SessionManager) verifyFundMigrationSigningRequest(ctx context.Context,
 			Str("event_id", event.EventID).
 			Msg("fund migration signing hash mismatch - rejecting signing request")
 		return fmt.Errorf("fund migration signing hash mismatch: our computed hash does not match coordinator's hash")
-	}
-
-	// Defense-in-depth: hash match implies amount match, but cross-check explicitly so
-	// a wire-format bug, coordinator bug, or missing amount surfaces here rather than
-	// as a nil-deref / insufficient-balance error later in broadcast.
-	if req.TSSFundMigrationAmount == nil {
-		return fmt.Errorf("coordinator's signing request is missing TSSFundMigrationAmount")
-	}
-	if req.TSSFundMigrationAmount.Cmp(signingReq.TSSFundMigrationAmount) != 0 {
-		return fmt.Errorf("TSSFundMigrationAmount mismatch: coordinator=%s ours=%s",
-			req.TSSFundMigrationAmount.String(), signingReq.TSSFundMigrationAmount.String())
 	}
 
 	sm.logger.Debug().

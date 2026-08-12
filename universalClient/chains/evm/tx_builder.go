@@ -491,7 +491,8 @@ func (tb *TxBuilder) GetFundMigrationSigningRequest(ctx context.Context, data *c
 	}
 
 	var balance *big.Int
-	if data.Balance != nil {
+	pinned := data.Balance != nil
+	if pinned {
 		balance = new(big.Int).Set(data.Balance)
 	} else {
 		queried, err := tb.rpcClient.GetBalance(ctx, fromAddr)
@@ -504,6 +505,19 @@ func (tb *TxBuilder) GetFundMigrationSigningRequest(ctx context.Context, data *c
 	maxTransfer, err := computeFundMigrationTransfer(balance, data.GasPrice, data.GasLimit, data.L1GasFee)
 	if err != nil {
 		return nil, err
+	}
+
+	// A pinned balance comes from the coordinator's claimed amount. Reject if it
+	// exceeds the live balance — the sweep must be backed by real funds. Dust
+	// inflows only raise the live balance, so they never trip this.
+	if pinned {
+		live, err := tb.rpcClient.GetBalance(ctx, fromAddr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get balance of %s: %w", data.From, err)
+		}
+		if balance.Cmp(live) > 0 {
+			return nil, fmt.Errorf("pinned balance %s exceeds live balance %s for %s", balance, live, data.From)
+		}
 	}
 
 	tb.logger.Debug().

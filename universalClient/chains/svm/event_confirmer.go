@@ -183,7 +183,7 @@ func (ec *EventConfirmer) processPendingEvents(ctx context.Context) error {
 		confirmations, ok := chaincommon.ConfirmationDepth(latestSlot, txSlot)
 		if !ok {
 			// RPC height skew: latest slot is behind the tx slot. Defer.
-			ec.logger.Warn().
+			ec.logger.Debug().
 				Str("event_id", event.EventID).
 				Uint64("latest_slot", latestSlot).
 				Uint64("tx_slot", txSlot).

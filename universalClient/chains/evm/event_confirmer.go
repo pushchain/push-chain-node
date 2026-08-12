@@ -164,7 +164,7 @@ func (ec *EventConfirmer) processPendingEvents(ctx context.Context) error {
 		confirmations, ok := chaincommon.ConfirmationDepth(latestBlock, txBlock)
 		if !ok {
 			// RPC height skew: latest block is behind the tx block. Defer.
-			ec.logger.Warn().
+			ec.logger.Debug().
 				Str("event_id", event.EventID).
 				Uint64("latest_block", latestBlock).
 				Uint64("tx_block", txBlock).

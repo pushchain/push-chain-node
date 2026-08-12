@@ -179,6 +179,28 @@ func (c *Coordinator) GetPeerIDFromPartyID(_ context.Context, partyID string) (s
 	return "", fmt.Errorf("partyID %s not found in validators", partyID)
 }
 
+// IsKnownPeer reports whether peerID belongs to a Universal Validator that can
+// participate in some TSS protocol (Active, Pending Join, or Pending Leave).
+// Fails closed when the cache is empty or stale.
+func (c *Coordinator) IsKnownPeer(peerID string) bool {
+	for _, v := range c.validatorsSnapshot() {
+		if v.NetworkInfo == nil || v.NetworkInfo.PeerId != peerID {
+			continue
+		}
+		if v.LifecycleInfo == nil {
+			return false
+		}
+		switch v.LifecycleInfo.CurrentStatus {
+		case types.UVStatus_UV_STATUS_ACTIVE,
+			types.UVStatus_UV_STATUS_PENDING_JOIN,
+			types.UVStatus_UV_STATUS_PENDING_LEAVE:
+			return true
+		}
+		return false
+	}
+	return false
+}
+
 // GetMultiAddrsFromPeerID gets the multiaddrs for a given peerID.
 func (c *Coordinator) GetMultiAddrsFromPeerID(_ context.Context, peerID string) ([]string, error) {
 	for _, v := range c.validatorsSnapshot() {

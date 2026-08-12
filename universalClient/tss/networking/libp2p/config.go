@@ -15,6 +15,11 @@ type Config struct {
 	DialTimeout time.Duration
 	// IOTimeout bounds stream read/write operations.
 	IOTimeout time.Duration
+	// Authorizer reports whether a remote peer ID is allowed to connect and
+	// open TSS streams. When set, inbound connections from unauthorized peers
+	// are rejected at secured-connection admission and any stream that slips
+	// through is reset before reading. Nil disables gating (tests only).
+	Authorizer func(peerID string) bool
 }
 
 // setDefaults sets default values for unset fields.

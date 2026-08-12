@@ -359,8 +359,8 @@ func (c *Client) applyDefaults() componentConfig {
 	config := componentConfig{
 		eventPollingInterval:  5,  // default
 		gasPriceInterval:      30, // default
-		fastConfirmations:     2,
-		standardConfirmations: 12,
+		fastConfirmations:     common.DefaultFastConfirmations,
+		standardConfirmations: common.DefaultStandardConfirmations,
 	}
 
 	// Apply event polling interval
@@ -388,10 +388,10 @@ func (c *Client) applyDefaults() componentConfig {
 	// when instant routes are enabled; otherwise fall back to a safe default.
 	if !c.allowZeroConfirmations {
 		if config.fastConfirmations == 0 {
-			config.fastConfirmations = 2
+			config.fastConfirmations = common.DefaultFastConfirmations
 		}
 		if config.standardConfirmations == 0 {
-			config.standardConfirmations = 12
+			config.standardConfirmations = common.DefaultStandardConfirmations
 		}
 	}
 

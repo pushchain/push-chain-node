@@ -342,7 +342,7 @@ func TestApplyDefaults(t *testing.T) {
 		assert.Equal(t, 5, cfg.eventPollingInterval)
 		assert.Equal(t, 30, cfg.gasPriceInterval)
 		assert.Equal(t, 0, cfg.gasPriceMarkupPercent)
-		assert.Equal(t, uint64(2), cfg.fastConfirmations)
+		assert.Equal(t, uint64(5), cfg.fastConfirmations)
 		assert.Equal(t, uint64(12), cfg.standardConfirmations)
 	})
 
@@ -412,7 +412,7 @@ func TestApplyDefaults(t *testing.T) {
 		}
 
 		cfg := client.applyDefaults()
-		assert.Equal(t, uint64(2), cfg.fastConfirmations)
+		assert.Equal(t, uint64(5), cfg.fastConfirmations)
 		assert.Equal(t, uint64(12), cfg.standardConfirmations)
 	})
 
@@ -426,7 +426,7 @@ func TestApplyDefaults(t *testing.T) {
 		}
 
 		cfg := client.applyDefaults()
-		assert.Equal(t, uint64(2), cfg.fastConfirmations)
+		assert.Equal(t, uint64(5), cfg.fastConfirmations)
 		assert.Equal(t, uint64(12), cfg.standardConfirmations)
 	})
 }
@@ -452,7 +452,7 @@ func TestApplyDefaults_ZeroConfirmations(t *testing.T) {
 		}
 
 		cfg := client.applyDefaults()
-		assert.Equal(t, uint64(2), cfg.fastConfirmations, "zero fast must not disable depth on mainnet")
+		assert.Equal(t, uint64(5), cfg.fastConfirmations, "zero fast must not disable depth on mainnet")
 		assert.Equal(t, uint64(12), cfg.standardConfirmations, "zero standard must not disable depth on mainnet")
 	})
 

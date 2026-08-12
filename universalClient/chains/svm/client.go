@@ -368,8 +368,8 @@ func (c *Client) applyDefaults() componentConfig {
 	config := componentConfig{
 		eventPollingInterval:     5,  // default
 		gasPriceInterval:         30, // default
-		fastConfirmations:        5,  // Solana fast confirmations
-		standardConfirmations:    12, // Solana standard confirmations
+		fastConfirmations:        common.DefaultFastConfirmations,
+		standardConfirmations:    common.DefaultStandardConfirmations,
 		rentReclaimSweepInterval: rentReclaimSweepInterval,
 		rentReclaimMinPDAAge:     rentReclaimMinPDAAge,
 	}
@@ -415,10 +415,10 @@ func (c *Client) applyDefaults() componentConfig {
 	// when instant routes are enabled; otherwise fall back to a safe default.
 	if !c.allowZeroConfirmations {
 		if config.fastConfirmations == 0 {
-			config.fastConfirmations = 5
+			config.fastConfirmations = common.DefaultFastConfirmations
 		}
 		if config.standardConfirmations == 0 {
-			config.standardConfirmations = 12
+			config.standardConfirmations = common.DefaultStandardConfirmations
 		}
 	}
 

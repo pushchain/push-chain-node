@@ -20,10 +20,11 @@ import (
 // Client implements the ChainClient interface for EVM chains
 type Client struct {
 	// Core configuration
-	logger         zerolog.Logger
-	chainIDStr     string
-	registryConfig *uregistrytypes.ChainConfig
-	chainConfig    *config.ChainSpecificConfig
+	logger                 zerolog.Logger
+	chainIDStr             string
+	registryConfig         *uregistrytypes.ChainConfig
+	chainConfig            *config.ChainSpecificConfig
+	allowZeroConfirmations bool
 
 	// Infrastructure
 	rpcClient *RPCClient
@@ -49,6 +50,7 @@ func NewClient(
 	database *db.DB,
 	chainConfig *config.ChainSpecificConfig,
 	pushSigner *pushsigner.Signer,
+	allowZeroConfirmations bool,
 	logger zerolog.Logger,
 ) (*Client, error) {
 	if config == nil {
@@ -68,12 +70,13 @@ func NewClient(
 	}
 
 	client := &Client{
-		logger:         log,
-		chainIDStr:     chainIDStr,
-		registryConfig: config,
-		chainConfig:    chainConfig,
-		database:       database,
-		pushSigner:     pushSigner,
+		logger:                 log,
+		chainIDStr:             chainIDStr,
+		registryConfig:         config,
+		chainConfig:            chainConfig,
+		allowZeroConfirmations: allowZeroConfirmations,
+		database:               database,
+		pushSigner:             pushSigner,
 	}
 
 	client.eventCleaner = common.NewEventCleaner(
@@ -379,6 +382,19 @@ func (c *Client) applyDefaults() componentConfig {
 	if c.registryConfig != nil && c.registryConfig.BlockConfirmation != nil {
 		config.fastConfirmations = uint64(c.registryConfig.BlockConfirmation.FastInbound)
 		config.standardConfirmations = uint64(c.registryConfig.BlockConfirmation.StandardInbound)
+	}
+
+	// A registry-configured 0 disables the reorg-safety depth (confirm at the
+	// inclusion block). Honor it only when zero-confirmation mode is explicitly
+	// enabled (testnet instant routes); otherwise fall back to a safe default so
+	// mainnet cannot silently finalize inbounds prematurely. See F-2026-18139.
+	if !c.allowZeroConfirmations {
+		if config.fastConfirmations == 0 {
+			config.fastConfirmations = 2
+		}
+		if config.standardConfirmations == 0 {
+			config.standardConfirmations = 12
+		}
 	}
 
 	return config

@@ -321,6 +321,7 @@ func (rc *RPCClient) GetTransaction(ctx context.Context, signature solana.Signat
 			signature,
 			&rpc.GetTransactionOpts{
 				Encoding:                       solana.EncodingBase64,
+				Commitment:                     rpc.CommitmentFinalized,
 				MaxSupportedTransactionVersion: &maxVersion,
 			},
 		)

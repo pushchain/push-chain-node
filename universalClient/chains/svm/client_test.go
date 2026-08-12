@@ -35,7 +35,7 @@ func validChainConfig() *uregistrytypes.ChainConfig {
 func TestNewClient_NilConfig(t *testing.T) {
 	logger := zerolog.New(zerolog.NewTestWriter(t))
 
-	client, err := NewClient(nil, nil, nil, nil, "", logger)
+	client, err := NewClient(nil, nil, nil, nil, "", false, logger)
 	assert.Error(t, err)
 	assert.Nil(t, client)
 	assert.Contains(t, err.Error(), "config is nil")
@@ -49,7 +49,7 @@ func TestNewClient_InvalidVMType(t *testing.T) {
 		VmType: uregistrytypes.VmType_EVM, // wrong VM type
 	}
 
-	client, err := NewClient(cfg, nil, nil, nil, "", logger)
+	client, err := NewClient(cfg, nil, nil, nil, "", false, logger)
 	assert.Error(t, err)
 	assert.Nil(t, client)
 	assert.Contains(t, err.Error(), "invalid VM type for Solana client")
@@ -63,7 +63,7 @@ func TestNewClient_InvalidChainID(t *testing.T) {
 		VmType: uregistrytypes.VmType_SVM,
 	}
 
-	client, err := NewClient(cfg, nil, testChainConfig([]string{"https://rpc.example.com"}), nil, "", logger)
+	client, err := NewClient(cfg, nil, testChainConfig([]string{"https://rpc.example.com"}), nil, "", false, logger)
 	assert.Error(t, err)
 	assert.Nil(t, client)
 	assert.Contains(t, err.Error(), "failed to parse chain ID")
@@ -74,7 +74,7 @@ func TestNewClient_NoRPCURLs_NilChainConfig(t *testing.T) {
 
 	cfg := validChainConfig()
 
-	client, err := NewClient(cfg, nil, nil, nil, "", logger)
+	client, err := NewClient(cfg, nil, nil, nil, "", false, logger)
 	assert.Error(t, err)
 	assert.Nil(t, client)
 	assert.Contains(t, err.Error(), "no RPC URLs configured")
@@ -85,7 +85,7 @@ func TestNewClient_NoRPCURLs_EmptySlice(t *testing.T) {
 
 	cfg := validChainConfig()
 
-	client, err := NewClient(cfg, nil, testChainConfig([]string{}), nil, "", logger)
+	client, err := NewClient(cfg, nil, testChainConfig([]string{}), nil, "", false, logger)
 	assert.Error(t, err)
 	assert.Nil(t, client)
 	assert.Contains(t, err.Error(), "no RPC URLs configured")
@@ -103,7 +103,7 @@ func TestNewClient_ValidCreation(t *testing.T) {
 
 	chainSpecific := testChainConfig([]string{"https://api.mainnet-beta.solana.com"})
 
-	client, err := NewClient(cfg, nil, chainSpecific, nil, "/tmp/node", logger)
+	client, err := NewClient(cfg, nil, chainSpecific, nil, "/tmp/node", false, logger)
 	require.NoError(t, err)
 	require.NotNil(t, client)
 
@@ -122,7 +122,7 @@ func TestNewClient_WithDatabase(t *testing.T) {
 	cfg := validChainConfig()
 	chainSpecific := testChainConfig([]string{"https://api.mainnet-beta.solana.com"})
 
-	client, err := NewClient(cfg, database, chainSpecific, nil, "", logger)
+	client, err := NewClient(cfg, database, chainSpecific, nil, "", false, logger)
 	require.NoError(t, err)
 	require.NotNil(t, client)
 	assert.Equal(t, database, client.database)
@@ -134,7 +134,7 @@ func TestChainID(t *testing.T) {
 	cfg := validChainConfig()
 	chainSpecific := testChainConfig([]string{"https://rpc.example.com"})
 
-	client, err := NewClient(cfg, nil, chainSpecific, nil, "", logger)
+	client, err := NewClient(cfg, nil, chainSpecific, nil, "", false, logger)
 	require.NoError(t, err)
 
 	assert.Equal(t, validSVMChainID(), client.ChainID())
@@ -150,7 +150,7 @@ func TestGetConfig(t *testing.T) {
 	}
 	chainSpecific := testChainConfig([]string{"https://rpc.example.com"})
 
-	client, err := NewClient(cfg, nil, chainSpecific, nil, "", logger)
+	client, err := NewClient(cfg, nil, chainSpecific, nil, "", false, logger)
 	require.NoError(t, err)
 
 	got := client.GetConfig()
@@ -164,7 +164,7 @@ func TestGetTxBuilder_NilBeforeStart(t *testing.T) {
 	cfg := validChainConfig()
 	chainSpecific := testChainConfig([]string{"https://rpc.example.com"})
 
-	client, err := NewClient(cfg, nil, chainSpecific, nil, "", logger)
+	client, err := NewClient(cfg, nil, chainSpecific, nil, "", false, logger)
 	require.NoError(t, err)
 
 	txb, err := client.GetTxBuilder()
@@ -179,7 +179,7 @@ func TestIsHealthy_NotStarted(t *testing.T) {
 	cfg := validChainConfig()
 	chainSpecific := testChainConfig([]string{"https://rpc.example.com"})
 
-	client, err := NewClient(cfg, nil, chainSpecific, nil, "", logger)
+	client, err := NewClient(cfg, nil, chainSpecific, nil, "", false, logger)
 	require.NoError(t, err)
 
 	// rpcClient is nil before Start
@@ -192,7 +192,7 @@ func TestStop_BeforeStart(t *testing.T) {
 	cfg := validChainConfig()
 	chainSpecific := testChainConfig([]string{"https://rpc.example.com"})
 
-	client, err := NewClient(cfg, nil, chainSpecific, nil, "", logger)
+	client, err := NewClient(cfg, nil, chainSpecific, nil, "", false, logger)
 	require.NoError(t, err)
 
 	// Calling Stop before Start should not panic
@@ -206,7 +206,7 @@ func TestStop_CalledTwice(t *testing.T) {
 	cfg := validChainConfig()
 	chainSpecific := testChainConfig([]string{"https://rpc.example.com"})
 
-	client, err := NewClient(cfg, nil, chainSpecific, nil, "", logger)
+	client, err := NewClient(cfg, nil, chainSpecific, nil, "", false, logger)
 	require.NoError(t, err)
 
 	// Double stop should be safe
@@ -220,7 +220,7 @@ func TestApplyDefaults_AllDefaults(t *testing.T) {
 	cfg := validChainConfig()
 	chainSpecific := testChainConfig([]string{"https://rpc.example.com"})
 
-	client, err := NewClient(cfg, nil, chainSpecific, nil, "", logger)
+	client, err := NewClient(cfg, nil, chainSpecific, nil, "", false, logger)
 	require.NoError(t, err)
 
 	defaults := client.applyDefaults()
@@ -242,7 +242,7 @@ func TestApplyDefaults_EventPollingOverride(t *testing.T) {
 	}
 
 	cfg := validChainConfig()
-	client, err := NewClient(cfg, nil, chainSpecific, nil, "", logger)
+	client, err := NewClient(cfg, nil, chainSpecific, nil, "", false, logger)
 	require.NoError(t, err)
 
 	defaults := client.applyDefaults()
@@ -261,7 +261,7 @@ func TestApplyDefaults_GasPriceOverride(t *testing.T) {
 	}
 
 	cfg := validChainConfig()
-	client, err := NewClient(cfg, nil, chainSpecific, nil, "", logger)
+	client, err := NewClient(cfg, nil, chainSpecific, nil, "", false, logger)
 	require.NoError(t, err)
 
 	defaults := client.applyDefaults()
@@ -282,7 +282,7 @@ func TestApplyDefaults_BlockConfirmationOverride(t *testing.T) {
 	}
 	chainSpecific := testChainConfig([]string{"https://rpc.example.com"})
 
-	client, err := NewClient(cfg, nil, chainSpecific, nil, "", logger)
+	client, err := NewClient(cfg, nil, chainSpecific, nil, "", false, logger)
 	require.NoError(t, err)
 
 	defaults := client.applyDefaults()
@@ -305,7 +305,7 @@ func TestApplyDefaults_ZeroValueNotApplied(t *testing.T) {
 	}
 
 	cfg := validChainConfig()
-	client, err := NewClient(cfg, nil, chainSpecific, nil, "", logger)
+	client, err := NewClient(cfg, nil, chainSpecific, nil, "", false, logger)
 	require.NoError(t, err)
 
 	defaults := client.applyDefaults()
@@ -313,6 +313,47 @@ func TestApplyDefaults_ZeroValueNotApplied(t *testing.T) {
 	assert.Equal(t, 5, defaults.eventPollingInterval)
 	assert.Equal(t, 30, defaults.gasPriceInterval)
 	assert.Equal(t, 0, defaults.gasPriceMarkupPercent) // 0 is the default too
+}
+
+// TestApplyDefaults_ZeroConfirmations covers the zero-confirmation policy from
+// F-2026-18139: a registry-configured 0 must fall back to a safe depth on
+// mainnet (allowZeroConfirmations=false) and be honored as an instant route
+// only on testnet (allowZeroConfirmations=true).
+func TestApplyDefaults_ZeroConfirmations(t *testing.T) {
+	logger := zerolog.New(zerolog.NewTestWriter(t))
+
+	zeroRegistry := &uregistrytypes.ChainConfig{
+		BlockConfirmation: &uregistrytypes.BlockConfirmation{
+			FastInbound:     0,
+			StandardInbound: 0,
+		},
+	}
+
+	t.Run("mainnet falls back to safe depth", func(t *testing.T) {
+		client := &Client{
+			logger:                 logger,
+			chainIDStr:             "solana:mainnet",
+			registryConfig:         zeroRegistry,
+			allowZeroConfirmations: false,
+		}
+
+		defaults := client.applyDefaults()
+		assert.Equal(t, uint64(5), defaults.fastConfirmations, "zero fast must not disable depth on mainnet")
+		assert.Equal(t, uint64(12), defaults.standardConfirmations, "zero standard must not disable depth on mainnet")
+	})
+
+	t.Run("testnet honors zero as instant", func(t *testing.T) {
+		client := &Client{
+			logger:                 logger,
+			chainIDStr:             "solana:mainnet",
+			registryConfig:         zeroRegistry,
+			allowZeroConfirmations: true,
+		}
+
+		defaults := client.applyDefaults()
+		assert.Equal(t, uint64(0), defaults.fastConfirmations, "testnet instant route keeps zero")
+		assert.Equal(t, uint64(0), defaults.standardConfirmations, "testnet instant route keeps zero")
+	})
 }
 
 func TestParseSolanaChainID(t *testing.T) {
@@ -404,7 +445,7 @@ func TestNewClient_FullConfigGetters(t *testing.T) {
 		GasPriceMarkupPercent:       &gasMarkup,
 	}
 
-	client, err := NewClient(cfg, nil, chainSpecific, nil, "/tmp/home", logger)
+	client, err := NewClient(cfg, nil, chainSpecific, nil, "/tmp/home", false, logger)
 	require.NoError(t, err)
 
 	// Verify all getters

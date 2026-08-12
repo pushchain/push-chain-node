@@ -375,25 +375,29 @@ func TestEventConfirmer_PendingEventsWithBlockHeightZero(t *testing.T) {
 	assert.Equal(t, uint64(0), pending[0].BlockHeight)
 }
 
+// The confirmer honors whatever depth it is given: the safe-fallback vs
+// zero-confirmation policy is resolved upstream in the client's applyDefaults
+// (see TestApplyDefaults_ZeroConfirmations). A 0 here is an intentional instant
+// route. Regression for F-2026-18139.
 func TestEventConfirmer_GetRequiredConfirmations_ZeroValues(t *testing.T) {
 	logger := zerolog.Nop()
 
-	t.Run("zero fast confirmations returns 0", func(t *testing.T) {
+	t.Run("zero fast confirmations honored as instant", func(t *testing.T) {
 		ec := NewEventConfirmer(nil, nil, "eip155:1", 5, 0, 12, logger)
 		result := ec.getRequiredConfirmations(store.ConfirmationFast)
 		assert.Equal(t, uint64(0), result)
 	})
 
-	t.Run("zero standard confirmations returns 0", func(t *testing.T) {
+	t.Run("zero standard confirmations honored as instant", func(t *testing.T) {
 		ec := NewEventConfirmer(nil, nil, "eip155:1", 5, 5, 0, logger)
 		result := ec.getRequiredConfirmations(store.ConfirmationStandard)
 		assert.Equal(t, uint64(0), result)
 	})
 
-	t.Run("zero standard with unknown type returns 0", func(t *testing.T) {
-		ec := NewEventConfirmer(nil, nil, "eip155:1", 5, 5, 0, logger)
+	t.Run("unknown type uses standard depth", func(t *testing.T) {
+		ec := NewEventConfirmer(nil, nil, "eip155:1", 5, 5, 7, logger)
 		result := ec.getRequiredConfirmations("INSTANT")
-		assert.Equal(t, uint64(0), result)
+		assert.Equal(t, uint64(7), result)
 	})
 }
 

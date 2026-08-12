@@ -1,6 +1,9 @@
 package config
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // KeyringBackend represents the type of keyring backend to use.
 type KeyringBackend string
@@ -9,6 +12,24 @@ const (
 	KeyringBackendTest KeyringBackend = "test"
 	KeyringBackendFile KeyringBackend = "file"
 )
+
+// NetworkTestnet is the Network value that unlocks testnet-only relaxed behavior.
+const NetworkTestnet = "testnet"
+
+// IsTestnet reports whether this node is configured for testnet. Any value other
+// than "testnet" (including unset) is treated as mainnet so relaxed behaviors
+// fail safe. See [Config.AllowsZeroConfirmations].
+func (c *Config) IsTestnet() bool {
+	return strings.EqualFold(strings.TrimSpace(c.Network), NetworkTestnet)
+}
+
+// AllowsZeroConfirmations reports whether zero-confirmation ("instant") inbound
+// routes are permitted. Only testnet may honor a registry-configured
+// confirmation depth of 0; on mainnet a 0 falls back to a safe depth so inbounds
+// cannot finalize at their inclusion block. See F-2026-18139.
+func (c *Config) AllowsZeroConfirmations() bool {
+	return c.IsTestnet()
+}
 
 // Config holds all configuration for the Universal Validator.
 type Config struct {
@@ -26,6 +47,12 @@ type Config struct {
 	PushValoperAddress           string   `json:"push_valoper_address"`
 	ConfigRefreshIntervalSeconds int      `json:"config_refresh_interval_seconds"`
 	MaxRetries                   int      `json:"max_retries"`
+
+	// Network identifies the deployment network: "mainnet" or "testnet".
+	// Unset/unknown is treated as mainnet, the safe default. Testnet unlocks
+	// relaxed behaviors that must never apply to mainnet — currently
+	// zero-confirmation ("instant") inbound routes. See F-2026-18139.
+	Network string `json:"network"`
 
 	// Query Server
 	QueryServerPort int `json:"query_server_port"`

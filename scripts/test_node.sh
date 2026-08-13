@@ -117,7 +117,8 @@ from_scratch () {
   # with "denom metadata <denom> could not be found".
   update_test_genesis '.app_state["bank"]["denom_metadata"]=[{"description":"Native token of Push Chain","denom_units":[{"denom":"upc","exponent":0,"aliases":[]},{"denom":"pushchain","exponent":18,"aliases":[]}],"base":"upc","display":"pushchain","name":"Push Chain","symbol":"PC"}]'
   update_test_genesis '.app_state["evm"]["params"]["active_static_precompiles"]=["0x00000000000000000000000000000000000000CB","0x00000000000000000000000000000000000000ca","0x0000000000000000000000000000000000000100","0x0000000000000000000000000000000000000400","0x0000000000000000000000000000000000000800","0x0000000000000000000000000000000000000801","0x0000000000000000000000000000000000000802","0x0000000000000000000000000000000000000803","0x0000000000000000000000000000000000000804","0x0000000000000000000000000000000000000805"]'
-  update_test_genesis '.app_state["erc20"]["params"]["native_precompiles"]=["0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"]' # https://eips.ethereum.org/EIPS/eip-7528
+  # NOTE(poc): erc20 Params.native_precompiles was removed upstream; setting it
+  # fails genesis validation on this evm version.
   update_test_genesis `printf '.app_state["erc20"]["token_pairs"]=[{contract_owner:1,erc20_address:"0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",denom:"%s",enabled:true}]' $DENOM`
   update_test_genesis '.app_state["feemarket"]["params"]["no_base_fee"]=false'
   update_test_genesis '.app_state["feemarket"]["params"]["base_fee"]="1000000000.000000000000000000"'

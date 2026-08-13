@@ -799,6 +799,7 @@ func NewChainApp(
 		*app.StakingKeeper,
 		app.DistrKeeper,
 		app.BankKeeper,
+		app.BankKeeper,
 		&app.Erc20Keeper,
 		&app.TransferKeeper,
 		app.IBCKeeper.ChannelKeeper,

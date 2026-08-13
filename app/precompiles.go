@@ -11,6 +11,7 @@ import (
 	slashingkeeper "github.com/cosmos/cosmos-sdk/x/slashing/keeper"
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 	bankprecompile "github.com/cosmos/evm/precompiles/bank"
+	pushbankprecompile "github.com/pushchain/push-chain-node/precompiles/bank"
 	"github.com/cosmos/evm/precompiles/bech32"
 	cmn "github.com/cosmos/evm/precompiles/common"
 	distprecompile "github.com/cosmos/evm/precompiles/distribution"
@@ -67,6 +68,9 @@ func NewAvailableStaticPrecompiles(
 	stakingKeeper stakingkeeper.Keeper,
 	distributionKeeper distributionkeeper.Keeper,
 	bankKeeper cmn.BankKeeper,
+	// burnKeeper is the same x/bank keeper, untyped-down: cmn.BankKeeper is
+	// read-only and the extended bank precompile needs Send/Burn.
+	burnKeeper pushbankprecompile.BankKeeper,
 	erc20Kpr *erc20Keeper.Keeper,
 	transferKeeper *transferkeeper.Keeper,
 	channelKeeper *channelkeeper.Keeper,
@@ -142,7 +146,13 @@ func NewAvailableStaticPrecompiles(
 	precompiles[stakingPrecompile.Address()] = stakingPrecompile
 	precompiles[distributionPrecompile.Address()] = distributionPrecompile
 	precompiles[ibcTransferPrecompile.Address()] = ibcTransferPrecompile
-	precompiles[bankPrecompile.Address()] = bankPrecompile
+	// Extended bank: upstream read-only methods plus burn, registered at the same
+	// address so contracts see one IBank. See precompiles/bank.
+	extendedBank, err := pushbankprecompile.NewPrecompile(burnKeeper, bankPrecompile)
+	if err != nil {
+		panic(fmt.Errorf("failed to instantiate extended bank precompile: %w", err))
+	}
+	precompiles[extendedBank.Address()] = extendedBank
 	precompiles[govPrecompile.Address()] = govPrecompile
 	precompiles[slashingPrecompile.Address()] = slashingPrecompile
 

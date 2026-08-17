@@ -205,23 +205,30 @@ func (rc *RPCClient) GetTransactionReceipt(ctx context.Context, txHash ethcommon
 	return receipt, err
 }
 
-// GetL1Fee returns the OP-Stack L1 data fee charged for an included transaction,
-// read from the receipt's l1Fee field. Returns 0 for chains that do not populate
-// it (non-OP chains), so callers can add it unconditionally.
-func (rc *RPCClient) GetL1Fee(ctx context.Context, txHash ethcommon.Hash) (*big.Int, error) {
+// GetReceiptGasFee returns the full destination cost of an included transaction
+// from a single receipt read: L2 execution (gasUsed * effectiveGasPrice) plus the
+// OP-Stack L1 data fee (l1Fee, 0 on non-OP chains). Returns 0 if the tx is not
+// found or the receipt lacks the required fields.
+func (rc *RPCClient) GetReceiptGasFee(ctx context.Context, txHash ethcommon.Hash) (*big.Int, error) {
 	var raw struct {
-		L1Fee *hexutil.Big `json:"l1Fee"`
+		GasUsed           *hexutil.Uint64 `json:"gasUsed"`
+		EffectiveGasPrice *hexutil.Big    `json:"effectiveGasPrice"`
+		L1Fee             *hexutil.Big    `json:"l1Fee"`
 	}
-	err := rc.executeWithFailover(ctx, "get_l1_fee", func(client *ethclient.Client) error {
+	err := rc.executeWithFailover(ctx, "get_transaction_receipt", func(client *ethclient.Client) error {
 		return client.Client().CallContext(ctx, &raw, "eth_getTransactionReceipt", txHash)
 	})
 	if err != nil {
 		return nil, err
 	}
-	if raw.L1Fee == nil {
+	if raw.GasUsed == nil || raw.EffectiveGasPrice == nil {
 		return big.NewInt(0), nil
 	}
-	return (*big.Int)(raw.L1Fee), nil
+	fee := new(big.Int).Mul(new(big.Int).SetUint64(uint64(*raw.GasUsed)), (*big.Int)(raw.EffectiveGasPrice))
+	if raw.L1Fee != nil {
+		fee.Add(fee, (*big.Int)(raw.L1Fee))
+	}
+	return fee, nil
 }
 
 // GetTransactionByHash returns a transaction by its hash.

@@ -9,15 +9,13 @@ import (
 	"testing"
 
 	ethcommon "github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// rpcServer serves eth_chainId plus caller-supplied receipt and tx JSON.
-func rpcServer(t *testing.T, receiptJSON, txJSON string) *RPCClient {
+// receiptRPC serves eth_chainId plus a single receipt for any receipt lookup.
+func receiptRPC(t *testing.T, receiptJSON string) *RPCClient {
 	t.Helper()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -28,8 +26,6 @@ func rpcServer(t *testing.T, receiptJSON, txJSON string) *RPCClient {
 			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":"0xaa36a7"}`)) // 11155111
 		case strings.Contains(string(body), "eth_getTransactionReceipt"):
 			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":` + receiptJSON + `}`))
-		case strings.Contains(string(body), "eth_getTransactionByHash"):
-			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":` + txJSON + `}`))
 		default:
 			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":null}`))
 		}
@@ -42,64 +38,50 @@ func rpcServer(t *testing.T, receiptJSON, txJSON string) *RPCClient {
 	return rc
 }
 
-func receiptJSON(txHash string, l1FeeField string) string {
-	return `{"transactionHash":"` + txHash + `",` +
-		`"blockHash":"0x2222222222222222222222222222222222222222222222222222222222222222",` +
+// receipt builds a minimal receipt JSON with gasUsed 0x5208 (21000) and
+// effectiveGasPrice 0x4a817c800 (20 gwei); l1FeeField is "" for non-OP chains.
+func receipt(l1FeeField string) string {
+	return `{"transactionHash":"0xabc","blockHash":"0x2222222222222222222222222222222222222222222222222222222222222222",` +
 		`"blockNumber":"0x1","transactionIndex":"0x0","cumulativeGasUsed":"0x5208",` +
-		`"gasUsed":"0x5208","status":"0x1","contractAddress":null,"logs":[],` +
-		`"logsBloom":"0x` + strings.Repeat("0", 512) + `",` + l1FeeField + `"type":"0x0"}`
+		`"gasUsed":"0x5208","effectiveGasPrice":"0x4a817c800","status":"0x1","contractAddress":null,` +
+		`"logs":[],"logsBloom":"0x` + strings.Repeat("0", 512) + `",` + l1FeeField + `"type":"0x0"}`
 }
 
-func TestGetL1Fee(t *testing.T) {
+// A nonzero l1Fee must be added to GasFeeUsed so the core refund (gasFee −
+// GasFeeUsed) shrinks by exactly that amount. Both values come from one receipt.
+func TestGetReceiptGasFee(t *testing.T) {
 	hash := ethcommon.HexToHash("0xabc")
+	execFee := new(big.Int).Mul(big.NewInt(21000), big.NewInt(20_000_000_000)) // gasUsed * effectiveGasPrice
 
-	t.Run("parses OP l1Fee", func(t *testing.T) {
-		rc := rpcServer(t, receiptJSON(hash.Hex(), `"l1Fee":"0x5208",`), `null`)
-		got, err := rc.GetL1Fee(context.Background(), hash)
+	t.Run("OP destination adds l1Fee", func(t *testing.T) {
+		rc := receiptRPC(t, receipt(`"l1Fee":"0x5208",`))
+		got, err := rc.GetReceiptGasFee(context.Background(), hash)
 		require.NoError(t, err)
-		assert.Equal(t, int64(0x5208), got.Int64())
+		assert.Equal(t, new(big.Int).Add(execFee, big.NewInt(0x5208)), got)
 	})
 
-	t.Run("returns 0 when field absent (non-OP)", func(t *testing.T) {
-		rc := rpcServer(t, receiptJSON(hash.Hex(), ``), `null`)
-		got, err := rc.GetL1Fee(context.Background(), hash)
+	t.Run("non-OP destination is execution fee only", func(t *testing.T) {
+		rc := receiptRPC(t, receipt(``))
+		got, err := rc.GetReceiptGasFee(context.Background(), hash)
+		require.NoError(t, err)
+		assert.Equal(t, execFee, got)
+	})
+
+	t.Run("missing receipt returns 0", func(t *testing.T) {
+		rc := receiptRPC(t, `null`)
+		got, err := rc.GetReceiptGasFee(context.Background(), hash)
 		require.NoError(t, err)
 		assert.Equal(t, int64(0), got.Int64())
 	})
 }
 
-// A nonzero l1Fee must be added to GasFeeUsed so the core refund (gasFee −
-// GasFeeUsed) shrinks by exactly that amount.
+// GetGasFeeUsed (revert/resolver path) delegates to the same single-call helper.
 func TestGetGasFeeUsed_IncludesL1Fee(t *testing.T) {
-	key, err := crypto.GenerateKey()
-	require.NoError(t, err)
-	chainID := big.NewInt(11155111)
-	gasPrice := big.NewInt(20_000_000_000)
-	to := ethcommon.HexToAddress("0x2222222222222222222222222222222222222222")
-	signedTx, err := types.SignTx(
-		types.NewTransaction(0, to, big.NewInt(0), 21000, gasPrice, nil),
-		types.NewEIP155Signer(chainID), key,
-	)
-	require.NoError(t, err)
-	txJSON, err := signedTx.MarshalJSON()
-	require.NoError(t, err)
+	execFee := new(big.Int).Mul(big.NewInt(21000), big.NewInt(20_000_000_000))
 
-	execFee := new(big.Int).Mul(big.NewInt(21000), gasPrice) // gasUsed 0x5208 = 21000
-
-	t.Run("OP destination adds l1Fee", func(t *testing.T) {
-		rc := rpcServer(t, receiptJSON(signedTx.Hash().Hex(), `"l1Fee":"0x5208",`), string(txJSON))
-		tb := &TxBuilder{rpcClient: rc, chainID: "eip155:11155111", chainIDInt: 11155111, logger: zerolog.Nop()}
-		got, err := tb.GetGasFeeUsed(context.Background(), signedTx.Hash().Hex())
-		require.NoError(t, err)
-		want := new(big.Int).Add(execFee, big.NewInt(0x5208))
-		assert.Equal(t, want.String(), got)
-	})
-
-	t.Run("non-OP destination is execution fee only", func(t *testing.T) {
-		rc := rpcServer(t, receiptJSON(signedTx.Hash().Hex(), ``), string(txJSON))
-		tb := &TxBuilder{rpcClient: rc, chainID: "eip155:11155111", chainIDInt: 11155111, logger: zerolog.Nop()}
-		got, err := tb.GetGasFeeUsed(context.Background(), signedTx.Hash().Hex())
-		require.NoError(t, err)
-		assert.Equal(t, execFee.String(), got)
-	})
+	rc := receiptRPC(t, receipt(`"l1Fee":"0x5208",`))
+	tb := &TxBuilder{rpcClient: rc, chainID: "eip155:11155111", chainIDInt: 11155111, logger: zerolog.Nop()}
+	got, err := tb.GetGasFeeUsed(context.Background(), "0xabc")
+	require.NoError(t, err)
+	assert.Equal(t, new(big.Int).Add(execFee, big.NewInt(0x5208)).String(), got)
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math/big"
 	"strings"
 	"sync"
 	"time"
@@ -167,19 +166,16 @@ func (ec *EventConfirmer) processPendingEvents(ctx context.Context) error {
 
 			// For outbound events, enrich with gas fee before confirming
 			if event.Type == store.EventTypeOutbound {
-				tx, _, txErr := ec.rpcClient.GetTransactionByHash(ctx, hash)
-				if txErr != nil {
+				feeUsed, feeErr := ec.rpcClient.GetReceiptGasFee(ctx, hash)
+				if feeErr != nil {
 					ec.logger.Warn().
-						Err(txErr).
+						Err(feeErr).
 						Str("event_id", event.EventID).
 						Str("tx_hash", txHash).
-						Msg("failed to fetch transaction for gas fee, skipping confirmation")
+						Msg("failed to fetch gas fee, skipping confirmation")
 					continue
 				}
-				gasUsed := new(big.Int).SetUint64(receipt.GasUsed)
-				gasPrice := tx.GasPrice()
-				execFee := new(big.Int).Mul(gasUsed, gasPrice)
-				gasFeeUsed := withL1Fee(ctx, ec.rpcClient, hash, execFee).String()
+				gasFeeUsed := feeUsed.String()
 
 				// Unmarshal, set GasFeeUsed, re-marshal
 				var outboundEvent chaincommon.OutboundEvent

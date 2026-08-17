@@ -217,3 +217,24 @@ func TestSweeper_StartIsIdempotent(t *testing.T) {
 	cancel()
 	assert.Equal(t, []string{"K1"}, store.deletedIDs())
 }
+
+// The interval is long, so the first sweep must happen at start rather than
+// after a full period — otherwise a frequently restarted node never sweeps.
+func TestSweeper_SweepsOnStart(t *testing.T) {
+	store := &mockStore{ids: []string{"K1", "K2"}}
+	s := NewSweeper(Config{
+		Keyshares:     store,
+		PushCore:      baseCore(),
+		CheckInterval: time.Hour, // far longer than the test waits
+		Logger:        zerolog.Nop(),
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	s.Start(ctx)
+
+	assert.Eventually(t, func() bool {
+		return len(store.deletedIDs()) == 1
+	}, 2*time.Second, 10*time.Millisecond, "expected a sweep at start")
+	assert.Equal(t, []string{"K1"}, store.deletedIDs())
+}

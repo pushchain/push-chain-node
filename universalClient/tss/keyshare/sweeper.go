@@ -11,8 +11,8 @@ import (
 )
 
 // Quorum change and key refresh are rare, and a retained share is only a
-// concern over the long run, so sweeping hourly is ample.
-const defaultCheckInterval = time.Hour
+// concern over the long run, so sweeping daily is ample.
+const defaultCheckInterval = 24 * time.Hour
 
 // PushCoreClient is the subset of pushcore.Client the sweeper depends on.
 // Defined as an interface so tests can inject a mock. *pushcore.Client satisfies it.
@@ -88,6 +88,10 @@ func (s *Sweeper) Start(ctx context.Context) {
 func (s *Sweeper) run(ctx context.Context) {
 	ticker := time.NewTicker(s.checkInterval)
 	defer ticker.Stop()
+
+	// Sweep on start: with a long interval, a node restarted more often than
+	// that would otherwise never sweep.
+	s.sweep(ctx)
 
 	for {
 		select {

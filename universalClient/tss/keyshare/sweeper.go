@@ -1,10 +1,8 @@
-// Package keysharegc deletes keyshares that a quorum change or key refresh has
-// made redundant, so a departed or rotated-out share cannot be used to sign for
-// the live vault key.
-package keysharesweeper
+package keyshare
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -62,6 +60,7 @@ type Sweeper struct {
 	pushCore      PushCoreClient
 	checkInterval time.Duration
 	logger        zerolog.Logger
+	startOnce     sync.Once
 }
 
 // NewSweeper creates a new keyshare sweeper.
@@ -78,9 +77,12 @@ func NewSweeper(cfg Config) *Sweeper {
 	}
 }
 
-// Start begins the background sweep loop.
+// Start begins the background sweep loop. Repeat calls are no-ops, so a
+// restarted node cannot end up with two sweepers deleting concurrently.
 func (s *Sweeper) Start(ctx context.Context) {
-	go s.run(ctx)
+	s.startOnce.Do(func() {
+		go s.run(ctx)
+	})
 }
 
 func (s *Sweeper) run(ctx context.Context) {

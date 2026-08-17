@@ -1,9 +1,11 @@
-package keysharesweeper
+package keyshare
 
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
@@ -18,6 +20,7 @@ const (
 )
 
 type mockStore struct {
+	mu      sync.Mutex
 	ids     []string
 	deleted []string
 	listErr error
@@ -25,18 +28,37 @@ type mockStore struct {
 }
 
 func (m *mockStore) List() ([]string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if m.listErr != nil {
 		return nil, m.listErr
 	}
-	return m.ids, nil
+	return append([]string(nil), m.ids...), nil
 }
 
+// Delete drops the id so a repeat sweep cannot delete it twice, matching the
+// real Manager.
 func (m *mockStore) Delete(id string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if m.delErr != nil {
 		return m.delErr
 	}
+	remaining := m.ids[:0]
+	for _, existing := range m.ids {
+		if existing != id {
+			remaining = append(remaining, existing)
+		}
+	}
+	m.ids = remaining
 	m.deleted = append(m.deleted, id)
 	return nil
+}
+
+func (m *mockStore) deletedIDs() []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return append([]string(nil), m.deleted...)
 }
 
 type mockCore struct {
@@ -171,5 +193,27 @@ func TestNewSweeper_DefaultInterval(t *testing.T) {
 // shares we hold are looked up, so the unbounded key history is never paged.
 func TestSweep_StrayShareDoesNotBlockOthers(t *testing.T) {
 	store := sweepWith(t, &mockStore{ids: []string{"stray", "K1", "K2"}}, baseCore())
-	assert.Equal(t, []string{"K1"}, store.deleted)
+	assert.Equal(t, []string{"K1"}, store.deletedIDs())
+}
+
+// Start must be idempotent: a second call cannot spawn a concurrent sweeper.
+func TestSweeper_StartIsIdempotent(t *testing.T) {
+	store := &mockStore{ids: []string{"K1", "K2"}}
+	s := NewSweeper(Config{
+		Keyshares:     store,
+		PushCore:      baseCore(),
+		CheckInterval: 10 * time.Millisecond,
+		Logger:        zerolog.Nop(),
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	for range 5 {
+		s.Start(ctx)
+	}
+
+	// One loop deletes K1 exactly once; duplicates would retry the deleted id.
+	time.Sleep(60 * time.Millisecond)
+	cancel()
+	assert.Equal(t, []string{"K1"}, store.deletedIDs())
 }

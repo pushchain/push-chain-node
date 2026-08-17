@@ -62,12 +62,10 @@ func (m *mockStore) deletedIDs() []string {
 }
 
 type mockCore struct {
-	current    *utsstypes.TssKey
-	keys       map[string]*utsstypes.TssKey
-	pending    []*utsstypes.TssEvent
-	migrations []*utsstypes.FundMigration
+	current *utsstypes.TssKey
+	keys    map[string]*utsstypes.TssKey
 
-	currentErr, keysErr, pendingErr, migErr error
+	currentErr, keysErr error
 }
 
 func (m *mockCore) GetCurrentKey(context.Context) (*utsstypes.TssKey, error) {
@@ -83,13 +81,6 @@ func (m *mockCore) GetKeyByID(_ context.Context, keyID string) (*utsstypes.TssKe
 	}
 	return k, nil
 }
-func (m *mockCore) GetPendingTssEvents(context.Context) ([]*utsstypes.TssEvent, error) {
-	return m.pending, m.pendingErr
-}
-func (m *mockCore) GetPendingFundMigrations(context.Context) ([]*utsstypes.FundMigration, error) {
-	return m.migrations, m.migErr
-}
-
 func key(id, pubkey string) *utsstypes.TssKey {
 	return &utsstypes.TssKey{KeyId: id, TssPubkey: pubkey}
 }
@@ -131,22 +122,6 @@ func TestSweep_KeepsRotatedAwayPubkeyShare(t *testing.T) {
 	assert.Equal(t, []string{"K1"}, store.deleted)
 }
 
-func TestSweep_KeepsShareReferencedByPendingFundMigration(t *testing.T) {
-	core := baseCore()
-	core.migrations = []*utsstypes.FundMigration{{OldKeyId: "K1"}}
-	store := sweepWith(t, &mockStore{ids: []string{"K1", "K2"}}, core)
-	assert.Empty(t, store.deleted)
-}
-
-// A pending TSS process means an in-flight session may still load a predecessor
-// share; a missing share is silently treated as "new party" during quorum change.
-func TestSweep_SkipsWhileTssProcessPending(t *testing.T) {
-	core := baseCore()
-	core.pending = []*utsstypes.TssEvent{{}}
-	store := sweepWith(t, &mockStore{ids: []string{"K1", "K2"}}, core)
-	assert.Empty(t, store.deleted)
-}
-
 // A share the chain doesn't know about is never deleted.
 func TestSweep_KeepsUnknownKeyID(t *testing.T) {
 	store := sweepWith(t, &mockStore{ids: []string{"mystery", "K2"}}, baseCore())
@@ -155,10 +130,8 @@ func TestSweep_KeepsUnknownKeyID(t *testing.T) {
 
 func TestSweep_FailsClosedOnRPCError(t *testing.T) {
 	cases := map[string]func(*mockCore){
-		"current key":     func(c *mockCore) { c.currentErr = errors.New("boom") },
-		"key lookup":      func(c *mockCore) { c.keysErr = errors.New("boom") },
-		"pending events":  func(c *mockCore) { c.pendingErr = errors.New("boom") },
-		"fund migrations": func(c *mockCore) { c.migErr = errors.New("boom") },
+		"current key": func(c *mockCore) { c.currentErr = errors.New("boom") },
+		"key lookup":  func(c *mockCore) { c.keysErr = errors.New("boom") },
 	}
 	for name, breakIt := range cases {
 		t.Run(name, func(t *testing.T) {

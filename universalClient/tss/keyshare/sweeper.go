@@ -19,8 +19,6 @@ const defaultCheckInterval = 24 * time.Hour
 type PushCoreClient interface {
 	GetCurrentKey(ctx context.Context) (*utsstypes.TssKey, error)
 	GetKeyByID(ctx context.Context, keyID string) (*utsstypes.TssKey, error)
-	GetPendingTssEvents(ctx context.Context) ([]*utsstypes.TssEvent, error)
-	GetPendingFundMigrations(ctx context.Context) ([]*utsstypes.FundMigration, error)
 }
 
 // KeyshareStore is the subset of keyshare.Manager the sweeper depends on.
@@ -42,9 +40,12 @@ type Config struct {
 // A keyshare is deleted only when every one of these holds:
 //   - it is not the current key ID;
 //   - its TSS pubkey equals the current key's pubkey, i.e. a quorum change or
-//     key refresh superseded it while preserving the vault key;
-//   - no TSS process is pending, so no in-flight session can still load it;
-//   - no pending fund migration references it.
+//     key refresh superseded it while preserving the vault key.
+//
+// Those two conditions are sufficient. The current key only changes when a key
+// process finalizes, so while one is in flight the predecessor is still current
+// and therefore never a deletion candidate. Fund migrations only exist across a
+// pubkey rotation, so they can only reference a key this sweeper already keeps.
 //
 // Shares whose pubkey differs from the current one are kept: they belong to a
 // rotated-away key that fund migration still needs to sweep its vault. Retiring
@@ -126,33 +127,9 @@ func (s *Sweeper) sweep(ctx context.Context) {
 		return
 	}
 
-	// An in-flight session may still load a predecessor share; a missing share
-	// is silently reinterpreted as "new party" during quorum change, so wait.
-	pendingProcesses, err := s.pushCore.GetPendingTssEvents(ctx)
-	if err != nil {
-		s.logger.Debug().Err(err).Msg("failed to get pending TSS events, skipping sweep")
-		return
-	}
-	if len(pendingProcesses) > 0 {
-		s.logger.Debug().Int("pending", len(pendingProcesses)).Msg("TSS process pending, skipping sweep")
-		return
-	}
-
-	migrations, err := s.pushCore.GetPendingFundMigrations(ctx)
-	if err != nil {
-		s.logger.Debug().Err(err).Msg("failed to get pending fund migrations, skipping sweep")
-		return
-	}
-	migrating := make(map[string]bool, len(migrations))
-	for _, m := range migrations {
-		if m != nil {
-			migrating[m.OldKeyId] = true
-		}
-	}
-
 	deleted := 0
 	for _, id := range localIDs {
-		if id == current.KeyId || migrating[id] {
+		if id == current.KeyId {
 			continue
 		}
 		// Look up only the shares we hold; the on-chain key history is unbounded.

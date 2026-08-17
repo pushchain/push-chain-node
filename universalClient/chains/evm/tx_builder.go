@@ -449,9 +449,9 @@ func (tb *TxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, 
 }
 
 
-// GetGasFeeUsed returns the gas fee used by a transaction on the EVM chain.
-// Fetches the receipt for gasUsed and the transaction for gasPrice, then returns
-// gasUsed * gasPrice as a decimal string. Returns "0" if not found.
+// GetGasFeeUsed returns the gas fee used by a transaction on the EVM chain:
+// L2 execution (gasUsed * gasPrice) plus the OP-Stack L1 data fee (0 on non-OP
+// chains). Returns "0" if not found.
 func (tb *TxBuilder) GetGasFeeUsed(ctx context.Context, txHash string) (string, error) {
 	hash := ethcommon.HexToHash(txHash)
 	receipt, err := tb.rpcClient.GetTransactionReceipt(ctx, hash)
@@ -470,8 +470,19 @@ func (tb *TxBuilder) GetGasFeeUsed(ctx context.Context, txHash string) (string, 
 		return "0", nil
 	}
 
-	gasFeeUsed := new(big.Int).Mul(gasUsed, gasPrice)
-	return gasFeeUsed.String(), nil
+	execFee := new(big.Int).Mul(gasUsed, gasPrice)
+	return withL1Fee(ctx, tb.rpcClient, hash, execFee).String(), nil
+}
+
+// withL1Fee returns execFee plus the OP-Stack L1 data fee for txHash. On a
+// failed L1-fee lookup it falls back to execFee so accounting never blocks on a
+// transient RPC error (non-OP chains report 0 and are unaffected).
+func withL1Fee(ctx context.Context, rc *RPCClient, txHash ethcommon.Hash, execFee *big.Int) *big.Int {
+	l1Fee, err := rc.GetL1Fee(ctx, txHash)
+	if err != nil {
+		return execFee
+	}
+	return new(big.Int).Add(execFee, l1Fee)
 }
 
 // GetFundMigrationSigningRequest builds a native token transfer for fund migration,

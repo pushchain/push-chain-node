@@ -178,7 +178,8 @@ func (ec *EventConfirmer) processPendingEvents(ctx context.Context) error {
 				}
 				gasUsed := new(big.Int).SetUint64(receipt.GasUsed)
 				gasPrice := tx.GasPrice()
-				gasFeeUsed := new(big.Int).Mul(gasUsed, gasPrice).String()
+				execFee := new(big.Int).Mul(gasUsed, gasPrice)
+				gasFeeUsed := withL1Fee(ctx, ec.rpcClient, hash, execFee).String()
 
 				// Unmarshal, set GasFeeUsed, re-marshal
 				var outboundEvent chaincommon.OutboundEvent

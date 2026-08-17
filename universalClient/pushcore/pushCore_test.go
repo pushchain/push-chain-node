@@ -2,6 +2,7 @@ package pushcore
 
 import (
 	"context"
+	"errors"
 	"math/big"
 	"testing"
 
@@ -965,10 +966,11 @@ func (m *mockUValidatorQueryClient) UniversalValidator(ctx context.Context, req 
 
 type mockUTSSQueryClient struct {
 	utsstypes.QueryClient
-	currentKeyResp              *utsstypes.QueryCurrentKeyResponse
-	pendingTssEventsResp        *utsstypes.QueryAllPendingTssEventsResponse
-	pendingFundMigrationsResp   *utsstypes.QueryPendingFundMigrationsResponse
-	err                         error
+	currentKeyResp            *utsstypes.QueryCurrentKeyResponse
+	keyByIdResp               *utsstypes.QueryKeyByIdResponse
+	pendingTssEventsResp      *utsstypes.QueryAllPendingTssEventsResponse
+	pendingFundMigrationsResp *utsstypes.QueryPendingFundMigrationsResponse
+	err                       error
 }
 
 func (m *mockUTSSQueryClient) CurrentKey(ctx context.Context, req *utsstypes.QueryCurrentKeyRequest, opts ...grpc.CallOption) (*utsstypes.QueryCurrentKeyResponse, error) {
@@ -993,7 +995,10 @@ func (m *mockUTSSQueryClient) PendingFundMigrations(ctx context.Context, req *ut
 }
 
 func (m *mockUTSSQueryClient) KeyById(ctx context.Context, req *utsstypes.QueryKeyByIdRequest, opts ...grpc.CallOption) (*utsstypes.QueryKeyByIdResponse, error) {
-	return nil, nil
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.keyByIdResp, nil
 }
 
 type mockTxServiceClient struct {
@@ -1083,4 +1088,64 @@ func (m *mockAuthAccountQueryClient) Account(ctx context.Context, req *authtypes
 		return nil, m.err
 	}
 	return m.accountResp, nil
+}
+
+func TestClient_GetKeyByID(t *testing.T) {
+	logger := zerolog.Nop()
+
+	t.Run("no endpoints configured", func(t *testing.T) {
+		client := &Client{logger: logger, utssClients: []utsstypes.QueryClient{}}
+
+		key, err := client.GetKeyByID(context.Background(), "key-123")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no endpoints configured")
+		assert.Nil(t, key)
+	})
+
+	t.Run("successful query returns key", func(t *testing.T) {
+		mockClient := &mockUTSSQueryClient{
+			keyByIdResp: &utsstypes.QueryKeyByIdResponse{
+				Key: &utsstypes.TssKey{KeyId: "key-123", TssPubkey: "0xpub"},
+			},
+		}
+		client := &Client{logger: logger, utssClients: []utsstypes.QueryClient{mockClient}}
+
+		key, err := client.GetKeyByID(context.Background(), "key-123")
+		require.NoError(t, err)
+		require.NotNil(t, key)
+		assert.Equal(t, "key-123", key.KeyId)
+		assert.Equal(t, "0xpub", key.TssPubkey)
+	})
+
+	t.Run("unknown key id errors", func(t *testing.T) {
+		mockClient := &mockUTSSQueryClient{
+			keyByIdResp: &utsstypes.QueryKeyByIdResponse{Key: nil},
+		}
+		client := &Client{logger: logger, utssClients: []utsstypes.QueryClient{mockClient}}
+
+		key, err := client.GetKeyByID(context.Background(), "missing")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not found")
+		assert.Nil(t, key)
+	})
+
+	// A nil response with a nil error must not panic.
+	t.Run("nil response errors", func(t *testing.T) {
+		mockClient := &mockUTSSQueryClient{keyByIdResp: nil}
+		client := &Client{logger: logger, utssClients: []utsstypes.QueryClient{mockClient}}
+
+		key, err := client.GetKeyByID(context.Background(), "key-123")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not found")
+		assert.Nil(t, key)
+	})
+
+	t.Run("query error propagates", func(t *testing.T) {
+		mockClient := &mockUTSSQueryClient{err: errors.New("rpc down")}
+		client := &Client{logger: logger, utssClients: []utsstypes.QueryClient{mockClient}}
+
+		key, err := client.GetKeyByID(context.Background(), "key-123")
+		require.Error(t, err)
+		assert.Nil(t, key)
+	})
 }

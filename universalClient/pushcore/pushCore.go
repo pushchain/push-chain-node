@@ -222,7 +222,7 @@ func (c *Client) GetKeyByID(ctx context.Context, keyID string) (*utsstypes.TssKe
 			if err != nil {
 				return nil, err
 			}
-			if resp.Key == nil {
+			if resp == nil || resp.Key == nil {
 				return nil, fmt.Errorf("pushcore: TSS key %s not found", keyID)
 			}
 			return resp.Key, nil

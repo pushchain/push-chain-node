@@ -93,35 +93,55 @@ func (h BallotHooks) afterReadBallotTerminal(
 // FulfilRead delivers a settled observation to UniversalCallback and records the
 // outcome on the request.
 //
-// The EVM call is made in a cache context. A revert inside the app's callback must
-// not roll back our own bookkeeping — we still need the request marked terminal and
-// the failed attempt recorded, or the sweeper would keep retrying a request the
-// contract has already closed.
+// The read is only marked terminal when the contract actually settled it. That
+// distinction matters: on any revert the whole transaction rolls back, so
+// fulfilledRequests stays false, _pending survives and _settle never runs — the
+// funder's deposit is still escrowed. Retiring the record in that state would drop
+// it out of PendingByExpiry, leaving nothing able to release those funds, since
+// expireExternalRead admits only this module.
+//
+// A reverting app callback is NOT such a case: the contract catches it with .call,
+// so the outer transaction succeeds, the request settles, and we mark it FULFILLED.
 func (k Keeper) FulfilRead(ctx sdk.Context, ur types.UniversalRead) error {
 	_, moduleHex := k.GetModuleAddress(ctx)
 
 	tmpCtx, commit := ctx.CacheContext()
 	res, callErr := k.CallFulfillExternalCallback(tmpCtx, ur.Id, ur.Result)
-	succeeded := callErr == nil && (res == nil || res.VmError == "")
-	if succeeded {
+
+	var vmErr string
+	var revertData []byte
+	if res != nil {
+		vmErr, revertData = res.VmError, res.Ret
+	}
+	outcome := types.ClassifyCall(vmErr, revertData, callErr)
+
+	if outcome == types.CallOK {
 		commit()
 	}
 
 	ur.PcTx = append(ur.PcTx, pcTxFrom(ctx, moduleHex, res, callErr))
 
-	if succeeded {
+	switch outcome {
+	case types.CallOK:
 		ur.Status = types.UniversalReadStatus_UNIVERSAL_READ_STATUS_FULFILLED
 		k.Logger().Info("read request fulfilled",
 			"request_id", ur.Id, "tx_hash", pcTxHash(res))
-	} else {
-		// FAILED, not left pending: the contract sets fulfilledRequests before
-		// invoking the callback, so the request is closed on its side whether or
-		// not the callback reverted. Retrying would revert with
-		// RequestAlreadyFulfilled forever.
+
+	case types.CallAlreadySettled:
+		// The contract closed it another way and the funder already has their
+		// refund. Terminal, but not a fulfilment we performed.
 		ur.Status = types.UniversalReadStatus_UNIVERSAL_READ_STATUS_FAILED
 		ur.ErrorMsg = pcTxError(res, callErr)
-		k.Logger().Error("read fulfilment failed",
+		k.Logger().Warn("read already settled on the contract",
 			"request_id", ur.Id, "error", ur.ErrorMsg)
+
+	default:
+		// CallOutOfGas or CallUnsettled. Nothing persisted, so the request stays in
+		// flight and PendingByExpiry keeps it — the sweeper will expire it at its
+		// deadline and the funder gets refunded. Status is deliberately untouched.
+		ur.ErrorMsg = pcTxError(res, callErr)
+		k.Logger().Error("read fulfilment did not settle; leaving in flight for expiry",
+			"request_id", ur.Id, "outcome", outcome.String(), "error", ur.ErrorMsg)
 	}
 
 	return k.SetUniversalRead(ctx, ur)

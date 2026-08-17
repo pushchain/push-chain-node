@@ -4,6 +4,8 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/crypto"
+
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/ethereum/go-ethereum/common"
 
@@ -124,29 +126,78 @@ func TestModuleAddress_IsStable(t *testing.T) {
 		"UniversalCallback hardcodes this; changing the module name breaks every call")
 }
 
-// A reverting callback still closes the request: the contract sets
-// fulfilledRequests before invoking it, so retrying could never succeed.
-func TestAfterBallotTerminal_CallbackRevertMarksFailed(t *testing.T) {
+// selector returns a Solidity custom-error selector.
+func selector(sig string) []byte { return crypto.Keccak256([]byte(sig))[:4] }
+
+// invalidStatus builds an InvalidRequestStatus revert reporting `actual`.
+func invalidStatus(actual byte) []byte {
+	out := append([]byte{}, selector("InvalidRequestStatus(uint256,uint8,uint8)")...)
+	word := func(v byte) []byte { b := make([]byte, 32); b[31] = v; return b }
+	out = append(out, word(0xaa)...)
+	out = append(out, word(actual)...)
+	out = append(out, word(1)...)
+	return out
+}
+
+// A revert means the whole transaction rolled back: fulfilledRequests stays false,
+// _pending survives, _settle never ran, and the funder's deposit is still escrowed.
+// Retiring the record would drop it from PendingByExpiry and leave nothing able to
+// release those funds — only this module may call expireExternalRead.
+func TestAfterBallotTerminal_UnsettledRevertLeavesInFlight(t *testing.T) {
 	f := SetupTest(t)
 	f.ctx = f.ctx.WithBlockHeight(10)
 	f.evm.vmErrors = []string{"execution reverted"}
+	f.evm.revertData = selector("CallerIsNotUCallbackModule()")
 
 	seedRead(t, f, "0xaa", 500)
 	key := voteToQuorum(t, f, "0xaa", obs(0x01))
 	require.NoError(t, fireTerminal(f, key, uvalidatortypes.BallotStatus_BALLOT_STATUS_PASSED))
 
 	ur, _ := f.k.GetUniversalRead(f.ctx, "0xaa")
-	require.Equal(t, types.UniversalReadStatus_UNIVERSAL_READ_STATUS_FAILED, ur.Status,
-		"a reverted callback is terminal, not retryable")
+	require.Equal(t, types.UniversalReadStatus_UNIVERSAL_READ_STATUS_VOTING, ur.Status,
+		"nothing settled on the contract, so the read must stay in flight")
+	require.NotEmpty(t, ur.ErrorMsg, "but the reason is recorded")
 	require.Len(t, ur.PcTx, 1)
 	require.Equal(t, "FAILED", ur.PcTx[0].Status)
-	require.Equal(t, "execution reverted", ur.PcTx[0].ErrorMsg)
 
-	require.Empty(t, pendingIDs(t, f), "must not be offered to validators again")
+	// crucially, expiry can still reach it and refund the funder
+	require.Equal(t, []string{"0xaa"}, collectDueBy(t, f, 500))
 }
 
-// An infrastructure error is recorded the same way — the attempt is still logged.
-func TestAfterBallotTerminal_CallErrorIsRecorded(t *testing.T) {
+// Out of gas is the same: real gas burned, but nothing persisted.
+func TestAfterBallotTerminal_OutOfGasLeavesInFlight(t *testing.T) {
+	f := SetupTest(t)
+	f.ctx = f.ctx.WithBlockHeight(10)
+	f.evm.vmErrors = []string{"out of gas"}
+
+	seedRead(t, f, "0xaa", 500)
+	key := voteToQuorum(t, f, "0xaa", obs(0x01))
+	require.NoError(t, fireTerminal(f, key, uvalidatortypes.BallotStatus_BALLOT_STATUS_PASSED))
+
+	ur, _ := f.k.GetUniversalRead(f.ctx, "0xaa")
+	require.Equal(t, types.UniversalReadStatus_UNIVERSAL_READ_STATUS_VOTING, ur.Status)
+	require.Equal(t, []string{"0xaa"}, collectDueBy(t, f, 500))
+}
+
+// RequestAlreadyFulfilled is the one revert that IS terminal — the contract closed
+// the request another way and the funder already has their refund.
+func TestAfterBallotTerminal_AlreadySettledIsTerminal(t *testing.T) {
+	f := SetupTest(t)
+	f.ctx = f.ctx.WithBlockHeight(10)
+	f.evm.vmErrors = []string{"execution reverted"}
+	f.evm.revertData = invalidStatus(3) // SETTLED
+
+	seedRead(t, f, "0xaa", 500)
+	key := voteToQuorum(t, f, "0xaa", obs(0x01))
+	require.NoError(t, fireTerminal(f, key, uvalidatortypes.BallotStatus_BALLOT_STATUS_PASSED))
+
+	ur, _ := f.k.GetUniversalRead(f.ctx, "0xaa")
+	require.Equal(t, types.UniversalReadStatus_UNIVERSAL_READ_STATUS_FAILED, ur.Status)
+	require.Empty(t, collectDueBy(t, f, 500), "settled, so nothing left to expire")
+}
+
+// A dispatch error produces no response at all — still unsettled.
+func TestAfterBallotTerminal_CallErrorLeavesInFlight(t *testing.T) {
 	f := SetupTest(t)
 	f.ctx = f.ctx.WithBlockHeight(10)
 
@@ -157,8 +208,9 @@ func TestAfterBallotTerminal_CallErrorIsRecorded(t *testing.T) {
 	require.NoError(t, fireTerminal(f, key, uvalidatortypes.BallotStatus_BALLOT_STATUS_PASSED))
 
 	ur, _ := f.k.GetUniversalRead(f.ctx, "0xaa")
-	require.Equal(t, types.UniversalReadStatus_UNIVERSAL_READ_STATUS_FAILED, ur.Status)
-	require.Contains(t, ur.PcTx[0].ErrorMsg, "injected")
+	require.Equal(t, types.UniversalReadStatus_UNIVERSAL_READ_STATUS_VOTING, ur.Status)
+	require.Contains(t, ur.ErrorMsg, "injected")
+	require.Equal(t, []string{"0xaa"}, collectDueBy(t, f, 500))
 }
 
 // Re-firing the hook must not call the contract twice. This is what makes the
@@ -221,8 +273,6 @@ func TestAfterBallotTerminal_RejectedLeavesInFlight(t *testing.T) {
 		"still offered — validators may yet agree")
 }
 
-
-
 // Ballots belonging to other modules must be ignored outright.
 func TestAfterBallotTerminal_IgnoresOtherBallotTypes(t *testing.T) {
 	f := SetupTest(t)
@@ -270,4 +320,3 @@ func TestAfterBallotTerminal_BatchSiblingsIndependent(t *testing.T) {
 	require.Equal(t, types.UniversalReadStatus_UNIVERSAL_READ_STATUS_PENDING, b.Status)
 	require.Equal(t, []string{"0xbb"}, pendingIDs(t, f))
 }
-

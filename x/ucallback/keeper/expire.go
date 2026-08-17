@@ -25,8 +25,8 @@ const MaxExpiriesPerBlock = 50
 // Bounded because two of the contract's three reverts are permanent —
 // RequestAlreadyFulfilled and InvalidCallbackTarget both mean the request was
 // already settled by the fulfil path, so the money is safe and retrying is pure
-// waste. Five attempts distinguishes the transient case without looping forever.
-const MaxExpiryAttempts = 5
+// waste. Three attempts distinguishes the transient case without looping forever.
+const MaxExpiryAttempts = 3
 
 // SweepExpired retires every read whose deadline has passed.
 //
@@ -72,8 +72,12 @@ func (k Keeper) SweepExpired(ctx sdk.Context) error {
 // the record terminal once the contract has acknowledged it.
 //
 // A failed call leaves the request in flight so the next block retries it, up to
-// MaxExpiryAttempts. Every attempt is recorded as a PCTx, so the count is the
-// record's own history rather than a separate counter.
+// MaxExpiryAttempts, tracked by ExpiryAttempts.
+//
+// Deliberately not len(PcTx): that slice holds every EVM attempt on the request,
+// and a fulfilment that failed without settling leaves its entry behind while the
+// read stays in flight. Counting entries would hand exactly those reads a shorter
+// retry budget than a read that reached the sweeper cleanly.
 func (k Keeper) ExpireRead(ctx sdk.Context, ur types.UniversalRead) error {
 	_, moduleHex := k.GetModuleAddress(ctx)
 
@@ -82,25 +86,41 @@ func (k Keeper) ExpireRead(ctx sdk.Context, ur types.UniversalRead) error {
 	// when no transaction actually happened.
 	tmpCtx, commit := ctx.CacheContext()
 	res, callErr := k.CallExpireExternalRead(tmpCtx, ur.Id)
-	succeeded := callErr == nil && (res == nil || res.VmError == "")
-	if succeeded {
+
+	var vmErr string
+	var revertData []byte
+	if res != nil {
+		vmErr, revertData = res.VmError, res.Ret
+	}
+	outcome := types.ClassifyCall(vmErr, revertData, callErr)
+
+	if outcome == types.CallOK {
 		commit()
 	}
 
 	ur.PcTx = append(ur.PcTx, pcTxFrom(ctx, moduleHex, res, callErr))
+	ur.ExpiryAttempts++
 
 	switch {
-	case succeeded:
+	case outcome == types.CallOK:
 		// Terminal status removes it from PendingByExpiry, so it is never swept twice.
 		ur.Status = types.UniversalReadStatus_UNIVERSAL_READ_STATUS_EXPIRED
 		k.Logger().Info("read request expired",
-			"request_id", ur.Id, "tx_hash", pcTxHash(res), "attempts", len(ur.PcTx))
+			"request_id", ur.Id, "tx_hash", pcTxHash(res), "attempts", ur.ExpiryAttempts)
 
-	case len(ur.PcTx) < MaxExpiryAttempts:
+	case outcome == types.CallAlreadySettled:
+		// The contract already closed this request, so there is nothing to expire.
+		// Terminal immediately rather than burning the remaining attempts on a
+		// revert that will repeat identically.
+		ur.Status = types.UniversalReadStatus_UNIVERSAL_READ_STATUS_EXPIRED
+		k.Logger().Info("read already settled on the contract, retiring",
+			"request_id", ur.Id, "error", pcTxError(res, callErr))
+
+	case ur.ExpiryAttempts < MaxExpiryAttempts:
 		// Status untouched, so the request stays in PendingByExpiry and the next
 		// block tries again.
 		k.Logger().Warn("read expiry call failed, will retry",
-			"request_id", ur.Id, "attempt", len(ur.PcTx),
+			"request_id", ur.Id, "attempt", ur.ExpiryAttempts,
 			"of", MaxExpiryAttempts, "error", pcTxError(res, callErr))
 
 	default:
@@ -114,7 +134,7 @@ func (k Keeper) ExpireRead(ctx sdk.Context, ur types.UniversalRead) error {
 		ur.Status = types.UniversalReadStatus_UNIVERSAL_READ_STATUS_ABORTED
 		ur.ErrorMsg = pcTxError(res, callErr)
 		k.Logger().Error("read expiry abandoned; contract may still hold the request and the refund is unsettled",
-			"request_id", ur.Id, "attempts", len(ur.PcTx), "error", ur.ErrorMsg)
+			"request_id", ur.Id, "attempts", ur.ExpiryAttempts, "error", ur.ErrorMsg)
 	}
 
 	return k.SetUniversalRead(ctx, ur)

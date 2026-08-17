@@ -1,8 +1,10 @@
 package types_test
 
 import (
+	"errors"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 
 	"github.com/pushchain/push-chain-node/x/ucallback/types"
@@ -225,4 +227,91 @@ func TestValidateReadResult(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Classification decides whether a failed call may be treated as terminal. Getting
+// it wrong in the "already settled" direction strands the funder's deposit, since
+// only the module can call expireExternalRead.
+func TestClassifyCall(t *testing.T) {
+	sel := func(sig string) []byte { return crypto.Keccak256([]byte(sig))[:4] }
+
+	for name, tc := range map[string]struct {
+		vmError    string
+		revertData []byte
+		callErr    error
+		want       types.CallOutcome
+	}{
+		"success":                    {"", nil, nil, types.CallOK},
+		"success ignores stale data": {"", sel("TransferFailed()"), nil, types.CallOK},
+
+		"invalid callback target": {"execution reverted", sel("InvalidCallbackTarget()"), nil, types.CallAlreadySettled},
+
+		"out of gas":            {"out of gas", nil, nil, types.CallOutOfGas},
+		"code store out of gas": {"contract creation code storage out of gas", nil, nil, types.CallOutOfGas},
+
+		"wrong module":          {"execution reverted", sel("CallerIsNotUCallbackModule()"), nil, types.CallUnsettled},
+		"not yet expired":       {"execution reverted", sel("RequestNotYetExpired()"), nil, types.CallUnsettled},
+		"vault refused":         {"execution reverted", sel("TransferFailed()"), nil, types.CallUnsettled},
+		"unknown revert":        {"execution reverted", sel("SomethingElse()"), nil, types.CallUnsettled},
+		"revert with no data":   {"execution reverted", nil, nil, types.CallUnsettled},
+		"truncated revert data": {"execution reverted", []byte{0x01, 0x02}, nil, types.CallUnsettled},
+		"dispatch error":        {"", nil, errTestTypes, types.CallUnsettled},
+	} {
+		t.Run(name, func(t *testing.T) {
+			require.Equal(t, tc.want,
+				types.ClassifyCall(tc.vmError, tc.revertData, tc.callErr))
+		})
+	}
+}
+
+// An unrecognised revert must never be read as "settled" — that is the direction
+// that loses money.
+func TestClassifyCall_UnknownRevertIsNeverSettled(t *testing.T) {
+	for _, sig := range []string{"Foo()", "Bar(uint256)", "Paused()", "ZeroAddress()"} {
+		got := types.ClassifyCall("execution reverted", crypto.Keccak256([]byte(sig))[:4], nil)
+		require.Equal(t, types.CallUnsettled, got, sig)
+	}
+}
+
+var errTestTypes = errors.New("injected")
+
+// InvalidRequestStatus replaced RequestAlreadyFulfilled, and it carries the actual
+// status. Only SETTLED and EXPIRED are terminal — EXECUTED means the callback ran
+// but reportCallbackGas has not, so the budget is still escrowed and the funder is
+// still owed a refund.
+func TestClassifyCall_InvalidRequestStatus(t *testing.T) {
+	selector := crypto.Keccak256([]byte("InvalidRequestStatus(uint256,uint8,uint8)"))[:4]
+
+	encode := func(actual uint8) []byte {
+		word := func(v uint64) []byte {
+			b := make([]byte, 32)
+			b[31] = byte(v)
+			return b
+		}
+		out := append([]byte{}, selector...)
+		out = append(out, word(0xaa)...)           // requestId
+		out = append(out, word(uint64(actual))...) // actual
+		out = append(out, word(1)...)              // expected = PENDING
+		return out
+	}
+
+	for name, tc := range map[string]struct {
+		actual uint8
+		want   types.CallOutcome
+	}{
+		"NONE — never existed":             {0, types.CallUnsettled},
+		"PENDING — nothing happened yet":   {1, types.CallUnsettled},
+		"EXECUTED — budget still escrowed": {2, types.CallUnsettled},
+		"SETTLED — finished":               {3, types.CallAlreadySettled},
+		"EXPIRED — finished":               {4, types.CallAlreadySettled},
+	} {
+		t.Run(name, func(t *testing.T) {
+			require.Equal(t, tc.want,
+				types.ClassifyCall("execution reverted", encode(tc.actual), nil))
+		})
+	}
+
+	// undecodable args must fall to the safe side
+	require.Equal(t, types.CallUnsettled,
+		types.ClassifyCall("execution reverted", selector, nil))
 }

@@ -31,7 +31,10 @@ type fakeEVM struct {
 
 	// per-call outcomes, consumed in order; the zero value means success
 	vmErrors []string
-	callErr  error
+	// revertData is returned alongside every vmError — set it to a custom-error
+	// selector to exercise the classification path.
+	revertData []byte
+	callErr    error
 }
 
 var _ types.EVMKeeper = (*fakeEVM)(nil)
@@ -66,6 +69,7 @@ func (f *fakeEVM) DerivedEVMCall(
 	}
 	if len(f.vmErrors) > 0 {
 		res.VmError = f.vmErrors[0]
+		res.Ret = f.revertData
 		f.vmErrors = f.vmErrors[1:]
 	}
 	return res, nil

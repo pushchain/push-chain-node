@@ -5,9 +5,9 @@ import (
 	"math/big"
 	"strings"
 
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	evmtypes "github.com/cosmos/evm/x/vm/types"
 )
 
 // readRequestedABI is the ABI fragment for UniversalCallback's ReadRequested

@@ -29,9 +29,9 @@ func TestSweepExpired_RetiresOnlyOverdue(t *testing.T) {
 	f := SetupTest(t)
 	f.ctx = f.ctx.WithBlockHeight(100)
 
-	seedRead(t, f, "0x50", 50)   // overdue
-	seedRead(t, f, "0x64", 100)  // exactly at the deadline — already too late
-	seedRead(t, f, "0xc8", 200)  // still live
+	seedRead(t, f, "0x50", 50)  // overdue
+	seedRead(t, f, "0x64", 100) // exactly at the deadline — already too late
+	seedRead(t, f, "0xc8", 200) // still live
 
 	require.NoError(t, f.k.SweepExpired(f.ctx))
 
@@ -265,19 +265,20 @@ func TestSweepExpired_AbortedIsTerminal(t *testing.T) {
 	require.Contains(t, res.Read.ErrorMsg, "boom")
 }
 
-// A reverting callback records its reason on the record too.
-func TestFulfil_RecordsErrorMsg(t *testing.T) {
+// A clean fulfilment leaves no error text behind — ErrorMsg is only ever set on a
+// path that failed, so its presence is meaningful.
+func TestFulfil_SuccessLeavesNoErrorMsg(t *testing.T) {
 	f := SetupTest(t)
 	f.ctx = f.ctx.WithBlockHeight(10)
-	f.evm.vmErrors = []string{"execution reverted: app broke"}
 
 	seedRead(t, f, "0xaa", 500)
 	key := voteToQuorum(t, f, "0xaa", obs(0x01))
 	require.NoError(t, fireTerminal(f, key, uvalidatortypes.BallotStatus_BALLOT_STATUS_PASSED))
 
 	ur, _ := f.k.GetUniversalRead(f.ctx, "0xaa")
-	require.Equal(t, types.UniversalReadStatus_UNIVERSAL_READ_STATUS_FAILED, ur.Status)
-	require.Equal(t, "execution reverted: app broke", ur.ErrorMsg)
+	require.Equal(t, types.UniversalReadStatus_UNIVERSAL_READ_STATUS_FULFILLED, ur.Status)
+	require.Empty(t, ur.ErrorMsg)
+	require.Equal(t, "SUCCESS", ur.PcTx[0].Status)
 }
 
 // abortedIDs lists what the operator-facing query returns.
@@ -354,4 +355,62 @@ func TestAllAbortedReadRequests_NilRequest(t *testing.T) {
 	f := SetupTest(t)
 	_, err := f.queryServer.AllAbortedReadRequests(f.ctx, nil)
 	require.Error(t, err)
+}
+
+// The retry budget must not be shortened by a failed fulfilment. A fulfil that did
+// not settle leaves its PCTx behind and the read in flight, so counting PcTx
+// entries would hand exactly those reads fewer expiry attempts than a clean one.
+func TestSweepExpired_RetryBudgetIgnoresFulfilAttempts(t *testing.T) {
+	f := SetupTest(t)
+	f.ctx = f.ctx.WithBlockHeight(10)
+
+	seedRead(t, f, "0xaa", 50)
+	key := voteToQuorum(t, f, "0xaa", obs(0x01))
+
+	// a fulfilment that reverts without settling — leaves a PCTx, stays in flight
+	f.evm.vmErrors = []string{"execution reverted"}
+	f.evm.revertData = selector("CallerIsNotUCallbackModule()")
+	require.NoError(t, fireTerminal(f, key, uvalidatortypes.BallotStatus_BALLOT_STATUS_PASSED))
+
+	ur, _ := f.k.GetUniversalRead(f.ctx, "0xaa")
+	require.Len(t, ur.PcTx, 1, "the failed fulfil is on the record")
+	require.Equal(t, uint32(0), ur.ExpiryAttempts, "but it is not an expiry attempt")
+
+	// now the sweeper takes over, and must get its full budget
+	f.ctx = f.ctx.WithBlockHeight(100)
+	f.evm.revertData = nil
+	for i := 1; i <= keeper.MaxExpiryAttempts; i++ {
+		f.evm.vmErrors = []string{"boom"}
+		require.NoError(t, f.k.SweepExpired(f.ctx))
+		ur, _ = f.k.GetUniversalRead(f.ctx, "0xaa")
+		require.Equal(t, uint32(i), ur.ExpiryAttempts, "attempt %d", i)
+	}
+
+	require.Equal(t, types.UniversalReadStatus_UNIVERSAL_READ_STATUS_ABORTED, ur.Status)
+	require.Len(t, ur.PcTx, keeper.MaxExpiryAttempts+1,
+		"one fulfil attempt plus a full expiry budget")
+}
+
+// Both attempts are visible off-chain: a failed fulfil followed by the sweeper's
+// expiry leaves an ordered audit trail on one record.
+func TestPcTx_RecordsFulfilThenExpiry(t *testing.T) {
+	f := SetupTest(t)
+	f.ctx = f.ctx.WithBlockHeight(10)
+
+	seedRead(t, f, "0xaa", 50)
+	key := voteToQuorum(t, f, "0xaa", obs(0x01))
+
+	f.evm.vmErrors = []string{"execution reverted"}
+	f.evm.revertData = selector("CallerIsNotUCallbackModule()")
+	require.NoError(t, fireTerminal(f, key, uvalidatortypes.BallotStatus_BALLOT_STATUS_PASSED))
+
+	f.ctx = f.ctx.WithBlockHeight(100)
+	f.evm.revertData = nil
+	require.NoError(t, f.k.SweepExpired(f.ctx))
+
+	ur, _ := f.k.GetUniversalRead(f.ctx, "0xaa")
+	require.Equal(t, types.UniversalReadStatus_UNIVERSAL_READ_STATUS_EXPIRED, ur.Status)
+	require.Len(t, ur.PcTx, 2)
+	require.Equal(t, "FAILED", ur.PcTx[0].Status, "the fulfil attempt")
+	require.Equal(t, "SUCCESS", ur.PcTx[1].Status, "the expiry that settled it")
 }

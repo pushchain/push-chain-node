@@ -73,16 +73,18 @@ func TestGetGasFeeUsed(t *testing.T) {
 		assert.Equal(t, execFee.String(), got)
 	})
 
-	t.Run("missing effectiveGasPrice returns 0, not L2-less fee", func(t *testing.T) {
-		got, err := tb(receiptRPC(t, receipt(`"l1Fee":"0x5208",`, false))).GetGasFeeUsed(context.Background(), "0xabc")
-		require.NoError(t, err)
-		assert.Equal(t, "0", got)
+	// Errors rather than "0": a zero fee here would make core refund the full
+	// gasFee, the same over-refund this fix removes. Callers retry instead.
+	t.Run("missing effectiveGasPrice errors", func(t *testing.T) {
+		_, err := tb(receiptRPC(t, receipt(`"l1Fee":"0x5208",`, false))).GetGasFeeUsed(context.Background(), "0xabc")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "missing effectiveGasPrice")
 	})
 
-	t.Run("missing receipt returns 0", func(t *testing.T) {
-		got, err := tb(receiptRPC(t, `null`)).GetGasFeeUsed(context.Background(), "0xabc")
-		require.NoError(t, err)
-		assert.Equal(t, "0", got)
+	t.Run("missing receipt errors", func(t *testing.T) {
+		_, err := tb(receiptRPC(t, `null`)).GetGasFeeUsed(context.Background(), "0xabc")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "receipt not found")
 	})
 }
 

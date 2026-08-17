@@ -78,9 +78,10 @@ type TxBuilder interface {
 	IsAlreadyExecuted(ctx context.Context, txID string) (executed bool, queryBlockTime int64, err error)
 
 	// GetGasFeeUsed returns the gas fee used by a transaction on the destination chain.
-	// EVM: fetches receipt and returns gasUsed * effectiveGasPrice as decimal string.
+	// EVM: gasUsed * effectiveGasPrice + OP-Stack l1Fee, as a decimal string; errors
+	// when the fee cannot be determined so callers retry instead of recording an
+	// under-reported fee.
 	// SVM: returns "0" (gas accounting is handled via vault gasFee reimbursement).
-	// Returns "0" if the transaction is not found.
 	GetGasFeeUsed(ctx context.Context, txHash string) (string, error)
 
 	// GetFundMigrationSigningRequest builds a native token transfer for fund migration,

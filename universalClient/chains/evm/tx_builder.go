@@ -451,13 +451,18 @@ func (tb *TxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, 
 
 // GetGasFeeUsed returns the gas fee used by a transaction on the EVM chain:
 // L2 execution (gasUsed * effectiveGasPrice) plus the OP-Stack L1 data fee
-// (0 on non-OP chains). Returns "0" if not found.
+// (0 on non-OP chains). Errors when the fee cannot be determined so callers
+// retry rather than record an under-reported fee.
 func (tb *TxBuilder) GetGasFeeUsed(ctx context.Context, txHash string) (string, error) {
 	receipt, err := tb.rpcClient.GetTransactionReceipt(ctx, ethcommon.HexToHash(txHash))
-	// EffectiveGasPrice nil means the receipt omitted it; return "0" rather than
-	// silently under-report the L2 execution fee as zero.
-	if err != nil || receipt == nil || receipt.EffectiveGasPrice == nil {
-		return "0", nil
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch receipt for %s: %w", txHash, err)
+	}
+	if receipt == nil {
+		return "", fmt.Errorf("receipt not found for %s", txHash)
+	}
+	if receipt.EffectiveGasPrice == nil {
+		return "", fmt.Errorf("receipt for %s missing effectiveGasPrice", txHash)
 	}
 	return gasFeeUsed(receipt.GasUsed, receipt.EffectiveGasPrice, receipt.L1Fee).String(), nil
 }

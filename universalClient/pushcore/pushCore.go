@@ -211,6 +211,25 @@ func (c *Client) GetCurrentKey(ctx context.Context) (*utsstypes.TssKey, error) {
 	)
 }
 
+// GetAllKeys retrieves the TSS key history from Push Chain, oldest first.
+func (c *Client) GetAllKeys(ctx context.Context) ([]*utsstypes.TssKey, error) {
+	return retryWithRoundRobin(
+		len(c.utssClients),
+		&c.rr,
+		func(idx int) ([]*utsstypes.TssKey, error) {
+			resp, err := c.utssClients[idx].AllKeys(ctx, &utsstypes.QueryAllKeysRequest{
+				Pagination: &query.PageRequest{Limit: 1000},
+			})
+			if err != nil {
+				return nil, err
+			}
+			return resp.Keys, nil
+		},
+		"GetAllKeys",
+		c.logger,
+	)
+}
+
 // GetGasPrice retrieves the median gas price for a specific chain from the on-chain oracle.
 func (c *Client) GetGasPrice(ctx context.Context, chainID string) (*big.Int, error) {
 	if chainID == "" {

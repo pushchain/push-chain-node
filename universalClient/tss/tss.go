@@ -22,6 +22,7 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 	"github.com/pushchain/push-chain-node/universalClient/tss/expirysweeper"
 	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
+	"github.com/pushchain/push-chain-node/universalClient/tss/keysharegc"
 	"github.com/pushchain/push-chain-node/universalClient/tss/networking"
 	libp2pnet "github.com/pushchain/push-chain-node/universalClient/tss/networking/libp2p"
 	"github.com/pushchain/push-chain-node/universalClient/tss/sessionmanager"
@@ -105,6 +106,7 @@ type Node struct {
 	txBroadcaster    *txbroadcaster.Broadcaster
 	txResolver       *txresolver.Resolver
 	expirySweeper    *expirysweeper.Sweeper
+	keyshareGC       *keysharegc.Sweeper
 
 	// Network configuration (used during Start)
 	networkCfg libp2pnet.Config
@@ -269,6 +271,12 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 		Logger:        logger,
 	})
 
+	node.keyshareGC = keysharegc.NewSweeper(keysharegc.Config{
+		Keyshares: mgr,
+		PushCore:  cfg.PushCore,
+		Logger:    logger,
+	})
+
 	return node, nil
 }
 
@@ -370,6 +378,9 @@ func (n *Node) Start(ctx context.Context) error {
 
 	// Start expiry sweeper (CONFIRMED past expiry → REVERTED)
 	n.expirySweeper.Start(ctx)
+
+	// Start keyshare GC (delete shares superseded by quorum change / key refresh)
+	n.keyshareGC.Start(ctx)
 
 	n.logger.Info().
 		Str("peer_id", net.ID()).

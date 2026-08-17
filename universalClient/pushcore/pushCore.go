@@ -211,21 +211,23 @@ func (c *Client) GetCurrentKey(ctx context.Context) (*utsstypes.TssKey, error) {
 	)
 }
 
-// GetAllKeys retrieves the TSS key history from Push Chain, oldest first.
-func (c *Client) GetAllKeys(ctx context.Context) ([]*utsstypes.TssKey, error) {
+// GetKeyByID retrieves a single TSS key from the on-chain key history.
+// Returns an error if the key ID is not in the history.
+func (c *Client) GetKeyByID(ctx context.Context, keyID string) (*utsstypes.TssKey, error) {
 	return retryWithRoundRobin(
 		len(c.utssClients),
 		&c.rr,
-		func(idx int) ([]*utsstypes.TssKey, error) {
-			resp, err := c.utssClients[idx].AllKeys(ctx, &utsstypes.QueryAllKeysRequest{
-				Pagination: &query.PageRequest{Limit: 1000},
-			})
+		func(idx int) (*utsstypes.TssKey, error) {
+			resp, err := c.utssClients[idx].KeyById(ctx, &utsstypes.QueryKeyByIdRequest{KeyId: keyID})
 			if err != nil {
 				return nil, err
 			}
-			return resp.Keys, nil
+			if resp.Key == nil {
+				return nil, fmt.Errorf("pushcore: TSS key %s not found", keyID)
+			}
+			return resp.Key, nil
 		},
-		"GetAllKeys",
+		"GetKeyByID",
 		c.logger,
 	)
 }

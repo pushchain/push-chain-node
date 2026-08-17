@@ -41,7 +41,7 @@ func (m *mockStore) Delete(id string) error {
 
 type mockCore struct {
 	current    *utsstypes.TssKey
-	keys       []*utsstypes.TssKey
+	keys       map[string]*utsstypes.TssKey
 	pending    []*utsstypes.TssEvent
 	migrations []*utsstypes.FundMigration
 
@@ -51,8 +51,15 @@ type mockCore struct {
 func (m *mockCore) GetCurrentKey(context.Context) (*utsstypes.TssKey, error) {
 	return m.current, m.currentErr
 }
-func (m *mockCore) GetAllKeys(context.Context) ([]*utsstypes.TssKey, error) {
-	return m.keys, m.keysErr
+func (m *mockCore) GetKeyByID(_ context.Context, keyID string) (*utsstypes.TssKey, error) {
+	if m.keysErr != nil {
+		return nil, m.keysErr
+	}
+	k, ok := m.keys[keyID]
+	if !ok {
+		return nil, errors.New("key not found")
+	}
+	return k, nil
 }
 func (m *mockCore) GetPendingTssEvents(context.Context) ([]*utsstypes.TssEvent, error) {
 	return m.pending, m.pendingErr
@@ -70,10 +77,10 @@ func key(id, pubkey string) *utsstypes.TssKey {
 func baseCore() *mockCore {
 	return &mockCore{
 		current: key("K2", pubkeyA),
-		keys: []*utsstypes.TssKey{
-			key("K0", pubkeyB),
-			key("K1", pubkeyA),
-			key("K2", pubkeyA),
+		keys: map[string]*utsstypes.TssKey{
+			"K0": key("K0", pubkeyB),
+			"K1": key("K1", pubkeyA),
+			"K2": key("K2", pubkeyA),
 		},
 	}
 }
@@ -127,7 +134,7 @@ func TestSweep_KeepsUnknownKeyID(t *testing.T) {
 func TestSweep_FailsClosedOnRPCError(t *testing.T) {
 	cases := map[string]func(*mockCore){
 		"current key":     func(c *mockCore) { c.currentErr = errors.New("boom") },
-		"key history":     func(c *mockCore) { c.keysErr = errors.New("boom") },
+		"key lookup":      func(c *mockCore) { c.keysErr = errors.New("boom") },
 		"pending events":  func(c *mockCore) { c.pendingErr = errors.New("boom") },
 		"fund migrations": func(c *mockCore) { c.migErr = errors.New("boom") },
 	}
@@ -158,4 +165,11 @@ func TestSweep_ContinuesAfterDeleteError(t *testing.T) {
 func TestNewSweeper_DefaultInterval(t *testing.T) {
 	s := NewSweeper(Config{Keyshares: &mockStore{}, PushCore: baseCore(), Logger: zerolog.Nop()})
 	require.Equal(t, defaultCheckInterval, s.checkInterval)
+}
+
+// One unresolvable share must not block collection of the others; only the
+// shares we hold are looked up, so the unbounded key history is never paged.
+func TestSweep_StrayShareDoesNotBlockOthers(t *testing.T) {
+	store := sweepWith(t, &mockStore{ids: []string{"stray", "K1", "K2"}}, baseCore())
+	assert.Equal(t, []string{"K1"}, store.deleted)
 }

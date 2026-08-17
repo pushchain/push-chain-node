@@ -18,7 +18,7 @@ const defaultCheckInterval = 5 * time.Minute
 // Defined as an interface so tests can inject a mock. *pushcore.Client satisfies it.
 type PushCoreClient interface {
 	GetCurrentKey(ctx context.Context) (*utsstypes.TssKey, error)
-	GetAllKeys(ctx context.Context) ([]*utsstypes.TssKey, error)
+	GetKeyByID(ctx context.Context, keyID string) (*utsstypes.TssKey, error)
 	GetPendingTssEvents(ctx context.Context) ([]*utsstypes.TssEvent, error)
 	GetPendingFundMigrations(ctx context.Context) ([]*utsstypes.FundMigration, error)
 }
@@ -52,7 +52,9 @@ type Config struct {
 // indistinguishable from one with nothing to migrate.
 //
 // Every chain-state lookup fails closed: on error the sweep is skipped and
-// retried next tick rather than deleting on incomplete information.
+// retried next tick rather than deleting on incomplete information. Pubkeys are
+// resolved per held share rather than from the full key history, which grows
+// unbounded and would need paging.
 type Sweeper struct {
 	keyshares     KeyshareStore
 	pushCore      PushCoreClient
@@ -128,18 +130,6 @@ func (s *Sweeper) sweep(ctx context.Context) {
 		return
 	}
 
-	allKeys, err := s.pushCore.GetAllKeys(ctx)
-	if err != nil {
-		s.logger.Debug().Err(err).Msg("failed to get TSS key history, skipping sweep")
-		return
-	}
-	pubkeyByID := make(map[string]string, len(allKeys))
-	for _, k := range allKeys {
-		if k != nil {
-			pubkeyByID[k.KeyId] = k.TssPubkey
-		}
-	}
-
 	migrations, err := s.pushCore.GetPendingFundMigrations(ctx)
 	if err != nil {
 		s.logger.Debug().Err(err).Msg("failed to get pending fund migrations, skipping sweep")
@@ -154,11 +144,17 @@ func (s *Sweeper) sweep(ctx context.Context) {
 
 	deleted := 0
 	for _, id := range localIDs {
-		if id == current.KeyId {
+		if id == current.KeyId || migrating[id] {
 			continue
 		}
-		pubkey, known := pubkeyByID[id]
-		if !known || pubkey != current.TssPubkey || migrating[id] {
+		// Look up only the shares we hold; the on-chain key history is unbounded.
+		// Any lookup failure (unknown ID or transport error) keeps the share.
+		key, err := s.pushCore.GetKeyByID(ctx, id)
+		if err != nil || key == nil {
+			s.logger.Debug().Err(err).Str("key_id", id).Msg("cannot resolve keyshare on chain, keeping")
+			continue
+		}
+		if key.TssPubkey != current.TssPubkey {
 			continue
 		}
 		if err := s.keyshares.Delete(id); err != nil {

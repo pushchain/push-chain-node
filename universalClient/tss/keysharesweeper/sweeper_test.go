@@ -1,4 +1,4 @@
-package keysharegc
+package keysharesweeper
 
 import (
 	"context"

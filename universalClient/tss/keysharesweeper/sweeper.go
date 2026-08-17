@@ -1,7 +1,7 @@
 // Package keysharegc deletes keyshares that a quorum change or key refresh has
 // made redundant, so a departed or rotated-out share cannot be used to sign for
 // the live vault key.
-package keysharegc
+package keysharesweeper
 
 import (
 	"context"
@@ -12,7 +12,9 @@ import (
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 )
 
-const defaultCheckInterval = 5 * time.Minute
+// Quorum change and key refresh are rare, and a retained share is only a
+// concern over the long run, so sweeping hourly is ample.
+const defaultCheckInterval = time.Hour
 
 // PushCoreClient is the subset of pushcore.Client the sweeper depends on.
 // Defined as an interface so tests can inject a mock. *pushcore.Client satisfies it.
@@ -72,7 +74,7 @@ func NewSweeper(cfg Config) *Sweeper {
 		keyshares:     cfg.Keyshares,
 		pushCore:      cfg.PushCore,
 		checkInterval: interval,
-		logger:        cfg.Logger.With().Str("component", "keyshare_gc").Logger(),
+		logger:        cfg.Logger.With().Str("component", "keyshare_sweeper").Logger(),
 	}
 }
 

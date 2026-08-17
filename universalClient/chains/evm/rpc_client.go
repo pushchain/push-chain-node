@@ -197,11 +197,10 @@ func (rc *RPCClient) FilterLogs(ctx context.Context, query ethereum.FilterQuery)
 // Receipt holds the transaction-receipt fields the universal client needs,
 // including the OP-Stack L1 data fee that go-ethereum's typed receipt omits.
 type Receipt struct {
-	Status            uint64
-	BlockNumber       uint64
-	GasUsed           uint64
-	EffectiveGasPrice *big.Int
-	L1Fee             *big.Int // OP-Stack L1 data fee; 0 on non-OP chains
+	Status      uint64
+	BlockNumber uint64
+	GasUsed     uint64
+	L1Fee       *big.Int // OP-Stack L1 data fee; 0 on non-OP chains
 }
 
 // GetTransactionReceipt fetches a transaction receipt in a single raw call,
@@ -209,11 +208,10 @@ type Receipt struct {
 // if the tx is not found (receipt is null).
 func (rc *RPCClient) GetTransactionReceipt(ctx context.Context, txHash ethcommon.Hash) (*Receipt, error) {
 	var raw struct {
-		Status            *hexutil.Uint64 `json:"status"`
-		BlockNumber       *hexutil.Big    `json:"blockNumber"`
-		GasUsed           *hexutil.Uint64 `json:"gasUsed"`
-		EffectiveGasPrice *hexutil.Big    `json:"effectiveGasPrice"`
-		L1Fee             *hexutil.Big    `json:"l1Fee"`
+		Status      *hexutil.Uint64 `json:"status"`
+		BlockNumber *hexutil.Big    `json:"blockNumber"`
+		GasUsed     *hexutil.Uint64 `json:"gasUsed"`
+		L1Fee       *hexutil.Big    `json:"l1Fee"`
 	}
 	err := rc.executeWithFailover(ctx, "get_transaction_receipt", func(client *ethclient.Client) error {
 		return client.Client().CallContext(ctx, &raw, "eth_getTransactionReceipt", txHash)
@@ -225,18 +223,14 @@ func (rc *RPCClient) GetTransactionReceipt(ctx context.Context, txHash ethcommon
 		return nil, nil // not found
 	}
 	r := &Receipt{
-		GasUsed:           uint64(*raw.GasUsed),
-		EffectiveGasPrice: big.NewInt(0),
-		L1Fee:             big.NewInt(0),
+		GasUsed: uint64(*raw.GasUsed),
+		L1Fee:   big.NewInt(0),
 	}
 	if raw.Status != nil {
 		r.Status = uint64(*raw.Status)
 	}
 	if raw.BlockNumber != nil {
 		r.BlockNumber = (*big.Int)(raw.BlockNumber).Uint64()
-	}
-	if raw.EffectiveGasPrice != nil {
-		r.EffectiveGasPrice = (*big.Int)(raw.EffectiveGasPrice)
 	}
 	if raw.L1Fee != nil {
 		r.L1Fee = (*big.Int)(raw.L1Fee)

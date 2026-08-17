@@ -249,12 +249,12 @@ func (tb *TxBuilder) BroadcastOutboundSigningRequest(
 // VerifyBroadcastedTx checks the status of a broadcasted transaction on the EVM chain.
 func (tb *TxBuilder) VerifyBroadcastedTx(ctx context.Context, txHash string) (found bool, blockHeight uint64, confirmations uint64, status uint8, err error) {
 	hash := ethcommon.HexToHash(txHash)
-	receipt, err := tb.rpcClient.GetTransactionReceipt(ctx, hash)
-	if err != nil {
+	receipt, err := tb.rpcClient.GetReceipt(ctx, hash)
+	if err != nil || receipt == nil {
 		return false, 0, 0, 0, nil
 	}
 
-	receiptBlock := receipt.BlockNumber.Uint64()
+	receiptBlock := receipt.BlockNumber
 
 	var confs uint64
 	latestBlock, err := tb.rpcClient.GetLatestBlock(ctx)
@@ -453,11 +453,11 @@ func (tb *TxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, 
 // L2 execution (gasUsed * effectiveGasPrice) plus the OP-Stack L1 data fee
 // (0 on non-OP chains). Returns "0" if not found.
 func (tb *TxBuilder) GetGasFeeUsed(ctx context.Context, txHash string) (string, error) {
-	fee, err := tb.rpcClient.GetReceiptGasFee(ctx, ethcommon.HexToHash(txHash))
-	if err != nil {
+	receipt, err := tb.rpcClient.GetReceipt(ctx, ethcommon.HexToHash(txHash))
+	if err != nil || receipt == nil {
 		return "0", nil
 	}
-	return fee.String(), nil
+	return receipt.GasFee().String(), nil
 }
 
 // GetFundMigrationSigningRequest builds a native token transfer for fund migration,

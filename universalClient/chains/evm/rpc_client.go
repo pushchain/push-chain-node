@@ -194,23 +194,30 @@ func (rc *RPCClient) FilterLogs(ctx context.Context, query ethereum.FilterQuery)
 	return logs, err
 }
 
-// GetTransactionReceipt fetches a transaction receipt
-func (rc *RPCClient) GetTransactionReceipt(ctx context.Context, txHash ethcommon.Hash) (*types.Receipt, error) {
-	var receipt *types.Receipt
-	err := rc.executeWithFailover(ctx, "get_transaction_receipt", func(client *ethclient.Client) error {
-		var innerErr error
-		receipt, innerErr = client.TransactionReceipt(ctx, txHash)
-		return innerErr
-	})
-	return receipt, err
+// Receipt holds the transaction-receipt fields the universal client needs,
+// including the OP-Stack L1 data fee that go-ethereum's typed receipt omits.
+type Receipt struct {
+	Status            uint64
+	BlockNumber       uint64
+	GasUsed           uint64
+	EffectiveGasPrice *big.Int
+	L1Fee             *big.Int // OP-Stack L1 data fee; 0 on non-OP chains
 }
 
-// GetReceiptGasFee returns the full destination cost of an included transaction
-// from a single receipt read: L2 execution (gasUsed * effectiveGasPrice) plus the
-// OP-Stack L1 data fee (l1Fee, 0 on non-OP chains). Returns 0 if the tx is not
-// found or the receipt lacks the required fields.
-func (rc *RPCClient) GetReceiptGasFee(ctx context.Context, txHash ethcommon.Hash) (*big.Int, error) {
+// GasFee returns the full destination cost of the transaction: L2 execution
+// (gasUsed * effectiveGasPrice) plus the OP-Stack L1 data fee.
+func (r *Receipt) GasFee() *big.Int {
+	fee := new(big.Int).Mul(new(big.Int).SetUint64(r.GasUsed), r.EffectiveGasPrice)
+	return fee.Add(fee, r.L1Fee)
+}
+
+// GetReceipt fetches a transaction receipt in a single raw call, reading the
+// OP-Stack l1Fee alongside the standard fields. Returns (nil, nil) if the tx is
+// not found (receipt is null).
+func (rc *RPCClient) GetReceipt(ctx context.Context, txHash ethcommon.Hash) (*Receipt, error) {
 	var raw struct {
+		Status            *hexutil.Uint64 `json:"status"`
+		BlockNumber       *hexutil.Big    `json:"blockNumber"`
 		GasUsed           *hexutil.Uint64 `json:"gasUsed"`
 		EffectiveGasPrice *hexutil.Big    `json:"effectiveGasPrice"`
 		L1Fee             *hexutil.Big    `json:"l1Fee"`
@@ -221,14 +228,27 @@ func (rc *RPCClient) GetReceiptGasFee(ctx context.Context, txHash ethcommon.Hash
 	if err != nil {
 		return nil, err
 	}
-	if raw.GasUsed == nil || raw.EffectiveGasPrice == nil {
-		return big.NewInt(0), nil
+	if raw.GasUsed == nil {
+		return nil, nil // not found
 	}
-	fee := new(big.Int).Mul(new(big.Int).SetUint64(uint64(*raw.GasUsed)), (*big.Int)(raw.EffectiveGasPrice))
+	r := &Receipt{
+		GasUsed:           uint64(*raw.GasUsed),
+		EffectiveGasPrice: big.NewInt(0),
+		L1Fee:             big.NewInt(0),
+	}
+	if raw.Status != nil {
+		r.Status = uint64(*raw.Status)
+	}
+	if raw.BlockNumber != nil {
+		r.BlockNumber = (*big.Int)(raw.BlockNumber).Uint64()
+	}
+	if raw.EffectiveGasPrice != nil {
+		r.EffectiveGasPrice = (*big.Int)(raw.EffectiveGasPrice)
+	}
 	if raw.L1Fee != nil {
-		fee.Add(fee, (*big.Int)(raw.L1Fee))
+		r.L1Fee = (*big.Int)(raw.L1Fee)
 	}
-	return fee, nil
+	return r, nil
 }
 
 // GetTransactionByHash returns a transaction by its hash.

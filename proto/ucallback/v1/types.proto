@@ -155,4 +155,12 @@ message UniversalRead {
   // paths from the EVM result, so it is identical on every node — this is our own
   // execution outcome, not a validator's observation, and it never touches a ballot.
   string error_msg = 7;
+
+  // How many times the sweeper has called expireExternalRead for this read.
+  //
+  // An explicit counter rather than len(pc_tx): pc_tx accumulates every EVM attempt
+  // on the request, including a failed fulfilment that left it in flight, so
+  // counting entries would silently shorten the retry budget for exactly the reads
+  // that already had trouble.
+  uint32 expiry_attempts = 8;
 }

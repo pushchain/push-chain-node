@@ -249,7 +249,7 @@ func (tb *TxBuilder) BroadcastOutboundSigningRequest(
 // VerifyBroadcastedTx checks the status of a broadcasted transaction on the EVM chain.
 func (tb *TxBuilder) VerifyBroadcastedTx(ctx context.Context, txHash string) (found bool, blockHeight uint64, confirmations uint64, status uint8, err error) {
 	hash := ethcommon.HexToHash(txHash)
-	receipt, err := tb.rpcClient.GetReceipt(ctx, hash)
+	receipt, err := tb.rpcClient.GetTransactionReceipt(ctx, hash)
 	if err != nil || receipt == nil {
 		return false, 0, 0, 0, nil
 	}
@@ -453,11 +453,18 @@ func (tb *TxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, 
 // L2 execution (gasUsed * effectiveGasPrice) plus the OP-Stack L1 data fee
 // (0 on non-OP chains). Returns "0" if not found.
 func (tb *TxBuilder) GetGasFeeUsed(ctx context.Context, txHash string) (string, error) {
-	receipt, err := tb.rpcClient.GetReceipt(ctx, ethcommon.HexToHash(txHash))
+	receipt, err := tb.rpcClient.GetTransactionReceipt(ctx, ethcommon.HexToHash(txHash))
 	if err != nil || receipt == nil {
 		return "0", nil
 	}
-	return receipt.GasFee().String(), nil
+	return receiptGasFee(receipt).String(), nil
+}
+
+// receiptGasFee returns the full destination cost of an included tx: L2 execution
+// (gasUsed * effectiveGasPrice) plus the OP-Stack L1 data fee.
+func receiptGasFee(r *Receipt) *big.Int {
+	fee := new(big.Int).Mul(new(big.Int).SetUint64(r.GasUsed), r.EffectiveGasPrice)
+	return fee.Add(fee, r.L1Fee)
 }
 
 // GetFundMigrationSigningRequest builds a native token transfer for fund migration,

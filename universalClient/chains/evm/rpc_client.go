@@ -204,17 +204,10 @@ type Receipt struct {
 	L1Fee             *big.Int // OP-Stack L1 data fee; 0 on non-OP chains
 }
 
-// GasFee returns the full destination cost of the transaction: L2 execution
-// (gasUsed * effectiveGasPrice) plus the OP-Stack L1 data fee.
-func (r *Receipt) GasFee() *big.Int {
-	fee := new(big.Int).Mul(new(big.Int).SetUint64(r.GasUsed), r.EffectiveGasPrice)
-	return fee.Add(fee, r.L1Fee)
-}
-
-// GetReceipt fetches a transaction receipt in a single raw call, reading the
-// OP-Stack l1Fee alongside the standard fields. Returns (nil, nil) if the tx is
-// not found (receipt is null).
-func (rc *RPCClient) GetReceipt(ctx context.Context, txHash ethcommon.Hash) (*Receipt, error) {
+// GetTransactionReceipt fetches a transaction receipt in a single raw call,
+// reading the OP-Stack l1Fee alongside the standard fields. Returns (nil, nil)
+// if the tx is not found (receipt is null).
+func (rc *RPCClient) GetTransactionReceipt(ctx context.Context, txHash ethcommon.Hash) (*Receipt, error) {
 	var raw struct {
 		Status            *hexutil.Uint64 `json:"status"`
 		BlockNumber       *hexutil.Big    `json:"blockNumber"`

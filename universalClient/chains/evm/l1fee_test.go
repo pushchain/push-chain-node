@@ -55,23 +55,23 @@ func TestReceiptGasFee(t *testing.T) {
 
 	t.Run("OP destination adds l1Fee", func(t *testing.T) {
 		rc := receiptRPC(t, receipt(`"l1Fee":"0x5208",`))
-		r, err := rc.GetReceipt(context.Background(), hash)
+		r, err := rc.GetTransactionReceipt(context.Background(), hash)
 		require.NoError(t, err)
 		require.NotNil(t, r)
-		assert.Equal(t, new(big.Int).Add(execFee, big.NewInt(0x5208)), r.GasFee())
+		assert.Equal(t, new(big.Int).Add(execFee, big.NewInt(0x5208)), receiptGasFee(r))
 	})
 
 	t.Run("non-OP destination is execution fee only", func(t *testing.T) {
 		rc := receiptRPC(t, receipt(``))
-		r, err := rc.GetReceipt(context.Background(), hash)
+		r, err := rc.GetTransactionReceipt(context.Background(), hash)
 		require.NoError(t, err)
 		require.NotNil(t, r)
-		assert.Equal(t, execFee, r.GasFee())
+		assert.Equal(t, execFee, receiptGasFee(r))
 	})
 
 	t.Run("missing receipt returns nil", func(t *testing.T) {
 		rc := receiptRPC(t, `null`)
-		r, err := rc.GetReceipt(context.Background(), hash)
+		r, err := rc.GetTransactionReceipt(context.Background(), hash)
 		require.NoError(t, err)
 		assert.Nil(t, r)
 	})

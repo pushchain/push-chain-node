@@ -138,7 +138,7 @@ func (ec *EventConfirmer) processPendingEvents(ctx context.Context) error {
 
 		// Get transaction receipt
 		hash := ethcommon.HexToHash(txHash)
-		receipt, err := ec.rpcClient.GetReceipt(ctx, hash)
+		receipt, err := ec.rpcClient.GetTransactionReceipt(ctx, hash)
 		if err != nil || receipt == nil {
 			// Transaction not found or not yet mined - skip
 			continue
@@ -166,7 +166,7 @@ func (ec *EventConfirmer) processPendingEvents(ctx context.Context) error {
 
 			// For outbound events, enrich with gas fee before confirming
 			if event.Type == store.EventTypeOutbound {
-				gasFeeUsed := receipt.GasFee().String()
+				gasFeeUsed := receiptGasFee(receipt).String()
 
 				// Unmarshal, set GasFeeUsed, re-marshal
 				var outboundEvent chaincommon.OutboundEvent

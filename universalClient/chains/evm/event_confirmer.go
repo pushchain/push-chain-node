@@ -166,16 +166,16 @@ func (ec *EventConfirmer) processPendingEvents(ctx context.Context) error {
 
 			// For outbound events, enrich with gas fee before confirming
 			if event.Type == store.EventTypeOutbound {
-				tx, _, txErr := ec.rpcClient.GetTransactionByHash(ctx, hash)
-				if txErr != nil {
+				if receipt.EffectiveGasPrice == nil {
+					// Receipt omitted effectiveGasPrice; skip rather than record a
+					// gas fee missing its L2 execution component. Retried next poll.
 					ec.logger.Warn().
-						Err(txErr).
 						Str("event_id", event.EventID).
 						Str("tx_hash", txHash).
-						Msg("failed to fetch transaction for gas fee, skipping confirmation")
+						Msg("receipt missing effectiveGasPrice, skipping confirmation")
 					continue
 				}
-				gasFeeUsedStr := gasFeeUsed(receipt.GasUsed, tx.GasPrice(), receipt.L1Fee).String()
+				gasFeeUsedStr := gasFeeUsed(receipt.GasUsed, receipt.EffectiveGasPrice, receipt.L1Fee).String()
 
 				// Unmarshal, set GasFeeUsed, re-marshal
 				var outboundEvent chaincommon.OutboundEvent

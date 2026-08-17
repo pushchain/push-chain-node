@@ -453,24 +453,17 @@ func (tb *TxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, 
 // L2 execution (gasUsed * effectiveGasPrice) plus the OP-Stack L1 data fee
 // (0 on non-OP chains). Returns "0" if not found.
 func (tb *TxBuilder) GetGasFeeUsed(ctx context.Context, txHash string) (string, error) {
-	hash := ethcommon.HexToHash(txHash)
-	receipt, err := tb.rpcClient.GetTransactionReceipt(ctx, hash)
-	if err != nil || receipt == nil {
+	receipt, err := tb.rpcClient.GetTransactionReceipt(ctx, ethcommon.HexToHash(txHash))
+	// EffectiveGasPrice nil means the receipt omitted it; return "0" rather than
+	// silently under-report the L2 execution fee as zero.
+	if err != nil || receipt == nil || receipt.EffectiveGasPrice == nil {
 		return "0", nil
 	}
-	tx, _, err := tb.rpcClient.GetTransactionByHash(ctx, hash)
-	if err != nil {
-		return "0", nil
-	}
-	gasPrice := tx.GasPrice()
-	if gasPrice == nil || gasPrice.Sign() == 0 {
-		return "0", nil
-	}
-	return gasFeeUsed(receipt.GasUsed, gasPrice, receipt.L1Fee).String(), nil
+	return gasFeeUsed(receipt.GasUsed, receipt.EffectiveGasPrice, receipt.L1Fee).String(), nil
 }
 
 // gasFeeUsed returns the full destination cost of an included tx: L2 execution
-// (gasUsed * gasPrice) plus the OP-Stack L1 data fee.
+// (gasUsed * effectiveGasPrice) plus the OP-Stack L1 data fee.
 func gasFeeUsed(gasUsed uint64, gasPrice, l1Fee *big.Int) *big.Int {
 	fee := new(big.Int).Mul(new(big.Int).SetUint64(gasUsed), gasPrice)
 	return fee.Add(fee, l1Fee)

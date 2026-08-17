@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -104,4 +105,66 @@ func TestGetTransactionReceipt_Fields(t *testing.T) {
 		assert.Nil(t, r.EffectiveGasPrice)
 		assert.Equal(t, int64(0), r.L1Fee.Int64())
 	})
+}
+
+// TestLive_GasFeeUsed exercises the real fetch + fee computation against public
+// RPCs for two known txs (one non-OP, one OP). Skipped by default; run with:
+//
+//	RUN_LIVE_RPC_TESTS=1 go test ./universalClient/chains/evm/ -run TestLive_GasFeeUsed -v
+func TestLive_GasFeeUsed(t *testing.T) {
+	if os.Getenv("RUN_LIVE_RPC_TESTS") != "1" {
+		t.Skip("set RUN_LIVE_RPC_TESTS=1 to run live RPC test")
+	}
+
+	cases := []struct {
+		name    string
+		rpcURL  string
+		chainID int64
+		txHash  string
+		wantFee string // gasUsed*effectiveGasPrice + l1Fee
+		wantL1  string
+	}{
+		{
+			name:    "Ethereum Sepolia (non-OP, l1Fee=0)",
+			rpcURL:  "https://ethereum-sepolia-rpc.publicnode.com",
+			chainID: 11155111,
+			txHash:  "0x489fb72d961e9bd69983fdaa52f0c9113705330f2e4bf4ac3fc46e1fb2977f08",
+			wantFee: "170830319373250",
+			wantL1:  "0",
+		},
+		{
+			name:    "Base Sepolia (OP, nonzero l1Fee)",
+			rpcURL:  "https://sepolia.base.org",
+			chainID: 84532,
+			txHash:  "0x7b961e5cfbb6f8ddced1a0694773290ddb0d32caaaf8494f850d7ad07ddc0c30",
+			wantFee: "1032488370864",
+			wantL1:  "14015970864",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rc, err := NewRPCClient([]string{tc.rpcURL}, tc.chainID, zerolog.Nop())
+			require.NoError(t, err)
+			defer rc.Close()
+
+			receipt, err := rc.GetTransactionReceipt(context.Background(), ethcommon.HexToHash(tc.txHash))
+			require.NoError(t, err)
+			require.NotNil(t, receipt, "tx not found on chain")
+			require.NotNil(t, receipt.EffectiveGasPrice, "receipt missing effectiveGasPrice")
+
+			fee := gasFeeUsed(receipt.GasUsed, receipt.EffectiveGasPrice, receipt.L1Fee)
+			t.Logf("gasUsed=%d effectiveGasPrice=%s l1Fee=%s => GasFeeUsed=%s",
+				receipt.GasUsed, receipt.EffectiveGasPrice, receipt.L1Fee, fee)
+
+			assert.Equal(t, tc.wantL1, receipt.L1Fee.String(), "l1Fee")
+			assert.Equal(t, tc.wantFee, fee.String(), "GasFeeUsed")
+
+			// Full path through the TxBuilder entrypoint.
+			tb := &TxBuilder{rpcClient: rc, chainIDInt: tc.chainID, logger: zerolog.Nop()}
+			got, err := tb.GetGasFeeUsed(context.Background(), tc.txHash)
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantFee, got)
+		})
+	}
 }

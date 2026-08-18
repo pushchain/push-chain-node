@@ -945,9 +945,9 @@ func (sm *SessionManager) verifyOutboundSigningRequest(ctx context.Context, even
 	// We only hard-reject on a definitive answer — warn and skip if we can't determine it.
 	if tssAddr, addrErr := sm.getTSSAddress(ctx); addrErr != nil {
 		sm.logger.Warn().Err(addrErr).Str("chain", chainID).Msg("cannot get TSS address for nonce check, skipping")
-	} else if finalizedNonce, nonceErr := builder.GetNextNonce(ctx, tssAddr, true /* useFinalized */); nonceErr != nil {
+	} else if finalizedNonce, ceilingBase, nonceErr := nonceBounds(ctx, builder, tssAddr); nonceErr != nil {
 		sm.logger.Warn().Err(nonceErr).Str("chain", chainID).Msg("cannot get finalized nonce for check, skipping")
-	} else if err := checkNonceInRange(req.Nonce, finalizedNonce, chainID); err != nil {
+	} else if err := checkNonceInRange(req.Nonce, finalizedNonce, ceilingBase, chainID); err != nil {
 		return err
 	}
 
@@ -976,26 +976,49 @@ func (sm *SessionManager) verifyOutboundSigningRequest(ctx context.Context, even
 	return nil
 }
 
-// maxNonceGap bounds how far above the finalized nonce a coordinator may assign.
-// An honest coordinator starts from the pending nonce and increments once per
-// event in a poll, both bounded by coordinator.PerChainCap, so the legitimate
-// ceiling is about 2x that. 4x leaves headroom while still rejecting a
-// far-future nonce, which would never mine and would freeze the outbound with
-// its PRC20 already burned.
-const maxNonceGap = 4 * coordinator.PerChainCap
+// maxNonceGap bounds how far above the ceiling base a coordinator may assign.
+// An honest coordinator starts at the pending nonce and increments at most
+// coordinator.PerChainCap times per poll, so pending+PerChainCap is the true
+// ceiling; 2x absorbs nonce skew between our RPC view and the coordinator's.
+//
+// The base is the pending nonce, not the finalized one: a BROADCASTED event no
+// longer counts toward the in-flight cap but still holds a nonce in the
+// mempool, so pending-minus-finalized grows while a chain is congested. Anchored
+// to finalized, any fixed gap would eventually reject honest coordinators.
+const maxNonceGap = 2 * coordinator.PerChainCap
 
 // checkNonceInRange rejects a coordinator-assigned nonce that is already
-// committed on chain or so far ahead it would never mine.
-func checkNonceInRange(assigned, finalized uint64, target string) error {
+// committed on chain, or so far ahead it would never mine — which would freeze
+// the outbound with its PRC20 already burned at the gateway.
+// ceilingBase is the pending nonce where available, else the finalized nonce.
+func checkNonceInRange(assigned, finalized, ceilingBase uint64, target string) error {
 	if assigned < finalized {
 		return fmt.Errorf("coordinator assigned nonce %d is below chain finalized nonce %d for %s — nonce already used on chain",
 			assigned, finalized, target)
 	}
-	if assigned > finalized+maxNonceGap {
-		return fmt.Errorf("coordinator assigned nonce %d exceeds finalized nonce %d by more than %d for %s — gap nonce would never mine",
-			assigned, finalized, maxNonceGap, target)
+	if ceilingBase < finalized {
+		ceilingBase = finalized
+	}
+	if assigned > ceilingBase+maxNonceGap {
+		return fmt.Errorf("coordinator assigned nonce %d exceeds nonce %d by more than %d for %s — gap nonce would never mine",
+			assigned, ceilingBase, maxNonceGap, target)
 	}
 	return nil
+}
+
+// nonceBounds returns the finalized nonce and the ceiling base for signer.
+// A failed pending lookup falls back to the finalized nonce, which is stricter
+// but never wrong; a failed finalized lookup is reported so the caller skips.
+func nonceBounds(ctx context.Context, builder common.TxBuilder, signer string) (finalized, ceilingBase uint64, err error) {
+	finalized, err = builder.GetNextNonce(ctx, signer, true /* useFinalized */)
+	if err != nil {
+		return 0, 0, err
+	}
+	pending, pErr := builder.GetNextNonce(ctx, signer, false /* pending */)
+	if pErr != nil || pending < finalized {
+		return finalized, finalized, nil
+	}
+	return finalized, pending, nil
 }
 
 // verifyFundMigrationSigningRequest validates the coordinator's fund migration signing request.
@@ -1042,9 +1065,9 @@ func (sm *SessionManager) verifyFundMigrationSigningRequest(ctx context.Context,
 	}
 
 	// Bound the coordinator's nonce on both sides for the old TSS address.
-	if finalizedNonce, nonceErr := builder.GetNextNonce(ctx, oldTSSAddr, true /* useFinalized */); nonceErr != nil {
+	if finalizedNonce, ceilingBase, nonceErr := nonceBounds(ctx, builder, oldTSSAddr); nonceErr != nil {
 		sm.logger.Warn().Err(nonceErr).Str("chain", migrationData.Chain).Msg("cannot get finalized nonce for old TSS, skipping nonce check")
-	} else if err := checkNonceInRange(req.Nonce, finalizedNonce, oldTSSAddr); err != nil {
+	} else if err := checkNonceInRange(req.Nonce, finalizedNonce, ceilingBase, oldTSSAddr); err != nil {
 		return err
 	}
 

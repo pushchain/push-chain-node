@@ -2,8 +2,6 @@ package types
 
 import (
 	"context"
-
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -49,17 +47,6 @@ type UValidatorKeeper interface {
 // to tell "already settled" from "try again". Leaving it off this interface makes
 // reaching for it a compile error rather than something a reviewer has to catch.
 type EVMKeeper interface {
-	DerivedEVMCall(
-		ctx sdk.Context,
-		abi abi.ABI,
-		from, contract common.Address,
-		value, gasLimit *big.Int,
-		commit, gasless, isModuleSender bool,
-		manualNonce *uint64,
-		method string,
-		args ...interface{},
-	) (*evmtypes.MsgEthereumTxResponse, error)
-
 	DerivedEVMCallWithData(
 		ctx sdk.Context,
 		from common.Address,

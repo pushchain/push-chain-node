@@ -8,16 +8,21 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 )
 
-// Method names on UniversalCallback. Both are module-gated: the contract admits
+// Method names on UniversalCallback. All are module-gated: the contract admits
 // only the x/ucallback module account as caller.
 const (
 	MethodFulfillExternalCallback = "fulfillExternalCallback"
-	MethodExpireExternalRead      = "expireExternalRead"
+
+	// MethodReportCallbackGas settles an EXECUTED request against the gas its
+	// callback consumed, and returns that figure clamped to the request's budget.
+	MethodReportCallbackGas = "reportCallbackGas"
+
+	MethodExpireExternalRead = "expireExternalRead"
 )
 
-// universalCallbackABI covers only the two module-gated entry points x/ucallback
-// calls. Transcribed from push-chain-core-contracts
-// src/UniversalCallback.sol:150 and :197.
+// universalCallbackABI covers only the module-gated entry points x/ucallback calls,
+// plus the custom errors it must tell apart. Transcribed from
+// push-chain-core-contracts src/UniversalCallback.sol and src/libraries/Errors.sol.
 //
 // Deliberately not the full contract ABI: everything else on UniversalCallback is
 // either user-facing or read-only, and a narrower fragment is one less thing to
@@ -28,12 +33,20 @@ const universalCallbackABI = `[
     "name": "fulfillExternalCallback",
     "stateMutability": "nonpayable",
     "inputs": [
-      {"name": "requestId",           "type": "uint256"},
-      {"name": "resultData",          "type": "bytes"},
-      {"name": "observedBlockHeight", "type": "uint64"},
-      {"name": "observedBlockHash",   "type": "bytes32"}
+      {"name": "requestId",  "type": "uint256"},
+      {"name": "resultData", "type": "bytes"}
     ],
     "outputs": []
+  },
+  {
+    "type": "function",
+    "name": "reportCallbackGas",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {"name": "requestId", "type": "uint256"},
+      {"name": "gasBurned", "type": "uint256"}
+    ],
+    "outputs": [{"name": "burned", "type": "uint256"}]
   },
   {
     "type": "function",
@@ -137,17 +150,22 @@ func (o CallOutcome) String() string {
 	}
 }
 
-// ClassifyCall maps a DerivedEVMCall result onto a CallOutcome.
+// ClassifyCall maps a DerivedEVMCallWithData result onto a CallOutcome.
 //
 // vmError distinguishes out-of-gas ("out of gas") from a revert ("execution
 // reverted"); revertData carries the custom error's 4-byte selector on a revert.
 // Both come straight off MsgEthereumTxResponse.
 func ClassifyCall(vmError string, revertData []byte, callErr error) CallOutcome {
-	if callErr != nil {
-		// No response at all — rejected before execution (intrinsic gas, dispatch).
-		return CallUnsettled
-	}
+	// vmError is checked before callErr on purpose. The EVM call returns BOTH a
+	// response and an error when the EVM reverts (call_evm.go:323 wraps res.Failed()
+	// in ErrVMExecution), so treating a non-nil error as "no response" would discard
+	// the revert data and make CallAlreadySettled unreachable.
 	if vmError == "" {
+		if callErr != nil {
+			// No execution at all — rejected before the EVM ran (intrinsic gas,
+			// nonce lookup, dispatch).
+			return CallUnsettled
+		}
 		return CallOK
 	}
 	if vmError == vm.ErrOutOfGas.Error() || vmError == vm.ErrCodeStoreOutOfGas.Error() {
@@ -215,3 +233,9 @@ func classifyStatusRevert(revertData []byte) CallOutcome {
 		return CallUnsettled
 	}
 }
+
+// CallerIsNotUCallbackModuleSelector exposes the access-control revert prefix so
+// tests can assert which revert a call produced. The contract pairs itself with a
+// single module address at construction; getting this wrong makes every callback
+// fail, so it is worth asserting against the real deployed bytecode.
+func CallerIsNotUCallbackModuleSelector() [4]byte { return errCallerIsNotUCallbackModule }

@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"math/big"
 
+	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/common"
 
+	pchaintypes "github.com/pushchain/push-chain-node/types"
 	"github.com/pushchain/push-chain-node/x/ucallback/types"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
@@ -63,22 +65,32 @@ func (k Keeper) callAsModule(
 		return nil, fmt.Errorf("failed to advance module account nonce: %w", err)
 	}
 
-	return k.evmKeeper.DerivedEVMCall(
+	data, err := callbackABI.Pack(method, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to pack %s: %w", method, err)
+	}
+
+	// DerivedEVMCallWithData, not the ABI-typed DerivedEVMCall wrapper: on a revert
+	// the wrapper returns (nil, err), throwing away the response — and with it
+	// res.Ret, the revert data. ClassifyCall reads that data to tell "already
+	// settled" from "try again", so routing through the wrapper would collapse every
+	// revert into CallUnsettled and make the distinction unreachable. This layer
+	// returns (res, err) together, which is what its own doc comment describes.
+	contract := universalCallbackAddress()
+	return k.evmKeeper.DerivedEVMCallWithData(
 		ctx,
-		callbackABI,
 		from,
-		universalCallbackAddress(),
+		&contract,
+		data,
+		true,  // commit
+		false, // not gasless — we want gas accounted in the receipt
+		true,  // isModuleSender
 		big.NewInt(0),
 		// nil gas limit — the callback's own budget is enforced by the contract
 		// (callbackGasLimit, capped at MAX_CALLBACK_GAS_LIMIT), so a limit here
 		// would only add a second ceiling that could cut the callback short.
 		nil,
-		true,  // commit
-		false, // not gasless — we want gas accounted in the receipt
-		true,  // isModuleSender
 		&nonce,
-		method,
-		args...,
 	)
 }
 
@@ -98,14 +110,8 @@ func (k Keeper) CallFulfillExternalCallback(
 		return nil, err
 	}
 
-	// bytes32 is a fixed-size array in the ABI; a short or absent hash must be
-	// left-padded rather than passed through as a variable-length slice.
-	var blockHash [32]byte
-	copy(blockHash[32-min(len(result.ObservedBlockHash), 32):], result.ObservedBlockHash)
-
 	k.Logger().Debug("EVM call: fulfillExternalCallback",
 		"request_id", requestID,
-		"observed_height", result.ObservedBlockHeight,
 		"result_len", len(result.ResultData),
 	)
 
@@ -113,8 +119,6 @@ func (k Keeper) CallFulfillExternalCallback(
 		types.MethodFulfillExternalCallback,
 		id,
 		result.ResultData,
-		result.ObservedBlockHeight,
-		blockHash,
 	)
 }
 
@@ -155,4 +159,100 @@ func pcTxFrom(ctx sdk.Context, sender string, res *evmtypes.MsgEthereumTxRespons
 		pcTx.ErrorMsg = callErr.Error()
 	}
 	return pcTx
+}
+
+// ErrBudgetTooSmall is recorded on a read whose callback budget cannot cover the
+// gas its app declared it needs. Fixed text, set by us from a deterministic
+// comparison — it never comes from a validator and never touches a ballot.
+const ErrBudgetTooSmall = "callback budget does not cover the declared callback gas limit"
+
+// CallbackCost prices a gas figure at the current base fee.
+//
+// Same valuation x/uexecutor applies to UEA execution, so a read and a payload
+// execution are charged alike.
+func (k Keeper) CallbackCost(ctx sdk.Context, gas uint64) (*big.Int, error) {
+	baseFee := k.feemarketKeeper.GetBaseFee(ctx)
+	if baseFee.IsNil() {
+		return nil, fmt.Errorf("base fee unavailable")
+	}
+	return new(big.Int).Mul(
+		new(big.Int).SetUint64(gas),
+		baseFee.TruncateInt().BigInt(),
+	), nil
+}
+
+// CanAffordCallback reports whether the request funded the gas it declared.
+//
+// All-or-nothing on purpose. Executing a partially funded callback would hand the
+// app less gas than it asked for, which almost certainly runs out anyway — the user
+// then pays for a doomed attempt instead of getting a full refund.
+func (k Keeper) CanAffordCallback(ctx sdk.Context, req *types.ReadRequest) (bool, error) {
+	if req == nil {
+		return false, fmt.Errorf("nil read request")
+	}
+	cost, err := k.CallbackCost(ctx, req.CallbackGasLimit)
+	if err != nil {
+		return false, err
+	}
+	budget, err := parseBudget(req.CallbackBudget)
+	if err != nil {
+		return false, err
+	}
+	return budget.Cmp(cost) >= 0, nil
+}
+
+// parseBudget reads a uint256 decimal string, treating empty as zero. Records
+// ingested before the fee split existed carry no budget, and an unfunded read is
+// the honest reading of that — not a malformed one.
+func parseBudget(s string) (*big.Int, error) {
+	if s == "" {
+		return big.NewInt(0), nil
+	}
+	v, ok := new(big.Int).SetString(s, 10)
+	if !ok {
+		return nil, fmt.Errorf("callback budget %q is not a decimal integer", s)
+	}
+	return v, nil
+}
+
+// CallReportCallbackGas settles an executed request, returning the amount the
+// contract clamped the report to.
+func (k Keeper) CallReportCallbackGas(
+	ctx sdk.Context, requestID string, cost *big.Int,
+) (*evmtypes.MsgEthereumTxResponse, error) {
+	id, err := requestIDToUint256(requestID)
+	if err != nil {
+		return nil, err
+	}
+	k.Logger().Debug("EVM call: reportCallbackGas", "request_id", requestID, "cost", cost.String())
+	return k.callAsModule(ctx, types.MethodReportCallbackGas, id, cost)
+}
+
+// TakeAndBurn moves the consumed callback budget out of UniversalCallback and
+// destroys it.
+//
+// No contract API is involved: a contract's balance is an ordinary bank balance, so
+// the module debits it directly — the same shape as x/uexecutor's DeductAndBurnFees.
+// reportCallbackGas has already released the refund and decremented totalEscrowed,
+// so `amount` is exactly the unattributed slack the contract left behind for us.
+func (k Keeper) TakeAndBurn(ctx sdk.Context, amount *big.Int) error {
+	if amount == nil || amount.Sign() <= 0 {
+		return nil
+	}
+	coins := sdk.NewCoins(sdk.NewCoin(
+		pchaintypes.BaseDenom, sdkmath.NewIntFromBigInt(amount),
+	))
+
+	contractAcc := sdk.AccAddress(universalCallbackAddress().Bytes())
+	if err := k.bankKeeper.SendCoinsFromAccountToModule(
+		ctx, contractAcc, types.ModuleName, coins,
+	); err != nil {
+		return fmt.Errorf("failed to take burned callback gas from the contract: %w", err)
+	}
+	if err := k.bankKeeper.BurnCoins(ctx, types.ModuleName, coins); err != nil {
+		return fmt.Errorf("failed to burn callback gas: %w", err)
+	}
+
+	k.Logger().Info("callback gas burned", "amount", amount.String())
+	return nil
 }

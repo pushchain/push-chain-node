@@ -131,22 +131,51 @@ func (k Keeper) VoteReadResult(
 	// Cache the vote so a failure partway through leaves no half-written ballot.
 	tmpCtx, commit := sdkCtx.CacheContext()
 
-	ballotKey, isFinalized, _, err := k.VoteOnReadBallot(
+	ballotKey, err := types.GetReadBallotKey(requestID, result)
+	if err != nil {
+		return false, err
+	}
+
+	// The record must carry this ballot key and observation BEFORE the vote is
+	// cast, not after.
+	//
+	// VoteOnBallot fires the terminal hook synchronously the moment this vote
+	// reaches quorum, and that hook finds the request BY ballot key and needs
+	// ur.Result to fulfil it. Writing them afterwards left the deciding vote
+	// looking at a record still pointing at whatever observation was voted
+	// previously — so the hook missed, and a read that had genuinely reached
+	// quorum sat in VOTING until the sweeper expired and refunded it. It also put
+	// this write after the hook's, clobbering FULFILLED back to VOTING.
+	//
+	// Until a ballot finalizes these two fields track whichever observation this
+	// validator's vote most recently landed on; quorum is what makes them binding.
+	ur.Status = types.UniversalReadStatus_UNIVERSAL_READ_STATUS_VOTING
+	ur.BallotKey = ballotKey
+	ur.Result = result
+	if err := k.SetUniversalRead(tmpCtx, ur); err != nil {
+		return false, err
+	}
+
+	_, isFinalized, _, err := k.VoteOnReadBallot(
 		tmpCtx, universalValidator, requestID, result, ur.Request.ExpiryBlockHeight)
 	if err != nil {
 		return false, err
 	}
 
-	// The record follows the ballot that reached quorum, not the first ballot
-	// opened. Until one finalizes, ballot_key points at whichever observation this
-	// validator's vote most recently landed on.
-	ur.Status = types.UniversalReadStatus_UNIVERSAL_READ_STATUS_VOTING
-	ur.BallotKey = ballotKey
-	if isFinalized {
-		ur.Result = result
-	}
-	if err := k.SetUniversalRead(tmpCtx, ur); err != nil {
-		return false, err
+	if !isFinalized {
+		// The observation was staged above only so the terminal hook could reach it.
+		// No ballot passed, so nothing is settled and the record must not imply a
+		// consensus that does not exist — a stored Result means quorum.
+		//
+		// Re-read rather than reusing `ur`: the vote may have driven some OTHER
+		// ballot terminal, and writing our stale copy back would undo that.
+		cur, found := k.GetUniversalRead(tmpCtx, requestID)
+		if found && !isSettled(cur.Status) {
+			cur.Result = nil
+			if err := k.SetUniversalRead(tmpCtx, cur); err != nil {
+				return false, err
+			}
+		}
 	}
 
 	commit()

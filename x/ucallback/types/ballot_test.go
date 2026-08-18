@@ -12,10 +12,8 @@ import (
 
 func result() *types.ReadResult {
 	return &types.ReadResult{
-		Status:              types.ReadStatus_READ_STATUS_SUCCESS,
-		ResultData:          []byte{0xde, 0xad},
-		ObservedBlockHeight: 8_000_000,
-		ObservedBlockHash:   []byte{0xbe, 0xef},
+		Status:     types.ReadStatus_READ_STATUS_SUCCESS,
+		ResultData: []byte{0xde, 0xad},
 	}
 }
 
@@ -37,10 +35,8 @@ func TestGetReadBallotKey_EveryFieldIsBinding(t *testing.T) {
 	base := keyOf(t, "0xaa", result())
 
 	for name, mutate := range map[string]func(*types.ReadResult){
-		"status":       func(r *types.ReadResult) { r.Status = types.ReadStatus_READ_STATUS_ERROR },
-		"result_data":  func(r *types.ReadResult) { r.ResultData = []byte{0x01} },
-		"block_height": func(r *types.ReadResult) { r.ObservedBlockHeight = 8_000_001 },
-		"block_hash":   func(r *types.ReadResult) { r.ObservedBlockHash = []byte{0x02} },
+		"status":      func(r *types.ReadResult) { r.Status = types.ReadStatus_READ_STATUS_ERROR },
+		"result_data": func(r *types.ReadResult) { r.ResultData = []byte{0x01} },
 	} {
 		t.Run(name, func(t *testing.T) {
 			r := result()
@@ -73,7 +69,6 @@ func TestGetReadBallotKey_FieldsCannotBleed(t *testing.T) {
 	a.ResultData = []byte("A:B")
 	b := result()
 	b.ResultData = []byte("A")
-	b.ObservedBlockHash = []byte("B")
 
 	require.NotEqual(t, keyOf(t, "0xaa", a), keyOf(t, "0xaa", b))
 }
@@ -133,24 +128,22 @@ func TestBallotExpiryAfterBlocks_NeverBornExpired(t *testing.T) {
 // same ERROR would split across ballots depending on how their client happened to
 // represent "no data". A placeholder byte must NOT be treated as empty.
 func TestGetReadBallotKey_EmptyBytesAreCanonical(t *testing.T) {
-	key := func(data, hash []byte) string {
+	key := func(data []byte) string {
 		k, err := types.GetReadBallotKey("0xaa", &types.ReadResult{
-			Status:            types.ReadStatus_READ_STATUS_ERROR,
-			ResultData:        data,
-			ObservedBlockHash: hash,
+			Status:     types.ReadStatus_READ_STATUS_ERROR,
+			ResultData: data,
 		})
 		require.NoError(t, err)
 		return k
 	}
 
-	canonical := key(nil, nil)
-	require.Equal(t, canonical, key([]byte{}, []byte{}), "empty slice == nil")
-	require.Equal(t, canonical, key(nil, []byte{}), "mixed nil/empty == nil")
-	require.Equal(t, canonical, key([]byte(""), nil), `[]byte("") == nil`)
+	canonical := key(nil)
+	require.Equal(t, canonical, key([]byte{}), "empty slice == nil")
+	require.Equal(t, canonical, key([]byte("")), `[]byte("") == nil`)
 
 	// A single zero byte is data, not absence — a validator that zero-fills would
 	// land on its own ballot and quorum would never form.
-	require.NotEqual(t, canonical, key([]byte{0x00}, nil),
+	require.NotEqual(t, canonical, key([]byte{0x00}),
 		"a placeholder byte must not be mistaken for empty")
 }
 
@@ -184,16 +177,12 @@ func TestGetReadBallotKey_ErrorCodeIsBinding(t *testing.T) {
 // at submission, so an operator sees an error instead of a ballot that silently
 // never reaches quorum.
 func TestValidateReadResult(t *testing.T) {
-	ok32 := make([]byte, 32)
 
 	for name, tc := range map[string]struct {
 		result *types.ReadResult
 		valid  bool
 	}{
 		"success": {&types.ReadResult{
-			Status: types.ReadStatus_READ_STATUS_SUCCESS, ResultData: []byte{1},
-			ObservedBlockHash: ok32}, true},
-		"success, no hash": {&types.ReadResult{
 			Status: types.ReadStatus_READ_STATUS_SUCCESS, ResultData: []byte{1}}, true},
 		"success, empty data": {&types.ReadResult{
 			Status: types.ReadStatus_READ_STATUS_SUCCESS}, true},
@@ -210,10 +199,6 @@ func TestValidateReadResult(t *testing.T) {
 			ErrorCode: types.ReadErrorCode_READ_ERROR_REVERTED}, false},
 		"error carrying result data": {&types.ReadResult{
 			Status: types.ReadStatus_READ_STATUS_ERROR, ResultData: []byte{1}}, false},
-		"short hash": {&types.ReadResult{
-			Status: types.ReadStatus_READ_STATUS_SUCCESS, ObservedBlockHash: []byte{0xbe}}, false},
-		"long hash": {&types.ReadResult{
-			Status: types.ReadStatus_READ_STATUS_SUCCESS, ObservedBlockHash: make([]byte, 33)}, false},
 		"v1 aggregates": {&types.ReadResult{
 			Status:     types.ReadStatus_READ_STATUS_SUCCESS,
 			Aggregates: []*types.AggregateValue{{Mode: 1}}}, false},
@@ -314,4 +299,29 @@ func TestClassifyCall_InvalidRequestStatus(t *testing.T) {
 	// undecodable args must fall to the safe side
 	require.Equal(t, types.CallUnsettled,
 		types.ClassifyCall("execution reverted", selector, nil))
+}
+
+// DerivedEVMCall returns a response AND an error when the EVM reverts, so
+// classification must read vmError before callErr. Checking the error first would
+// discard the revert data and make CallAlreadySettled unreachable in production —
+// every revert would look like "nothing settled".
+func TestClassifyCall_RevertCarriesBothResponseAndError(t *testing.T) {
+	sel := func(sig string) []byte { return crypto.Keccak256([]byte(sig))[:4] }
+	wrapped := errors.New("failed to execute message; message index: 0: execution reverted")
+
+	settled := append(sel("InvalidRequestStatus(uint256,uint8,uint8)"),
+		make([]byte, 96)...)
+	settled[4+63] = 3 // actual = SETTLED
+	settled[4+95] = 1 // expected = PENDING
+
+	require.Equal(t, types.CallAlreadySettled,
+		types.ClassifyCall("execution reverted", settled, wrapped),
+		"an accompanying error must not mask the revert reason")
+
+	require.Equal(t, types.CallOutOfGas,
+		types.ClassifyCall("out of gas", nil, wrapped))
+
+	// only a revert-free failure is a true no-execution case
+	require.Equal(t, types.CallUnsettled,
+		types.ClassifyCall("", nil, wrapped))
 }

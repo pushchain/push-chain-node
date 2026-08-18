@@ -95,8 +95,6 @@ func readResultFields(r *ReadResult) []string {
 		fmt.Sprintf("%d", int32(r.Status)),
 		fmt.Sprintf("%d", int32(r.ErrorCode)),
 		hex.EncodeToString(r.ResultData),
-		fmt.Sprintf("%d", r.ObservedBlockHeight),
-		hex.EncodeToString(r.ObservedBlockHash),
 	}
 }
 
@@ -143,10 +141,6 @@ func ValidateReadResult(r *ReadResult) error {
 
 	default:
 		return fmt.Errorf("read status %s is not a valid observation", r.Status)
-	}
-
-	if len(r.ObservedBlockHash) != 0 && len(r.ObservedBlockHash) != 32 {
-		return fmt.Errorf("observed block hash must be empty or 32 bytes, got %d", len(r.ObservedBlockHash))
 	}
 
 	// Reserved for v2 MEDIAN; a v1 validator populating it is running code this

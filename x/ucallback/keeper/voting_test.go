@@ -9,19 +9,10 @@ import (
 	"github.com/pushchain/push-chain-node/x/ucallback/types"
 )
 
-// blockHash builds a realistic 32-byte hash; the vote path rejects anything else.
-func blockHash(tag byte) []byte {
-	h := make([]byte, 32)
-	h[31] = tag
-	return h
-}
-
 func obs(data byte) *types.ReadResult {
 	return &types.ReadResult{
-		Status:              types.ReadStatus_READ_STATUS_SUCCESS,
-		ResultData:          []byte{data},
-		ObservedBlockHeight: 8_000_000,
-		ObservedBlockHash:   blockHash(0xef),
+		Status:     types.ReadStatus_READ_STATUS_SUCCESS,
+		ResultData: []byte{data},
 	}
 }
 
@@ -359,8 +350,6 @@ func TestVoteReadResult_RejectsInvalidObservations(t *testing.T) {
 			ErrorCode: types.ReadErrorCode_READ_ERROR_REVERTED},
 		"error with data": {
 			Status: types.ReadStatus_READ_STATUS_ERROR, ResultData: []byte{1}},
-		"short hash": {
-			Status: types.ReadStatus_READ_STATUS_SUCCESS, ObservedBlockHash: []byte{0xbe}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, err := f.k.VoteReadResult(f.ctx, v[0], "0xaa", bad)

@@ -4,7 +4,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
@@ -27,33 +26,14 @@ type spec struct {
 	BlockNumber           uint64
 	ExpiryPushChainHeight uint64
 	MaxFee                *big.Int
-}
-
-func readSpecArgs(t *testing.T) abi.Arguments {
-	t.Helper()
-	specType, err := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
-		{Name: "account", Type: "tuple", Components: []abi.ArgumentMarshaling{
-			{Name: "chainNamespace", Type: "string"},
-			{Name: "chainId", Type: "string"},
-			{Name: "owner", Type: "bytes"},
-		}},
-		{Name: "query", Type: "bytes"},
-		{Name: "minConfirmations", Type: "uint16"},
-		{Name: "blockNumber", Type: "uint64"},
-		{Name: "expiryPushChainHeight", Type: "uint64"},
-		{Name: "maxFee", Type: "uint256"},
-	})
-	require.NoError(t, err)
-	u256, err := abi.NewType("uint256", "", nil)
-	require.NoError(t, err)
-	return abi.Arguments{{Type: specType}, {Type: u256}}
+	RevertRecipient       common.Address
 }
 
 // readLog builds a well-formed ReadRequested log emitted by the real system
 // contract address.
 func readLog(t *testing.T, requestID string, expiry uint64, index uint64) *evmtypes.Log {
 	t.Helper()
-	data, err := readSpecArgs(t).Pack(spec{
+	data, err := types.ReadRequestedEventInputs().NonIndexed().Pack(spec{
 		Account: acct{
 			ChainNamespace: "eip155",
 			ChainId:        "11155111",
@@ -64,7 +44,15 @@ func readLog(t *testing.T, requestID string, expiry uint64, index uint64) *evmty
 		BlockNumber:           8_000_000,
 		ExpiryPushChainHeight: expiry,
 		MaxFee:                big.NewInt(7),
-	}, big.NewInt(99))
+		RevertRecipient:       common.HexToAddress("0x4444444444444444444444444444444444444444"),
+	},
+		// order follows the event, not intuition: callbackGasLimit precedes the
+		// three amounts. Packing through ReadRequestedEventInputs keeps this honest.
+		uint64(250_000), // callbackGasLimit
+		big.NewInt(99),  // totalPaid
+		big.NewInt(60),  // protocolFee
+		big.NewInt(39),  // callbackBudget
+	)
 	require.NoError(t, err)
 
 	return &evmtypes.Log{
@@ -105,8 +93,14 @@ func TestIngestReadRequests_RecordsPendingRead(t *testing.T) {
 	require.Equal(t, uint64(4242), r.CreatedAtHeight, "taken from the block, not the event")
 	require.Equal(t, "0xTX", r.RequestedTxHash)
 	require.Equal(t, uint64(3), r.RequestedLogIndex)
-	require.Equal(t, "99", r.FeesDeposited)
+	require.Equal(t, "99", r.FeesDeposited, "total paid")
 	require.Equal(t, "7", r.MaxFee)
+
+	// the fee split arrives intact, and the parts reconstitute the whole
+	require.Equal(t, "60", r.ProtocolFee)
+	require.Equal(t, "39", r.CallbackBudget)
+	require.Equal(t, uint64(250_000), r.CallbackGasLimit)
+	require.Equal(t, "0x4444444444444444444444444444444444444444", r.RevertRecipient)
 }
 
 // The address filter is the whole trust boundary: topic0 alone is forgeable by

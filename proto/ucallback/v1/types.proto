@@ -73,24 +73,40 @@ message ReadRequest {
   // Bookkeeping — recorded for operators, not consumed by universal validators.
   string callback_target           = 9;  // the app contract the callback routes to
   string original_funder           = 10; // who paid the fee (the app, not the end user)
-  string fees_deposited            = 11; // uint256 as a decimal string
+  string fees_deposited            = 11; // total msg.value paid, uint256 decimal string
   string max_fee                   = 12; // uint256 as a decimal string
   string requested_tx_hash         = 13; // Push Chain tx that emitted ReadRequested
   uint64 requested_log_index       = 14; // log index within that tx
+
+  // Fee split, taken from ReadRequested. protocol_fee is already in VaultPC by the
+  // time we see the log; only callback_budget is still escrowed on the contract.
+  string protocol_fee              = 15; // uint256 decimal string
+  string callback_budget           = 16; // uint256 decimal string — funds the callback
+
+  // Gas ceiling the app declared for its own callback. The contract caps the inner
+  // call at this; we size the fulfil transaction from it.
+  uint64 callback_gas_limit        = 17;
+
+  // Where an unspent budget is refunded. From ReadSpec, not necessarily the funder.
+  string revert_recipient          = 18;
 }
 
 // ReadResult is the observation a universal validator votes on.
 //
-// Fields 1-4 are covered by the ballot key, so they must be byte-identical across
-// validators for a ballot to converge. There is deliberately no error message field:
-// local error text differs per node and would prevent agreement.
+// Every field here is covered by the ballot key, so they must be byte-identical
+// across validators for a ballot to converge. There is deliberately no error message
+// field: local error text differs per node and would prevent agreement.
 message ReadResult {
   option (gogoproto.equal) = true;
 
-  ReadStatus status               = 1;
-  bytes      result_data          = 2; // ABI-encoded payload delivered to the app
-  uint64     observed_block_height = 3; // block number (EVM) or slot (SVM); 0 for web2
-  bytes      observed_block_hash   = 4; // 32 bytes; empty when the chain cannot pin one
+  // 3 and 4 were observed_block_height and observed_block_hash. UniversalCallback
+  // does not take them and nothing else consumed them, so they are gone rather than
+  // carried as dead weight through the ballot key.
+  reserved 3, 4;
+  reserved "observed_block_height", "observed_block_hash";
+
+  ReadStatus status      = 1;
+  bytes      result_data = 2; // ABI-encoded payload delivered to the app
 
   // v2 ONLY — always empty in v1. See AggregateValue.
   repeated AggregateValue aggregates = 5;

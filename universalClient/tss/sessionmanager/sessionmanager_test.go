@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"reflect"
@@ -1399,5 +1400,56 @@ func TestCheckNonceInRange(t *testing.T) {
 	// SVM reports 0 from GetNextNonce and signs nonce 0; it must not be rejected.
 	t.Run("zero nonce on a nonce-less chain is accepted", func(t *testing.T) {
 		require.NoError(t, checkNonceInRange(0, 0, 0, "solana:devnet"))
+	})
+}
+
+// nonceBuilder is a partial TxBuilder: only GetNextNonce is implemented, so any
+// other call panics loudly rather than silently returning a zero value.
+type nonceBuilder struct {
+	common.TxBuilder
+	finalized, pending       uint64
+	finalizedErr, pendingErr error
+}
+
+func (b *nonceBuilder) GetNextNonce(_ context.Context, _ string, useFinalized bool) (uint64, error) {
+	if useFinalized {
+		return b.finalized, b.finalizedErr
+	}
+	return b.pending, b.pendingErr
+}
+
+func TestNonceBounds(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("pending above finalized becomes the ceiling base", func(t *testing.T) {
+		fin, base, err := nonceBounds(ctx, &nonceBuilder{finalized: 100, pending: 140}, "0xtss")
+		require.NoError(t, err)
+		assert.Equal(t, uint64(100), fin)
+		assert.Equal(t, uint64(140), base)
+	})
+
+	// Falling back to finalized is stricter, never wrong.
+	t.Run("pending lookup failure falls back to finalized", func(t *testing.T) {
+		fin, base, err := nonceBounds(ctx, &nonceBuilder{
+			finalized:  100,
+			pendingErr: errors.New("rpc down"),
+		}, "0xtss")
+		require.NoError(t, err)
+		assert.Equal(t, uint64(100), fin)
+		assert.Equal(t, uint64(100), base)
+	})
+
+	// A stale pending read must never lower the ceiling below finalized.
+	t.Run("pending below finalized falls back to finalized", func(t *testing.T) {
+		fin, base, err := nonceBounds(ctx, &nonceBuilder{finalized: 100, pending: 60}, "0xtss")
+		require.NoError(t, err)
+		assert.Equal(t, uint64(100), fin)
+		assert.Equal(t, uint64(100), base)
+	})
+
+	// Callers skip the nonce check entirely when finalized is unavailable.
+	t.Run("finalized lookup failure errors", func(t *testing.T) {
+		_, _, err := nonceBounds(ctx, &nonceBuilder{finalizedErr: errors.New("rpc down")}, "0xtss")
+		require.Error(t, err)
 	})
 }

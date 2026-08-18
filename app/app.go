@@ -686,22 +686,6 @@ func NewChainApp(
 	// If evidence needs to be handled for the app, set routes in router here and seal
 	app.EvidenceKeeper = *evidenceKeeper
 
-	// Create the ucallback Keeper.
-	//
-	// UvalidatorKeeper and FeeMarketKeeper are constructed further down, so these
-	// take a pointer to the field rather than its value.
-	app.UcallbackKeeper = ucallbackkeeper.NewKeeper(
-		appCodec,
-		runtime.NewKVStoreService(keys[ucallbacktypes.StoreKey]),
-		logger,
-		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
-		&app.UvalidatorKeeper,
-		app.EVMKeeper,
-		app.AccountKeeper,
-		app.BankKeeper,
-		&app.FeeMarketKeeper,
-	)
-
 	app.FeeMarketKeeper = feemarketkeeper.NewKeeper(
 		appCodec,
 		authtypes.NewModuleAddress(govtypes.ModuleName),
@@ -760,6 +744,25 @@ func NewChainApp(
 		app.AccountKeeper,
 		app.UregistryKeeper,
 		&app.UvalidatorKeeper,
+	)
+
+	// Create the ucallback Keeper.
+	//
+	// Constructed here, after app.EVMKeeper and app.FeeMarketKeeper exist, rather
+	// than earlier with the other keepers. app.EVMKeeper is a *evmkeeper.Keeper:
+	// passing it before line ~718 hands over a nil pointer that still satisfies the
+	// interface, so every DerivedEVMCall panics on the first fulfilment instead of
+	// failing at startup. UvalidatorKeeper is still built below, hence the pointer.
+	app.UcallbackKeeper = ucallbackkeeper.NewKeeper(
+		appCodec,
+		runtime.NewKVStoreService(keys[ucallbacktypes.StoreKey]),
+		logger,
+		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+		&app.UvalidatorKeeper,
+		app.EVMKeeper,
+		app.AccountKeeper,
+		app.BankKeeper,
+		app.FeeMarketKeeper,
 	)
 
 	// Create the uvalidator Keeper

@@ -2756,3 +2756,45 @@ func TestIsNativeAsset(t *testing.T) {
 		assert.False(t, isNativeAsset("0x1234"))
 	})
 }
+
+// Core sent the base58 marker before switching to the EVM zero, so both forms
+// are live: withdrawals carry the zero hex and reverts still carry base58. Both
+// must build the identical native account layout, with no recipient ATA.
+func TestNativeMarkerFormsBuildIdenticalAccounts(t *testing.T) {
+	builder := newTestBuilder(t)
+
+	caller := solana.NewWallet().PublicKey()
+	config := solana.NewWallet().PublicKey()
+	vault := solana.NewWallet().PublicKey()
+	cea := solana.NewWallet().PublicKey()
+	tss := solana.NewWallet().PublicKey()
+	executed := solana.NewWallet().PublicKey()
+	recipient := solana.NewWallet().PublicKey()
+
+	build := func(t *testing.T, assetAddr string) []*solana.AccountMeta {
+		t.Helper()
+		isNative := isNativeAsset(assetAddr)
+		require.True(t, isNative, "asset %q must classify as native", assetAddr)
+		return builder.buildWithdrawAndExecuteAccounts(
+			caller, config, vault, cea, tss, executed,
+			solana.SystemProgramID,
+			isNative, 1,
+			recipient, solana.PublicKey{},
+			nil,
+			solana.PublicKey{}, solana.PublicKey{},
+		)
+	}
+
+	withdrawForm := build(t, "0x0000000000000000000000000000000000000000")
+	revertForm := build(t, "11111111111111111111111111111111")
+
+	assert.Equal(t, withdrawForm, revertForm,
+		"revert-form native SOL must build the same accounts as withdraw-form")
+
+	// The old bug took the SPL path and derived an ATA for a non-mint.
+	ata, _, err := solana.FindAssociatedTokenAddress(recipient, solana.SystemProgramID)
+	require.NoError(t, err)
+	for _, acc := range revertForm {
+		assert.NotEqual(t, ata, acc.PublicKey, "native layout must not include a recipient ATA")
+	}
+}

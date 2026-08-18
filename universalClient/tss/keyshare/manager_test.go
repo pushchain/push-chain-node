@@ -516,3 +516,133 @@ func TestManager_EncryptDecrypt(t *testing.T) {
 		}
 	})
 }
+
+func TestList(t *testing.T) {
+	t.Run("empty directory", func(t *testing.T) {
+		mgr, err := NewManager(t.TempDir(), "pw")
+		if err != nil {
+			t.Fatalf("NewManager() error = %v", err)
+		}
+		ids, err := mgr.List()
+		if err != nil {
+			t.Fatalf("List() error = %v", err)
+		}
+		if len(ids) != 0 {
+			t.Errorf("List() = %v, want empty", ids)
+		}
+	})
+
+	t.Run("returns stored ids", func(t *testing.T) {
+		mgr, err := NewManager(t.TempDir(), "pw")
+		if err != nil {
+			t.Fatalf("NewManager() error = %v", err)
+		}
+		for _, id := range []string{"key-a", "key-b"} {
+			if err := mgr.Store([]byte("share-"+id), id); err != nil {
+				t.Fatalf("Store(%s) error = %v", id, err)
+			}
+		}
+		ids, err := mgr.List()
+		if err != nil {
+			t.Fatalf("List() error = %v", err)
+		}
+		if len(ids) != 2 {
+			t.Fatalf("List() returned %d ids, want 2", len(ids))
+		}
+		found := map[string]bool{}
+		for _, id := range ids {
+			found[id] = true
+		}
+		if !found["key-a"] || !found["key-b"] {
+			t.Errorf("List() = %v, want key-a and key-b", ids)
+		}
+	})
+
+	t.Run("ignores subdirectories", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		mgr, err := NewManager(tmpDir, "pw")
+		if err != nil {
+			t.Fatalf("NewManager() error = %v", err)
+		}
+		if err := os.MkdirAll(filepath.Join(mgr.keysharesDir, "nested"), dirPerms); err != nil {
+			t.Fatalf("MkdirAll() error = %v", err)
+		}
+		ids, err := mgr.List()
+		if err != nil {
+			t.Fatalf("List() error = %v", err)
+		}
+		if len(ids) != 0 {
+			t.Errorf("List() = %v, want empty (dirs ignored)", ids)
+		}
+	})
+}
+
+func TestDelete(t *testing.T) {
+	t.Run("removes stored keyshare", func(t *testing.T) {
+		mgr, err := NewManager(t.TempDir(), "pw")
+		if err != nil {
+			t.Fatalf("NewManager() error = %v", err)
+		}
+		if err := mgr.Store([]byte("secret-share"), "key-1"); err != nil {
+			t.Fatalf("Store() error = %v", err)
+		}
+		if err := mgr.Delete("key-1"); err != nil {
+			t.Fatalf("Delete() error = %v", err)
+		}
+		if _, err := mgr.Get("key-1"); !errors.Is(err, ErrKeyshareNotFound) {
+			t.Errorf("Get() after Delete error = %v, want ErrKeyshareNotFound", err)
+		}
+		exists, err := mgr.Exists("key-1")
+		if err != nil {
+			t.Fatalf("Exists() error = %v", err)
+		}
+		if exists {
+			t.Error("Exists() = true after Delete, want false")
+		}
+	})
+
+	t.Run("missing id is a no-op", func(t *testing.T) {
+		mgr, err := NewManager(t.TempDir(), "pw")
+		if err != nil {
+			t.Fatalf("NewManager() error = %v", err)
+		}
+		if err := mgr.Delete("never-stored"); err != nil {
+			t.Errorf("Delete() on missing id error = %v, want nil", err)
+		}
+	})
+
+	t.Run("rejects invalid ids", func(t *testing.T) {
+		mgr, err := NewManager(t.TempDir(), "pw")
+		if err != nil {
+			t.Fatalf("NewManager() error = %v", err)
+		}
+		for _, id := range []string{"", "../escape", "sub/dir", "back\\slash"} {
+			if err := mgr.Delete(id); !errors.Is(err, ErrInvalidID) {
+				t.Errorf("Delete(%q) error = %v, want ErrInvalidID", id, err)
+			}
+		}
+	})
+
+	t.Run("leaves other keyshares intact", func(t *testing.T) {
+		mgr, err := NewManager(t.TempDir(), "pw")
+		if err != nil {
+			t.Fatalf("NewManager() error = %v", err)
+		}
+		if err := mgr.Store([]byte("share-a"), "key-a"); err != nil {
+			t.Fatalf("Store() error = %v", err)
+		}
+		if err := mgr.Store([]byte("share-b"), "key-b"); err != nil {
+			t.Fatalf("Store() error = %v", err)
+		}
+		if err := mgr.Delete("key-a"); err != nil {
+			t.Fatalf("Delete() error = %v", err)
+		}
+		got, err := mgr.Get("key-b")
+		if err != nil {
+			t.Fatalf("Get(key-b) error = %v", err)
+		}
+		if string(got) != "share-b" {
+			t.Errorf("Get(key-b) = %q, want %q", got, "share-b")
+		}
+	})
+}

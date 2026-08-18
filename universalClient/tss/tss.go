@@ -105,6 +105,7 @@ type Node struct {
 	txBroadcaster    *txbroadcaster.Broadcaster
 	txResolver       *txresolver.Resolver
 	expirySweeper    *expirysweeper.Sweeper
+	keyshareSweeper  *keyshare.Sweeper
 
 	// Network configuration (used during Start)
 	networkCfg libp2pnet.Config
@@ -269,6 +270,12 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 		Logger:        logger,
 	})
 
+	node.keyshareSweeper = keyshare.NewSweeper(keyshare.Config{
+		Keyshares: mgr,
+		PushCore:  cfg.PushCore,
+		Logger:    logger,
+	})
+
 	return node, nil
 }
 
@@ -370,6 +377,9 @@ func (n *Node) Start(ctx context.Context) error {
 
 	// Start expiry sweeper (CONFIRMED past expiry → REVERTED)
 	n.expirySweeper.Start(ctx)
+
+	// Start keyshare GC (delete shares superseded by quorum change / key refresh)
+	n.keyshareSweeper.Start(ctx)
 
 	n.logger.Info().
 		Str("peer_id", net.ID()).

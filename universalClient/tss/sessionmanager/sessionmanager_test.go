@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"reflect"
@@ -1341,5 +1342,114 @@ func TestExtractSignedDataFromEvent_CorruptDataIsObservable(t *testing.T) {
 		assert.Equal(t, []byte{0xaa, 0xbb}, signed.Signature)
 		assert.Equal(t, []byte{0xcc}, signed.SigningHash)
 		assert.Equal(t, uint64(42), signed.Nonce)
+	})
+}
+
+// A coordinator-assigned nonce must sit within [finalized, ceilingBase+maxNonceGap].
+// Below is already committed; far above never mines and freezes the outbound
+// with its PRC20 already burned at the gateway.
+func TestCheckNonceInRange(t *testing.T) {
+	const finalized = uint64(100)
+
+	t.Run("equal to finalized is accepted", func(t *testing.T) {
+		require.NoError(t, checkNonceInRange(finalized, finalized, finalized, "eip155:1"))
+	})
+
+	t.Run("within the cap above pending is accepted", func(t *testing.T) {
+		require.NoError(t, checkNonceInRange(finalized+coordinator.PerChainCap, finalized, finalized, "eip155:1"))
+	})
+
+	t.Run("exactly at the gap limit is accepted", func(t *testing.T) {
+		require.NoError(t, checkNonceInRange(finalized+maxNonceGap, finalized, finalized, "eip155:1"))
+	})
+
+	// While a chain is congested, BROADCASTED events free the in-flight cap but
+	// still hold mempool nonces, so pending runs far ahead of finalized. Honest
+	// coordinators assign from pending and must not be rejected.
+	t.Run("congestion: nonce far above finalized but near pending is accepted", func(t *testing.T) {
+		pending := finalized + 500
+		require.NoError(t, checkNonceInRange(pending+coordinator.PerChainCap, finalized, pending, "eip155:1"))
+	})
+
+	t.Run("below finalized is rejected", func(t *testing.T) {
+		err := checkNonceInRange(finalized-1, finalized, finalized, "eip155:1")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "already used on chain")
+	})
+
+	t.Run("one past the gap limit is rejected", func(t *testing.T) {
+		err := checkNonceInRange(finalized+maxNonceGap+1, finalized, finalized, "eip155:1")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "would never mine")
+	})
+
+	t.Run("far-future gap nonce is rejected even when congested", func(t *testing.T) {
+		pending := finalized + 500
+		err := checkNonceInRange(finalized+(1<<32), finalized, pending, "eip155:1")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "would never mine")
+	})
+
+	// A stale pending lookup must never widen the window below finalized.
+	t.Run("ceiling base below finalized falls back to finalized", func(t *testing.T) {
+		err := checkNonceInRange(finalized+maxNonceGap+1, finalized, finalized-50, "eip155:1")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "would never mine")
+	})
+
+	// SVM reports 0 from GetNextNonce and signs nonce 0; it must not be rejected.
+	t.Run("zero nonce on a nonce-less chain is accepted", func(t *testing.T) {
+		require.NoError(t, checkNonceInRange(0, 0, 0, "solana:devnet"))
+	})
+}
+
+// nonceBuilder is a partial TxBuilder: only GetNextNonce is implemented, so any
+// other call panics loudly rather than silently returning a zero value.
+type nonceBuilder struct {
+	common.TxBuilder
+	finalized, pending       uint64
+	finalizedErr, pendingErr error
+}
+
+func (b *nonceBuilder) GetNextNonce(_ context.Context, _ string, useFinalized bool) (uint64, error) {
+	if useFinalized {
+		return b.finalized, b.finalizedErr
+	}
+	return b.pending, b.pendingErr
+}
+
+func TestNonceBounds(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("pending above finalized becomes the ceiling base", func(t *testing.T) {
+		fin, base, err := nonceBounds(ctx, &nonceBuilder{finalized: 100, pending: 140}, "0xtss")
+		require.NoError(t, err)
+		assert.Equal(t, uint64(100), fin)
+		assert.Equal(t, uint64(140), base)
+	})
+
+	// Falling back to finalized is stricter, never wrong.
+	t.Run("pending lookup failure falls back to finalized", func(t *testing.T) {
+		fin, base, err := nonceBounds(ctx, &nonceBuilder{
+			finalized:  100,
+			pendingErr: errors.New("rpc down"),
+		}, "0xtss")
+		require.NoError(t, err)
+		assert.Equal(t, uint64(100), fin)
+		assert.Equal(t, uint64(100), base)
+	})
+
+	// A stale pending read must never lower the ceiling below finalized.
+	t.Run("pending below finalized falls back to finalized", func(t *testing.T) {
+		fin, base, err := nonceBounds(ctx, &nonceBuilder{finalized: 100, pending: 60}, "0xtss")
+		require.NoError(t, err)
+		assert.Equal(t, uint64(100), fin)
+		assert.Equal(t, uint64(100), base)
+	})
+
+	// Callers skip the nonce check entirely when finalized is unavailable.
+	t.Run("finalized lookup failure errors", func(t *testing.T) {
+		_, _, err := nonceBounds(ctx, &nonceBuilder{finalizedErr: errors.New("rpc down")}, "0xtss")
+		require.Error(t, err)
 	})
 }

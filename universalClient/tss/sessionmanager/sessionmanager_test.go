@@ -13,6 +13,8 @@ import (
 	"time"
 	"unsafe"
 
+	session "go-wrapper/go-dkls/sessions"
+
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -1451,5 +1453,46 @@ func TestNonceBounds(t *testing.T) {
 	t.Run("finalized lookup failure errors", func(t *testing.T) {
 		_, _, err := nonceBounds(ctx, &nonceBuilder{finalizedErr: errors.New("rpc down")}, "0xtss")
 		require.Error(t, err)
+	})
+}
+
+// A follower verifies UnsignedSigningReq.SigningHash, but DKLS signs the hash
+// embedded in Message.Payload, and the two arrive unbound. Without this check a
+// coordinator can present a legitimate hash for verification and embed an
+// attacker-chosen one in the setup, harvesting honest shares over it.
+func TestVerifySetupBindsHash(t *testing.T) {
+	participantIDs := []byte("party1\x00party2")
+	keyID := make([]byte, 32)
+
+	legitHash := make([]byte, 32)
+	copy(legitHash, "legitimate-outbound-hash-32bytes")
+	attackerHash := make([]byte, 32)
+	copy(attackerHash, "attacker-chosen-vault-call-digest")
+
+	legitSetup, err := session.DklsSignSetupMsgNew(keyID, nil, legitHash, participantIDs)
+	require.NoError(t, err)
+	attackerSetup, err := session.DklsSignSetupMsgNew(keyID, nil, attackerHash, participantIDs)
+	require.NoError(t, err)
+
+	t.Run("accepts setup that signs the verified hash", func(t *testing.T) {
+		require.NoError(t, verifySetupBindsHash(legitSetup, legitHash))
+	})
+
+	// The reported attack.
+	t.Run("rejects setup embedding a different hash", func(t *testing.T) {
+		err := verifySetupBindsHash(attackerSetup, legitHash)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "setup message signs hash")
+	})
+
+	t.Run("rejects undecodable setup", func(t *testing.T) {
+		require.Error(t, verifySetupBindsHash([]byte("not-a-dkls-setup"), legitHash))
+		require.Error(t, verifySetupBindsHash(nil, legitHash))
+	})
+
+	t.Run("rejects missing verified hash", func(t *testing.T) {
+		err := verifySetupBindsHash(legitSetup, nil)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no verified signing hash")
 	})
 }

@@ -196,6 +196,22 @@ func (sm *SessionManager) handleSetupMessage(ctx context.Context, senderPeerID s
 		}
 	}
 
+	// 6c. Bind the verified hash to the setup blob we are about to sign with.
+	// DKLS signs the hash embedded in the setup, not the one we checked above,
+	// and the two arrive unbound. Without this a coordinator can present a
+	// legitimate hash for verification and embed an attacker-chosen one in
+	// Payload, harvesting honest shares over it. Checked before the ACK so no
+	// shares are ever produced for a mismatched hash.
+	if event.Type == store.EventTypeSignOutbound || event.Type == store.EventTypeSignFundMigrate {
+		if err := verifySetupBindsHash(msg.Payload, msg.UnsignedSigningReq.SigningHash); err != nil {
+			sm.logger.Error().Err(err).
+				Str("event_id", msg.EventID).
+				Str("coordinator", senderPeerID).
+				Msg("setup message does not sign the verified hash - rejecting")
+			return err
+		}
+	}
+
 	// 7. Create session based on protocol type
 	session, err := sm.createSession(ctx, event, msg)
 	if err != nil {
@@ -973,6 +989,24 @@ func (sm *SessionManager) verifyOutboundSigningRequest(ctx context.Context, even
 		Str("our_hash", hex.EncodeToString(signingReq.SigningHash)).
 		Msg("sign metadata verified - hash matches")
 
+	return nil
+}
+
+// verifySetupBindsHash requires the DKLS setup blob to embed exactly the hash
+// the caller already verified. The setup is what actually gets signed, so
+// without this check the verified hash is decorative.
+func verifySetupBindsHash(setupData, verifiedHash []byte) error {
+	if len(verifiedHash) == 0 {
+		return fmt.Errorf("no verified signing hash to bind setup message to")
+	}
+	embedded, err := dkls.SetupMessageHash(setupData)
+	if err != nil {
+		return fmt.Errorf("cannot decode setup message to check signing hash: %w", err)
+	}
+	if !bytes.Equal(embedded, verifiedHash) {
+		return fmt.Errorf("setup message signs hash %s but verified hash is %s",
+			hex.EncodeToString(embedded), hex.EncodeToString(verifiedHash))
+	}
 	return nil
 }
 

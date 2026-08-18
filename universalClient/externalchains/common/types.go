@@ -120,10 +120,12 @@ type ReadRequestHandler interface {
 	ExecuteRead(ctx context.Context, req *ucallbacktypes.ReadRequest) (*ucallbacktypes.ReadResult, error)
 }
 
-// NewReadErrorResult builds an ERROR observation. ResultData stays empty so every
-// validator voting ERROR converges on the same ballot regardless of local error
-// text; core's ReadResult has no error field for that reason, so err is logged by
-// the caller, not carried on the vote.
-func NewReadErrorResult(err error) *ucallbacktypes.ReadResult {
-	return &ucallbacktypes.ReadResult{Status: ucallbacktypes.ReadStatus_READ_STATUS_ERROR}
+// NewReadErrorResult builds an ERROR observation carrying a deterministic error
+// code. ResultData stays empty and only the code (never local error text) is
+// voted, so every validator observing the same failure converges on one ballot.
+func NewReadErrorResult(code ucallbacktypes.ReadErrorCode) *ucallbacktypes.ReadResult {
+	return &ucallbacktypes.ReadResult{
+		Status:    ucallbacktypes.ReadStatus_READ_STATUS_ERROR,
+		ErrorCode: code,
+	}
 }

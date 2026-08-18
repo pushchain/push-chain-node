@@ -144,6 +144,7 @@ func TestExecuteRead_SPLTokenAccount(t *testing.T) {
 		result, err := client.ExecuteRead(context.Background(), svmReadRequest(t, uint8(solanaQuerySPLTokenAccount), 0, account.Bytes()))
 		require.NoError(t, err)
 		assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_ERROR, result.Status)
+		assert.Equal(t, ucallbacktypes.ReadErrorCode_READ_ERROR_INVALID_RESULT, result.ErrorCode)
 	})
 
 	t.Run("truncated account data is a votable ERROR", func(t *testing.T) {
@@ -154,6 +155,7 @@ func TestExecuteRead_SPLTokenAccount(t *testing.T) {
 		result, err := client.ExecuteRead(context.Background(), svmReadRequest(t, uint8(solanaQuerySPLTokenAccount), 0, account.Bytes()))
 		require.NoError(t, err)
 		assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_ERROR, result.Status)
+		assert.Equal(t, ucallbacktypes.ReadErrorCode_READ_ERROR_INVALID_RESULT, result.ErrorCode)
 	})
 
 	t.Run("missing account is a votable ERROR", func(t *testing.T) {
@@ -167,6 +169,7 @@ func TestExecuteRead_SPLTokenAccount(t *testing.T) {
 		result, err := client.ExecuteRead(context.Background(), svmReadRequest(t, uint8(solanaQuerySPLTokenAccount), 0, account.Bytes()))
 		require.NoError(t, err)
 		assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_ERROR, result.Status)
+		assert.Equal(t, ucallbacktypes.ReadErrorCode_READ_ERROR_NOT_FOUND, result.ErrorCode)
 	})
 }
 

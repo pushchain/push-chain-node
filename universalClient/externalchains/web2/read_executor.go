@@ -145,11 +145,11 @@ func isDisallowedIP(ip net.IP) bool {
 func (e *Executor) ExecuteRead(ctx context.Context, req *ucallbacktypes.ReadRequest) (*ucallbacktypes.ReadResult, error) {
 	env, err := decodeWeb2QueryEnvelope(req.Query)
 	if err != nil {
-		return common.NewReadErrorResult(err), nil
+		return common.NewReadErrorResult(ucallbacktypes.ReadErrorCode_READ_ERROR_INVALID_QUERY), nil
 	}
 
-	if err := e.validateEnvelope(env); err != nil {
-		return common.NewReadErrorResult(err), nil
+	if errResult := e.validateEnvelope(env); errResult != nil {
+		return errResult, nil
 	}
 
 	body, errResult, err := e.fetch(ctx, env)
@@ -160,9 +160,9 @@ func (e *Executor) ExecuteRead(ctx context.Context, req *ucallbacktypes.ReadRequ
 		return errResult, nil
 	}
 
-	resultData, err := extractAndEncode(body, env.Extract)
+	resultData, code, err := extractAndEncode(body, env.Extract)
 	if err != nil {
-		return common.NewReadErrorResult(err), nil
+		return common.NewReadErrorResult(code), nil
 	}
 
 	// web2 has no block height or hash; the ballot covers result data only
@@ -172,13 +172,14 @@ func (e *Executor) ExecuteRead(ctx context.Context, req *ucallbacktypes.ReadRequ
 	}, nil
 }
 
-// validateEnvelope enforces the v1 request constraints.
-func (e *Executor) validateEnvelope(env *web2QueryEnvelope) error {
+// validateEnvelope enforces the v1 request constraints, returning a coded ERROR
+// result on violation or nil when the envelope is acceptable.
+func (e *Executor) validateEnvelope(env *web2QueryEnvelope) *ucallbacktypes.ReadResult {
 	if !e.allowInsecureURL && !strings.HasPrefix(env.URL, "https://") {
-		return fmt.Errorf("url must be https")
+		return common.NewReadErrorResult(ucallbacktypes.ReadErrorCode_READ_ERROR_INVALID_QUERY)
 	}
 	if env.Method == web2MethodGet && len(env.Body) > 0 {
-		return fmt.Errorf("GET request must not have a body")
+		return common.NewReadErrorResult(ucallbacktypes.ReadErrorCode_READ_ERROR_INVALID_QUERY)
 	}
 	return nil
 }
@@ -203,13 +204,13 @@ func (e *Executor) fetch(ctx context.Context, env *web2QueryEnvelope) ([]byte, *
 
 	httpReq, err := http.NewRequestWithContext(reqCtx, method, env.URL, reqBody)
 	if err != nil {
-		return nil, common.NewReadErrorResult(fmt.Errorf("invalid request: %w", err)), nil
+		return nil, common.NewReadErrorResult(ucallbacktypes.ReadErrorCode_READ_ERROR_INVALID_QUERY), nil
 	}
 
 	if len(env.Headers) > 0 {
 		var headers map[string]string
 		if err := json.Unmarshal(env.Headers, &headers); err != nil {
-			return nil, common.NewReadErrorResult(fmt.Errorf("invalid headers encoding: %w", err)), nil
+			return nil, common.NewReadErrorResult(ucallbacktypes.ReadErrorCode_READ_ERROR_INVALID_QUERY), nil
 		}
 		for name, value := range headers {
 			httpReq.Header.Set(name, value)
@@ -221,7 +222,8 @@ func (e *Executor) fetch(ctx context.Context, env *web2QueryEnvelope) ([]byte, *
 		// A guard rejection is the same for every validator: votable ERROR.
 		// Any other transport error may be transient.
 		if errors.Is(err, errBlockedRequest) {
-			return nil, common.NewReadErrorResult(fmt.Errorf("request blocked: %w", err)), nil
+			return nil, common.NewReadErrorResult(ucallbacktypes.ReadErrorCode_READ_ERROR_INVALID_QUERY), nil
+
 		}
 		return nil, nil, fmt.Errorf("request failed: %w", err) // transient
 	}
@@ -236,7 +238,7 @@ func (e *Executor) fetch(ctx context.Context, env *web2QueryEnvelope) ([]byte, *
 		return nil, nil, fmt.Errorf("endpoint returned status %d", resp.StatusCode)
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, common.NewReadErrorResult(fmt.Errorf("endpoint returned status %d", resp.StatusCode)), nil
+		return nil, common.NewReadErrorResult(ucallbacktypes.ReadErrorCode_READ_ERROR_REVERTED), nil
 	}
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes+1))
@@ -244,7 +246,7 @@ func (e *Executor) fetch(ctx context.Context, env *web2QueryEnvelope) ([]byte, *
 		return nil, nil, fmt.Errorf("failed to read response: %w", err) // transient
 	}
 	if len(body) > maxResponseBytes {
-		return nil, common.NewReadErrorResult(fmt.Errorf("response exceeds %d bytes", maxResponseBytes)), nil
+		return nil, common.NewReadErrorResult(ucallbacktypes.ReadErrorCode_READ_ERROR_INVALID_RESULT), nil
 	}
 
 	return body, nil, nil
@@ -252,12 +254,12 @@ func (e *Executor) fetch(ctx context.Context, env *web2QueryEnvelope) ([]byte, *
 
 // extractAndEncode applies each extract spec to the JSON response and
 // abi-encodes the values in extract order.
-func extractAndEncode(body []byte, extracts []web2Extract) ([]byte, error) {
+func extractAndEncode(body []byte, extracts []web2Extract) ([]byte, ucallbacktypes.ReadErrorCode, error) {
 	decoder := json.NewDecoder(bytes.NewReader(body))
 	decoder.UseNumber()
 	var root any
 	if err := decoder.Decode(&root); err != nil {
-		return nil, fmt.Errorf("response is not valid JSON: %w", err)
+		return nil, ucallbacktypes.ReadErrorCode_READ_ERROR_INVALID_RESULT, fmt.Errorf("response is not valid JSON: %w", err)
 	}
 
 	args := make(abi.Arguments, 0, len(extracts))
@@ -265,12 +267,12 @@ func extractAndEncode(body []byte, extracts []web2Extract) ([]byte, error) {
 	for _, ex := range extracts {
 		raw, err := resolveJSONPath(root, ex.Path)
 		if err != nil {
-			return nil, err
+			return nil, ucallbacktypes.ReadErrorCode_READ_ERROR_NOT_FOUND, err
 		}
 
 		value, abiType, err := convertValue(raw, ex)
 		if err != nil {
-			return nil, fmt.Errorf("path %s: %w", ex.Path, err)
+			return nil, ucallbacktypes.ReadErrorCode_READ_ERROR_INVALID_RESULT, fmt.Errorf("path %s: %w", ex.Path, err)
 		}
 		args = append(args, abi.Argument{Name: "v", Type: abiType})
 		values = append(values, value)
@@ -278,9 +280,9 @@ func extractAndEncode(body []byte, extracts []web2Extract) ([]byte, error) {
 
 	encoded, err := args.Pack(values...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode result: %w", err)
+		return nil, ucallbacktypes.ReadErrorCode_READ_ERROR_INVALID_RESULT, fmt.Errorf("failed to encode result: %w", err)
 	}
-	return encoded, nil
+	return encoded, ucallbacktypes.ReadErrorCode_READ_ERROR_UNSPECIFIED, nil
 }
 
 var (

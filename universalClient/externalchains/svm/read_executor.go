@@ -24,11 +24,11 @@ const splTokenAmountOffset = 64
 func (c *Client) ExecuteRead(ctx context.Context, req *ucallbacktypes.ReadRequest) (*ucallbacktypes.ReadResult, error) {
 	env, err := decodeSolanaQueryEnvelope(req.Query)
 	if err != nil {
-		return common.NewReadErrorResult(err), nil
+		return common.NewReadErrorResult(ucallbacktypes.ReadErrorCode_READ_ERROR_INVALID_QUERY), nil
 	}
 
 	if len(req.Owner) != solana.PublicKeyLength {
-		return common.NewReadErrorResult(fmt.Errorf("owner must be a 32-byte pubkey, got %d bytes", len(req.Owner))), nil
+		return common.NewReadErrorResult(ucallbacktypes.ReadErrorCode_READ_ERROR_INVALID_QUERY), nil
 	}
 	account := solana.PublicKeyFromBytes(req.Owner)
 
@@ -45,7 +45,7 @@ func (c *Client) ExecuteRead(ctx context.Context, req *ucallbacktypes.ReadReques
 		}
 		resultData, encErr := common.EncodeUint256Result(new(big.Int).SetUint64(balance))
 		if encErr != nil {
-			return common.NewReadErrorResult(encErr), nil
+			return common.NewReadErrorResult(ucallbacktypes.ReadErrorCode_READ_ERROR_INVALID_RESULT), nil
 		}
 		return &ucallbacktypes.ReadResult{
 			Status:              ucallbacktypes.ReadStatus_READ_STATUS_SUCCESS,
@@ -59,18 +59,18 @@ func (c *Client) ExecuteRead(ctx context.Context, req *ucallbacktypes.ReadReques
 			return nil, rpcErr
 		}
 		if !found {
-			return common.NewReadErrorResult(fmt.Errorf("token account %s not found", account)), nil
+			return common.NewReadErrorResult(ucallbacktypes.ReadErrorCode_READ_ERROR_NOT_FOUND), nil
 		}
 		if !owner.Equals(solana.TokenProgramID) && !owner.Equals(solana.Token2022ProgramID) {
-			return common.NewReadErrorResult(fmt.Errorf("account %s is not owned by a token program", account)), nil
+			return common.NewReadErrorResult(ucallbacktypes.ReadErrorCode_READ_ERROR_INVALID_RESULT), nil
 		}
 		if len(data) < splTokenAmountOffset+8 {
-			return common.NewReadErrorResult(fmt.Errorf("token account data too short: %d bytes", len(data))), nil
+			return common.NewReadErrorResult(ucallbacktypes.ReadErrorCode_READ_ERROR_INVALID_RESULT), nil
 		}
 		amount := binary.LittleEndian.Uint64(data[splTokenAmountOffset : splTokenAmountOffset+8])
 		resultData, encErr := common.EncodeUint256Result(new(big.Int).SetUint64(amount))
 		if encErr != nil {
-			return common.NewReadErrorResult(encErr), nil
+			return common.NewReadErrorResult(ucallbacktypes.ReadErrorCode_READ_ERROR_INVALID_RESULT), nil
 		}
 		return &ucallbacktypes.ReadResult{
 			Status:              ucallbacktypes.ReadStatus_READ_STATUS_SUCCESS,
@@ -84,7 +84,7 @@ func (c *Client) ExecuteRead(ctx context.Context, req *ucallbacktypes.ReadReques
 			return nil, rpcErr
 		}
 		if !found {
-			return common.NewReadErrorResult(fmt.Errorf("account %s not found", account)), nil
+			return common.NewReadErrorResult(ucallbacktypes.ReadErrorCode_READ_ERROR_NOT_FOUND), nil
 		}
 		return &ucallbacktypes.ReadResult{
 			Status:              ucallbacktypes.ReadStatus_READ_STATUS_SUCCESS,
@@ -93,6 +93,6 @@ func (c *Client) ExecuteRead(ctx context.Context, req *ucallbacktypes.ReadReques
 		}, nil
 
 	default:
-		return common.NewReadErrorResult(fmt.Errorf("unknown SolanaQueryType %d", env.QueryType)), nil
+		return common.NewReadErrorResult(ucallbacktypes.ReadErrorCode_READ_ERROR_INVALID_QUERY), nil
 	}
 }

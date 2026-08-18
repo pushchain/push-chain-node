@@ -158,6 +158,7 @@ func TestExecuteRead_VotableErrors(t *testing.T) {
 		result, err := e.ExecuteRead(context.Background(), &ucallbacktypes.ReadRequest{Query: []byte{0x01}})
 		require.NoError(t, err)
 		assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_ERROR, result.Status)
+		assert.Equal(t, ucallbacktypes.ReadErrorCode_READ_ERROR_INVALID_QUERY, result.ErrorCode)
 	})
 
 	t.Run("non-https url", func(t *testing.T) {
@@ -170,6 +171,7 @@ func TestExecuteRead_VotableErrors(t *testing.T) {
 		result, err := e.ExecuteRead(context.Background(), req)
 		require.NoError(t, err)
 		assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_ERROR, result.Status)
+		assert.Equal(t, ucallbacktypes.ReadErrorCode_READ_ERROR_INVALID_QUERY, result.ErrorCode)
 	})
 
 	t.Run("non-identical mode not supported", func(t *testing.T) {
@@ -209,6 +211,7 @@ func TestExecuteRead_VotableErrors(t *testing.T) {
 		result, err := e.ExecuteRead(context.Background(), req)
 		require.NoError(t, err)
 		assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_ERROR, result.Status)
+		assert.Equal(t, ucallbacktypes.ReadErrorCode_READ_ERROR_NOT_FOUND, result.ErrorCode)
 	})
 
 	t.Run("type mismatch", func(t *testing.T) {
@@ -221,6 +224,7 @@ func TestExecuteRead_VotableErrors(t *testing.T) {
 		result, err := e.ExecuteRead(context.Background(), req)
 		require.NoError(t, err)
 		assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_ERROR, result.Status)
+		assert.Equal(t, ucallbacktypes.ReadErrorCode_READ_ERROR_INVALID_RESULT, result.ErrorCode)
 	})
 
 	t.Run("non-JSON response", func(t *testing.T) {
@@ -235,6 +239,7 @@ func TestExecuteRead_VotableErrors(t *testing.T) {
 		result, err := e.ExecuteRead(context.Background(), req)
 		require.NoError(t, err)
 		assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_ERROR, result.Status)
+		assert.Equal(t, ucallbacktypes.ReadErrorCode_READ_ERROR_INVALID_RESULT, result.ErrorCode)
 	})
 
 	t.Run("404 status", func(t *testing.T) {
@@ -249,6 +254,7 @@ func TestExecuteRead_VotableErrors(t *testing.T) {
 		result, err := e.ExecuteRead(context.Background(), req)
 		require.NoError(t, err)
 		assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_ERROR, result.Status)
+		assert.Equal(t, ucallbacktypes.ReadErrorCode_READ_ERROR_REVERTED, result.ErrorCode)
 	})
 }
 

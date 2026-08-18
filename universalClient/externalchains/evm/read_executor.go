@@ -20,7 +20,7 @@ import (
 func (c *Client) ExecuteRead(ctx context.Context, req *ucallbacktypes.ReadRequest) (*ucallbacktypes.ReadResult, error) {
 	env, err := decodeEvmQueryEnvelope(req.Query)
 	if err != nil {
-		return common.NewReadErrorResult(err), nil
+		return common.NewReadErrorResult(ucallbacktypes.ReadErrorCode_READ_ERROR_INVALID_QUERY), nil
 	}
 
 	height := req.DestinationBlockHeight
@@ -28,7 +28,7 @@ func (c *Client) ExecuteRead(ctx context.Context, req *ucallbacktypes.ReadReques
 		height = env.BlockNumber
 	}
 	if height == 0 {
-		return common.NewReadErrorResult(fmt.Errorf("read request has no target height")), nil
+		return common.NewReadErrorResult(ucallbacktypes.ReadErrorCode_READ_ERROR_INVALID_QUERY), nil
 	}
 
 	if err := c.gateHeightConfirmed(ctx, height, uint64(req.MinConfirmations)); err != nil {
@@ -46,7 +46,7 @@ func (c *Client) ExecuteRead(ctx context.Context, req *ucallbacktypes.ReadReques
 	case evmQueryAccountBalance:
 		target, decErr := decodeAccountBalancePayload(env.Payload)
 		if decErr != nil {
-			return common.NewReadErrorResult(decErr), nil
+			return common.NewReadErrorResult(ucallbacktypes.ReadErrorCode_READ_ERROR_INVALID_QUERY), nil
 		}
 		balance, rpcErr := c.rpcClient.GetBalanceAt(ctx, target, blockNum)
 		if rpcErr != nil {
@@ -57,7 +57,7 @@ func (c *Client) ExecuteRead(ctx context.Context, req *ucallbacktypes.ReadReques
 	case evmQueryContractCall:
 		target, callData, decErr := decodeContractCallPayload(env.Payload)
 		if decErr != nil {
-			return common.NewReadErrorResult(decErr), nil
+			return common.NewReadErrorResult(ucallbacktypes.ReadErrorCode_READ_ERROR_INVALID_QUERY), nil
 		}
 		ret, rpcErr := c.rpcClient.CallContract(ctx, target, callData, blockNum)
 		if rpcErr != nil {
@@ -66,7 +66,7 @@ func (c *Client) ExecuteRead(ctx context.Context, req *ucallbacktypes.ReadReques
 			// (e.g. missing trie node on a pruned node) is not deterministic and
 			// must be retried, never voted.
 			if isExecutionRevert(rpcErr) {
-				return common.NewReadErrorResult(rpcErr), nil
+				return common.NewReadErrorResult(ucallbacktypes.ReadErrorCode_READ_ERROR_REVERTED), nil
 			}
 			return nil, rpcErr
 		}
@@ -75,7 +75,7 @@ func (c *Client) ExecuteRead(ctx context.Context, req *ucallbacktypes.ReadReques
 	case evmQueryStorageSlot:
 		target, slot, decErr := decodeStorageSlotPayload(env.Payload)
 		if decErr != nil {
-			return common.NewReadErrorResult(decErr), nil
+			return common.NewReadErrorResult(ucallbacktypes.ReadErrorCode_READ_ERROR_INVALID_QUERY), nil
 		}
 		value, rpcErr := c.rpcClient.GetStorageAt(ctx, target, slot, blockNum)
 		if rpcErr != nil {
@@ -86,10 +86,10 @@ func (c *Client) ExecuteRead(ctx context.Context, req *ucallbacktypes.ReadReques
 		resultData = slotValue[:]
 
 	default:
-		return common.NewReadErrorResult(fmt.Errorf("unknown EvmQueryType %d", env.QueryType)), nil
+		return common.NewReadErrorResult(ucallbacktypes.ReadErrorCode_READ_ERROR_INVALID_QUERY), nil
 	}
 	if err != nil {
-		return common.NewReadErrorResult(err), nil
+		return common.NewReadErrorResult(ucallbacktypes.ReadErrorCode_READ_ERROR_INVALID_RESULT), nil
 	}
 
 	return &ucallbacktypes.ReadResult{

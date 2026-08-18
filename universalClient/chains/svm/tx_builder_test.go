@@ -2729,10 +2729,14 @@ func TestIsNativeAsset(t *testing.T) {
 		assert.True(t, isNativeAsset(solana.PublicKey{}.String()), "zero pubkey")
 	})
 
-	t.Run("evm-style markers still recognised", func(t *testing.T) {
+	// The shipped registry carries both pSOL markers: the base58 SystemProgram
+	// and a legacy 20-byte EVM zero. A hex-encoded zero pubkey is covered too,
+	// since the builder accepts hex mints.
+	t.Run("hex markers still recognised", func(t *testing.T) {
 		assert.True(t, isNativeAsset(""))
 		assert.True(t, isNativeAsset("0x0"))
-		assert.True(t, isNativeAsset("0x0000000000000000000000000000000000000000"))
+		assert.True(t, isNativeAsset("0x0000000000000000000000000000000000000000"), "shipped legacy pSOL marker")
+		assert.True(t, isNativeAsset("0x"+strings.Repeat("0", 64)), "hex-encoded zero pubkey")
 	})
 
 	t.Run("real SPL mints are not native", func(t *testing.T) {

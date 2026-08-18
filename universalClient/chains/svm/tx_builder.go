@@ -1294,6 +1294,11 @@ func isNativeAsset(addr string) bool {
 	if pubkey, err := solana.PublicKeyFromBase58(addr); err == nil {
 		return pubkey.IsZero()
 	}
+	// The builder also accepts hex mints, so cover a hex-encoded zero pubkey.
+	// Length must be checked first: PublicKeyFromBytes panics on a short slice.
+	if raw, err := hex.DecodeString(removeHexPrefix(addr)); err == nil && len(raw) == 32 {
+		return solana.PublicKeyFromBytes(raw).IsZero()
+	}
 	return false
 }
 

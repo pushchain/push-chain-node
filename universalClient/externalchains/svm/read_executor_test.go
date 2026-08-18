@@ -98,7 +98,6 @@ func TestExecuteRead_LamportBalance(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_SUCCESS, result.Status)
 		assert.Equal(t, big.NewInt(5_000_000), new(big.Int).SetBytes(result.ResultData))
-		assert.Equal(t, uint64(900), result.ObservedBlockHeight)
 	})
 
 	t.Run("observed slot below min slot is transient", func(t *testing.T) {
@@ -133,7 +132,6 @@ func TestExecuteRead_SPLTokenAccount(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_SUCCESS, result.Status)
 		assert.Equal(t, big.NewInt(777), new(big.Int).SetBytes(result.ResultData))
-		assert.Equal(t, uint64(900), result.ObservedBlockHeight)
 	})
 
 	t.Run("non token-program owner is a votable ERROR", func(t *testing.T) {
@@ -185,7 +183,6 @@ func TestExecuteRead_RawAccountData(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_SUCCESS, result.Status)
 	assert.Equal(t, raw, result.ResultData)
-	assert.Equal(t, uint64(900), result.ObservedBlockHeight)
 }
 
 func TestExecuteRead_InvalidInputs(t *testing.T) {

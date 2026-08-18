@@ -115,8 +115,6 @@ func TestExecuteRead_AccountBalance(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_SUCCESS, result.Status)
 	assert.Equal(t, big.NewInt(1_000_000), new(big.Int).SetBytes(result.ResultData))
-	assert.Equal(t, uint64(100), result.ObservedBlockHeight)
-	assert.Len(t, result.ObservedBlockHash, 32)
 }
 
 func TestExecuteRead_ContractCall(t *testing.T) {
@@ -201,7 +199,7 @@ func TestExecuteRead_RPCFailureIsTransient(t *testing.T) {
 	require.NoError(t, err)
 
 	client := newReadTestClient(t, map[string]any{}, map[string]rpcFault{
-		"eth_getBlockByNumber": {code: -32000, message: "node is syncing"},
+		"eth_getBalance": {code: -32000, message: "node is syncing"},
 	})
 
 	result, err := client.ExecuteRead(context.Background(), evmReadRequest(t, uint8(evmQueryAccountBalance), 0, payload))
@@ -262,7 +260,7 @@ func TestExecuteRead_EnvelopeBlockNumberUsedWhenNotPinned(t *testing.T) {
 
 	result, err := client.ExecuteRead(context.Background(), req)
 	require.NoError(t, err)
-	assert.Equal(t, uint64(55), result.ObservedBlockHeight)
+	assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_SUCCESS, result.Status)
 }
 
 func TestExecuteRead_MissingHeightIsVotableError(t *testing.T) {
@@ -312,6 +310,6 @@ func TestExecuteRead_ConfirmationGate(t *testing.T) {
 
 		result, err := client.ExecuteRead(context.Background(), req)
 		require.NoError(t, err)
-		assert.Equal(t, uint64(100), result.ObservedBlockHeight)
+		assert.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_SUCCESS, result.Status)
 	})
 }

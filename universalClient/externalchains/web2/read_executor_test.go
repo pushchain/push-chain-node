@@ -75,7 +75,6 @@ func TestExecuteRead_GetIdenticalFields(t *testing.T) {
 	result, err := e.ExecuteRead(context.Background(), req)
 	require.NoError(t, err)
 	require.Equal(t, ucallbacktypes.ReadStatus_READ_STATUS_SUCCESS, result.Status)
-	assert.Zero(t, result.ObservedBlockHeight)
 
 	stringTy, _ := abi.NewType("string", "", nil)
 	uintTy, _ := abi.NewType("uint256", "", nil)

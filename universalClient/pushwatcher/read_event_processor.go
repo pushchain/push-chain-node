@@ -107,7 +107,7 @@ func (p *ReadEventProcessor) HandleEvent(ctx context.Context, event *store.Event
 	log.Info().
 		Str("vote_tx_hash", voteTxHash).
 		Int32("status", int32(result.Status)).
-		Uint64("observed_height", result.ObservedBlockHeight).
+		Str("error_code", result.ErrorCode.String()).
 		Msg("read request voted")
 
 	return nil

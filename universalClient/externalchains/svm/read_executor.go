@@ -18,9 +18,8 @@ const splTokenAmountOffset = 64
 // ExecuteRead implements common.ChainReader for Solana chains.
 //
 // Solana cannot query state at an exact past slot, so reads run at finalized
-// commitment with minContextSlot as a staleness floor. ObservedBlockHeight (the
-// context slot) may differ across validators; core's ballot key covers the
-// result value only, never the observed slot.
+// commitment with minContextSlot as a staleness floor. The observed slot is not
+// carried on the result or the ballot; the vote covers the result value only.
 func (c *Client) ExecuteRead(ctx context.Context, req *ucallbacktypes.ReadRequest) (*ucallbacktypes.ReadResult, error) {
 	env, err := decodeSolanaQueryEnvelope(req.Query)
 	if err != nil {
@@ -48,13 +47,12 @@ func (c *Client) ExecuteRead(ctx context.Context, req *ucallbacktypes.ReadReques
 			return common.NewReadErrorResult(ucallbacktypes.ReadErrorCode_READ_ERROR_INVALID_RESULT), nil
 		}
 		return &ucallbacktypes.ReadResult{
-			Status:              ucallbacktypes.ReadStatus_READ_STATUS_SUCCESS,
-			ResultData:          resultData,
-			ObservedBlockHeight: slot,
+			Status:     ucallbacktypes.ReadStatus_READ_STATUS_SUCCESS,
+			ResultData: resultData,
 		}, nil
 
 	case solanaQuerySPLTokenAccount:
-		data, owner, found, slot, rpcErr := c.rpcClient.GetAccountInfoWithSlot(ctx, account, minSlot)
+		data, owner, found, _, rpcErr := c.rpcClient.GetAccountInfoWithSlot(ctx, account, minSlot)
 		if rpcErr != nil {
 			return nil, rpcErr
 		}
@@ -73,13 +71,12 @@ func (c *Client) ExecuteRead(ctx context.Context, req *ucallbacktypes.ReadReques
 			return common.NewReadErrorResult(ucallbacktypes.ReadErrorCode_READ_ERROR_INVALID_RESULT), nil
 		}
 		return &ucallbacktypes.ReadResult{
-			Status:              ucallbacktypes.ReadStatus_READ_STATUS_SUCCESS,
-			ResultData:          resultData,
-			ObservedBlockHeight: slot,
+			Status:     ucallbacktypes.ReadStatus_READ_STATUS_SUCCESS,
+			ResultData: resultData,
 		}, nil
 
 	case solanaQueryRawAccountData:
-		data, _, found, slot, rpcErr := c.rpcClient.GetAccountInfoWithSlot(ctx, account, minSlot)
+		data, _, found, _, rpcErr := c.rpcClient.GetAccountInfoWithSlot(ctx, account, minSlot)
 		if rpcErr != nil {
 			return nil, rpcErr
 		}
@@ -87,9 +84,8 @@ func (c *Client) ExecuteRead(ctx context.Context, req *ucallbacktypes.ReadReques
 			return common.NewReadErrorResult(ucallbacktypes.ReadErrorCode_READ_ERROR_NOT_FOUND), nil
 		}
 		return &ucallbacktypes.ReadResult{
-			Status:              ucallbacktypes.ReadStatus_READ_STATUS_SUCCESS,
-			ResultData:          data,
-			ObservedBlockHeight: slot,
+			Status:     ucallbacktypes.ReadStatus_READ_STATUS_SUCCESS,
+			ResultData: data,
 		}, nil
 
 	default:

@@ -628,9 +628,8 @@ func TestVoteFundMigrationFailure(t *testing.T) {
 
 func TestVoteReadResult(t *testing.T) {
 	result := &ucallbacktypes.ReadResult{
-		Status:              ucallbacktypes.ReadStatus_READ_STATUS_SUCCESS,
-		ResultData:          []byte{0xaa},
-		ObservedBlockHeight: 100,
+		Status:     ucallbacktypes.ReadStatus_READ_STATUS_SUCCESS,
+		ResultData: []byte{0xaa},
 	}
 
 	t.Run("successful vote", func(t *testing.T) {

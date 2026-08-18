@@ -103,9 +103,8 @@ func assertStatus(t *testing.T, cs *common.ChainStore, eventID, status string) {
 func TestReadEventProcessor_SuccessFlow(t *testing.T) {
 	req := testReadRequest()
 	result := &ucallbacktypes.ReadResult{
-		Status:              ucallbacktypes.ReadStatus_READ_STATUS_SUCCESS,
-		ResultData:          []byte{0xaa},
-		ObservedBlockHeight: 100,
+		Status:     ucallbacktypes.ReadStatus_READ_STATUS_SUCCESS,
+		ResultData: []byte{0xaa},
 	}
 	voter := &fakeReadVoter{txHash: "VOTE_TX"}
 	p, cs := newTestReadEventProcessor(t, voter, &fakeDestClient{result: result})

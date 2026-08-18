@@ -36,11 +36,6 @@ func (c *Client) ExecuteRead(ctx context.Context, req *ucallbacktypes.ReadReques
 	}
 	blockNum := new(big.Int).SetUint64(height)
 
-	header, err := c.rpcClient.GetHeaderByNumber(ctx, blockNum)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch header at %d: %w", height, err)
-	}
-
 	var resultData []byte
 	switch env.QueryType {
 	case evmQueryAccountBalance:
@@ -93,10 +88,8 @@ func (c *Client) ExecuteRead(ctx context.Context, req *ucallbacktypes.ReadReques
 	}
 
 	return &ucallbacktypes.ReadResult{
-		Status:              ucallbacktypes.ReadStatus_READ_STATUS_SUCCESS,
-		ResultData:          resultData,
-		ObservedBlockHeight: height,
-		ObservedBlockHash:   header.Hash().Bytes(),
+		Status:     ucallbacktypes.ReadStatus_READ_STATUS_SUCCESS,
+		ResultData: resultData,
 	}, nil
 }
 

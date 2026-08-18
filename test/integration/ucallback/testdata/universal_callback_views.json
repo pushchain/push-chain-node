@@ -1,0 +1,90 @@
+[
+  {
+    "type": "function",
+    "name": "getPendingRead",
+    "inputs": [
+      {
+        "name": "requestId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct PendingRead",
+        "components": [
+          {
+            "name": "callbackTarget",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "callbackSelector",
+            "type": "bytes4",
+            "internalType": "bytes4"
+          },
+          {
+            "name": "callbackGasLimit",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "originalFunder",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "expiryHeight",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "revertRecipient",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "callbackBudget",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "statusOf",
+    "inputs": [
+      {
+        "name": "requestId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "enum RequestStatus"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "totalEscrowed",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  }
+]

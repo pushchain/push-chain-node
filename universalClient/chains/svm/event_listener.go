@@ -302,6 +302,16 @@ func (el *EventListener) processSignatureBatch(
 		// "Program data:" line only while the gateway is the executing program;
 		// otherwise any program could emit a forged gateway event.
 		if tx != nil && tx.Meta != nil && len(tx.Meta.LogMessages) > 0 {
+			// Surface truncation loudly: a gateway event may have been dropped and
+			// is unrecoverable from RPC, so the deposit needs manual reconciliation.
+			// Visible logs are still processed, since events before the cut are real.
+			if logsTruncated(tx.Meta.LogMessages) {
+				el.logger.Error().
+					Str("signature", sig.Signature.String()).
+					Uint64("slot", sig.Slot).
+					Msg("solana log buffer truncated; a gateway event may have been dropped and needs manual review")
+			}
+
 			fromGateway := gatewayEmittedLogs(tx.Meta.LogMessages, el.gatewayAddress)
 			for logIndex, log := range tx.Meta.LogMessages {
 				if !fromGateway[logIndex] {
@@ -453,6 +463,26 @@ func gatewayEmittedLogs(logs []string, gatewayAddress string) map[int]bool {
 		}
 	}
 	return emitted
+}
+
+// logsTruncated reports whether the runtime dropped part of this transaction's
+// log buffer. Programs can only emit "Program log:" and "Program data:" lines,
+// so a bare line is runtime-generated and cannot be spoofed. Matching on the
+// word rather than one exact literal keeps this working if the wording changes.
+//
+// It matters because gateway events are emitted with sol_log_data: once the
+// buffer overflows the event line is gone, and no RPC call can recover it. The
+// deposit would otherwise be missed in silence.
+func logsTruncated(logs []string) bool {
+	for _, log := range logs {
+		if strings.HasPrefix(log, "Program ") {
+			continue
+		}
+		if strings.Contains(strings.ToLower(log), "truncated") {
+			return true
+		}
+	}
+	return false
 }
 
 // isProgramExit reports whether log ends an invocation frame, i.e.

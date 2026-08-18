@@ -880,3 +880,77 @@ func TestProcessSignatureBatch_RejectsForgedGatewayEvent(t *testing.T) {
 		assert.Equal(t, 1, stored, "genuine gateway event must be observed")
 	})
 }
+
+// Gateway events are emitted with sol_log_data, so once the runtime truncates
+// the log buffer the event line is gone and no RPC call recovers it. Detect it
+// so a missed deposit is alertable instead of silent.
+func TestLogsTruncated(t *testing.T) {
+	t.Run("detects the runtime marker", func(t *testing.T) {
+		assert.True(t, logsTruncated([]string{
+			"Program " + testGatewayProgram + " invoke [1]",
+			"Program log: Instruction: SendFunds",
+			"Log truncated",
+		}))
+	})
+
+	t.Run("matches wording variants and case", func(t *testing.T) {
+		assert.True(t, logsTruncated([]string{"log truncated"}))
+		assert.True(t, logsTruncated([]string{"Log Truncated"}))
+	})
+
+	t.Run("normal logs are not flagged", func(t *testing.T) {
+		assert.False(t, logsTruncated([]string{
+			"Program " + testGatewayProgram + " invoke [1]",
+			"Program log: Instruction: SendFunds",
+			"Program data: q83vEjRWeJA=",
+			"Program " + testGatewayProgram + " success",
+		}))
+		assert.False(t, logsTruncated(nil))
+	})
+
+	// A program cannot emit a bare line, so it cannot fake the marker. Its own
+	// output is always prefixed and must not trip detection.
+	t.Run("program cannot spoof the marker", func(t *testing.T) {
+		assert.False(t, logsTruncated([]string{
+			"Program " + testAttackerProgram + " invoke [1]",
+			"Program log: Log truncated",
+			"Program data: dHJ1bmNhdGVk",
+			"Program " + testAttackerProgram + " success",
+		}))
+	})
+}
+
+// Truncation must not discard the events that did survive: anything logged
+// before the cut is genuine and attributable.
+func TestProcessSignatureBatch_TruncatedLogsStillStoreVisibleEvents(t *testing.T) {
+	discriminator := "0000000000000000"
+	payload := buildSendFundsPayload(
+		[32]byte{1}, [20]byte{2}, [32]byte{3}, 1_000_000,
+		nil, [32]byte{4}, 0, nil, false,
+	)
+
+	database, err := db.OpenInMemoryDB(true)
+	require.NoError(t, err)
+	defer database.Close()
+
+	methods := []*uregistrytypes.GatewayMethods{
+		{Name: EventTypeSendFunds, EventIdentifier: discriminator},
+	}
+	rpc := &forgeryRPC{slot: 100, sig: mkSig(9), logs: []string{
+		"Program " + testGatewayProgram + " invoke [1]",
+		"Program data: " + base64.StdEncoding.EncodeToString(payload),
+		"Program " + testGatewayProgram + " success",
+		"Log truncated",
+	}}
+	el, err := NewEventListener(rpc, testGatewayProgram, "solana:test", methods, database, 10, nil, zerolog.Nop())
+	require.NoError(t, err)
+
+	_, err = el.processSignatureBatch(context.Background(), []*solanarpc.TransactionSignature{
+		{Signature: mkSig(9), Slot: 100},
+	}, 0, 200)
+	require.NoError(t, err)
+
+	events, err := common.NewChainStore(database).GetPendingEvents(100)
+	require.NoError(t, err)
+	assert.Len(t, events, 1, "events logged before the cut must still be stored")
+}

@@ -49,6 +49,8 @@ type ModuleInputs struct {
 	UvalidatorKeeper types.UValidatorKeeper
 	EVMKeeper        types.EVMKeeper
 	AccountKeeper    types.AccountKeeper
+	BankKeeper       types.BankKeeper
+	FeeMarketKeeper  types.FeeMarketKeeper
 }
 
 type ModuleOutputs struct {
@@ -61,7 +63,7 @@ type ModuleOutputs struct {
 func ProvideModule(in ModuleInputs) ModuleOutputs {
 	govAddr := authtypes.NewModuleAddress(govtypes.ModuleName).String()
 
-	k := keeper.NewKeeper(in.Cdc, in.StoreService, log.NewLogger(os.Stderr), govAddr, in.UvalidatorKeeper, in.EVMKeeper, in.AccountKeeper)
+	k := keeper.NewKeeper(in.Cdc, in.StoreService, log.NewLogger(os.Stderr), govAddr, in.UvalidatorKeeper, in.EVMKeeper, in.AccountKeeper, in.BankKeeper, in.FeeMarketKeeper)
 	m := NewAppModule(in.Cdc, k)
 
 	return ModuleOutputs{Module: m, Keeper: k, Out: depinject.Out{}}

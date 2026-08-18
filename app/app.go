@@ -10,6 +10,7 @@ import (
 	"sort"
 	"sync"
 	"time"
+
 	autocliv1 "cosmossdk.io/api/cosmos/autocli/v1"
 	reflectionv1 "cosmossdk.io/api/cosmos/reflection/v1"
 	"cosmossdk.io/client/v2/autocli"
@@ -152,11 +153,15 @@ import (
 	ibckeeper "github.com/cosmos/ibc-go/v10/modules/core/keeper"
 	ibctm "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
 	// "github.com/ethereum/go-ethereum/core/vm"
+	ibccallbacks "github.com/cosmos/ibc-go/v10/modules/apps/callbacks"
 	"github.com/ethereum/go-ethereum/common"
 	cosmoscorevm "github.com/ethereum/go-ethereum/core/vm"
 	chainante "github.com/pushchain/push-chain-node/app/ante"
 	usigverifierprecompile "github.com/pushchain/push-chain-node/precompiles/usigverifier"
 	pushtypes "github.com/pushchain/push-chain-node/types"
+	ucallback "github.com/pushchain/push-chain-node/x/ucallback"
+	ucallbackkeeper "github.com/pushchain/push-chain-node/x/ucallback/keeper"
+	ucallbacktypes "github.com/pushchain/push-chain-node/x/ucallback/types"
 	uexecutor "github.com/pushchain/push-chain-node/x/uexecutor"
 	uexecutorkeeper "github.com/pushchain/push-chain-node/x/uexecutor/keeper"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
@@ -174,10 +179,6 @@ import (
 	tokenfactorybindings "github.com/strangelove-ventures/tokenfactory/x/tokenfactory/bindings"
 	tokenfactorykeeper "github.com/strangelove-ventures/tokenfactory/x/tokenfactory/keeper"
 	tokenfactorytypes "github.com/strangelove-ventures/tokenfactory/x/tokenfactory/types"
-	ibccallbacks "github.com/cosmos/ibc-go/v10/modules/apps/callbacks"
-	ucallback "github.com/pushchain/push-chain-node/x/ucallback"
-	ucallbackkeeper "github.com/pushchain/push-chain-node/x/ucallback/keeper"
-	ucallbacktypes "github.com/pushchain/push-chain-node/x/ucallback/types"
 )
 
 const (
@@ -265,7 +266,7 @@ var maccPerms = map[string][]string{
 	erc20types.ModuleName:        {authtypes.Minter, authtypes.Burner},
 	uexecutortypes.ModuleName:    {authtypes.Minter, authtypes.Burner},
 	uvalidatortypes.ModuleName:   nil,
-	ucallbacktypes.ModuleName:    nil,
+	ucallbacktypes.ModuleName:    {authtypes.Burner}, // burns spent callback gas
 }
 
 var (
@@ -336,7 +337,7 @@ type ChainApp struct {
 	UregistryKeeper  uregistrykeeper.Keeper
 	UvalidatorKeeper uvalidatorkeeper.Keeper
 	UtssKeeper       utsskeeper.Keeper
-	UcallbackKeeper ucallbackkeeper.Keeper
+	UcallbackKeeper  ucallbackkeeper.Keeper
 
 	// the module manager
 	ModuleManager      *module.Manager
@@ -687,9 +688,8 @@ func NewChainApp(
 
 	// Create the ucallback Keeper.
 	//
-	// UvalidatorKeeper is constructed further down, so this takes a pointer to the
-	// field rather than its value — same pattern as UexecutorKeeper below. The
-	// pointer is stable; the value it refers to is populated before any tx runs.
+	// UvalidatorKeeper and FeeMarketKeeper are constructed further down, so these
+	// take a pointer to the field rather than its value.
 	app.UcallbackKeeper = ucallbackkeeper.NewKeeper(
 		appCodec,
 		runtime.NewKVStoreService(keys[ucallbacktypes.StoreKey]),
@@ -698,6 +698,8 @@ func NewChainApp(
 		&app.UvalidatorKeeper,
 		app.EVMKeeper,
 		app.AccountKeeper,
+		app.BankKeeper,
+		&app.FeeMarketKeeper,
 	)
 
 	app.FeeMarketKeeper = feemarketkeeper.NewKeeper(
@@ -883,7 +885,7 @@ func NewChainApp(
 	app.TransferKeeper = ibctransferkeeper.NewKeeper(
 		appCodec,
 		runtime.NewKVStoreService(keys[ibctransfertypes.StoreKey]),
-		nil, // legacySubspace (no params subspace)
+		nil,                 // legacySubspace (no params subspace)
 		app.RatelimitKeeper, // ICS4Wrapper
 		//app.IBCFeeKeeper,
 		app.IBCKeeper.ChannelKeeper,
@@ -1087,7 +1089,6 @@ func NewChainApp(
 		uvalidator.NewAppModule(appCodec, app.UvalidatorKeeper, app.BankKeeper, app.AccountKeeper, app.DistrKeeper, app.StakingKeeper, app.SlashingKeeper, &app.UtssKeeper),
 		utss.NewAppModule(appCodec, app.UtssKeeper, app.UvalidatorKeeper),
 		ucallback.NewAppModule(appCodec, app.UcallbackKeeper),
-
 	)
 
 	// BasicModuleManager defines the module BasicManager is in charge of setting up basic,
@@ -1645,6 +1646,9 @@ func BlockedAddresses() map[string]bool {
 
 	// allow the following addresses to receive funds
 	delete(blockedAddrs, authtypes.NewModuleAddress(govtypes.ModuleName).String())
+	// x/ucallback receives the consumed callback budget out of UniversalCallback
+	// before burning it, so it must not be blocked from receiving.
+	delete(blockedAddrs, authtypes.NewModuleAddress(ucallbacktypes.ModuleName).String())
 
 	blockedPrecompilesHex := evmtypes.AvailableStaticPrecompiles
 	for _, addr := range cosmoscorevm.PrecompiledAddressesBerlin {

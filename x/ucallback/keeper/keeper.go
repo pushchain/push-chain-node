@@ -52,6 +52,8 @@ type Keeper struct {
 	uvalidatorKeeper types.UValidatorKeeper
 	evmKeeper        types.EVMKeeper
 	accountKeeper    types.AccountKeeper
+	bankKeeper       types.BankKeeper
+	feemarketKeeper  types.FeeMarketKeeper
 
 	authority string
 }
@@ -65,6 +67,8 @@ func NewKeeper(
 	uvalidatorKeeper types.UValidatorKeeper,
 	evmKeeper types.EVMKeeper,
 	accountKeeper types.AccountKeeper,
+	bankKeeper types.BankKeeper,
+	feemarketKeeper types.FeeMarketKeeper,
 ) Keeper {
 	logger = logger.With(log.ModuleKey, "x/"+types.ModuleName)
 
@@ -105,6 +109,8 @@ func NewKeeper(
 		uvalidatorKeeper: uvalidatorKeeper,
 		evmKeeper:        evmKeeper,
 		accountKeeper:    accountKeeper,
+		bankKeeper:       bankKeeper,
+		feemarketKeeper:  feemarketKeeper,
 		authority:        authority,
 	}
 

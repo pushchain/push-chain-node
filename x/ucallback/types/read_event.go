@@ -20,6 +20,13 @@ import (
 // Held as ABI JSON rather than hand-assembled abi.Type values so that go-ethereum
 // derives topic0 for us. A hand-written signature string would be one silent typo
 // away from a filter that never matches anything.
+//
+// Field ORDER is part of the signature, so it is as load-bearing as the types:
+// callbackGasLimit sits between originalFunder and totalPaid, not at the end.
+// Getting it wrong changes topic0, and IngestReadRequests filters on topic0 — so the
+// module drops every real log and records nothing, silently. That is not a
+// hypothetical: this fragment had it last until the artifact was checked.
+// TestReadRequestedABIMatchesCompiledArtifact pins it.
 const readRequestedABI = `[{
   "type": "event",
   "name": "ReadRequested",
@@ -36,11 +43,15 @@ const readRequestedABI = `[{
       {"name": "minConfirmations", "type": "uint16"},
       {"name": "blockNumber", "type": "uint64"},
       {"name": "expiryPushChainHeight", "type": "uint64"},
-      {"name": "maxFee", "type": "uint256"}
+      {"name": "maxFee", "type": "uint256"},
+      {"name": "revertRecipient", "type": "address"}
     ]},
     {"name": "callbackTarget", "type": "address", "indexed": true},
     {"name": "originalFunder", "type": "address", "indexed": true},
-    {"name": "feesDeposited", "type": "uint256", "indexed": false}
+    {"name": "callbackGasLimit", "type": "uint64", "indexed": false},
+    {"name": "totalPaid", "type": "uint256", "indexed": false},
+    {"name": "protocolFee", "type": "uint256", "indexed": false},
+    {"name": "callbackBudget", "type": "uint256", "indexed": false}
   ]
 }]`
 
@@ -82,8 +93,14 @@ type ReadRequestedEvent struct {
 	BlockNumber           uint64
 	ExpiryPushChainHeight uint64
 	MaxFee                *big.Int
+	RevertRecipient       string
 
-	FeesDeposited *big.Int
+	// Fee split. ProtocolFee has already left for VaultPC by the time this log is
+	// emitted; only CallbackBudget is still escrowed on the contract.
+	TotalPaid        *big.Int
+	ProtocolFee      *big.Int
+	CallbackBudget   *big.Int
+	CallbackGasLimit uint64
 }
 
 // DestinationChain returns the CAIP-2 identifier the event's account refers to,
@@ -108,8 +125,12 @@ type unpackTarget struct {
 		BlockNumber           uint64
 		ExpiryPushChainHeight uint64
 		MaxFee                *big.Int
+		RevertRecipient       common.Address
 	}
-	FeesDeposited *big.Int
+	TotalPaid        *big.Int
+	ProtocolFee      *big.Int
+	CallbackBudget   *big.Int
+	CallbackGasLimit uint64
 }
 
 // DecodeReadRequestedFromLog decodes a ReadRequested log.
@@ -151,7 +172,19 @@ func DecodeReadRequestedFromLog(log *evmtypes.Log) (*ReadRequestedEvent, error) 
 		BlockNumber:           out.ReadSpec.BlockNumber,
 		ExpiryPushChainHeight: out.ReadSpec.ExpiryPushChainHeight,
 		MaxFee:                out.ReadSpec.MaxFee,
+		RevertRecipient:       out.ReadSpec.RevertRecipient.Hex(),
 
-		FeesDeposited: out.FeesDeposited,
+		TotalPaid:        out.TotalPaid,
+		ProtocolFee:      out.ProtocolFee,
+		CallbackBudget:   out.CallbackBudget,
+		CallbackGasLimit: out.CallbackGasLimit,
 	}, nil
 }
+
+// ReadRequestedEventInputs exposes the parsed event inputs so a test can compare
+// them against the compiled contract field by field.
+func ReadRequestedEventInputs() abi.Arguments { return readRequestedEvent.Inputs }
+
+// ReadRequestedEventSigName is the human-readable signature topic0 is derived from,
+// for error messages that need to show what we expected.
+func ReadRequestedEventSigName() string { return readRequestedEvent.Sig }

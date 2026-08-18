@@ -4,7 +4,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
@@ -27,31 +26,16 @@ type readSpec struct {
 	BlockNumber           uint64
 	ExpiryPushChainHeight uint64
 	MaxFee                *big.Int
-}
-
-func specArgs(t *testing.T) abi.Arguments {
-	t.Helper()
-	specType, err := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
-		{Name: "account", Type: "tuple", Components: []abi.ArgumentMarshaling{
-			{Name: "chainNamespace", Type: "string"},
-			{Name: "chainId", Type: "string"},
-			{Name: "owner", Type: "bytes"},
-		}},
-		{Name: "query", Type: "bytes"},
-		{Name: "minConfirmations", Type: "uint16"},
-		{Name: "blockNumber", Type: "uint64"},
-		{Name: "expiryPushChainHeight", Type: "uint64"},
-		{Name: "maxFee", Type: "uint256"},
-	})
-	require.NoError(t, err)
-	uint256Type, err := abi.NewType("uint256", "", nil)
-	require.NoError(t, err)
-	return abi.Arguments{{Type: specType}, {Type: uint256Type}}
+	RevertRecipient       common.Address
 }
 
 func encodeLog(t *testing.T, spec readSpec, fees *big.Int, requestID, target, funder string) *evmtypes.Log {
 	t.Helper()
-	data, err := specArgs(t).Pack(spec, fees)
+	// totalPaid = protocolFee + callbackBudget; the split mirrors the contract.
+	protocolFee := new(big.Int).Div(fees, big.NewInt(2))
+	budget := new(big.Int).Sub(fees, protocolFee)
+	data, err := types.ReadRequestedEventInputs().NonIndexed().
+		Pack(spec, uint64(250_000), fees, protocolFee, budget)
 	require.NoError(t, err)
 
 	return &evmtypes.Log{
@@ -78,6 +62,7 @@ func sampleSpec() readSpec {
 		BlockNumber:           8_000_123,
 		ExpiryPushChainHeight: 900_000,
 		MaxFee:                big.NewInt(5_000_000),
+		RevertRecipient:       common.HexToAddress("0x4444444444444444444444444444444444444444"),
 	}
 }
 
@@ -102,7 +87,14 @@ func TestDecodeReadRequestedFromLog_RoundTrip(t *testing.T) {
 	require.Equal(t, uint64(8_000_123), ev.BlockNumber)
 	require.Equal(t, uint64(900_000), ev.ExpiryPushChainHeight)
 	require.Equal(t, big.NewInt(5_000_000), ev.MaxFee)
-	require.Equal(t, big.NewInt(42_000), ev.FeesDeposited)
+	require.Equal(t, "0x4444444444444444444444444444444444444444", ev.RevertRecipient)
+
+	// the fee split arrives whole, and the two parts must reconstitute the total
+	require.Equal(t, big.NewInt(42_000), ev.TotalPaid)
+	require.Equal(t, big.NewInt(21_000), ev.ProtocolFee)
+	require.Equal(t, big.NewInt(21_000), ev.CallbackBudget)
+	require.Equal(t, new(big.Int).Add(ev.ProtocolFee, ev.CallbackBudget), ev.TotalPaid)
+	require.Equal(t, uint64(250_000), ev.CallbackGasLimit)
 
 	require.Equal(t, "0x2222222222222222222222222222222222222222", ev.CallbackTarget)
 	require.Equal(t, "0x3333333333333333333333333333333333333333", ev.OriginalFunder)
@@ -111,11 +103,21 @@ func TestDecodeReadRequestedFromLog_RoundTrip(t *testing.T) {
 		ev.RequestID, "request id keeps the full 32-byte topic, lowercased")
 }
 
+// expectedReadRequestedTopic0 is keccak of
+//
+//	ReadRequested(uint256,((string,string,bytes),bytes,uint16,uint64,uint64,uint256,address),
+//	              address,address,uint64,uint256,uint256,uint256)
+//
+// derived independently of the ABI fragment. If the two disagree, one of them has
+// drifted from the contract — and a wrong topic0 means ingestion silently matches
+// nothing rather than failing.
+const expectedReadRequestedTopic0 = "0x4eff8080da7bb648f5eed3bfbb21041b583987e36c6808f5483bd6cf9e160160"
+
 // topic0 must be derived, never hand-written: a typo would silently produce a
 // filter that matches nothing.
 func TestReadRequestedEventSig_IsStable(t *testing.T) {
 	require.Equal(t,
-		"0xef9f2bd93134c510809440802fbb5f8056161a88fa47ca5758104364a83d9d8e",
+		expectedReadRequestedTopic0,
 		types.ReadRequestedEventSig.Hex(),
 		"topic0 changed — the contract's event signature moved, or the ABI fragment drifted")
 }

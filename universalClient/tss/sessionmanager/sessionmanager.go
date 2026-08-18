@@ -940,16 +940,15 @@ func (sm *SessionManager) verifyOutboundSigningRequest(ctx context.Context, even
 		return nil
 	}
 
-	// Guard against stale / replayed nonces: reject if coordinator's nonce is below the
-	// last finalized nonce on chain (i.e. that nonce has already been committed).
+	// Bound the coordinator's nonce on both sides: below finalized it is already
+	// committed, and far above it would never mine, freezing the outbound.
 	// We only hard-reject on a definitive answer — warn and skip if we can't determine it.
 	if tssAddr, addrErr := sm.getTSSAddress(ctx); addrErr != nil {
 		sm.logger.Warn().Err(addrErr).Str("chain", chainID).Msg("cannot get TSS address for nonce check, skipping")
 	} else if finalizedNonce, nonceErr := builder.GetNextNonce(ctx, tssAddr, true /* useFinalized */); nonceErr != nil {
 		sm.logger.Warn().Err(nonceErr).Str("chain", chainID).Msg("cannot get finalized nonce for check, skipping")
-	} else if req.Nonce < finalizedNonce {
-		return fmt.Errorf("coordinator assigned nonce %d is below chain finalized nonce %d for %s — nonce already used on chain",
-			req.Nonce, finalizedNonce, chainID)
+	} else if err := checkNonceInRange(req.Nonce, finalizedNonce, chainID); err != nil {
+		return err
 	}
 
 	// Use coordinator's nonce so our computed hash matches
@@ -974,6 +973,28 @@ func (sm *SessionManager) verifyOutboundSigningRequest(ctx context.Context, even
 		Str("our_hash", hex.EncodeToString(signingReq.SigningHash)).
 		Msg("sign metadata verified - hash matches")
 
+	return nil
+}
+
+// maxNonceGap bounds how far above the finalized nonce a coordinator may assign.
+// An honest coordinator starts from the pending nonce and increments once per
+// event in a poll, both bounded by coordinator.PerChainCap, so the legitimate
+// ceiling is about 2x that. 4x leaves headroom while still rejecting a
+// far-future nonce, which would never mine and would freeze the outbound with
+// its PRC20 already burned.
+const maxNonceGap = 4 * coordinator.PerChainCap
+
+// checkNonceInRange rejects a coordinator-assigned nonce that is already
+// committed on chain or so far ahead it would never mine.
+func checkNonceInRange(assigned, finalized uint64, target string) error {
+	if assigned < finalized {
+		return fmt.Errorf("coordinator assigned nonce %d is below chain finalized nonce %d for %s — nonce already used on chain",
+			assigned, finalized, target)
+	}
+	if assigned > finalized+maxNonceGap {
+		return fmt.Errorf("coordinator assigned nonce %d exceeds finalized nonce %d by more than %d for %s — gap nonce would never mine",
+			assigned, finalized, maxNonceGap, target)
+	}
 	return nil
 }
 
@@ -1020,13 +1041,11 @@ func (sm *SessionManager) verifyFundMigrationSigningRequest(ctx context.Context,
 		return nil
 	}
 
-	// Guard against stale / replayed nonces: reject if coordinator's nonce is below the
-	// last finalized nonce on chain for the old TSS address.
+	// Bound the coordinator's nonce on both sides for the old TSS address.
 	if finalizedNonce, nonceErr := builder.GetNextNonce(ctx, oldTSSAddr, true /* useFinalized */); nonceErr != nil {
 		sm.logger.Warn().Err(nonceErr).Str("chain", migrationData.Chain).Msg("cannot get finalized nonce for old TSS, skipping nonce check")
-	} else if req.Nonce < finalizedNonce {
-		return fmt.Errorf("coordinator assigned nonce %d is below chain finalized nonce %d for old TSS %s — nonce already used on chain",
-			req.Nonce, finalizedNonce, oldTSSAddr)
+	} else if err := checkNonceInRange(req.Nonce, finalizedNonce, oldTSSAddr); err != nil {
+		return err
 	}
 
 	// Rebuild fund migration signing request with coordinator's nonce.

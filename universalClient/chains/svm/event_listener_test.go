@@ -676,3 +676,132 @@ func TestEventListener_StartWhileRunning(t *testing.T) {
 	cancel()
 	el.wg.Wait()
 }
+
+const (
+	testGatewayProgram  = "CFVSincHYbETh2k7w6u1ENEkjbSLtveRCEBupKidw2VS"
+	testAttackerProgram = "AttackerProgram1111111111111111111111111111"
+)
+
+// getSignaturesForAddress returns any tx that merely references the gateway in
+// accountKeys, and a discriminator is a schema tag, not an authenticator. So a
+// gateway-shaped log must only be trusted when the gateway is the executing
+// program. Otherwise any program can forge a deposit that every honest UV
+// deterministically votes for.
+func TestGatewayEmittedLogs(t *testing.T) {
+	const data = "Program data: q83vEjRWeJA="
+
+	t.Run("accepts log emitted by the gateway", func(t *testing.T) {
+		logs := []string{
+			"Program " + testGatewayProgram + " invoke [1]",
+			data,
+			"Program " + testGatewayProgram + " success",
+		}
+		assert.Equal(t, map[int]bool{1: true}, gatewayEmittedLogs(logs, testGatewayProgram))
+	})
+
+	// The reported attack: attacker program lists the gateway as an unused
+	// read-only account and emits a correctly encoded gateway event.
+	t.Run("rejects forged log from an attacker program", func(t *testing.T) {
+		logs := []string{
+			"Program " + testAttackerProgram + " invoke [1]",
+			data,
+			"Program " + testAttackerProgram + " success",
+		}
+		assert.Empty(t, gatewayEmittedLogs(logs, testGatewayProgram))
+	})
+
+	t.Run("accepts gateway frame reached via CPI", func(t *testing.T) {
+		logs := []string{
+			"Program " + testAttackerProgram + " invoke [1]",
+			"Program " + testGatewayProgram + " invoke [2]",
+			data,
+			"Program " + testGatewayProgram + " success",
+			"Program " + testAttackerProgram + " success",
+		}
+		assert.Equal(t, map[int]bool{2: true}, gatewayEmittedLogs(logs, testGatewayProgram))
+	})
+
+	// After the gateway frame exits, control is back with the caller, so a log
+	// there is not the gateway's.
+	t.Run("rejects log emitted after the gateway frame exits", func(t *testing.T) {
+		logs := []string{
+			"Program " + testAttackerProgram + " invoke [1]",
+			"Program " + testGatewayProgram + " invoke [2]",
+			"Program " + testGatewayProgram + " success",
+			data,
+			"Program " + testAttackerProgram + " success",
+		}
+		assert.Empty(t, gatewayEmittedLogs(logs, testGatewayProgram))
+	})
+
+	t.Run("rejects log from a failed gateway invocation's caller", func(t *testing.T) {
+		logs := []string{
+			"Program " + testGatewayProgram + " invoke [1]",
+			"Program " + testGatewayProgram + " failed: custom program error: 0x1",
+			data,
+		}
+		assert.Empty(t, gatewayEmittedLogs(logs, testGatewayProgram))
+	})
+
+	// A program can only emit "Program log: ..." or "Program data: ...", so it
+	// cannot fake an invoke line to push a gateway frame onto the stack.
+	t.Run("cannot spoof an invoke line via program log", func(t *testing.T) {
+		logs := []string{
+			"Program " + testAttackerProgram + " invoke [1]",
+			"Program log: Program " + testGatewayProgram + " invoke [1]",
+			data,
+			"Program " + testAttackerProgram + " success",
+		}
+		assert.Empty(t, gatewayEmittedLogs(logs, testGatewayProgram))
+	})
+
+	// A callee that logs "success" emits "Program log: success". If that were
+	// treated as a frame exit it would pop its own frame and the next data log
+	// would be attributed to its caller, the gateway.
+	t.Run("callee cannot pop its frame by logging success", func(t *testing.T) {
+		logs := []string{
+			"Program " + testGatewayProgram + " invoke [1]",
+			"Program " + testAttackerProgram + " invoke [2]",
+			"Program log: success",
+			data,
+			"Program " + testAttackerProgram + " success",
+			"Program " + testGatewayProgram + " success",
+		}
+		assert.Empty(t, gatewayEmittedLogs(logs, testGatewayProgram),
+			"data logged inside the callee must not be attributed to the gateway")
+	})
+
+	t.Run("no logs or no invocation yields nothing", func(t *testing.T) {
+		assert.Empty(t, gatewayEmittedLogs(nil, testGatewayProgram))
+		assert.Empty(t, gatewayEmittedLogs([]string{data}, testGatewayProgram))
+	})
+
+	t.Run("unrelated runtime lines do not disturb the stack", func(t *testing.T) {
+		logs := []string{
+			"Program " + testGatewayProgram + " invoke [1]",
+			"Program log: Instruction: SendFunds",
+			"Program return: " + testGatewayProgram + " AQID",
+			"Program " + testGatewayProgram + " consumed 12345 of 200000 compute units",
+			data,
+			"Program " + testGatewayProgram + " success",
+		}
+		assert.Equal(t, map[int]bool{4: true}, gatewayEmittedLogs(logs, testGatewayProgram))
+	})
+}
+
+func TestInvokedProgramAndExit(t *testing.T) {
+	id, ok := invokedProgram("Program " + testGatewayProgram + " invoke [1]")
+	assert.True(t, ok)
+	assert.Equal(t, testGatewayProgram, id)
+
+	_, ok = invokedProgram("Program log: hello")
+	assert.False(t, ok)
+	_, ok = invokedProgram("Program data: AQID")
+	assert.False(t, ok)
+
+	assert.True(t, isProgramExit("Program "+testGatewayProgram+" success"))
+	assert.True(t, isProgramExit("Program "+testGatewayProgram+" failed: custom program error: 0x1"))
+	assert.False(t, isProgramExit("Program log: success"))
+	assert.False(t, isProgramExit("Program data: AQID"))
+	assert.False(t, isProgramExit("Program "+testGatewayProgram+" consumed 1 of 2 compute units"))
+}

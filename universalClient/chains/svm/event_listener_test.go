@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/db"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
@@ -804,4 +805,78 @@ func TestInvokedProgramAndExit(t *testing.T) {
 	assert.False(t, isProgramExit("Program log: success"))
 	assert.False(t, isProgramExit("Program data: AQID"))
 	assert.False(t, isProgramExit("Program "+testGatewayProgram+" consumed 1 of 2 compute units"))
+}
+
+// forgeryRPC serves one transaction whose logs the test controls.
+type forgeryRPC struct {
+	slot uint64
+	sig  solana.Signature
+	logs []string
+}
+
+func (m *forgeryRPC) GetLatestSlot(context.Context) (uint64, error) { return m.slot, nil }
+
+func (m *forgeryRPC) GetSignaturesForAddress(context.Context, solana.PublicKey, solana.Signature) ([]*solanarpc.TransactionSignature, error) {
+	return []*solanarpc.TransactionSignature{{Signature: m.sig, Slot: m.slot}}, nil
+}
+
+func (m *forgeryRPC) GetTransaction(context.Context, solana.Signature) (*solanarpc.GetTransactionResult, error) {
+	return &solanarpc.GetTransactionResult{
+		Slot: m.slot,
+		Meta: &solanarpc.TransactionMeta{LogMessages: m.logs},
+	}, nil
+}
+
+// End-to-end proof that the listener drops a forged event. The same valid
+// send_funds payload is served twice: emitted by an attacker program it must be
+// ignored, emitted by the gateway it must be stored. Running both with one
+// payload shows attribution is what rejects it, not a decode failure.
+func TestProcessSignatureBatch_RejectsForgedGatewayEvent(t *testing.T) {
+	discriminator := "0000000000000000" // buildSendFundsPayload zeroes the discriminator
+	payload := buildSendFundsPayload(
+		[32]byte{1}, [20]byte{2}, [32]byte{3}, 1_000_000,
+		nil, [32]byte{4}, 0, nil, false,
+	)
+	dataLog := "Program data: " + base64.StdEncoding.EncodeToString(payload)
+
+	run := func(t *testing.T, logs []string) int {
+		t.Helper()
+		database, err := db.OpenInMemoryDB(true)
+		require.NoError(t, err)
+		t.Cleanup(func() { database.Close() })
+
+		methods := []*uregistrytypes.GatewayMethods{
+			{Name: EventTypeSendFunds, EventIdentifier: discriminator},
+		}
+		rpc := &forgeryRPC{slot: 100, sig: mkSig(7), logs: logs}
+		el, err := NewEventListener(rpc, testGatewayProgram, "solana:test", methods, database, 10, nil, zerolog.Nop())
+		require.NoError(t, err)
+
+		_, err = el.processSignatureBatch(context.Background(), []*solanarpc.TransactionSignature{
+			{Signature: mkSig(7), Slot: 100},
+		}, 0, 200)
+		require.NoError(t, err)
+
+		events, err := common.NewChainStore(database).GetPendingEvents(100)
+		require.NoError(t, err)
+		return len(events)
+	}
+
+	t.Run("forged by attacker program is not stored", func(t *testing.T) {
+		stored := run(t, []string{
+			"Program " + testAttackerProgram + " invoke [1]",
+			dataLog,
+			"Program " + testAttackerProgram + " success",
+		})
+		assert.Zero(t, stored, "forged gateway event must not become an inbound")
+	})
+
+	t.Run("same payload from the gateway is stored", func(t *testing.T) {
+		stored := run(t, []string{
+			"Program " + testGatewayProgram + " invoke [1]",
+			dataLog,
+			"Program " + testGatewayProgram + " success",
+		})
+		assert.Equal(t, 1, stored, "genuine gateway event must be observed")
+	})
 }

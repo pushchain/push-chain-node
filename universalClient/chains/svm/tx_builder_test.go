@@ -2719,30 +2719,35 @@ func TestSimulate_RefRoute_Execute(t *testing.T) {
 	requireSimulationSuccess(t, storeSim)
 }
 
-// The SVM builder must recognise Solana's native marker, not only EVM zero
-// addresses. Shipped native SOL / pSOL config stores SystemProgram; treating it
-// as an SPL mint builds an ATA-create against a non-mint and reverts pre-broadcast.
+// Both encodings of native SOL reach the builder, verified against donut:
+// withdrawals carry the EVM zero hex from the registry token address, reverts
+// carry the base58 SystemProgram marker copied from the inbound. Missing either
+// builds an SPL transfer whose ATA-create reverts, since neither is a mint.
 func TestIsNativeAsset(t *testing.T) {
-	t.Run("solana native markers", func(t *testing.T) {
-		assert.True(t, isNativeAsset("11111111111111111111111111111111"), "shipped SystemProgram marker")
-		assert.True(t, isNativeAsset(solana.SystemProgramID.String()))
-		assert.True(t, isNativeAsset(solana.PublicKey{}.String()), "zero pubkey")
+	t.Run("core withdrawal form is native", func(t *testing.T) {
+		// create_outbound.go copies the registry token address verbatim.
+		assert.True(t, isNativeAsset("0x0000000000000000000000000000000000000000"))
 	})
 
-	// The shipped registry carries both pSOL markers: the base58 SystemProgram
-	// and a legacy 20-byte EVM zero. A hex-encoded zero pubkey is covered too,
-	// since the builder accepts hex mints.
-	t.Run("hex markers still recognised", func(t *testing.T) {
+	t.Run("core revert form is native", func(t *testing.T) {
+		// build_revert_outbound.go copies inbound.AssetAddr, which the SVM parser
+		// sets from the pubkey, so native SOL arrives base58 encoded.
+		assert.True(t, isNativeAsset("11111111111111111111111111111111"))
+		assert.True(t, isNativeAsset(solana.SystemProgramID.String()))
+		assert.True(t, isNativeAsset(solana.PublicKey{}.String()))
+	})
+
+	t.Run("other zero spellings are native", func(t *testing.T) {
 		assert.True(t, isNativeAsset(""))
 		assert.True(t, isNativeAsset("0x0"))
-		assert.True(t, isNativeAsset("0x0000000000000000000000000000000000000000"), "shipped legacy pSOL marker")
 		assert.True(t, isNativeAsset("0x"+strings.Repeat("0", 64)), "hex-encoded zero pubkey")
 	})
 
+	// SPL mints are base58 in both directions, so they parse normally and must
+	// keep taking the token path.
 	t.Run("real SPL mints are not native", func(t *testing.T) {
-		// USDC devnet mint.
-		assert.False(t, isNativeAsset("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"))
-		// Token program is a valid pubkey but not the zero address.
+		assert.False(t, isNativeAsset("EiXDnrAg9ea2Q6vEPV7E5TpTU1vh41jcuZqKjU5Dc4ZF"), "USDT.sol")
+		assert.False(t, isNativeAsset("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"), "USDC.sol")
 		assert.False(t, isNativeAsset(solana.TokenProgramID.String()))
 	})
 

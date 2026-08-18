@@ -1282,10 +1282,10 @@ func removeHexPrefix(s string) string {
 }
 
 // isNativeAsset reports whether addr denotes native SOL rather than an SPL mint.
-// Native is the zero address in whichever encoding the registry supplies: empty,
-// EVM zero hex, or the base58 zero pubkey — which is the Solana native marker
-// SystemProgram (11111111111111111111111111111111). Treating that marker as a
-// mint builds an SPL transfer that reverts, since SystemProgram is not a mint.
+// Both encodings of the zero address reach us. Core sends the EVM zero hex on
+// withdrawals (registry token address), while reverts carry the base58 zero
+// pubkey, SystemProgram 11111111111111111111111111111111, copied from the
+// inbound. SPL mints are always base58 and parse as an ordinary non-zero pubkey.
 func isNativeAsset(addr string) bool {
 	switch addr {
 	case "", "0x0", "0x0000000000000000000000000000000000000000":

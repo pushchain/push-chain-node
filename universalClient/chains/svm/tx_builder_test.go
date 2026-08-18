@@ -2391,7 +2391,7 @@ func buildAndSimulateRescue(t *testing.T, rpcClient *RPCClient, builder *TxBuild
 	require.NoError(t, err)
 	copy(sender[:], senderBytes)
 
-	isNative := assetAddr == ""
+	isNative := isNativeAsset(assetAddr)
 	var token [32]byte
 	var mintPubkey solana.PublicKey
 	if !isNative {
@@ -2717,4 +2717,33 @@ func TestSimulate_RefRoute_Execute(t *testing.T) {
 	storeSim, _, err := buildAndSimulateRefRoute(t, rpcClient, builder, data, evmKey)
 	require.NoError(t, err)
 	requireSimulationSuccess(t, storeSim)
+}
+
+// The SVM builder must recognise Solana's native marker, not only EVM zero
+// addresses. Shipped native SOL / pSOL config stores SystemProgram; treating it
+// as an SPL mint builds an ATA-create against a non-mint and reverts pre-broadcast.
+func TestIsNativeAsset(t *testing.T) {
+	t.Run("solana native markers", func(t *testing.T) {
+		assert.True(t, isNativeAsset("11111111111111111111111111111111"), "shipped SystemProgram marker")
+		assert.True(t, isNativeAsset(solana.SystemProgramID.String()))
+		assert.True(t, isNativeAsset(solana.PublicKey{}.String()), "zero pubkey")
+	})
+
+	t.Run("evm-style markers still recognised", func(t *testing.T) {
+		assert.True(t, isNativeAsset(""))
+		assert.True(t, isNativeAsset("0x0"))
+		assert.True(t, isNativeAsset("0x0000000000000000000000000000000000000000"))
+	})
+
+	t.Run("real SPL mints are not native", func(t *testing.T) {
+		// USDC devnet mint.
+		assert.False(t, isNativeAsset("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"))
+		// Token program is a valid pubkey but not the zero address.
+		assert.False(t, isNativeAsset(solana.TokenProgramID.String()))
+	})
+
+	t.Run("malformed addresses are not native", func(t *testing.T) {
+		assert.False(t, isNativeAsset("not-base58-0OlI"))
+		assert.False(t, isNativeAsset("0x1234"))
+	})
 }

@@ -214,9 +214,8 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 	}
 
 	// Determine if this is native SOL or an SPL token transfer.
-	// Empty or zero address = native SOL. Otherwise it's the SPL token mint address.
 	assetAddr := data.AssetAddr
-	isNative := assetAddr == "" || assetAddr == "0x0" || assetAddr == "0x0000000000000000000000000000000000000000"
+	isNative := isNativeAsset(assetAddr)
 
 	txType, err := parseTxType(data.TxType)
 	if err != nil {
@@ -707,7 +706,7 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 	}
 
 	assetAddr := data.AssetAddr
-	isNative := assetAddr == "" || assetAddr == "0x0" || assetAddr == "0x0000000000000000000000000000000000000000"
+	isNative := isNativeAsset(assetAddr)
 
 	txType, err := parseTxType(data.TxType)
 	if err != nil {
@@ -1052,7 +1051,7 @@ func (tb *TxBuilder) BuildRefRouteTransactions(
 	}
 
 	assetAddr := data.AssetAddr
-	isNative := assetAddr == "" || assetAddr == "0x0" || assetAddr == "0x0000000000000000000000000000000000000000"
+	isNative := isNativeAsset(assetAddr)
 
 	var txID [32]byte
 	txIDBytes, err := hex.DecodeString(removeHexPrefix(data.TxID))
@@ -1280,6 +1279,22 @@ func removeHexPrefix(s string) string {
 		return s[2:]
 	}
 	return s
+}
+
+// isNativeAsset reports whether addr denotes native SOL rather than an SPL mint.
+// Native is the zero address in whichever encoding the registry supplies: empty,
+// EVM zero hex, or the base58 zero pubkey — which is the Solana native marker
+// SystemProgram (11111111111111111111111111111111). Treating that marker as a
+// mint builds an SPL transfer that reverts, since SystemProgram is not a mint.
+func isNativeAsset(addr string) bool {
+	switch addr {
+	case "", "0x0", "0x0000000000000000000000000000000000000000":
+		return true
+	}
+	if pubkey, err := solana.PublicKeyFromBase58(addr); err == nil {
+		return pubkey.IsZero()
+	}
+	return false
 }
 
 // =============================================================================

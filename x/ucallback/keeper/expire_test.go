@@ -73,7 +73,7 @@ func TestSweepExpired_SkipsFulfilled(t *testing.T) {
 	seedRead(t, f, "0xaa", 50)
 	key := voteToQuorum(t, f, "0xaa", obs(0x01))
 	require.NoError(t, fireTerminal(f, key, uvalidatortypes.BallotStatus_BALLOT_STATUS_PASSED))
-	require.Len(t, f.evm.calls, 1, "fulfilled")
+	require.Equal(t, 1, f.evm.callsTo(types.MethodFulfillExternalCallback), "fulfilled")
 
 	// now well past the deadline
 	f.ctx = f.ctx.WithBlockHeight(999)
@@ -278,7 +278,9 @@ func TestFulfil_SuccessLeavesNoErrorMsg(t *testing.T) {
 	ur, _ := f.k.GetUniversalRead(f.ctx, "0xaa")
 	require.Equal(t, types.UniversalReadStatus_UNIVERSAL_READ_STATUS_FULFILLED, ur.Status)
 	require.Empty(t, ur.ErrorMsg)
-	require.Equal(t, "SUCCESS", ur.PcTx[0].Status)
+	for i, p := range ur.PcTx {
+		require.Equal(t, "SUCCESS", p.Status, "pc_tx[%d]", i)
+	}
 }
 
 // abortedIDs lists what the operator-facing query returns.
@@ -373,7 +375,7 @@ func TestSweepExpired_RetryBudgetIgnoresFulfilAttempts(t *testing.T) {
 	require.NoError(t, fireTerminal(f, key, uvalidatortypes.BallotStatus_BALLOT_STATUS_PASSED))
 
 	ur, _ := f.k.GetUniversalRead(f.ctx, "0xaa")
-	require.Len(t, ur.PcTx, 1, "the failed fulfil is on the record")
+	require.Len(t, ur.PcTx, 1, "the failed fulfil is on the record; no report followed it")
 	require.Equal(t, uint32(0), ur.ExpiryAttempts, "but it is not an expiry attempt")
 
 	// now the sweeper takes over, and must get its full budget
@@ -413,4 +415,6 @@ func TestPcTx_RecordsFulfilThenExpiry(t *testing.T) {
 	require.Len(t, ur.PcTx, 2)
 	require.Equal(t, "FAILED", ur.PcTx[0].Status, "the fulfil attempt")
 	require.Equal(t, "SUCCESS", ur.PcTx[1].Status, "the expiry that settled it")
+	require.Equal(t, 0, f.evm.callsTo(types.MethodReportCallbackGas),
+		"a fulfil that never settled must not be reported")
 }

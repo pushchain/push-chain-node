@@ -1,6 +1,8 @@
 package keeper
 
 import (
+	"fmt"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
 
@@ -105,6 +107,23 @@ func (h BallotHooks) afterReadBallotTerminal(
 func (k Keeper) FulfilRead(ctx sdk.Context, ur types.UniversalRead) error {
 	_, moduleHex := k.GetModuleAddress(ctx)
 
+	// A request that did not fund the gas it declared is never executed. Running it
+	// on a short budget would hand the app less gas than it asked for, which fails
+	// anyway and charges the funder for a doomed attempt. Left in flight instead, so
+	// the sweeper expires it at its deadline and the whole budget goes back.
+	affordable, err := k.CanAffordCallback(ctx, ur.Request)
+	if err != nil {
+		return err
+	}
+	if !affordable {
+		ur.ErrorMsg = ErrBudgetTooSmall
+		k.Logger().Warn("read not fulfilled: callback budget too small",
+			"request_id", ur.Id,
+			"callback_gas_limit", ur.Request.GetCallbackGasLimit(),
+			"callback_budget", ur.Request.GetCallbackBudget())
+		return k.SetUniversalRead(ctx, ur)
+	}
+
 	tmpCtx, commit := ctx.CacheContext()
 	res, callErr := k.CallFulfillExternalCallback(tmpCtx, ur.Id, ur.Result)
 
@@ -126,6 +145,19 @@ func (k Keeper) FulfilRead(ctx sdk.Context, ur types.UniversalRead) error {
 		ur.Status = types.UniversalReadStatus_UNIVERSAL_READ_STATUS_FULFILLED
 		k.Logger().Info("read request fulfilled",
 			"request_id", ur.Id, "tx_hash", pcTxHash(res))
+
+		// Settle: tell the contract what the callback cost, then destroy exactly
+		// that. Ordered report-then-take because reportCallbackGas releases the
+		// refund and decrements totalEscrowed first — taking beforehand would leave
+		// the contract briefly holding less than it owes.
+		if err := k.settleCallbackGas(ctx, &ur, res); err != nil {
+			// The callback ran and the contract is EXECUTED; only the accounting
+			// failed. Record it and leave the status terminal — re-running fulfil
+			// would revert, and the escrow is recoverable by admin.
+			ur.ErrorMsg = err.Error()
+			k.Logger().Error("callback gas not settled",
+				"request_id", ur.Id, "error", err.Error())
+		}
 
 	case types.CallAlreadySettled:
 		// The contract closed it another way and the funder already has their
@@ -156,12 +188,56 @@ func pcTxHash(res *evmtypes.MsgEthereumTxResponse) string {
 	return res.Hash
 }
 
+// pcTxError picks the reason worth storing on-chain. res.VmError comes first
+// because a revert produces both a response and an error, and the error is the
+// wrapper's decoration ("<vmError>: ret 0x...") around the same fact. The bare VM
+// reason is the stable one; callErr is only informative when there is no response.
 func pcTxError(res *evmtypes.MsgEthereumTxResponse, callErr error) string {
-	if callErr != nil {
-		return callErr.Error()
-	}
 	if res != nil && res.VmError != "" {
 		return res.VmError
 	}
+	if callErr != nil {
+		return callErr.Error()
+	}
 	return "unknown"
+}
+
+// settleCallbackGas reports the callback's cost and burns what the contract clamps
+// it to.
+//
+// The burn amount is recomputed here rather than read back from the EVM return
+// data: with the affordability gate in place the clamp can never bind, so the two
+// agree, and min() keeps that true even if the gate is ever relaxed.
+func (k Keeper) settleCallbackGas(
+	ctx sdk.Context, ur *types.UniversalRead, res *evmtypes.MsgEthereumTxResponse,
+) error {
+	if res == nil {
+		return fmt.Errorf("no receipt to price the callback from")
+	}
+
+	cost, err := k.CallbackCost(ctx, res.GasUsed)
+	if err != nil {
+		return err
+	}
+	budget, err := parseBudget(ur.Request.GetCallbackBudget())
+	if err != nil {
+		return err
+	}
+	if cost.Cmp(budget) > 0 {
+		cost = budget
+	}
+
+	_, moduleHex := k.GetModuleAddress(ctx)
+	repRes, repErr := k.CallReportCallbackGas(ctx, ur.Id, cost)
+	ur.PcTx = append(ur.PcTx, pcTxFrom(ctx, moduleHex, repRes, repErr))
+
+	var vmErr string
+	if repRes != nil {
+		vmErr = repRes.VmError
+	}
+	if repErr != nil || vmErr != "" {
+		return fmt.Errorf("reportCallbackGas failed: %s", pcTxError(repRes, repErr))
+	}
+
+	return k.TakeAndBurn(ctx, cost)
 }

@@ -1,6 +1,7 @@
 package keeper_test
 
 import (
+	sdkmath "cosmossdk.io/math"
 	"testing"
 
 	"github.com/stretchr/testify/suite"
@@ -50,6 +51,8 @@ type testFixture struct {
 	uvalidator  *fakeUValidator
 	evm         *fakeEVM
 	account     *fakeAccount
+	bank        *fakeBank
+	feemarket   *fakeFeeMarket
 	appModule   *module.AppModule
 
 	accountkeeper authkeeper.AccountKeeper
@@ -92,8 +95,14 @@ func SetupTest(t *testing.T) *testFixture {
 	f.uvalidator = newFakeUValidator()
 	f.evm = &fakeEVM{}
 	f.account = &fakeAccount{}
+	f.bank = newFakeBank()
+	// UniversalCallback holds escrowed callback budgets; fund it so the take-and-burn
+	// step has something to draw on.
+	f.bank.contractBalance = sdkmath.NewInt(1_000_000_000_000_000_000)
+	// 1 gwei — every gas figure in tests prices at exactly gas × 1e9.
+	f.feemarket = &fakeFeeMarket{baseFee: sdkmath.LegacyNewDec(1_000_000_000)}
 	f.k = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(keys[types.ModuleName]), logger, f.govModAddr,
-		f.uvalidator, f.evm, f.account)
+		f.uvalidator, f.evm, f.account, f.bank, f.feemarket)
 	f.msgServer = keeper.NewMsgServerImpl(f.k)
 	f.queryServer = keeper.NewQuerier(f.k)
 	f.appModule = module.NewAppModule(encCfg.Codec, f.k)

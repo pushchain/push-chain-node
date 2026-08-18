@@ -8,6 +8,13 @@ import (
 	"github.com/pushchain/push-chain-node/x/ucallback/types"
 )
 
+const (
+	// 250k gas at the fixture's 1 gwei base fee costs 2.5e14; the budget is far
+	// above it so ordinary tests never trip the affordability check.
+	testCallbackGasLimit = 250_000
+	testCallbackBudget   = "1000000000000000000" // 1 PC
+)
+
 func newRead(id, txHash string, expiry uint64, status types.UniversalReadStatus) types.UniversalRead {
 	return types.UniversalRead{
 		Id:     id,
@@ -17,6 +24,12 @@ func newRead(id, txHash string, expiry uint64, status types.UniversalReadStatus)
 			DestinationChain:  "eip155:1",
 			ExpiryBlockHeight: expiry,
 			RequestedTxHash:   txHash,
+			// Funded by default: at the tests' 1 gwei base fee this covers the gas
+			// limit many times over, so the affordability gate is not what any test
+			// is exercising unless it says so.
+			CallbackGasLimit: testCallbackGasLimit,
+			CallbackBudget:   testCallbackBudget,
+			RevertRecipient:  "0x9999999999999999999999999999999999999999",
 		},
 	}
 }

@@ -52,31 +52,32 @@ func TestAfterBallotTerminal_FulfilsOnPassed(t *testing.T) {
 	seedRead(t, f, "0xaa", 500)
 
 	res := obs(0x42)
-	res.ObservedBlockHeight = 8_000_123
-	res.ObservedBlockHash = blockHash(0xef)
 	key := voteToQuorum(t, f, "0xaa", res)
 
 	require.NoError(t, fireTerminal(f, key, uvalidatortypes.BallotStatus_BALLOT_STATUS_PASSED))
 
-	require.Len(t, f.evm.calls, 1, "exactly one contract call")
-	c := f.evm.lastCall()
-	require.Equal(t, types.MethodFulfillExternalCallback, c.method)
+	require.Equal(t, 1, f.evm.callsTo(types.MethodFulfillExternalCallback))
+	require.Equal(t, 1, f.evm.callsTo(types.MethodReportCallbackGas),
+		"a successful fulfilment settles the gas in the same flow")
+	c, ok := f.evm.firstCallTo(types.MethodFulfillExternalCallback)
+	require.True(t, ok)
 	require.Equal(t, moduleEVMAddr(), c.from, "must be sent as the x/ucallback module account")
 	require.True(t, c.isModule)
 	require.Nil(t, c.gasLimit, "the contract enforces the callback budget, not us")
 
 	// requestId reaches the contract as a uint256, not a string
+	require.Len(t, c.args, 2,
+		"fulfillExternalCallback takes only (requestId, resultData)")
 	require.Equal(t, big.NewInt(0xaa), c.args[0])
 	require.Equal(t, []byte{0x42}, c.args[1])
-	require.Equal(t, uint64(8_000_123), c.args[2])
-	require.Equal(t, [32]byte{31: 0xef}, c.args[3], "32-byte hash passes through unchanged")
 
 	ur, _ := f.k.GetUniversalRead(f.ctx, "0xaa")
 	require.Equal(t, types.UniversalReadStatus_UNIVERSAL_READ_STATUS_FULFILLED, ur.Status)
-	require.Len(t, ur.PcTx, 1)
+	require.Len(t, ur.PcTx, 2, "the fulfil and the gas report are both recorded")
 	require.Equal(t, "SUCCESS", ur.PcTx[0].Status)
 	require.Equal(t, "0xEVMTX", ur.PcTx[0].TxHash)
 	require.Equal(t, moduleEVMAddr().Hex(), ur.PcTx[0].Sender)
+	require.Equal(t, "SUCCESS", ur.PcTx[1].Status)
 
 	// settled, so it leaves the in-flight set
 	require.Empty(t, pendingIDs(t, f))
@@ -93,12 +94,18 @@ func TestFulfil_UsesAndAdvancesModuleNonce(t *testing.T) {
 	key := voteToQuorum(t, f, "0xaa", obs(0x01))
 	require.NoError(t, fireTerminal(f, key, uvalidatortypes.BallotStatus_BALLOT_STATUS_PASSED))
 
-	require.NotNil(t, f.evm.lastCall().nonce)
-	require.Equal(t, uint64(7), *f.evm.lastCall().nonce, "uses the stored value")
+	fulfil, ok := f.evm.firstCallTo(types.MethodFulfillExternalCallback)
+	require.True(t, ok)
+	require.NotNil(t, fulfil.nonce)
+	require.Equal(t, uint64(7), *fulfil.nonce, "uses the stored value")
+
+	report, ok := f.evm.firstCallTo(types.MethodReportCallbackGas)
+	require.True(t, ok)
+	require.Equal(t, uint64(8), *report.nonce, "the report takes the next one")
 
 	got, err := f.k.GetModuleAccountNonce(f.ctx)
 	require.NoError(t, err)
-	require.Equal(t, uint64(8), got, "and advances it")
+	require.Equal(t, uint64(9), got, "both calls advanced it")
 }
 
 // Two calls in the same block must not reuse a nonce.
@@ -110,12 +117,16 @@ func TestModuleNonce_AdvancesPerCall(t *testing.T) {
 		seedRead(t, f, id, 500)
 		key := voteToQuorum(t, f, id, obs(byte(i+1)))
 		require.NoError(t, fireTerminal(f, key, uvalidatortypes.BallotStatus_BALLOT_STATUS_PASSED))
-		require.Equal(t, uint64(i), *f.evm.calls[i].nonce, "call %d", i)
+	}
+
+	// every call, fulfil and report alike, draws the next nonce in sequence
+	for i, c := range f.evm.calls {
+		require.Equal(t, uint64(i), *c.nonce, "call %d", i)
 	}
 
 	got, err := f.k.GetModuleAccountNonce(f.ctx)
 	require.NoError(t, err)
-	require.Equal(t, uint64(3), got)
+	require.Equal(t, uint64(len(f.evm.calls)), got)
 }
 
 // The address the contract admits is fixed by the module name.
@@ -226,10 +237,10 @@ func TestAfterBallotTerminal_IsIdempotent(t *testing.T) {
 	require.NoError(t, fireTerminal(f, key, uvalidatortypes.BallotStatus_BALLOT_STATUS_PASSED))
 	require.NoError(t, fireTerminal(f, key, uvalidatortypes.BallotStatus_BALLOT_STATUS_PASSED))
 
-	require.Len(t, f.evm.calls, 1, "the contract must be called exactly once")
-
-	ur, _ := f.k.GetUniversalRead(f.ctx, "0xaa")
-	require.Len(t, ur.PcTx, 1, "and only one attempt recorded")
+	require.Equal(t, 1, f.evm.callsTo(types.MethodFulfillExternalCallback),
+		"the contract must be fulfilled exactly once")
+	require.Equal(t, 1, f.evm.callsTo(types.MethodReportCallbackGas),
+		"and settled exactly once")
 }
 
 // Neither EXPIRED nor REJECTED retires a request here — expiry belongs to the

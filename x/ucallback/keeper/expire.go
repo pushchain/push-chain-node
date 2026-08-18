@@ -43,6 +43,10 @@ func (k Keeper) SweepExpired(ctx sdk.Context) error {
 	// Same two-phase shape as x/uvalidator's ExpireBallotsBeforeHeight.
 	due := make([]types.UniversalRead, 0, MaxExpiriesPerBlock)
 	if err := k.IterateExpiredBy(ctx, height, func(ur types.UniversalRead) bool {
+		// No status filter is needed here, though expireExternalRead requires the
+		// contract to be PENDING. A read only reaches EXECUTED there if fulfilment
+		// succeeded, and that sets a terminal status which drops it out of this very
+		// set — so anything still in flight is still PENDING on the contract.
 		due = append(due, ur)
 		return len(due) < MaxExpiriesPerBlock
 	}); err != nil {

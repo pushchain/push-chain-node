@@ -182,6 +182,45 @@ func (rc *RPCClient) GetBalance(ctx context.Context, address ethcommon.Address) 
 	return balance, err
 }
 
+// GetBalanceAt fetches the native token balance for an address at a specific block.
+func (rc *RPCClient) GetBalanceAt(ctx context.Context, address ethcommon.Address, blockNumber *big.Int) (*big.Int, error) {
+	var balance *big.Int
+	err := rc.executeWithFailover(ctx, "get_balance_at", func(client *ethclient.Client) error {
+		callCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+		var innerErr error
+		balance, innerErr = client.BalanceAt(callCtx, address, blockNumber)
+		return innerErr
+	})
+	return balance, err
+}
+
+// GetStorageAt fetches a storage slot value for a contract at a specific block.
+func (rc *RPCClient) GetStorageAt(ctx context.Context, address ethcommon.Address, slot ethcommon.Hash, blockNumber *big.Int) ([]byte, error) {
+	var value []byte
+	err := rc.executeWithFailover(ctx, "get_storage_at", func(client *ethclient.Client) error {
+		callCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+		var innerErr error
+		value, innerErr = client.StorageAt(callCtx, address, slot, blockNumber)
+		return innerErr
+	})
+	return value, err
+}
+
+// GetHeaderByNumber fetches a block header by number.
+func (rc *RPCClient) GetHeaderByNumber(ctx context.Context, blockNumber *big.Int) (*types.Header, error) {
+	var header *types.Header
+	err := rc.executeWithFailover(ctx, "get_header_by_number", func(client *ethclient.Client) error {
+		callCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+		var innerErr error
+		header, innerErr = client.HeaderByNumber(callCtx, blockNumber)
+		return innerErr
+	})
+	return header, err
+}
+
 // FilterLogs fetches logs matching the filter query
 func (rc *RPCClient) FilterLogs(ctx context.Context, query ethereum.FilterQuery) ([]types.Log, error) {
 	var logs []types.Log

@@ -56,12 +56,6 @@ func TestChainStoreNilDatabase(t *testing.T) {
 		assert.Contains(t, err.Error(), "database is nil")
 	})
 
-	t.Run("UpdateVoteTxHash returns error for nil database", func(t *testing.T) {
-		err := store.UpdateVoteTxHash("event-1", "0x123")
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "database is nil")
-	})
-
 	t.Run("InsertEventIfNotExists returns error for nil database", func(t *testing.T) {
 		inserted, err := store.InsertEventIfNotExists(nil)
 		require.Error(t, err)
@@ -220,23 +214,6 @@ func TestChainStore_UpdateStatusAndEventData(t *testing.T) {
 	rows, err := cs.UpdateStatusAndEventData("evt-4", storemodels.StatusPending, storemodels.StatusConfirmed, newData)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), rows)
-}
-
-func TestChainStore_UpdateVoteTxHash(t *testing.T) {
-	cs := newTestChainStore(t)
-
-	event := &storemodels.Event{
-		EventID:          "evt-5",
-		BlockHeight:      50,
-		Type:             storemodels.EventTypeOutbound,
-		ConfirmationType: storemodels.ConfirmationStandard,
-		Status:           storemodels.StatusConfirmed,
-	}
-	_, err := cs.InsertEventIfNotExists(event)
-	require.NoError(t, err)
-
-	err = cs.UpdateVoteTxHash("evt-5", "0xvotehash")
-	require.NoError(t, err)
 }
 
 func TestChainStore_GetPendingEventsLimit(t *testing.T) {

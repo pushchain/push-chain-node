@@ -307,7 +307,7 @@ func TestParseSendFundsEvent(t *testing.T) {
 		assert.Equal(t, store.ConfirmationFast, event.ConfirmationType)
 
 		// Unmarshal EventData
-		var utx common.UniversalTx
+		var utx common.InboundObservation
 		require.NoError(t, json.Unmarshal(event.EventData, &utx))
 
 		assert.Equal(t, chainID, utx.SourceChain)
@@ -344,7 +344,7 @@ func TestParseSendFundsEvent(t *testing.T) {
 		data := buildSendFundsPayload(s, r, tok, 0, nil, rev, 0, nil, false)
 		event := ParseEvent(wrapAsLog(data), sig, 1, 0, EventTypeSendFunds, chainID, logger)
 		require.NotNil(t, event)
-		var utx common.UniversalTx
+		var utx common.InboundObservation
 		require.NoError(t, json.Unmarshal(event.EventData, &utx))
 		assert.False(t, utx.FromCEA)
 	})
@@ -355,7 +355,7 @@ func TestParseSendFundsEvent(t *testing.T) {
 		data := buildSendFundsPayload(s, r, tok, 0, nil, rev, 0, nil, false)
 		event := ParseEvent(wrapAsLog(data), sig, 1, 0, EventTypeSendFunds, chainID, logger)
 		require.NotNil(t, event)
-		var utx common.UniversalTx
+		var utx common.InboundObservation
 		require.NoError(t, json.Unmarshal(event.EventData, &utx))
 		assert.Empty(t, utx.RawPayload)
 		assert.Empty(t, utx.VerificationData)
@@ -368,7 +368,7 @@ func TestParseSendFundsEvent(t *testing.T) {
 		data := buildSendFundsPayload(s, r, tok, maxU64, nil, rev, 0, nil, false)
 		event := ParseEvent(wrapAsLog(data), sig, 1, 0, EventTypeSendFunds, chainID, logger)
 		require.NotNil(t, event)
-		var utx common.UniversalTx
+		var utx common.InboundObservation
 		require.NoError(t, json.Unmarshal(event.EventData, &utx))
 		assert.Equal(t, "18446744073709551615", utx.Amount)
 	})
@@ -423,7 +423,7 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 		assert.Equal(t, store.StatusPending, event.Status)
 		assert.Equal(t, store.ConfirmationStandard, event.ConfirmationType)
 
-		var outbound common.OutboundEvent
+		var outbound common.OutboundObservation
 		require.NoError(t, json.Unmarshal(event.EventData, &outbound))
 		assert.Equal(t, "0x"+hex.EncodeToString(txID[:]), outbound.TxID)
 		assert.Equal(t, "0x"+hex.EncodeToString(utxID[:]), outbound.UniversalTxID)
@@ -439,7 +439,7 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 		event := ParseEvent(wrapAsLog(data), signature, 1, 0, EventTypeFinalizeUniversalTx, chainID, logger)
 		require.NotNil(t, event)
 
-		var outbound common.OutboundEvent
+		var outbound common.OutboundObservation
 		require.NoError(t, json.Unmarshal(event.EventData, &outbound))
 		assert.Equal(t, solana.PublicKeyFromBytes(token[:]).String(), outbound.Pc20WrapperAddress)
 	})
@@ -450,7 +450,7 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 		event := ParseEvent(wrapAsLog(data), signature, 1, 0, EventTypeFinalizeUniversalTx, chainID, logger)
 		require.NotNil(t, event)
 
-		var outbound common.OutboundEvent
+		var outbound common.OutboundObservation
 		require.NoError(t, json.Unmarshal(event.EventData, &outbound))
 		assert.Empty(t, outbound.Pc20WrapperAddress)
 	})
@@ -461,7 +461,7 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 		event := ParseEvent(wrapAsLog(data), signature, 1, 0, EventTypeRevertUniversalTx, chainID, logger)
 		require.NotNil(t, event)
 
-		var outbound common.OutboundEvent
+		var outbound common.OutboundObservation
 		require.NoError(t, json.Unmarshal(event.EventData, &outbound))
 		assert.Empty(t, outbound.Pc20WrapperAddress)
 		assert.Equal(t, "7777", outbound.GasFeeUsed)
@@ -473,7 +473,7 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 		event := ParseEvent(wrapAsLog(data), signature, 1, 0, EventTypeFundsRescued, chainID, logger)
 		require.NotNil(t, event)
 
-		var outbound common.OutboundEvent
+		var outbound common.OutboundObservation
 		require.NoError(t, json.Unmarshal(event.EventData, &outbound))
 		assert.Empty(t, outbound.Pc20WrapperAddress)
 		assert.Equal(t, "3333", outbound.GasFeeUsed)
@@ -514,7 +514,7 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 		event := ParseEvent(wrapAsLog(data), signature, 100, 0, EventTypeFinalizeUniversalTx, chainID, logger)
 		require.NotNil(t, event)
 
-		var outbound common.OutboundEvent
+		var outbound common.OutboundObservation
 		require.NoError(t, json.Unmarshal(event.EventData, &outbound))
 		assert.Contains(t, outbound.TxID, "0x1111")
 		assert.Contains(t, outbound.UniversalTxID, "0x2222")
@@ -536,7 +536,7 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 		event := ParseEvent(wrapAsLog(data), signature, 100, 0, EventTypeFinalizeUniversalTx, chainID, logger)
 		require.NotNil(t, event)
 
-		var outbound common.OutboundEvent
+		var outbound common.OutboundObservation
 		require.NoError(t, json.Unmarshal(event.EventData, &outbound))
 		assert.Equal(t, "0x"+hex.EncodeToString(txID[:]), outbound.TxID)
 		assert.Equal(t, "0x"+hex.EncodeToString(utxID[:]), outbound.UniversalTxID)
@@ -549,7 +549,7 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 		event := ParseEvent(wrapAsLog(data), signature, 100, 0, EventTypeFinalizeUniversalTx, chainID, logger)
 		require.NotNil(t, event)
 
-		var outbound common.OutboundEvent
+		var outbound common.OutboundObservation
 		require.NoError(t, json.Unmarshal(event.EventData, &outbound))
 		assert.Equal(t, "0", outbound.GasFeeUsed)
 	})
@@ -560,7 +560,7 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 		event := ParseEvent(wrapAsLog(data), signature, 100, 0, EventTypeFinalizeUniversalTx, chainID, logger)
 		require.NotNil(t, event)
 
-		var outbound common.OutboundEvent
+		var outbound common.OutboundObservation
 		require.NoError(t, json.Unmarshal(event.EventData, &outbound))
 		assert.Equal(t, "18446744073709551615", outbound.GasFeeUsed)
 	})

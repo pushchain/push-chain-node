@@ -1,0 +1,44 @@
+syntax = "proto3";
+package ucallback.v1;
+
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+import "ucallback/v1/types.proto";
+
+option go_package = "github.com/pushchain/push-chain-node/x/ucallback/types";
+
+// GenesisState defines the module genesis state
+message GenesisState {
+  // Params defines all the parameters of the module.
+  Params params = 1 [(gogoproto.nullable) = false];
+
+  // universal_reads are key-value pairs from the UniversalReads map.
+  //
+  // Only the canonical records are exported. PendingByExpiry and ReadsByTxHash
+  // are indexes derived from these, and are rebuilt during InitGenesis rather
+  // than exported — so they cannot be imported out of sync with the records they
+  // point at.
+  repeated UniversalReadEntry universal_reads = 2 [(gogoproto.nullable) = false];
+
+  // module_account_nonce is the EVM nonce of the x/ucallback module account.
+  //
+  // Must round-trip through genesis: it is the nonce of a real EVM account, and
+  // exporting state without it would make every module call after an import reuse
+  // nonces the chain had already consumed.
+  uint64 module_account_nonce = 3;
+}
+
+// UniversalReadEntry is one key-value pair from the UniversalReads map.
+message UniversalReadEntry {
+  string key = 1;
+  UniversalRead value = 2 [(gogoproto.nullable) = false];
+}
+
+// Params defines the set of module parameters.
+message Params {
+  option (amino.name) = "ucallback/params";
+  option (gogoproto.equal) = true;
+  option (gogoproto.goproto_stringer) = false;
+
+  bool some_value = 2;
+}

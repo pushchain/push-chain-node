@@ -10,6 +10,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/cosmos/cosmos-sdk/x/authz"
+	ucallbacktypes "github.com/pushchain/push-chain-node/x/ucallback/types"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
@@ -823,6 +824,73 @@ func TestClient_GetAllPendingOutbounds(t *testing.T) {
 	})
 }
 
+func TestClient_GetAllPendingReadRequests(t *testing.T) {
+	logger := zerolog.Nop()
+	ctx := context.Background()
+
+	t.Run("no endpoints configured", func(t *testing.T) {
+		client := &Client{
+			logger:           logger,
+			ucallbackClients: []ucallbacktypes.QueryClient{},
+		}
+
+		reqs, err := client.GetAllPendingReadRequests(ctx)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no endpoints configured")
+		assert.Nil(t, reqs)
+	})
+
+	t.Run("successful query maps UniversalRead.Request", func(t *testing.T) {
+		mockClient := &mockUCallbackQueryClient{
+			allPendingReadsResp: &ucallbacktypes.QueryAllPendingReadRequestsResponse{
+				Reads: []ucallbacktypes.UniversalRead{
+					{Id: "0xr1", Request: &ucallbacktypes.ReadRequest{RequestId: "0xr1", DestinationChain: "eip155:1"}},
+					{Id: "0xr2", Request: &ucallbacktypes.ReadRequest{RequestId: "0xr2", DestinationChain: "web2:https"}},
+				},
+			},
+		}
+
+		client := &Client{
+			logger:           logger,
+			ucallbackClients: []ucallbacktypes.QueryClient{mockClient},
+		}
+
+		reqs, err := client.GetAllPendingReadRequests(ctx)
+		require.NoError(t, err)
+		require.Len(t, reqs, 2)
+		assert.Equal(t, "0xr1", reqs[0].RequestId)
+		assert.Equal(t, "web2:https", reqs[1].DestinationChain)
+	})
+
+	t.Run("empty response", func(t *testing.T) {
+		mockClient := &mockUCallbackQueryClient{
+			allPendingReadsResp: &ucallbacktypes.QueryAllPendingReadRequestsResponse{},
+		}
+
+		client := &Client{
+			logger:           logger,
+			ucallbackClients: []ucallbacktypes.QueryClient{mockClient},
+		}
+
+		reqs, err := client.GetAllPendingReadRequests(ctx)
+		require.NoError(t, err)
+		assert.Empty(t, reqs)
+	})
+
+	t.Run("all endpoints fail", func(t *testing.T) {
+		client := &Client{
+			logger: logger,
+			ucallbackClients: []ucallbacktypes.QueryClient{
+				&mockUCallbackQueryClient{err: assert.AnError},
+			},
+		}
+
+		reqs, err := client.GetAllPendingReadRequests(ctx)
+		require.Error(t, err)
+		assert.Nil(t, reqs)
+	})
+}
+
 func TestClient_GetGasPrice_NilResponse(t *testing.T) {
 	logger := zerolog.Nop()
 	mockClient := &mockUExecutorQueryClient{
@@ -965,10 +1033,10 @@ func (m *mockUValidatorQueryClient) UniversalValidator(ctx context.Context, req 
 
 type mockUTSSQueryClient struct {
 	utsstypes.QueryClient
-	currentKeyResp              *utsstypes.QueryCurrentKeyResponse
-	pendingTssEventsResp        *utsstypes.QueryAllPendingTssEventsResponse
-	pendingFundMigrationsResp   *utsstypes.QueryPendingFundMigrationsResponse
-	err                         error
+	currentKeyResp            *utsstypes.QueryCurrentKeyResponse
+	pendingTssEventsResp      *utsstypes.QueryAllPendingTssEventsResponse
+	pendingFundMigrationsResp *utsstypes.QueryPendingFundMigrationsResponse
+	err                       error
 }
 
 func (m *mockUTSSQueryClient) CurrentKey(ctx context.Context, req *utsstypes.QueryCurrentKeyRequest, opts ...grpc.CallOption) (*utsstypes.QueryCurrentKeyResponse, error) {
@@ -1083,4 +1151,17 @@ func (m *mockAuthAccountQueryClient) Account(ctx context.Context, req *authtypes
 		return nil, m.err
 	}
 	return m.accountResp, nil
+}
+
+type mockUCallbackQueryClient struct {
+	ucallbacktypes.QueryClient
+	allPendingReadsResp *ucallbacktypes.QueryAllPendingReadRequestsResponse
+	err                 error
+}
+
+func (m *mockUCallbackQueryClient) AllPendingReadRequests(ctx context.Context, req *ucallbacktypes.QueryAllPendingReadRequestsRequest, opts ...grpc.CallOption) (*ucallbacktypes.QueryAllPendingReadRequestsResponse, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.allPendingReadsResp, nil
 }

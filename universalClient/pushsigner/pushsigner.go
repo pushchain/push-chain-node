@@ -24,6 +24,7 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/config"
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/pushsigner/keys"
+	ucallbacktypes "github.com/pushchain/push-chain-node/x/ucallback/types"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
@@ -130,6 +131,11 @@ func (s *Signer) VoteTssKeyProcess(ctx context.Context, tssPubKey string, keyID 
 // VoteFundMigration votes on a fund migration result.
 func (s *Signer) VoteFundMigration(ctx context.Context, migrationID uint64, txHash string, success bool) (string, error) {
 	return voteFundMigration(ctx, s, s.log, s.granter, migrationID, txHash, success)
+}
+
+// VoteReadResult votes on an external read observation.
+func (s *Signer) VoteReadResult(ctx context.Context, requestID string, result *ucallbacktypes.ReadResult) (string, error) {
+	return voteReadResult(ctx, s, s.log, s.granter, requestID, result)
 }
 
 // signAndBroadcastAuthZTx signs and broadcasts an AuthZ transaction
@@ -411,6 +417,7 @@ func createClientContext(kr cosmoskeyring.Keyring, chainID string) client.Contex
 	stakingtypes.RegisterInterfaces(interfaceRegistry)
 	govtypes.RegisterInterfaces(interfaceRegistry)
 	uexecutortypes.RegisterInterfaces(interfaceRegistry)
+	ucallbacktypes.RegisterInterfaces(interfaceRegistry)
 
 	cdc := codec.NewProtoCodec(interfaceRegistry)
 	txConfig := authtx.NewTxConfig(cdc, []signing.SignMode{signing.SignMode_SIGN_MODE_DIRECT})

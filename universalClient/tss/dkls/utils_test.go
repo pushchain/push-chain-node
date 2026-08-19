@@ -221,45 +221,105 @@ func TestSetupThreshold(t *testing.T) {
 	})
 }
 
-// The threshold check also runs on quorumchange, which is built by a different
-// constructor than keygen. This pins that DklsQcSetupMsgNew encodes the
-// threshold the same way, so a library rebuild that diverges fails here rather
-// than rejecting every quorum change in production.
-func TestSetupThreshold_QuorumChange(t *testing.T) {
+// Cross-protocol matrix over the three setup shapes the coordinator builds:
+// keygen (shared with keyrefresh), quorumchange, and sign (shared with fund
+// migration). Pins what each decoder returns for each shape, so a rebuilt DKLS
+// library that changes the encoding fails here rather than in production.
+func TestSetupDecoders_AllProtocols(t *testing.T) {
 	participants := []string{"party1", "party2", "party3"}
 	ids := encodeParticipantIDs(participants)
+	const threshold = 2
 
-	kgSetup, err := session.DklsKeygenSetupMsgNew(2, nil, ids)
+	messageHash := make([]byte, 32)
+	copy(messageHash, "outbound-signing-hash-32-bytes!!")
+
+	// keygen, also used verbatim for keyrefresh
+	keygenSetup, err := session.DklsKeygenSetupMsgNew(threshold, nil, ids)
 	if err != nil {
 		t.Fatalf("failed to build keygen setup: %v", err)
 	}
+
+	// sign, also used for fund migration
+	signSetup, err := session.DklsSignSetupMsgNew(make([]byte, 32), nil, messageHash, ids)
+	if err != nil {
+		t.Fatalf("failed to build sign setup: %v", err)
+	}
+
+	// quorumchange needs a real keyshare, so run a keygen to completion first
 	sessions := map[string]Session{}
 	for _, p := range participants {
-		s, err := NewKeygenSession(kgSetup, "threshold-qc", p, participants, 2)
+		sess, err := NewKeygenSession(keygenSetup, "matrix", p, participants, threshold)
 		if err != nil {
 			t.Fatalf("failed to create keygen session for %s: %v", p, err)
 		}
-		sessions[p] = s
+		sessions[p] = sess
 	}
 	keyshare := runToCompletion(t, sessions)["party1"].Keyshare
-
 	handle, err := session.DklsKeyshareFromBytes(keyshare)
 	if err != nil {
 		t.Fatalf("failed to load keyshare: %v", err)
 	}
 	defer session.DklsKeyshareFree(handle)
 
-	for _, want := range []int{2, 3} {
-		qcSetup, err := session.DklsQcSetupMsgNew(handle, want, participants, []int{0, 1, 2}, []int{0, 1, 2})
-		if err != nil {
-			t.Fatalf("failed to build QC setup with threshold %d: %v", want, err)
-		}
-		got, err := SetupThreshold(qcSetup)
-		if err != nil {
-			t.Fatalf("SetupThreshold(qc) error = %v", err)
-		}
-		if got != want {
-			t.Errorf("SetupThreshold(qc) = %d, want %d", got, want)
-		}
+	qcSetup, err := session.DklsQcSetupMsgNew(handle, threshold, participants, []int{0, 1, 2}, []int{0, 1, 2})
+	if err != nil {
+		t.Fatalf("failed to build QC setup: %v", err)
+	}
+
+	shapes := []struct {
+		name         string
+		setup        []byte
+		wantHash     []byte // nil means the shape carries no message
+		hasThreshold bool
+	}{
+		{"keygen and keyrefresh", keygenSetup, nil, true},
+		{"quorumchange", qcSetup, nil, true},
+		{"sign and fund migration", signSetup, messageHash, false},
+	}
+
+	for _, sh := range shapes {
+		t.Run(sh.name, func(t *testing.T) {
+			// Participants are bound for every protocol, so every shape must decode them.
+			got, err := SetupParticipants(sh.setup)
+			if err != nil {
+				t.Fatalf("SetupParticipants() error = %v", err)
+			}
+			if len(got) != len(participants) {
+				t.Fatalf("SetupParticipants() = %v, want %v", got, participants)
+			}
+			for i := range participants {
+				if got[i] != participants[i] {
+					t.Errorf("participant %d = %q, want %q", i, got[i], participants[i])
+				}
+			}
+
+			gotThreshold, thresholdErr := SetupThreshold(sh.setup)
+			if sh.hasThreshold {
+				if thresholdErr != nil {
+					t.Fatalf("SetupThreshold() error = %v", thresholdErr)
+				}
+				if gotThreshold != threshold {
+					t.Errorf("SetupThreshold() = %d, want %d", gotThreshold, threshold)
+				}
+			} else if thresholdErr == nil {
+				// Sign setups carry no threshold. Erroring is what stops a bogus
+				// value being read out of unrelated bytes.
+				t.Errorf("SetupThreshold() on a sign setup returned %d, want an error", gotThreshold)
+			}
+
+			gotHash, hashErr := SetupMessageHash(sh.setup)
+			if hashErr != nil {
+				t.Fatalf("SetupMessageHash() error = %v", hashErr)
+			}
+			if sh.wantHash == nil {
+				// Shapes without a message report an empty hash rather than an
+				// error, so a non-sign setup can never satisfy the hash binding.
+				if len(gotHash) != 0 {
+					t.Errorf("SetupMessageHash() = %x, want empty", gotHash)
+				}
+			} else if !bytes.Equal(gotHash, sh.wantHash) {
+				t.Errorf("SetupMessageHash() = %x, want %x", gotHash, sh.wantHash)
+			}
+		})
 	}
 }

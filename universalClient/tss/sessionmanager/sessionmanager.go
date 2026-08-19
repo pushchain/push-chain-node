@@ -995,21 +995,37 @@ func (sm *SessionManager) verifyOutboundSigningRequest(ctx context.Context, even
 // a coordinator can present legitimate ones for checking and embed different
 // ones in Payload.
 //
-// Participants are checked for every protocol, the signing hash additionally for
-// sign types. The threshold cannot be checked: the setup embeds one, the wrapper
-// exposes no decoder for it, and the threshold argument the session constructors
-// take is unused, so the embedded value is authoritative and unverifiable.
+// Participants are checked for every protocol. Sign types additionally bind the
+// signing hash; key-lifecycle types additionally bind the threshold, which the
+// session constructors accept but ignore, so the embedded value is what the
+// protocol actually runs with.
 func verifySetupMatchesValidated(msg *coordinator.Message, eventType string) error {
 	if err := setupBindsParticipants(msg.Payload, msg.Participants); err != nil {
 		return err
 	}
-	if eventType != store.EventTypeSignOutbound && eventType != store.EventTypeSignFundMigrate {
-		return nil
+	if eventType == store.EventTypeSignOutbound || eventType == store.EventTypeSignFundMigrate {
+		if msg.UnsignedSigningReq == nil {
+			return fmt.Errorf("sign setup has no signing request to bind against")
+		}
+		return setupBindsHash(msg.Payload, msg.UnsignedSigningReq.SigningHash)
 	}
-	if msg.UnsignedSigningReq == nil {
-		return fmt.Errorf("sign setup has no signing request to bind against")
+	return setupBindsThreshold(msg.Payload, msg.Participants)
+}
+
+// setupBindsThreshold requires the setup blob to embed the threshold the
+// follower derives from the validated participants. Without it a coordinator can
+// embed a lower one and elicit help producing a weaker key than was agreed.
+func setupBindsThreshold(setupData []byte, validated []string) error {
+	expected := coordinator.CalculateThreshold(len(validated))
+	embedded, err := dkls.SetupThreshold(setupData)
+	if err != nil {
+		return fmt.Errorf("cannot decode setup message threshold: %w", err)
 	}
-	return setupBindsHash(msg.Payload, msg.UnsignedSigningReq.SigningHash)
+	if embedded != expected {
+		return fmt.Errorf("setup message threshold %d does not match expected %d for %d participants",
+			embedded, expected, len(validated))
+	}
+	return nil
 }
 
 // setupBindsHash requires the setup blob to embed exactly the verified hash.

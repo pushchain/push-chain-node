@@ -165,3 +165,58 @@ func TestSetupParticipants(t *testing.T) {
 		}
 	})
 }
+
+// Pins the setup TLV layout this package parses directly. If the library
+// changes its encoding, this fails loudly instead of SetupThreshold silently
+// reading the wrong byte.
+func TestSetupThreshold(t *testing.T) {
+	participants := []string{"alice", "bob", "carol"}
+
+	t.Run("reads the embedded keygen threshold", func(t *testing.T) {
+		for _, want := range []int{2, 3} {
+			setup, err := session.DklsKeygenSetupMsgNew(want, nil, encodeParticipantIDs(participants))
+			if err != nil {
+				t.Fatalf("failed to build keygen setup with threshold %d: %v", want, err)
+			}
+			got, err := SetupThreshold(setup)
+			if err != nil {
+				t.Fatalf("SetupThreshold() error = %v", err)
+			}
+			if got != want {
+				t.Errorf("SetupThreshold() = %d, want %d", got, want)
+			}
+		}
+	})
+
+	// A downgraded setup must report the weaker threshold it really carries,
+	// which is what makes the mismatch detectable.
+	t.Run("downgraded setup reports the weaker threshold", func(t *testing.T) {
+		setup, err := session.DklsKeygenSetupMsgNew(2, nil, encodeParticipantIDs(participants))
+		if err != nil {
+			t.Fatalf("failed to build keygen setup: %v", err)
+		}
+		got, err := SetupThreshold(setup)
+		if err != nil {
+			t.Fatalf("SetupThreshold() error = %v", err)
+		}
+		if got == 3 {
+			t.Fatal("downgraded setup must not report the expected threshold")
+		}
+		if got != 2 {
+			t.Errorf("SetupThreshold() = %d, want 2", got)
+		}
+	})
+
+	t.Run("errors on short, malformed and thresholdless setups", func(t *testing.T) {
+		if _, err := SetupThreshold(nil); err == nil {
+			t.Error("SetupThreshold(nil) should error")
+		}
+		if _, err := SetupThreshold([]byte("too-short")); err == nil {
+			t.Error("SetupThreshold(short) should error")
+		}
+		// Header present but no tags at all.
+		if _, err := SetupThreshold(make([]byte, setupHeaderSize)); err == nil {
+			t.Error("SetupThreshold(no tags) should error")
+		}
+	})
+}

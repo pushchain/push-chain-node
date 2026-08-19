@@ -2,6 +2,7 @@ package dkls
 
 import (
 	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
 
 	session "go-wrapper/go-dkls/sessions"
@@ -64,4 +65,44 @@ func SetupParticipants(setupData []byte) ([]string, error) {
 		participants = append(participants, string(name))
 	}
 	return participants, nil
+}
+
+// Setup blobs are a tag-length-value list after a fixed header. The wrapper
+// exposes decoders for the key ID, message and party names but not the
+// threshold, so that one is read here. Values are laid out as:
+//
+//	tag    uint16 little endian
+//	length uint16 little endian, stored as length-1
+//	value  length bytes
+//
+// The header is MESSAGE_ID_SIZE(32) + 2 + 2. This mirrors the library's internal
+// encoding, so TestSetupThreshold pins it: if the format changes, that test
+// fails rather than this silently reading the wrong byte.
+const (
+	setupHeaderSize   = 36
+	setupTagThreshold = 1
+)
+
+// SetupThreshold returns the threshold embedded in a keygen, keyrefresh or
+// quorumchange setup blob. Sign setups carry no threshold and return an error.
+func SetupThreshold(setupData []byte) (int, error) {
+	if len(setupData) < setupHeaderSize {
+		return 0, fmt.Errorf("setup message too short to contain a threshold")
+	}
+	for offset := setupHeaderSize; offset+4 <= len(setupData); {
+		tag := binary.LittleEndian.Uint16(setupData[offset : offset+2])
+		length := int(binary.LittleEndian.Uint16(setupData[offset+2:offset+4])) + 1
+		valueStart := offset + 4
+		if valueStart+length > len(setupData) {
+			return 0, fmt.Errorf("setup message is malformed: tag %d claims %d bytes past the end", tag, length)
+		}
+		if tag == setupTagThreshold {
+			if length != 1 {
+				return 0, fmt.Errorf("threshold tag has unexpected length %d", length)
+			}
+			return int(setupData[valueStart]), nil
+		}
+		offset = valueStart + length
+	}
+	return 0, fmt.Errorf("setup message carries no threshold")
 }

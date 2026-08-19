@@ -1635,3 +1635,33 @@ func TestHandleSetupMessage_RejectsPayloadHashMismatch(t *testing.T) {
 		}
 	})
 }
+
+// The session constructors accept a threshold and ignore it, so the setup blob's
+// embedded threshold is what the protocol runs with. A coordinator embedding a
+// lower one would elicit help producing a weaker key than the participants
+// agreed to, which is worse than a bad signature since it persists.
+func TestSetupBindsThreshold(t *testing.T) {
+	validated := []string{"validator1", "validator2", "validator3"}
+	expected := coordinator.CalculateThreshold(len(validated))
+	encode := func(ids []string) []byte { return []byte(strings.Join(ids, "\x00")) }
+
+	t.Run("accepts the expected threshold", func(t *testing.T) {
+		setup, err := session.DklsKeygenSetupMsgNew(expected, nil, encode(validated))
+		require.NoError(t, err)
+		require.NoError(t, setupBindsThreshold(setup, validated))
+	})
+
+	t.Run("rejects a downgraded threshold", func(t *testing.T) {
+		require.Greater(t, expected, 1, "fixture must allow a strictly lower threshold")
+		downgraded, err := session.DklsKeygenSetupMsgNew(expected-1, nil, encode(validated))
+		require.NoError(t, err)
+		err = setupBindsThreshold(downgraded, validated)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "does not match expected")
+	})
+
+	t.Run("rejects undecodable setup", func(t *testing.T) {
+		require.Error(t, setupBindsThreshold([]byte("not-a-setup"), validated))
+		require.Error(t, setupBindsThreshold(nil, validated))
+	})
+}

@@ -2,12 +2,14 @@ package txresolver
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"reflect"
 	"testing"
 	"time"
 	"unsafe"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -23,6 +25,7 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/config"
 	"github.com/pushchain/push-chain-node/universalClient/store"
+	"github.com/pushchain/push-chain-node/universalClient/tss/coordinator"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 )
 
@@ -175,19 +178,6 @@ func newResolver(evtStore *eventstore.Store, ch *chains.Chains) *Resolver {
 		Chains:        ch,
 		CheckInterval: 0,
 		Logger:        zerolog.Nop(),
-	})
-}
-
-// newResolverWithTSSAddress builds a Resolver that returns a fixed TSS address
-// from GetTSSAddress — needed by tests that exercise the EVM nonce-based
-// retry/revert path.
-func newResolverWithTSSAddress(evtStore *eventstore.Store, ch *chains.Chains, addr string) *Resolver {
-	return NewResolver(Config{
-		EventStore:    evtStore,
-		Chains:        ch,
-		CheckInterval: 0,
-		Logger:        zerolog.Nop(),
-		GetTSSAddress: func(ctx context.Context) (string, error) { return addr, nil },
 	})
 }
 
@@ -930,14 +920,39 @@ func makeOutboundEventDataWithNonce(txID, utxID, destChain string, nonce uint64)
 		"tx_id":             txID,
 		"utx_id":            utxID,
 		"destination_chain": destChain,
-		"signing_data": map[string]any{
-			"nonce": nonce,
-		},
+		"signing_data":      testOutboundSigningData(testSigningKeyHex, nonce),
 	})
 	return b
 }
 
-const testEVMTSSAddr = "0x4D353565442Eb33b66ef88E14336F3F4Bf3a02FB"
+// The resolver recovers the nonce domain from the signature, so payloads have to
+// carry a real one. Two fixed keys stand in for a TSS key and its rotation
+// successor; signing with one and checking the other's nonce is the bug.
+const (
+	testSigningKeyHex        = "4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318"
+	testRotatedSigningKeyHex = "8a1f9a8f9c8b7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e"
+)
+
+func testOutboundSigningData(keyHex string, nonce uint64) map[string]any {
+	key, _ := crypto.HexToECDSA(keyHex)
+	hash := crypto.Keccak256([]byte("test outbound signing hash"))
+	sig, _ := crypto.Sign(hash, key)
+	return map[string]any{
+		"nonce":        nonce,
+		"signature":    hex.EncodeToString(sig),
+		"signing_hash": hex.EncodeToString(hash),
+	}
+}
+
+func testSignerAddr(keyHex string) string {
+	key, _ := crypto.HexToECDSA(keyHex)
+	addr, _ := coordinator.DeriveEVMAddressFromPubkey(hex.EncodeToString(crypto.CompressPubkey(&key.PublicKey)))
+	return addr
+}
+
+// The address that signed the payloads above, i.e. the nonce domain the resolver
+// must query. Not a configured value any more — it comes from the signature.
+var testEVMTSSAddr = testSignerAddr(testSigningKeyHex)
 
 func TestResolveOutboundEVM_NotFound_NonceConsumed_Reverts(t *testing.T) {
 	// Tx not found AND signed nonce < finalized nonce → another tx consumed
@@ -957,7 +972,7 @@ func TestResolveOutboundEVM_NotFound_NonceConsumed_Reverts(t *testing.T) {
 	// Finalized nonce = 7 → our nonce 5 is past finalized → consumed.
 	builder.On("GetNextNonce", mock.Anything, testEVMTSSAddr, true).Return(uint64(7), nil)
 
-	resolver := newResolverWithTSSAddress(evtStore, ch, testEVMTSSAddr)
+	resolver := newResolver(evtStore, ch)
 	resolver.processBroadcasted(context.Background())
 
 	ev := getEvent(t, db, "ev-consumed-1")
@@ -983,7 +998,7 @@ func TestResolveOutboundEVM_ReceiptError_NonceConsumed_DoesNotVoteFailure(t *tes
 	// Finalized nonce 7 > signed nonce 5, so the nonce check would say "consumed".
 	builder.On("GetNextNonce", mock.Anything, testEVMTSSAddr, true).Return(uint64(7), nil)
 
-	resolver := newResolverWithTSSAddress(evtStore, ch, testEVMTSSAddr)
+	resolver := newResolver(evtStore, ch)
 	resolver.processBroadcasted(context.Background())
 
 	require.Equal(t, store.StatusBroadcasted, getEvent(t, db, "ev-18826").Status)
@@ -1015,7 +1030,7 @@ func TestResolveOutboundEVM_NotFound_NonceUnconsumed_RewindsToSigned(t *testing.
 	// Finalized nonce = 5 → our nonce 5 not yet finalized.
 	builder.On("GetNextNonce", mock.Anything, testEVMTSSAddr, true).Return(uint64(5), nil)
 
-	resolver := newResolverWithTSSAddress(evtStore, ch, testEVMTSSAddr)
+	resolver := newResolver(evtStore, ch)
 	resolver.processBroadcasted(context.Background())
 
 	ev := getEvent(t, db, "ev-unconsumed-1")
@@ -1036,7 +1051,7 @@ func TestResolveOutboundEVM_NotFound_NonceRPCError_StaysBroadcasted(t *testing.T
 		Return(false, uint64(0), uint64(0), uint8(0), nil)
 	builder.On("GetNextNonce", mock.Anything, testEVMTSSAddr, true).Return(uint64(0), assert.AnError)
 
-	resolver := newResolverWithTSSAddress(evtStore, ch, testEVMTSSAddr)
+	resolver := newResolver(evtStore, ch)
 	resolver.processBroadcasted(context.Background())
 
 	ev := getEvent(t, db, "ev-rpc-err-1")
@@ -1058,7 +1073,7 @@ func TestResolveOutboundEVM_NotFound_SignedNonceMissing_StaysBroadcasted(t *test
 	builder.On("VerifyBroadcastedTx", mock.Anything, "0xmissing").
 		Return(false, uint64(0), uint64(0), uint8(0), nil)
 
-	resolver := newResolverWithTSSAddress(evtStore, ch, testEVMTSSAddr)
+	resolver := newResolver(evtStore, ch)
 	resolver.processBroadcasted(context.Background())
 
 	ev := getEvent(t, db, "ev-no-nonce")
@@ -1066,52 +1081,69 @@ func TestResolveOutboundEVM_NotFound_SignedNonceMissing_StaysBroadcasted(t *test
 	builder.AssertNotCalled(t, "GetNextNonce", mock.Anything, mock.Anything, mock.Anything)
 }
 
-func TestResolveOutboundEVM_NotFound_TSSAddressFetchError_StaysBroadcasted(t *testing.T) {
-	// Tx not found and GetTSSAddress callback errors → defer (retry next tick).
+// The nonce domain is derived from the signature, so if the signer cannot be
+// recovered there is no domain to check. That must defer, never fall through to
+// some other key's sequence.
+func TestResolveOutboundEVM_NotFound_SignerUnrecoverable_StaysBroadcasted(t *testing.T) {
 	evtStore, db := setupTestDB(t)
 	builder := &mockTxBuilder{}
 	client := &mockChainClient{builder: builder}
 	ch := newTestChains(t, "eip155:1", uregistrytypes.VmType_EVM, client)
 
-	eventData := makeOutboundEventDataWithNonce("tx-100", "utx-200", "eip155:1", 5)
-	insertBroadcastedEvent(t, db, "ev-tss-err", "eip155:1", "eip155:1:0xmissing", eventData)
+	eventData, _ := json.Marshal(map[string]any{
+		"tx_id": "tx-100", "utx_id": "utx-200", "destination_chain": "eip155:1",
+		"signing_data": map[string]any{
+			"nonce":        5,
+			"signature":    "deadbeef", // not 65 bytes
+			"signing_hash": hex.EncodeToString(crypto.Keccak256([]byte("h"))),
+		},
+	})
+	insertBroadcastedEvent(t, db, "ev-nosigner", "eip155:1", "eip155:1:0xmissing", eventData)
 
 	builder.On("VerifyBroadcastedTx", mock.Anything, "0xmissing").
 		Return(false, uint64(0), uint64(0), uint8(0), nil)
 
-	resolver := NewResolver(Config{
-		EventStore:    evtStore,
-		Chains:        ch,
-		CheckInterval: 0,
-		Logger:        zerolog.Nop(),
-		GetTSSAddress: func(ctx context.Context) (string, error) { return "", assert.AnError },
-	})
+	resolver := newResolver(evtStore, ch)
 	resolver.processBroadcasted(context.Background())
 
-	ev := getEvent(t, db, "ev-tss-err")
-	require.Equal(t, store.StatusBroadcasted, ev.Status)
+	require.Equal(t, store.StatusBroadcasted, getEvent(t, db, "ev-nosigner").Status)
 	builder.AssertNotCalled(t, "GetNextNonce", mock.Anything, mock.Anything, mock.Anything)
 }
 
-func TestResolveOutboundEVM_NotFound_NoTSSAddressResolver_StaysBroadcasted(t *testing.T) {
-	// Tx not found and GetTSSAddress is nil → can't run nonce check → defer.
+// F-2026-18827. An outbound signed under K1 is still BROADCASTED when the TSS
+// rotates to K2. K1 and K2 are separate EOAs with unrelated nonce sequences, so
+// checking K2's would report the nonce consumed and fail-vote a transaction K1
+// can still land, while the refund path remints. The check must follow the key
+// that signed.
+func TestResolveOutboundEVM_NotFound_AfterRotation_ChecksSigningKeyNonce(t *testing.T) {
 	evtStore, db := setupTestDB(t)
 	builder := &mockTxBuilder{}
 	client := &mockChainClient{builder: builder}
 	ch := newTestChains(t, "eip155:1", uregistrytypes.VmType_EVM, client)
 
+	k1 := testSignerAddr(testSigningKeyHex)
+	k2 := testSignerAddr(testRotatedSigningKeyHex)
+	require.NotEqual(t, k1, k2)
+
+	// Signed under K1 at nonce 5, still unresolved.
 	eventData := makeOutboundEventDataWithNonce("tx-100", "utx-200", "eip155:1", 5)
-	insertBroadcastedEvent(t, db, "ev-no-tss-1", "eip155:1", "eip155:1:0xmissing", eventData)
+	insertBroadcastedEvent(t, db, "ev-rotated", "eip155:1", "eip155:1:0xmissing", eventData)
 
 	builder.On("VerifyBroadcastedTx", mock.Anything, "0xmissing").
 		Return(false, uint64(0), uint64(0), uint8(0), nil)
+	// K1 nonce 5 is still free, so this tx can still mine.
+	builder.On("GetNextNonce", mock.Anything, k1, true).Return(uint64(5), nil)
+	// K2 has moved well past 5. Reading this domain is the bug.
+	builder.On("GetNextNonce", mock.Anything, k2, true).Return(uint64(42), nil)
 
-	resolver := newResolver(evtStore, ch) // no GetTSSAddress configured
+	// The live TSS is K2, the rotation successor.
+	resolver := newResolver(evtStore, ch)
 	resolver.processBroadcasted(context.Background())
 
-	ev := getEvent(t, db, "ev-no-tss-1")
-	require.Equal(t, store.StatusBroadcasted, ev.Status)
-	builder.AssertNotCalled(t, "GetNextNonce", mock.Anything, mock.Anything, mock.Anything)
+	builder.AssertCalled(t, "GetNextNonce", mock.Anything, k1, true)
+	builder.AssertNotCalled(t, "GetNextNonce", mock.Anything, k2, true)
+	require.Equal(t, store.StatusSigned, getEvent(t, db, "ev-rotated").Status,
+		"K1 nonce still free means rebroadcast, not a failure vote")
 }
 
 func TestResolveOutboundEVM_VerifyError_StaysBroadcasted(t *testing.T) {

@@ -1544,3 +1544,94 @@ func TestSetupBindsParticipants(t *testing.T) {
 		require.Error(t, setupBindsParticipants(legitSetup, nil))
 	})
 }
+
+// The regression the finding asks for: a Payload whose embedded hash differs
+// from the verified SigningHash must refuse session creation and produce no
+// shares. Driven through handleSetupMessage so it covers the wiring, not just
+// the comparison helper.
+func TestHandleSetupMessage_RejectsPayloadHashMismatch(t *testing.T) {
+	_, coord, evtStore, keyshareMgr, _, testDB := setupTestSessionManager(t)
+	ctx := context.Background()
+
+	// Sign-eligible validators are the ACTIVE ones in the fixture.
+	participants := []string{"validator1", "validator2"}
+	participantIDs := []byte(strings.Join(participants, "\x00"))
+	keyID := make([]byte, 32)
+
+	legitHash := make([]byte, 32)
+	copy(legitHash, "legitimate-outbound-hash-32bytes")
+	attackerHash := make([]byte, 32)
+	copy(attackerHash, "attacker-chosen-vault-call-digest")
+
+	newRecordingSM := func() (*SessionManager, *int) {
+		sends := 0
+		sm := NewSessionManager(
+			evtStore, coord, keyshareMgr, nil, nil,
+			func(context.Context, string, []byte) error { sends++; return nil },
+			"validator1", 3*time.Minute, 30*time.Second, 60, zerolog.Nop(), nil,
+		)
+		return sm, &sends
+	}
+
+	newEvent := func(t *testing.T, id string) {
+		t.Helper()
+		require.NoError(t, testDB.Create(&store.Event{
+			EventID: id, BlockHeight: 100,
+			Type:      store.EventTypeSignOutbound,
+			Status:    store.StatusConfirmed,
+			EventData: []byte(`{"destination_chain":"eip155:11155111"}`),
+		}).Error)
+	}
+
+	t.Run("substituted payload hash is refused, no session, no shares", func(t *testing.T) {
+		newEvent(t, "sign-mismatch")
+		sm, sends := newRecordingSM()
+
+		// Coordinator shows the legitimate hash but ships a setup over its own.
+		attackerSetup, err := session.DklsSignSetupMsgNew(keyID, nil, attackerHash, participantIDs)
+		require.NoError(t, err)
+
+		err = sm.HandleIncomingMessage(ctx, "peer1", &coordinator.Message{
+			Type:               coordinator.MessageTypeSetup,
+			EventID:            "sign-mismatch",
+			Participants:       participants,
+			Payload:            attackerSetup,
+			UnsignedSigningReq: &common.UnsignedSigningReq{SigningHash: legitHash, Nonce: 1},
+		})
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "setup message signs hash")
+
+		sm.mu.RLock()
+		sessionCount := len(sm.sessions)
+		sm.mu.RUnlock()
+		assert.Zero(t, sessionCount, "no session may be created for a mismatched setup")
+		assert.Zero(t, *sends, "no ACK or share may be emitted for a mismatched setup")
+	})
+
+	// Positive control: with the same wiring, a setup over the verified hash must
+	// get past the binding check, so the rejection above is the binding and not
+	// some earlier validation failing.
+	t.Run("matching payload hash passes the binding check", func(t *testing.T) {
+		newEvent(t, "sign-match")
+		sm, _ := newRecordingSM()
+
+		legitSetup, err := session.DklsSignSetupMsgNew(keyID, nil, legitHash, participantIDs)
+		require.NoError(t, err)
+
+		err = sm.HandleIncomingMessage(ctx, "peer1", &coordinator.Message{
+			Type:               coordinator.MessageTypeSetup,
+			EventID:            "sign-match",
+			Participants:       participants,
+			Payload:            legitSetup,
+			UnsignedSigningReq: &common.UnsignedSigningReq{SigningHash: legitHash, Nonce: 1},
+		})
+
+		if err != nil {
+			assert.NotContains(t, err.Error(), "setup message signs hash",
+				"matching setup must not be rejected by the hash binding")
+			assert.NotContains(t, err.Error(), "do not match validated participants",
+				"matching setup must not be rejected by the participant binding")
+		}
+	})
+}

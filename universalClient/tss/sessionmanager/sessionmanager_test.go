@@ -1460,7 +1460,7 @@ func TestNonceBounds(t *testing.T) {
 // embedded in Message.Payload, and the two arrive unbound. Without this check a
 // coordinator can present a legitimate hash for verification and embed an
 // attacker-chosen one in the setup, harvesting honest shares over it.
-func TestVerifySetupBindsHash(t *testing.T) {
+func TestSetupBindsHash(t *testing.T) {
 	participantIDs := []byte("party1\x00party2")
 	keyID := make([]byte, 32)
 
@@ -1475,23 +1475,23 @@ func TestVerifySetupBindsHash(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("accepts setup that signs the verified hash", func(t *testing.T) {
-		require.NoError(t, verifySetupBindsHash(legitSetup, legitHash))
+		require.NoError(t, setupBindsHash(legitSetup, legitHash))
 	})
 
 	// The reported attack.
 	t.Run("rejects setup embedding a different hash", func(t *testing.T) {
-		err := verifySetupBindsHash(attackerSetup, legitHash)
+		err := setupBindsHash(attackerSetup, legitHash)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "setup message signs hash")
 	})
 
 	t.Run("rejects undecodable setup", func(t *testing.T) {
-		require.Error(t, verifySetupBindsHash([]byte("not-a-dkls-setup"), legitHash))
-		require.Error(t, verifySetupBindsHash(nil, legitHash))
+		require.Error(t, setupBindsHash([]byte("not-a-dkls-setup"), legitHash))
+		require.Error(t, setupBindsHash(nil, legitHash))
 	})
 
 	t.Run("rejects missing verified hash", func(t *testing.T) {
-		err := verifySetupBindsHash(legitSetup, nil)
+		err := setupBindsHash(legitSetup, nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "no verified signing hash")
 	})
@@ -1500,7 +1500,7 @@ func TestVerifySetupBindsHash(t *testing.T) {
 // Keygen, keyrefresh and quorumchange have the same split as the sign path: we
 // validate msg.Participants, but the session runs on the list embedded in
 // Payload. The threshold cannot be bound this way, see verifySetupBindsParticipants.
-func TestVerifySetupBindsParticipants(t *testing.T) {
+func TestSetupBindsParticipants(t *testing.T) {
 	validated := []string{"validator1", "validator2", "validator3"}
 	encode := func(ids []string) []byte {
 		return []byte(strings.Join(ids, "\x00"))
@@ -1510,14 +1510,14 @@ func TestVerifySetupBindsParticipants(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("accepts setup with the validated participants", func(t *testing.T) {
-		require.NoError(t, verifySetupBindsParticipants(legitSetup, validated))
+		require.NoError(t, setupBindsParticipants(legitSetup, validated))
 	})
 
 	t.Run("rejects setup with a substituted participant", func(t *testing.T) {
 		swapped, err := session.DklsKeygenSetupMsgNew(2, nil,
 			encode([]string{"validator1", "validator2", "attacker"}))
 		require.NoError(t, err)
-		err = verifySetupBindsParticipants(swapped, validated)
+		err = setupBindsParticipants(swapped, validated)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "do not match validated participants")
 	})
@@ -1526,7 +1526,7 @@ func TestVerifySetupBindsParticipants(t *testing.T) {
 		fewer, err := session.DklsKeygenSetupMsgNew(2, nil,
 			encode([]string{"validator1", "validator2"}))
 		require.NoError(t, err)
-		require.Error(t, verifySetupBindsParticipants(fewer, validated))
+		require.Error(t, setupBindsParticipants(fewer, validated))
 	})
 
 	// Index order is part of the protocol, so a reorder is as consequential as
@@ -1535,12 +1535,12 @@ func TestVerifySetupBindsParticipants(t *testing.T) {
 		reordered, err := session.DklsKeygenSetupMsgNew(2, nil,
 			encode([]string{"validator3", "validator2", "validator1"}))
 		require.NoError(t, err)
-		require.Error(t, verifySetupBindsParticipants(reordered, validated))
+		require.Error(t, setupBindsParticipants(reordered, validated))
 	})
 
 	t.Run("rejects undecodable setup and missing validated list", func(t *testing.T) {
-		require.Error(t, verifySetupBindsParticipants([]byte("not-a-setup"), validated))
-		require.Error(t, verifySetupBindsParticipants(nil, validated))
-		require.Error(t, verifySetupBindsParticipants(legitSetup, nil))
+		require.Error(t, setupBindsParticipants([]byte("not-a-setup"), validated))
+		require.Error(t, setupBindsParticipants(nil, validated))
+		require.Error(t, setupBindsParticipants(legitSetup, nil))
 	})
 }

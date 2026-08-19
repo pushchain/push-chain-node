@@ -226,14 +226,3 @@ func (s *signSession) Close() {
 		s.handle = 0
 	}
 }
-
-// SetupMessageHash returns the message hash embedded in a sign setup blob.
-// The setup is what DklsSignSessionFromSetup actually signs over, so callers
-// must confirm it matches the hash they independently verified. Otherwise a
-// coordinator can present one hash for verification and embed another here.
-func SetupMessageHash(setupData []byte) ([]byte, error) {
-	if len(setupData) == 0 {
-		return nil, fmt.Errorf("setupData is required")
-	}
-	return session.DklsDecodeMessage(setupData)
-}

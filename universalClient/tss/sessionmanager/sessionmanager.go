@@ -197,30 +197,15 @@ func (sm *SessionManager) handleSetupMessage(ctx context.Context, senderPeerID s
 		}
 	}
 
-	// 6c. Bind the verified hash to the setup blob we are about to sign with.
-	// DKLS signs the hash embedded in the setup, not the one we checked above,
-	// and the two arrive unbound. Without this a coordinator can present a
-	// legitimate hash for verification and embed an attacker-chosen one in
-	// Payload, harvesting honest shares over it. Checked before the ACK so no
-	// shares are ever produced for a mismatched hash.
-	if event.Type == store.EventTypeSignOutbound || event.Type == store.EventTypeSignFundMigrate {
-		if err := verifySetupBindsHash(msg.Payload, msg.UnsignedSigningReq.SigningHash); err != nil {
-			sm.logger.Error().Err(err).
-				Str("event_id", msg.EventID).
-				Str("coordinator", senderPeerID).
-				Msg("setup message does not sign the verified hash - rejecting")
-			return err
-		}
-	}
-
-	// 6d. Same split for the participant list: we validate msg.Participants above
-	// but the session runs on the list embedded in Payload, so an unbound setup
-	// could run over a different set than the one we approved.
-	if err := verifySetupBindsParticipants(msg.Payload, msg.Participants); err != nil {
+	// 6c. Everything validated above came from message fields, but the DKLS
+	// session runs on msg.Payload, and the two arrive unbound. Require the setup
+	// blob to carry exactly what we approved, before the ACK, so no shares are
+	// ever produced for a setup we did not verify.
+	if err := verifySetupMatchesValidated(msg, event.Type); err != nil {
 		sm.logger.Error().Err(err).
 			Str("event_id", msg.EventID).
 			Str("coordinator", senderPeerID).
-			Msg("setup message participants do not match the validated list - rejecting")
+			Msg("setup message does not match the validated request - rejecting")
 		return err
 	}
 
@@ -1004,10 +989,31 @@ func (sm *SessionManager) verifyOutboundSigningRequest(ctx context.Context, even
 	return nil
 }
 
-// verifySetupBindsHash requires the DKLS setup blob to embed exactly the hash
-// the caller already verified. The setup is what actually gets signed, so
-// without this check the verified hash is decorative.
-func verifySetupBindsHash(setupData, verifiedHash []byte) error {
+// verifySetupMatchesValidated requires the coordinator's DKLS setup blob to
+// carry exactly the values the follower validated from the message fields.
+// DKLS runs on the blob, so without this the validated values are decorative:
+// a coordinator can present legitimate ones for checking and embed different
+// ones in Payload.
+//
+// Participants are checked for every protocol, the signing hash additionally for
+// sign types. The threshold cannot be checked: the setup embeds one, the wrapper
+// exposes no decoder for it, and the threshold argument the session constructors
+// take is unused, so the embedded value is authoritative and unverifiable.
+func verifySetupMatchesValidated(msg *coordinator.Message, eventType string) error {
+	if err := setupBindsParticipants(msg.Payload, msg.Participants); err != nil {
+		return err
+	}
+	if eventType != store.EventTypeSignOutbound && eventType != store.EventTypeSignFundMigrate {
+		return nil
+	}
+	if msg.UnsignedSigningReq == nil {
+		return fmt.Errorf("sign setup has no signing request to bind against")
+	}
+	return setupBindsHash(msg.Payload, msg.UnsignedSigningReq.SigningHash)
+}
+
+// setupBindsHash requires the setup blob to embed exactly the verified hash.
+func setupBindsHash(setupData, verifiedHash []byte) error {
 	if len(verifiedHash) == 0 {
 		return fmt.Errorf("no verified signing hash to bind setup message to")
 	}
@@ -1022,14 +1028,10 @@ func verifySetupBindsHash(setupData, verifiedHash []byte) error {
 	return nil
 }
 
-// verifySetupBindsParticipants requires the DKLS setup blob to embed exactly the
-// participant list the caller already validated, in the same order. Index order
-// is part of the protocol, so a reorder is as consequential as a substitution.
-//
-// Note this cannot cover the threshold: the setup embeds one, the wrapper exposes
-// no decoder for it, and the threshold argument the session constructors take is
-// unused. So the coordinator's embedded threshold is authoritative and unchecked.
-func verifySetupBindsParticipants(setupData []byte, validated []string) error {
+// setupBindsParticipants requires the setup blob to embed exactly the validated
+// participants, in the same order. Index order is part of the protocol, so a
+// reorder is as consequential as a substitution.
+func setupBindsParticipants(setupData []byte, validated []string) error {
 	if len(validated) == 0 {
 		return fmt.Errorf("no validated participants to bind setup message to")
 	}

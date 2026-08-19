@@ -26,6 +26,21 @@ func encodeParticipantIDs(participants []string) []byte {
 	return ids
 }
 
+// --- Setup decoding -------------------------------------------------------
+// The coordinator supplies the setup blob and the values a follower validates
+// separately. DKLS runs on the blob, so these expose what it actually contains
+// and let callers bind the two. Both return an error on a malformed blob.
+
+// SetupMessageHash returns the message hash embedded in a sign setup blob.
+// DklsSignSessionFromSetup signs over the setup, not over any hash passed
+// alongside it, so callers must confirm the two agree.
+func SetupMessageHash(setupData []byte) ([]byte, error) {
+	if len(setupData) == 0 {
+		return nil, fmt.Errorf("setupData is required")
+	}
+	return session.DklsDecodeMessage(setupData)
+}
+
 // SetupParticipants returns the participant list embedded in a DKLS setup blob,
 // in index order. The setup is what actually drives the session, so callers must
 // confirm it matches the participants they validated. Otherwise a coordinator

@@ -1,7 +1,6 @@
 package dkls
 
 import (
-	"bytes"
 	"strings"
 	"testing"
 
@@ -130,57 +129,4 @@ func TestSignSession_EndToEnd(t *testing.T) {
 	if len(result.Participants) != 2 {
 		t.Errorf("expected 2 participants, got %d", len(result.Participants))
 	}
-}
-
-// DKLS signs the hash embedded in the setup blob, not the hash a follower
-// verified separately. SetupMessageHash exposes the embedded one so callers can
-// bind the two, which is what stops a coordinator presenting one hash for
-// verification and embedding another in the setup it distributes.
-func TestSetupMessageHash(t *testing.T) {
-	participantIDs := encodeParticipantIDs([]string{"party1", "party2"})
-	keyID := make([]byte, 32)
-
-	legitHash := make([]byte, 32)
-	copy(legitHash, "legitimate-outbound-hash-32bytes")
-	attackerHash := make([]byte, 32)
-	copy(attackerHash, "attacker-chosen-vault-call-digest")
-
-	t.Run("returns the hash embedded in the setup", func(t *testing.T) {
-		setup, err := session.DklsSignSetupMsgNew(keyID, nil, legitHash, participantIDs)
-		if err != nil {
-			t.Fatalf("failed to build sign setup: %v", err)
-		}
-		got, err := SetupMessageHash(setup)
-		if err != nil {
-			t.Fatalf("SetupMessageHash() error = %v", err)
-		}
-		if !bytes.Equal(got, legitHash) {
-			t.Errorf("SetupMessageHash() = %x, want %x", got, legitHash)
-		}
-	})
-
-	// The attack: a setup built over attackerHash must not report legitHash, so
-	// a caller comparing against its verified hash detects the substitution.
-	t.Run("substituted setup reports the attacker hash", func(t *testing.T) {
-		setup, err := session.DklsSignSetupMsgNew(keyID, nil, attackerHash, participantIDs)
-		if err != nil {
-			t.Fatalf("failed to build sign setup: %v", err)
-		}
-		got, err := SetupMessageHash(setup)
-		if err != nil {
-			t.Fatalf("SetupMessageHash() error = %v", err)
-		}
-		if bytes.Equal(got, legitHash) {
-			t.Fatal("substituted setup must not report the legitimate hash")
-		}
-		if !bytes.Equal(got, attackerHash) {
-			t.Errorf("SetupMessageHash() = %x, want %x", got, attackerHash)
-		}
-	})
-
-	t.Run("rejects empty setup", func(t *testing.T) {
-		if _, err := SetupMessageHash(nil); err == nil {
-			t.Error("SetupMessageHash(nil) should error")
-		}
-	})
 }

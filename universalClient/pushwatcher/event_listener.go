@@ -28,8 +28,9 @@ type Config struct {
 	PollInterval time.Duration
 }
 
-// EventListener polls Push chain for active TSS events and pending outbounds
-// via gRPC, converts them to store.Events, and inserts them into the local DB.
+// EventListener polls Push chain for active TSS events, pending outbounds and
+// pending read requests via gRPC, converts them to store.Events, and inserts
+// them into the local DB.
 type EventListener struct {
 	pushCore   *pushcore.Client
 	chainStore *common.ChainStore
@@ -134,17 +135,19 @@ func (el *EventListener) run(ctx context.Context) {
 	}
 }
 
-// poll fetches pending TSS, outbound & fund migration events, stores them, and updates latest block height.
+// poll fetches pending TSS, outbound, fund migration & read request events, stores them, and updates latest block height.
 func (el *EventListener) poll(ctx context.Context) {
 	tssCount := el.pollTssEvents(ctx)
 	outboundCount := el.pollOutboundEvents(ctx)
 	migrationCount := el.pollFundMigrationEvents(ctx)
+	readCount := el.pollReadRequestEvents(ctx)
 
-	if total := tssCount + outboundCount + migrationCount; total > 0 {
+	if total := tssCount + outboundCount + migrationCount + readCount; total > 0 {
 		el.logger.Info().
 			Int("tss_events", tssCount).
 			Int("outbound_events", outboundCount).
 			Int("migration_events", migrationCount).
+			Int("read_request_events", readCount).
 			Msg("stored new events")
 	}
 
@@ -226,6 +229,29 @@ func (el *EventListener) pollFundMigrationEvents(ctx context.Context) int {
 		event, err := convertFundMigrationEvent(m)
 		if err != nil {
 			el.logger.Warn().Err(err).Uint64("migration_id", m.Id).Msg("failed to convert fund migration event")
+			continue
+		}
+
+		newCount += el.storeEvent(event)
+	}
+
+	return newCount
+}
+
+// pollReadRequestEvents fetches pending external read requests and inserts
+// them into the DB. Returns new event count.
+func (el *EventListener) pollReadRequestEvents(ctx context.Context) int {
+	requests, err := el.pushCore.GetAllPendingReadRequests(ctx)
+	if err != nil {
+		el.logger.Error().Err(err).Msg("failed to fetch pending read requests")
+		return 0
+	}
+
+	var newCount int
+	for _, req := range requests {
+		event, err := convertReadRequestEvent(req)
+		if err != nil {
+			el.logger.Warn().Err(err).Str("request_id", req.RequestId).Msg("failed to convert read request")
 			continue
 		}
 

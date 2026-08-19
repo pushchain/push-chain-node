@@ -177,7 +177,7 @@ func parseOutboundObservationEvent(log string, signature string, slot uint64, lo
 	}
 
 	// Create OutboundEvent payload
-	payload := common.OutboundEvent{
+	payload := common.OutboundObservation{
 		TxID:               txID,
 		UniversalTxID:      universalTxID,
 		GasFeeUsed:         fmt.Sprintf("%d", gasUsed),
@@ -250,7 +250,7 @@ func parseUniversalTxEvent(event *store.Event, decoded []byte, logIndex uint, ch
 }
 
 // decodeUniversalTxEvent decodes a TxWithFunds event
-func decodeUniversalTxEvent(data []byte, logger zerolog.Logger) (*common.UniversalTx, error) {
+func decodeUniversalTxEvent(data []byte, logger zerolog.Logger) (*common.InboundObservation, error) {
 	if len(data) < 120 {
 		logger.Warn().
 			Int("data_len", len(data)).
@@ -258,7 +258,7 @@ func decodeUniversalTxEvent(data []byte, logger zerolog.Logger) (*common.Univers
 	}
 
 	offset := 8
-	payload := &common.UniversalTx{}
+	payload := &common.InboundObservation{}
 
 	// Parse sender (32 bytes)
 	if len(data) < offset+32 {

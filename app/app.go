@@ -54,8 +54,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/server/config"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/types/module"
 	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
+	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/cosmos-sdk/types/msgservice"
 	signingtype "github.com/cosmos/cosmos-sdk/types/tx/signing"
 	"github.com/cosmos/cosmos-sdk/version"
@@ -108,9 +108,9 @@ import (
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	cosmosevmante "github.com/cosmos/evm/ante"
+	antetypes "github.com/cosmos/evm/ante/types"
 	cosmosevmencoding "github.com/cosmos/evm/encoding"
 	srvflags "github.com/cosmos/evm/server/flags"
-	antetypes "github.com/cosmos/evm/ante/types"
 	cosmosevmutils "github.com/cosmos/evm/utils"
 	"github.com/cosmos/evm/x/erc20"
 	erc20keeper "github.com/cosmos/evm/x/erc20/keeper"
@@ -119,7 +119,6 @@ import (
 	feemarketkeeper "github.com/cosmos/evm/x/feemarket/keeper"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	"github.com/cosmos/evm/x/vm"
-
 	// _ "github.com/ethereum/go-ethereum/core/tracers/js"
 	// _ "github.com/ethereum/go-ethereum/core/tracers/native"
 	evmkeeper "github.com/cosmos/evm/x/vm/keeper"
@@ -153,14 +152,16 @@ import (
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 	ibckeeper "github.com/cosmos/ibc-go/v10/modules/core/keeper"
 	ibctm "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
-
 	// "github.com/ethereum/go-ethereum/core/vm"
+	ibccallbacks "github.com/cosmos/ibc-go/v10/modules/apps/callbacks"
 	"github.com/ethereum/go-ethereum/common"
 	cosmoscorevm "github.com/ethereum/go-ethereum/core/vm"
 	chainante "github.com/pushchain/push-chain-node/app/ante"
-
 	usigverifierprecompile "github.com/pushchain/push-chain-node/precompiles/usigverifier"
 	pushtypes "github.com/pushchain/push-chain-node/types"
+	ucallback "github.com/pushchain/push-chain-node/x/ucallback"
+	ucallbackkeeper "github.com/pushchain/push-chain-node/x/ucallback/keeper"
+	ucallbacktypes "github.com/pushchain/push-chain-node/x/ucallback/types"
 	uexecutor "github.com/pushchain/push-chain-node/x/uexecutor"
 	uexecutorkeeper "github.com/pushchain/push-chain-node/x/uexecutor/keeper"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
@@ -178,8 +179,6 @@ import (
 	tokenfactorybindings "github.com/strangelove-ventures/tokenfactory/x/tokenfactory/bindings"
 	tokenfactorykeeper "github.com/strangelove-ventures/tokenfactory/x/tokenfactory/keeper"
 	tokenfactorytypes "github.com/strangelove-ventures/tokenfactory/x/tokenfactory/types"
-
-	ibccallbacks "github.com/cosmos/ibc-go/v10/modules/apps/callbacks"
 )
 
 const (
@@ -209,7 +208,7 @@ type authKeeperEVMWrapper struct {
 	authkeeper.AccountKeeper
 }
 
-func (w authKeeperEVMWrapper) UnorderedTransactionsEnabled() bool { return false }
+func (w authKeeperEVMWrapper) UnorderedTransactionsEnabled() bool               { return false }
 func (w authKeeperEVMWrapper) RemoveExpiredUnorderedNonces(_ sdk.Context) error { return nil }
 func (w authKeeperEVMWrapper) TryAddUnorderedNonce(_ sdk.Context, _ []byte, _ time.Time) error {
 	return nil
@@ -267,6 +266,7 @@ var maccPerms = map[string][]string{
 	erc20types.ModuleName:        {authtypes.Minter, authtypes.Burner},
 	uexecutortypes.ModuleName:    {authtypes.Minter, authtypes.Burner},
 	uvalidatortypes.ModuleName:   nil,
+	ucallbacktypes.ModuleName:    {authtypes.Burner}, // burns spent callback gas
 }
 
 var (
@@ -286,11 +286,11 @@ type PacketDataUnmarshaler interface {
 // ChainApp extended ABCI application
 type ChainApp struct {
 	*baseapp.BaseApp
-	legacyAmino       *codec.LegacyAmino
-	appCodec          codec.Codec
-	txConfig          client.TxConfig
-	interfaceRegistry types.InterfaceRegistry
-	clientCtx         client.Context
+	legacyAmino        *codec.LegacyAmino
+	appCodec           codec.Codec
+	txConfig           client.TxConfig
+	interfaceRegistry  types.InterfaceRegistry
+	clientCtx          client.Context
 	pendingTxListeners []func(common.Hash)
 
 	// keys to access the substores
@@ -332,11 +332,12 @@ type ChainApp struct {
 	EVMKeeper           *evmkeeper.Keeper
 	Erc20Keeper         erc20keeper.Keeper
 
-	ScopedWasmKeeper  capabilitykeeper.ScopedKeeper
-	UexecutorKeeper   uexecutorkeeper.Keeper
-	UregistryKeeper   uregistrykeeper.Keeper
-	UvalidatorKeeper  uvalidatorkeeper.Keeper
-	UtssKeeper        utsskeeper.Keeper
+	ScopedWasmKeeper capabilitykeeper.ScopedKeeper
+	UexecutorKeeper  uexecutorkeeper.Keeper
+	UregistryKeeper  uregistrykeeper.Keeper
+	UvalidatorKeeper uvalidatorkeeper.Keeper
+	UtssKeeper       utsskeeper.Keeper
+	UcallbackKeeper  ucallbackkeeper.Keeper
 
 	// the module manager
 	ModuleManager      *module.Manager
@@ -451,6 +452,7 @@ func NewChainApp(
 		uregistrytypes.StoreKey,
 		uvalidatortypes.StoreKey,
 		utsstypes.StoreKey,
+		ucallbacktypes.StoreKey,
 	)
 
 	tkeys := storetypes.NewTransientStoreKeys(
@@ -744,6 +746,25 @@ func NewChainApp(
 		&app.UvalidatorKeeper,
 	)
 
+	// Create the ucallback Keeper.
+	//
+	// Constructed here, after app.EVMKeeper and app.FeeMarketKeeper exist, rather
+	// than earlier with the other keepers. app.EVMKeeper is a *evmkeeper.Keeper:
+	// passing it before line ~718 hands over a nil pointer that still satisfies the
+	// interface, so every DerivedEVMCall panics on the first fulfilment instead of
+	// failing at startup. UvalidatorKeeper is still built below, hence the pointer.
+	app.UcallbackKeeper = ucallbackkeeper.NewKeeper(
+		appCodec,
+		runtime.NewKVStoreService(keys[ucallbacktypes.StoreKey]),
+		logger,
+		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+		&app.UvalidatorKeeper,
+		app.EVMKeeper,
+		app.AccountKeeper,
+		app.BankKeeper,
+		app.FeeMarketKeeper,
+	)
+
 	// Create the uvalidator Keeper
 	app.UvalidatorKeeper = uvalidatorkeeper.NewKeeper(
 		appCodec,
@@ -779,7 +800,10 @@ func NewChainApp(
 			app.UtssKeeper.Hooks(),
 			uexecutorkeeper.NewUValidatorHooks(app.UexecutorKeeper),
 		),
-		Ballot: uexecutorkeeper.NewBallotHooks(app.UexecutorKeeper),
+		Ballot: uvalidatorkeeper.NewMultiBallotHooks(
+			uexecutorkeeper.NewBallotHooks(app.UexecutorKeeper),
+			ucallbackkeeper.NewBallotHooks(app.UcallbackKeeper),
+		),
 	})
 
 	// NOTE: stakingKeeper above is passed by reference, so it picks up these hooks.
@@ -791,7 +815,13 @@ func NewChainApp(
 		),
 	)
 
-	app.EVMKeeper.SetHooks(uexecutorkeeper.NewEVMHooks(app.UexecutorKeeper))
+	// SetHooks panics if called twice, so every EVM post-tx consumer registers
+	// here. Hooks run in order and share a transaction: an error from any one of
+	// them reverts the whole EVM tx, including the work earlier hooks did.
+	app.EVMKeeper.SetHooks(evmkeeper.NewMultiEvmHooks(
+		uexecutorkeeper.NewEVMHooks(app.UexecutorKeeper),
+		ucallbackkeeper.NewEVMHooks(app.UcallbackKeeper),
+	))
 
 	// NOTE: we are adding all available EVM extensions.
 	// Not all of them need to be enabled, which can be configured on a per-chain basis.
@@ -867,7 +897,7 @@ func NewChainApp(
 	app.TransferKeeper = ibctransferkeeper.NewKeeper(
 		appCodec,
 		runtime.NewKVStoreService(keys[ibctransfertypes.StoreKey]),
-		nil, // legacySubspace (no params subspace)
+		nil,                 // legacySubspace (no params subspace)
 		app.RatelimitKeeper, // ICS4Wrapper
 		//app.IBCFeeKeeper,
 		app.IBCKeeper.ChannelKeeper,
@@ -1070,6 +1100,7 @@ func NewChainApp(
 		uregistry.NewAppModule(appCodec, app.UregistryKeeper, app.EVMKeeper),
 		uvalidator.NewAppModule(appCodec, app.UvalidatorKeeper, app.BankKeeper, app.AccountKeeper, app.DistrKeeper, app.StakingKeeper, app.SlashingKeeper, &app.UtssKeeper),
 		utss.NewAppModule(appCodec, app.UtssKeeper, app.UvalidatorKeeper),
+		ucallback.NewAppModule(appCodec, app.UcallbackKeeper),
 	)
 
 	// BasicModuleManager defines the module BasicManager is in charge of setting up basic,
@@ -1120,6 +1151,7 @@ func NewChainApp(
 		uexecutortypes.ModuleName,
 		uregistrytypes.ModuleName,
 		utsstypes.ModuleName,
+		ucallbacktypes.ModuleName,
 	)
 
 	app.ModuleManager.SetOrderEndBlockers(
@@ -1143,6 +1175,7 @@ func NewChainApp(
 		uregistrytypes.ModuleName,
 		uvalidatortypes.ModuleName,
 		utsstypes.ModuleName,
+		ucallbacktypes.ModuleName,
 	)
 
 	// NOTE: The genutils module must occur after staking so that pools are
@@ -1193,6 +1226,7 @@ func NewChainApp(
 		uregistrytypes.ModuleName,
 		uvalidatortypes.ModuleName,
 		utsstypes.ModuleName,
+		ucallbacktypes.ModuleName,
 	}
 	app.ModuleManager.SetOrderInitGenesis(genesisModuleOrder...)
 	app.ModuleManager.SetOrderExportGenesis(genesisModuleOrder...)
@@ -1606,6 +1640,9 @@ func BlockedAddresses() map[string]bool {
 
 	// allow the following addresses to receive funds
 	delete(blockedAddrs, authtypes.NewModuleAddress(govtypes.ModuleName).String())
+	// x/ucallback receives the consumed callback budget out of UniversalCallback
+	// before burning it, so it must not be blocked from receiving.
+	delete(blockedAddrs, authtypes.NewModuleAddress(ucallbacktypes.ModuleName).String())
 
 	blockedPrecompilesHex := evmtypes.AvailableStaticPrecompiles
 	for _, addr := range cosmoscorevm.PrecompiledAddressesBerlin {
@@ -1654,6 +1691,7 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 	paramsKeeper.Subspace(uregistrytypes.ModuleName)
 	paramsKeeper.Subspace(uvalidatortypes.ModuleName)
 	paramsKeeper.Subspace(utsstypes.ModuleName)
+	paramsKeeper.Subspace(ucallbacktypes.ModuleName)
 
 	return paramsKeeper
 }

@@ -313,7 +313,7 @@ func TestEventConfirmer_UpdateStatusAndEventData_WithDB(t *testing.T) {
 	_, memDB := newTestEventConfirmerWithDB(t)
 	cs := common.NewChainStore(memDB)
 
-	outbound := common.OutboundEvent{
+	outbound := common.OutboundObservation{
 		TxID:          "0xtx1",
 		UniversalTxID: "0xuni1",
 	}
@@ -347,7 +347,7 @@ func TestEventConfirmer_UpdateStatusAndEventData_WithDB(t *testing.T) {
 	require.Len(t, confirmed, 1)
 	assert.Equal(t, "0xoutbound1:0", confirmed[0].EventID)
 
-	var stored common.OutboundEvent
+	var stored common.OutboundObservation
 	require.NoError(t, json.Unmarshal(confirmed[0].EventData, &stored))
 	assert.Equal(t, "123456789", stored.GasFeeUsed)
 }

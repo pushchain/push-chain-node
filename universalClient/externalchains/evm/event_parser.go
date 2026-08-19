@@ -125,7 +125,7 @@ func parseOutboundObservationEvent(log *types.Log, eventType string, logger zero
 	}
 
 	// Create OutboundEvent payload
-	payload := common.OutboundEvent{
+	payload := common.OutboundObservation{
 		TxID:               txID,
 		UniversalTxID:      universalTxID,
 		Pc20WrapperAddress: wrapperAddr,
@@ -168,7 +168,7 @@ func parseUniversalTxEvent(event *store.Event, log *types.Log, chainID string, l
 		return
 	}
 
-	payload := common.UniversalTx{
+	payload := common.InboundObservation{
 		SourceChain: chainID,
 		Sender:      ethcommon.BytesToAddress(log.Topics[1].Bytes()).Hex(),
 		Recipient:   ethcommon.BytesToAddress(log.Topics[2].Bytes()).Hex(),
@@ -215,7 +215,7 @@ func readWord(data []byte, i int) []byte {
 
 // decodePayload reads the raw payload bytes at the given offset and stores the hex string.
 // The core validator will decode the universal payload from these raw bytes.
-func decodePayload(data []byte, dataOffset uint64, payload *common.UniversalTx, logger zerolog.Logger) {
+func decodePayload(data []byte, dataOffset uint64, payload *common.InboundObservation, logger zerolog.Logger) {
 	if dataOffset < uint64(32*5) {
 		return
 	}
@@ -240,7 +240,7 @@ func decodeSignatureData(data []byte, w []byte, minOffset uint64) string {
 }
 
 // finalizeEvent marshals the payload and sets confirmation type on the event.
-func finalizeEvent(event *store.Event, payload *common.UniversalTx, logger zerolog.Logger) {
+func finalizeEvent(event *store.Event, payload *common.InboundObservation, logger zerolog.Logger) {
 	if b, err := json.Marshal(payload); err == nil {
 		event.EventData = b
 	} else {
@@ -266,7 +266,7 @@ UniversalTx Event (V2 - upgraded chains):
   - signatureData (bytes)       — Word 5 (offset)
   - fromCEA (bool)              — Word 6
 */
-func parseUniversalTx(event *store.Event, log *types.Log, dataOffset uint64, payload *common.UniversalTx, logger zerolog.Logger) {
+func parseUniversalTx(event *store.Event, log *types.Log, dataOffset uint64, payload *common.InboundObservation, logger zerolog.Logger) {
 	data := log.Data
 
 	decodePayload(data, dataOffset, payload, logger)

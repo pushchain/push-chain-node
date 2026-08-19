@@ -21,7 +21,9 @@ func TestReservedSlots_FullTripleDeployedForEveryUnoccupiedABCSlot(t *testing.T)
 	occupied := map[byte]bool{
 		0xAA: true,
 		0xB0: true, 0xB1: true, 0xB2: true, 0xBC: true,
-		0xC0: true, 0xC1: true, 0xCA: true,
+		0xC0: true, 0xC1: true,
+		0xC2: true, // promoted to UNIVERSAL_CALLBACK; covered by the test below
+		0xCA: true, // legacy USigVerifier precompile, see usigverifier.go
 	}
 
 	for _, hi := range []byte{0xA, 0xB, 0xC} {
@@ -165,4 +167,41 @@ func TestReservedSlots_BytecodeIsCaseInsensitiveAcrossSlots(t *testing.T) {
 	require.Equal(t, src, lowerBytes, "lowercase hex must decode to original bytes")
 	require.Equal(t, src, upperBytes, "UPPERCASE hex must decode to identical bytes (case-insensitive)")
 	require.Equal(t, src, mixedBytes, "MiXeD hex must decode to identical bytes (case-insensitive)")
+}
+
+// TestUniversalCallbackSlot_KeepsReservedTriple asserts that promoting 0xC2 out of
+// the RESERVED_* auto-reservation did not weaken it. The slot must still carry a
+// complete proxy + admin + impl triple with the same addresses RESERVED_C2 had, so
+// the promotion is a rename and genesis state is unchanged.
+func TestUniversalCallbackSlot_KeepsReservedTriple(t *testing.T) {
+	addrs, ok := SYSTEM_CONTRACTS["UNIVERSAL_CALLBACK"]
+	require.True(t, ok, "UNIVERSAL_CALLBACK missing from SYSTEM_CONTRACTS")
+
+	require.Equal(t, "0x00000000000000000000000000000000000000c2", strings.ToLower(addrs.Address))
+	require.Equal(t, "0xf2000000000000000000000000000000000000c2", strings.ToLower(addrs.ProxyAdmin))
+	require.Equal(t, "0xf1000000000000000000000000000000000000c2", strings.ToLower(addrs.Implementation))
+
+	bc, ok := BYTECODE["UNIVERSAL_CALLBACK"]
+	require.True(t, ok, "BYTECODE missing entry UNIVERSAL_CALLBACK")
+	require.NotEmpty(t, bc.IMPL_RUNTIME)
+	require.NotEmpty(t, bc.PROXY_RUNTIME)
+	require.NotEmpty(t, bc.ADMIN_RUNTIME)
+
+	// the proxy must embed ITS OWN admin, not the 0xB0 template's
+	require.Contains(t,
+		strings.ToLower(hex.EncodeToString(bc.PROXY_RUNTIME)),
+		"f2000000000000000000000000000000000000c2")
+
+	// the old name must be gone, or genesis would deploy the slot twice
+	_, stale := SYSTEM_CONTRACTS["RESERVED_C2"]
+	require.False(t, stale, "RESERVED_C2 must not coexist with UNIVERSAL_CALLBACK")
+}
+
+// The address x/ucallback filters logs on must round-trip through common.Address,
+// since the hook compares against a parsed address, not the raw string.
+func TestUniversalCallbackAddress_RoundTrips(t *testing.T) {
+	addr := common.HexToAddress(SYSTEM_CONTRACTS["UNIVERSAL_CALLBACK"].Address)
+	require.Equal(t,
+		"0x00000000000000000000000000000000000000c2",
+		strings.ToLower(addr.Hex()))
 }

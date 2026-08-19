@@ -1,0 +1,111 @@
+[
+  {
+    "type": "event",
+    "name": "ReadRequested",
+    "inputs": [
+      {
+        "name": "requestId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "readSpec",
+        "type": "tuple",
+        "indexed": false,
+        "internalType": "struct ReadSpec",
+        "components": [
+          {
+            "name": "account",
+            "type": "tuple",
+            "internalType": "struct UniversalAccountId",
+            "components": [
+              {
+                "name": "chainNamespace",
+                "type": "string",
+                "internalType": "string"
+              },
+              {
+                "name": "chainId",
+                "type": "string",
+                "internalType": "string"
+              },
+              {
+                "name": "owner",
+                "type": "bytes",
+                "internalType": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "query",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "minConfirmations",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "blockNumber",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "expiryPushChainHeight",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "maxFee",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "revertRecipient",
+            "type": "address",
+            "internalType": "address"
+          }
+        ]
+      },
+      {
+        "name": "callbackTarget",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "originalFunder",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "callbackGasLimit",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "totalPaid",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "protocolFee",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "callbackBudget",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  }
+]

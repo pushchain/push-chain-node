@@ -777,6 +777,43 @@ func TestGatewayEmittedLogs(t *testing.T) {
 		assert.Empty(t, gatewayEmittedLogs([]string{data}, testGatewayProgram))
 	})
 
+	// Unbalanced logs are reachable: truncation can cut a frame's exit line, and
+	// the parser must not underflow or start attributing to a frame nobody owns.
+	t.Run("more exits than invokes does not underflow", func(t *testing.T) {
+		assert.Empty(t, gatewayEmittedLogs([]string{
+			"Program " + testGatewayProgram + " success",
+			"Program " + testGatewayProgram + " success",
+			data,
+		}, testGatewayProgram))
+
+		assert.Empty(t, gatewayEmittedLogs([]string{
+			"Program " + testGatewayProgram + " invoke [1]",
+			"Program " + testGatewayProgram + " success",
+			"Program " + testGatewayProgram + " success",
+			data,
+		}, testGatewayProgram))
+	})
+
+	t.Run("attacker exits cannot expose an outer gateway frame", func(t *testing.T) {
+		// Gateway CPIs into the attacker, who emits surplus exits hoping to pop
+		// back to the gateway frame and have its own data log attributed to it.
+		assert.Empty(t, gatewayEmittedLogs([]string{
+			"Program " + testGatewayProgram + " invoke [1]",
+			"Program " + testAttackerProgram + " invoke [2]",
+			"Program " + testAttackerProgram + " success",
+			"Program " + testGatewayProgram + " success",
+			data,
+		}, testGatewayProgram))
+	})
+
+	t.Run("gateway frame left open still attributes", func(t *testing.T) {
+		// What a mid-frame truncation looks like: the exit line never arrives.
+		assert.Equal(t, map[int]bool{1: true}, gatewayEmittedLogs([]string{
+			"Program " + testGatewayProgram + " invoke [1]",
+			data,
+		}, testGatewayProgram))
+	})
+
 	t.Run("unrelated runtime lines do not disturb the stack", func(t *testing.T) {
 		logs := []string{
 			"Program " + testGatewayProgram + " invoke [1]",

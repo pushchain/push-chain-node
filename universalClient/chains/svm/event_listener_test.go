@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -807,11 +809,14 @@ func TestInvokedProgramAndExit(t *testing.T) {
 	assert.False(t, isProgramExit("Program "+testGatewayProgram+" consumed 1 of 2 compute units"))
 }
 
-// forgeryRPC serves one transaction whose logs the test controls.
+// forgeryRPC serves one transaction whose logs the test controls. `envelope`
+// and `inner` are optional and carry the instruction side of that transaction.
 type forgeryRPC struct {
-	slot uint64
-	sig  solana.Signature
-	logs []string
+	slot     uint64
+	sig      solana.Signature
+	logs     []string
+	envelope *solanarpc.TransactionResultEnvelope
+	inner    []solanarpc.InnerInstruction
 }
 
 func (m *forgeryRPC) GetLatestSlot(context.Context) (uint64, error) { return m.slot, nil }
@@ -822,8 +827,12 @@ func (m *forgeryRPC) GetSignaturesForAddress(context.Context, solana.PublicKey, 
 
 func (m *forgeryRPC) GetTransaction(context.Context, solana.Signature) (*solanarpc.GetTransactionResult, error) {
 	return &solanarpc.GetTransactionResult{
-		Slot: m.slot,
-		Meta: &solanarpc.TransactionMeta{LogMessages: m.logs},
+		Slot:        m.slot,
+		Transaction: m.envelope,
+		Meta: &solanarpc.TransactionMeta{
+			LogMessages:       m.logs,
+			InnerInstructions: m.inner,
+		},
 	}, nil
 }
 
@@ -953,4 +962,234 @@ func TestProcessSignatureBatch_TruncatedLogsStillStoreVisibleEvents(t *testing.T
 	events, err := common.NewChainStore(database).GetPendingEvents(100)
 	require.NoError(t, err)
 	assert.Len(t, events, 1, "events logged before the cut must still be stored")
+}
+
+const testSendFundsInstruction = "54f7d3283f6a0f3b"
+
+// buildGatewayTx encodes a transaction invoking programID once per data entry,
+// in the wire format GetTransaction returns, so the listener decodes it exactly
+// as it would a live one.
+func buildGatewayTx(t *testing.T, programID string, data ...[]byte) *solanarpc.TransactionResultEnvelope {
+	t.Helper()
+
+	program := solana.MustPublicKeyFromBase58(programID)
+	payer := solana.MustPublicKeyFromBase58("9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM")
+
+	ixs := make([]solana.Instruction, 0, len(data))
+	for _, d := range data {
+		ixs = append(ixs, solana.NewInstruction(program, solana.AccountMetaSlice{
+			{PublicKey: payer, IsSigner: true, IsWritable: true},
+		}, d))
+	}
+
+	tx, err := solana.NewTransaction(ixs, solana.Hash{}, solana.TransactionPayer(payer))
+	require.NoError(t, err)
+	raw, err := tx.MarshalBinary()
+	require.NoError(t, err)
+
+	envelope := new(solanarpc.TransactionResultEnvelope)
+	require.NoError(t, json.Unmarshal(
+		[]byte(fmt.Sprintf(`["%s","base64"]`, base64.StdEncoding.EncodeToString(raw))),
+		envelope,
+	))
+	return envelope
+}
+
+func instructionData(discriminator string, extra ...byte) []byte {
+	d, err := hex.DecodeString(discriminator)
+	if err != nil {
+		panic(err)
+	}
+	return append(d, extra...)
+}
+
+// Instructions are part of the transaction payload, so unlike logs they are
+// never truncated. Counting them is what tells a dropped event apart from a
+// transaction that simply never emitted one.
+func TestGatewayInstructionCounts(t *testing.T) {
+	methods := []*uregistrytypes.GatewayMethods{
+		{Name: EventTypeSendFunds, EventIdentifier: "0000000000000000", Identifier: testSendFundsInstruction},
+		// The other gateway methods ship a "0x" placeholder rather than a real
+		// discriminator, so they must not land in the map and cannot be counted.
+		{Name: EventTypeRevertUniversalTx, EventIdentifier: "1111111111111111", Identifier: "0x"},
+	}
+
+	newListener := func(t *testing.T) *EventListener {
+		t.Helper()
+		database, err := db.OpenInMemoryDB(true)
+		require.NoError(t, err)
+		t.Cleanup(func() { database.Close() })
+		el, err := NewEventListener(&forgeryRPC{}, testGatewayProgram, "solana:test", methods, database, 10, nil, zerolog.Nop())
+		require.NoError(t, err)
+		return el
+	}
+
+	t.Run("placeholder identifiers are not registered", func(t *testing.T) {
+		el := newListener(t)
+		assert.Equal(t, map[string]string{testSendFundsInstruction: EventTypeSendFunds}, el.instructionToEventType)
+	})
+
+	t.Run("counts every gateway send_funds instruction", func(t *testing.T) {
+		el := newListener(t)
+		counts, err := el.gatewayInstructionCounts(&solanarpc.GetTransactionResult{
+			Transaction: buildGatewayTx(t, testGatewayProgram,
+				instructionData(testSendFundsInstruction, 1, 2, 3),
+				instructionData(testSendFundsInstruction, 4, 5, 6),
+			),
+			Meta: &solanarpc.TransactionMeta{},
+		})
+		require.NoError(t, err)
+		assert.Equal(t, map[string]int{EventTypeSendFunds: 2}, counts)
+	})
+
+	t.Run("counts CPI instructions", func(t *testing.T) {
+		el := newListener(t)
+		gateway := solana.MustPublicKeyFromBase58(testGatewayProgram)
+		envelope := buildGatewayTx(t, testGatewayProgram, instructionData(testSendFundsInstruction))
+
+		decoded, err := envelope.GetTransaction()
+		require.NoError(t, err)
+		gatewayIndex := -1
+		for i, k := range decoded.Message.AccountKeys {
+			if k.Equals(gateway) {
+				gatewayIndex = i
+			}
+		}
+		require.NotEqual(t, -1, gatewayIndex)
+
+		counts, err := el.gatewayInstructionCounts(&solanarpc.GetTransactionResult{
+			Transaction: envelope,
+			Meta: &solanarpc.TransactionMeta{InnerInstructions: []solanarpc.InnerInstruction{{
+				Index: 0,
+				Instructions: []solanarpc.CompiledInstruction{{
+					ProgramIDIndex: uint16(gatewayIndex),
+					Data:           instructionData(testSendFundsInstruction),
+				}},
+			}}},
+		})
+		require.NoError(t, err)
+		assert.Equal(t, map[string]int{EventTypeSendFunds: 2}, counts, "top level plus CPI")
+	})
+
+	t.Run("ignores the same discriminator from another program", func(t *testing.T) {
+		el := newListener(t)
+		counts, err := el.gatewayInstructionCounts(&solanarpc.GetTransactionResult{
+			Transaction: buildGatewayTx(t, testAttackerProgram, instructionData(testSendFundsInstruction)),
+			Meta:        &solanarpc.TransactionMeta{},
+		})
+		require.NoError(t, err)
+		assert.Empty(t, counts)
+	})
+
+	t.Run("ignores unknown and undersized instruction data", func(t *testing.T) {
+		el := newListener(t)
+		counts, err := el.gatewayInstructionCounts(&solanarpc.GetTransactionResult{
+			Transaction: buildGatewayTx(t, testGatewayProgram,
+				instructionData("aaaaaaaaaaaaaaaa"),
+				[]byte{1, 2, 3},
+			),
+			Meta: &solanarpc.TransactionMeta{},
+		})
+		require.NoError(t, err)
+		assert.Empty(t, counts)
+	})
+}
+
+// Detection only works for methods whose instruction discriminator is in the
+// registry. Devnet currently ships "0x" for three of the four, and the
+// send_funds identifier does not match the deployed instruction, so the gap has
+// to be visible at startup instead of looking like coverage.
+func TestNewEventListener_WarnsOnMissingInstructionDiscriminators(t *testing.T) {
+	database, err := db.OpenInMemoryDB(true)
+	require.NoError(t, err)
+	defer database.Close()
+
+	// Verbatim from `pchaind q uregistry all-chain-configs` for solana devnet.
+	methods := []*uregistrytypes.GatewayMethods{
+		{Name: EventTypeSendFunds, Identifier: "54f7d3283f6a0f3b", EventIdentifier: "6c9ad829b5ea1d7c"},
+		{Name: EventTypeFinalizeUniversalTx, Identifier: "0x", EventIdentifier: "b3409670758c9c25"},
+		{Name: EventTypeRevertUniversalTx, Identifier: "0x", EventIdentifier: "f94a27cb953630ba"},
+		{Name: EventTypeFundsRescued, Identifier: "0x", EventIdentifier: "9f25065d627ab0d2"},
+	}
+
+	var logBuf bytes.Buffer
+	_, err = NewEventListener(&forgeryRPC{}, testGatewayProgram, "solana:test", methods, database, 10, nil, zerolog.New(&logBuf))
+	require.NoError(t, err)
+
+	output := logBuf.String()
+	assert.Contains(t, output, "have no instruction discriminator in the registry")
+	for _, name := range []string{EventTypeFinalizeUniversalTx, EventTypeRevertUniversalTx, EventTypeFundsRescued} {
+		assert.Contains(t, output, name)
+	}
+}
+
+// The truncation marker only says something was cut. Comparing instructions to
+// observed events says what was lost, so a stranded deposit is actionable.
+func TestProcessSignatureBatch_ReportsEventDroppedByTruncation(t *testing.T) {
+	payload := buildSendFundsPayload(
+		[32]byte{1}, [20]byte{2}, [32]byte{3}, 1_000_000,
+		nil, [32]byte{4}, 0, nil, false,
+	)
+	methods := []*uregistrytypes.GatewayMethods{{
+		Name:            EventTypeSendFunds,
+		EventIdentifier: "0000000000000000", // buildSendFundsPayload zeroes the discriminator
+		Identifier:      testSendFundsInstruction,
+	}}
+
+	run := func(t *testing.T, logs []string) string {
+		t.Helper()
+		database, err := db.OpenInMemoryDB(true)
+		require.NoError(t, err)
+		t.Cleanup(func() { database.Close() })
+
+		var logBuf bytes.Buffer
+		rpc := &forgeryRPC{
+			slot:     100,
+			sig:      mkSig(11),
+			logs:     logs,
+			envelope: buildGatewayTx(t, testGatewayProgram, instructionData(testSendFundsInstruction)),
+		}
+		el, err := NewEventListener(rpc, testGatewayProgram, "solana:test", methods, database, 10, nil, zerolog.New(&logBuf))
+		require.NoError(t, err)
+
+		_, err = el.processSignatureBatch(context.Background(), []*solanarpc.TransactionSignature{
+			{Signature: mkSig(11), Slot: 100},
+		}, 0, 200)
+		require.NoError(t, err)
+		return logBuf.String()
+	}
+
+	t.Run("event cut by truncation is reported", func(t *testing.T) {
+		output := run(t, []string{
+			"Program " + testGatewayProgram + " invoke [1]",
+			"Program log: Instruction: SendFunds",
+			"Log truncated",
+		})
+		assert.Contains(t, output, "gateway instruction executed but its event was not observed")
+		assert.Contains(t, output, EventTypeSendFunds)
+		assert.Contains(t, output, mkSig(11).String(), "the signature must be actionable")
+	})
+
+	t.Run("event that arrived is not reported", func(t *testing.T) {
+		output := run(t, []string{
+			"Program " + testGatewayProgram + " invoke [1]",
+			"Program data: " + base64.StdEncoding.EncodeToString(payload),
+			"Program " + testGatewayProgram + " success",
+		})
+		assert.NotContains(t, output, "gateway instruction executed but its event was not observed")
+	})
+
+	// A forged event does not satisfy the instruction that really ran, so
+	// suppressing the alert is not something an attacker can do.
+	t.Run("forged event does not mask the loss", func(t *testing.T) {
+		output := run(t, []string{
+			"Program " + testGatewayProgram + " invoke [1]",
+			"Program log: Instruction: SendFunds",
+			"Program " + testAttackerProgram + " invoke [2]",
+			"Program data: " + base64.StdEncoding.EncodeToString(payload),
+			"Program " + testAttackerProgram + " success",
+			"Log truncated",
+		})
+		assert.Contains(t, output, "gateway instruction executed but its event was not observed")
+	})
 }

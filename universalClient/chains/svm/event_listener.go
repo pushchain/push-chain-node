@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -21,6 +22,9 @@ import (
 // Warn (not refuse) once a single poll has processed this many in-range sigs;
 // re-emitted per subsequent page so ops sees a sustained signal, not a blip.
 const largePollWarnThreshold uint64 = 100_000
+
+// Anchor prefixes both instruction data and emitted events with an 8 byte discriminator.
+const discriminatorSize = 8
 
 // rpcClientInterface is the subset of *RPCClient methods the listener depends on.
 // Defined as an interface so tests can supply a mock without spinning up a real
@@ -42,6 +46,7 @@ type EventListener struct {
 	gatewayAddress           string
 	chainID                  string
 	discriminatorToEventType map[string]string
+	instructionToEventType   map[string]string
 	eventPollingSeconds      int
 	eventStartFrom           *int64
 
@@ -71,20 +76,46 @@ func NewEventListener(
 		return nil, fmt.Errorf("chain ID not configured")
 	}
 
-	// Build discriminator to event type mapping
+	// Build discriminator to event type mapping. EventIdentifier tags the emitted
+	// log, Identifier tags the instruction that emits it; the second is what lets
+	// us tell a dropped event from a transaction that never emitted one.
 	discriminatorToEventType := make(map[string]string)
+	instructionToEventType := make(map[string]string)
 	for _, method := range gatewayMethods {
-		if method.EventIdentifier == "" {
-			continue
-		}
 		switch method.Name {
 		case EventTypeSendFunds,
 			EventTypeFinalizeUniversalTx,
 			EventTypeRevertUniversalTx,
 			EventTypeFundsRescued:
-			discriminator := strings.ToLower(method.EventIdentifier)
-			discriminatorToEventType[discriminator] = method.Name
+		default:
+			continue
 		}
+		if d := normalizeDiscriminator(method.EventIdentifier); d != "" {
+			discriminatorToEventType[d] = method.Name
+		}
+		if d := normalizeDiscriminator(method.Identifier); d != "" {
+			instructionToEventType[d] = method.Name
+		}
+	}
+
+	// Without an instruction discriminator a dropped event for that method is
+	// undetectable, so say so at startup rather than looking like it is covered.
+	covered := make(map[string]bool, len(instructionToEventType))
+	for _, eventType := range instructionToEventType {
+		covered[eventType] = true
+	}
+	var uncovered []string
+	for _, eventType := range discriminatorToEventType {
+		if !covered[eventType] {
+			uncovered = append(uncovered, eventType)
+		}
+	}
+	if len(uncovered) > 0 {
+		slices.Sort(uncovered)
+		logger.Warn().
+			Strs("methods", uncovered).
+			Msg("gateway methods have no instruction discriminator in the registry; " +
+				"a dropped event for these cannot be detected")
 	}
 
 	return &EventListener{
@@ -94,6 +125,7 @@ func NewEventListener(
 		gatewayAddress:           gatewayAddress,
 		chainID:                  chainID,
 		discriminatorToEventType: discriminatorToEventType,
+		instructionToEventType:   instructionToEventType,
 		eventPollingSeconds:      eventPollingSeconds,
 		eventStartFrom:           eventStartFrom,
 		logger:                   logger.With().Str("component", "svm_event_listener").Str("chain", chainID).Logger(),
@@ -312,6 +344,7 @@ func (el *EventListener) processSignatureBatch(
 					Msg("solana log buffer truncated; a gateway event may have been dropped and needs manual review")
 			}
 
+			observed := make(map[string]int)
 			fromGateway := gatewayEmittedLogs(tx.Meta.LogMessages, el.gatewayAddress)
 			for logIndex, log := range tx.Meta.LogMessages {
 				if !fromGateway[logIndex] {
@@ -323,6 +356,7 @@ func (el *EventListener) processSignatureBatch(
 				if eventType == "" {
 					continue
 				}
+				observed[eventType]++
 
 				// Parse gateway event from individual log
 				event := ParseEvent(log, sig.Signature.String(), sig.Slot, uint(logIndex), eventType, el.chainID, el.logger)
@@ -345,10 +379,122 @@ func (el *EventListener) processSignatureBatch(
 					}
 				}
 			}
+
+			el.reportMissedEvents(sig, tx, observed)
 		}
 	}
 
 	return processed, nil
+}
+
+// reportMissedEvents flags gateway instructions that executed without their
+// event reaching us. Instructions are part of the transaction payload rather
+// than the log buffer, so counting them survives truncation and turns "some
+// logs were cut" into "this event type was lost, N times, in this signature".
+func (el *EventListener) reportMissedEvents(
+	sig *solanarpc.TransactionSignature,
+	tx *solanarpc.GetTransactionResult,
+	observed map[string]int,
+) {
+	if len(el.instructionToEventType) == 0 {
+		return
+	}
+
+	expected, err := el.gatewayInstructionCounts(tx)
+	if err != nil {
+		el.logger.Warn().
+			Err(err).
+			Str("signature", sig.Signature.String()).
+			Msg("failed to decode transaction instructions; cannot check for dropped gateway events")
+		return
+	}
+
+	for eventType, want := range expected {
+		got := observed[eventType]
+		if got >= want {
+			continue
+		}
+		el.logger.Error().
+			Str("signature", sig.Signature.String()).
+			Uint64("slot", sig.Slot).
+			Str("event_type", eventType).
+			Int("instructions", want).
+			Int("events_observed", got).
+			Msg("gateway instruction executed but its event was not observed; " +
+				"the event is unrecoverable from RPC and needs manual reconciliation")
+	}
+}
+
+// gatewayInstructionCounts returns, per event type, how many gateway
+// instructions in tx carry that method's instruction discriminator, counting
+// both top level and CPI instructions.
+func (el *EventListener) gatewayInstructionCounts(tx *solanarpc.GetTransactionResult) (map[string]int, error) {
+	if tx == nil || tx.Transaction == nil || tx.Meta == nil {
+		return nil, nil
+	}
+
+	decoded, err := tx.Transaction.GetTransaction()
+	if err != nil {
+		return nil, err
+	}
+	if decoded == nil {
+		return nil, nil
+	}
+
+	// A v0 transaction resolves part of accountKeys through address lookup
+	// tables. The runtime appends loaded writable then loaded readonly after the
+	// static keys, and ProgramIDIndex indexes into that combined list.
+	keys := decoded.Message.AccountKeys
+	loaded := len(tx.Meta.LoadedAddresses.Writable) + len(tx.Meta.LoadedAddresses.ReadOnly)
+	if loaded > 0 {
+		keys = make([]solana.PublicKey, 0, len(decoded.Message.AccountKeys)+loaded)
+		keys = append(keys, decoded.Message.AccountKeys...)
+		keys = append(keys, tx.Meta.LoadedAddresses.Writable...)
+		keys = append(keys, tx.Meta.LoadedAddresses.ReadOnly...)
+	}
+
+	counts := make(map[string]int)
+	// Top level and inner instructions carry the same fields under different
+	// named types, so tally takes the two values it needs.
+	tally := func(programIDIndex uint16, data []byte) {
+		if int(programIDIndex) >= len(keys) {
+			return
+		}
+		if keys[programIDIndex].String() != el.gatewayAddress {
+			return
+		}
+		if len(data) < discriminatorSize {
+			return
+		}
+		if eventType, ok := el.instructionToEventType[hex.EncodeToString(data[:discriminatorSize])]; ok {
+			counts[eventType]++
+		}
+	}
+
+	for _, ins := range decoded.Message.Instructions {
+		tally(ins.ProgramIDIndex, ins.Data)
+	}
+	for _, inner := range tx.Meta.InnerInstructions {
+		for _, ins := range inner.Instructions {
+			tally(ins.ProgramIDIndex, ins.Data)
+		}
+	}
+
+	return counts, nil
+}
+
+// normalizeDiscriminator returns the lowercase hex of an 8 byte registry
+// discriminator, or "" when the entry is a placeholder or the wrong width.
+func normalizeDiscriminator(identifier string) string {
+	s := strings.ToLower(identifier)
+	s = strings.TrimPrefix(s, "0x")
+	if len(s) != discriminatorSize*2 {
+		return ""
+	}
+	if _, err := hex.DecodeString(s); err != nil {
+		return ""
+	}
+	return s
 }
 
 // getStartSlot returns the slot to start watching from
@@ -519,11 +665,11 @@ func (el *EventListener) determineEventType(log string) string {
 		return ""
 	}
 
-	if len(decoded) < 8 {
+	if len(decoded) < discriminatorSize {
 		return ""
 	}
 
-	discriminator := strings.ToLower(hex.EncodeToString(decoded[:8]))
+	discriminator := hex.EncodeToString(decoded[:discriminatorSize])
 
 	// Look up event type from discriminator map
 	eventType, ok := el.discriminatorToEventType[discriminator]

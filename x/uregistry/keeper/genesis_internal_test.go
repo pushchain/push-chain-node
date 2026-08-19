@@ -27,6 +27,16 @@ func (s stubEVMKeeper) GetAccount(_ sdk.Context, addr common.Address) *statedb.A
 	return s.accounts[addr]
 }
 
+// GetCodeHash mirrors the real keeper: absent or code-less accounts report the
+// empty-code-hash sentinel rather than a zero hash.
+func (s stubEVMKeeper) GetCodeHash(_ sdk.Context, addr common.Address) common.Hash {
+	acc := s.accounts[addr]
+	if acc == nil || len(acc.CodeHash) == 0 {
+		return common.BytesToHash(evmtypes.EmptyCodeHash)
+	}
+	return common.BytesToHash(acc.CodeHash)
+}
+
 func (stubEVMKeeper) SetAccount(_ sdk.Context, _ common.Address, _ statedb.Account) error {
 	panic("not used in test")
 }
@@ -119,6 +129,14 @@ func (t *trackerEVMKeeper) GetAccount(_ sdk.Context, addr common.Address) *state
 		return &acc
 	}
 	return nil
+}
+
+func (t *trackerEVMKeeper) GetCodeHash(_ sdk.Context, addr common.Address) common.Hash {
+	acc, ok := t.accounts[addr]
+	if !ok || len(acc.CodeHash) == 0 {
+		return common.BytesToHash(evmtypes.EmptyCodeHash)
+	}
+	return common.BytesToHash(acc.CodeHash)
 }
 
 func (t *trackerEVMKeeper) SetAccount(_ sdk.Context, addr common.Address, account statedb.Account) error {

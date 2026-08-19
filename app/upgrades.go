@@ -16,12 +16,12 @@ import (
 	ethhashfix "github.com/pushchain/push-chain-node/app/upgrades/eth-hash-fix"
 	evmblockscoutfix "github.com/pushchain/push-chain-node/app/upgrades/evm-blockscout-fix"
 	evmchainidffix "github.com/pushchain/push-chain-node/app/upgrades/evm-chainid-fix"
+	evmderivedgasprice "github.com/pushchain/push-chain-node/app/upgrades/evm-derived-gas-price"
 	evmparamsmigration "github.com/pushchain/push-chain-node/app/upgrades/evm-params-migration"
 	evmpreinstalls "github.com/pushchain/push-chain-node/app/upgrades/evm-preinstalls"
 	evmrpcfix "github.com/pushchain/push-chain-node/app/upgrades/evm-rpc-fix"
 	evmv040 "github.com/pushchain/push-chain-node/app/upgrades/evm-v0-4-0"
 	evmv050 "github.com/pushchain/push-chain-node/app/upgrades/evm-v0-5-0"
-	evmderivedgasprice "github.com/pushchain/push-chain-node/app/upgrades/evm-derived-gas-price"
 	evmv060 "github.com/pushchain/push-chain-node/app/upgrades/evm-v0-6-0"
 	feeabs "github.com/pushchain/push-chain-node/app/upgrades/fee-abs"
 	gasoracle "github.com/pushchain/push-chain-node/app/upgrades/gas-oracle"
@@ -31,6 +31,7 @@ import (
 	pc20 "github.com/pushchain/push-chain-node/app/upgrades/pc20"
 	proxybytecodefix "github.com/pushchain/push-chain-node/app/upgrades/proxy-bytecode-fix"
 	purgeexpiredoutbounds "github.com/pushchain/push-chain-node/app/upgrades/purge-expired-outbounds"
+	readstate "github.com/pushchain/push-chain-node/app/upgrades/read-state"
 	removefeeabsv1 "github.com/pushchain/push-chain-node/app/upgrades/remove-fee-abs-v1"
 	removeutxverifier "github.com/pushchain/push-chain-node/app/upgrades/remove-utxverifier"
 	sdkv053 "github.com/pushchain/push-chain-node/app/upgrades/sdk-v0-53"
@@ -94,6 +95,9 @@ var Upgrades = []upgrades.Upgrade{
 	// evm-derived-gas-price — cosmos/evm bump for the derived-tx gas price fix;
 	// no-op (JSON-RPC reporting only, no module ConsensusVersion changes)
 	evmderivedgasprice.NewUpgrade(),
+	// read-state — adds the x/ucallback store and reserves every system-contract
+	// address still unclaimed in the A/B/C ranges (41 of 47 on donut, incl. 0xC2)
+	readstate.NewUpgrade(),
 }
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers

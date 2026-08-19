@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/cosmos/evm/x/vm/statedb"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
@@ -53,7 +54,7 @@ func deployImplementationContract(ctx context.Context, evmKeeper types.EVMKeeper
 
 	// Create the EVM account object
 	evmAccount := statedb.Account{
-		Nonce:    1,             // prevent tx nonce=0 conflicts
+		Nonce:    1,                // prevent tx nonce=0 conflicts
 		Balance:  new(uint256.Int), // zero balance by default
 		CodeHash: codeHash,
 	}
@@ -77,9 +78,9 @@ func deployProxyAdminContract(ctx context.Context, evmKeeper types.EVMKeeper, pr
 
 	// Create the EVM account object
 	evmAccount := statedb.Account{
-		Nonce:    1,             // to prevent tx nonce=0 conflicts
+		Nonce:    1,                // to prevent tx nonce=0 conflicts
 		Balance:  new(uint256.Int), // zero balance by default
-		CodeHash: codeHash,      // link to deployed code
+		CodeHash: codeHash,         // link to deployed code
 	}
 
 	// Set the EVM account with the proxy admin contract
@@ -138,15 +139,18 @@ func deploySystemContracts(ctx context.Context, evmKeeper types.EVMKeeper, syste
 // EOAs in cosmos/evm carry the keccak256-of-empty-bytes sentinel, so a
 // length-only check would treat any touched EOA as a deployed contract and
 // silently skip the deploy sequence for that slot (F-2026-17025). Compare
-// against the empty-code-hash sentinel via Account.HasCodeHash instead.
+// against the empty-code-hash sentinel instead.
+//
+// GetCodeHash, not GetAccount: GetAccount reads the balance, which resolves the
+// EVM coin denom from a global that x/vm only populates in its own PreBlock.
+// x/upgrade's PreBlocker runs first, so an upgrade handler calling this through
+// GetAccount dereferences a nil coin config and halts the chain. Reading the
+// code-hash store directly needs none of that, and a code check has no business
+// loading balances anyway.
 func isContractDeployed(
 	ctx sdk.Context,
 	evmKeeper types.EVMKeeper,
 	addr common.Address,
 ) bool {
-	acc := evmKeeper.GetAccount(ctx, addr)
-	if acc == nil || len(acc.CodeHash) == 0 {
-		return false
-	}
-	return acc.HasCodeHash()
+	return evmKeeper.GetCodeHash(ctx, addr) != common.BytesToHash(evmtypes.EmptyCodeHash)
 }

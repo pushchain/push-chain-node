@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math/big"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 	"unsafe"
@@ -469,18 +470,17 @@ func TestSessionManager_Integration(t *testing.T) {
 		Type:         "setup",
 		EventID:      event.EventID,
 		Participants: []string{"validator1", "validator2", "validator3"},
-		Payload:      []byte("invalid setup data"), // Will fail when creating session
+		Payload:      []byte("invalid setup data"), // rejected before a session is created
 	}
 
-	// This will fail at session creation or GetLatestBlockNum, but validation should pass
+	// Rejected at the setup-binding check (the payload is not a decodable DKLS
+	// setup), or earlier at GetLatestBlockNum. Either way validation must not
+	// let an unbound payload reach session creation.
 	err := sm.HandleIncomingMessage(ctx, "peer1", &msg)
-	// We expect an error because we can't create a real DKLS session with invalid data
-	// or because GetLatestBlockNum fails
 	assert.Error(t, err)
-	// Error should be about session creation, DKLS library, or no endpoints
 	assert.True(t,
-		containsAny(err.Error(), []string{"failed to create session", "DKLS", "dkls", "session", "no endpoints"}),
-		"error should be about session creation or endpoints, got: %s", err.Error())
+		containsAny(err.Error(), []string{"failed to create session", "DKLS", "dkls", "session", "setup message", "no endpoints"}),
+		"error should be about setup binding, session creation or endpoints, got: %s", err.Error())
 }
 
 func TestVerifySigningRequest_OutboundDisabled(t *testing.T) {
@@ -1494,5 +1494,53 @@ func TestVerifySetupBindsHash(t *testing.T) {
 		err := verifySetupBindsHash(legitSetup, nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "no verified signing hash")
+	})
+}
+
+// Keygen, keyrefresh and quorumchange have the same split as the sign path: we
+// validate msg.Participants, but the session runs on the list embedded in
+// Payload. The threshold cannot be bound this way, see verifySetupBindsParticipants.
+func TestVerifySetupBindsParticipants(t *testing.T) {
+	validated := []string{"validator1", "validator2", "validator3"}
+	encode := func(ids []string) []byte {
+		return []byte(strings.Join(ids, "\x00"))
+	}
+
+	legitSetup, err := session.DklsKeygenSetupMsgNew(2, nil, encode(validated))
+	require.NoError(t, err)
+
+	t.Run("accepts setup with the validated participants", func(t *testing.T) {
+		require.NoError(t, verifySetupBindsParticipants(legitSetup, validated))
+	})
+
+	t.Run("rejects setup with a substituted participant", func(t *testing.T) {
+		swapped, err := session.DklsKeygenSetupMsgNew(2, nil,
+			encode([]string{"validator1", "validator2", "attacker"}))
+		require.NoError(t, err)
+		err = verifySetupBindsParticipants(swapped, validated)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "do not match validated participants")
+	})
+
+	t.Run("rejects setup with a dropped participant", func(t *testing.T) {
+		fewer, err := session.DklsKeygenSetupMsgNew(2, nil,
+			encode([]string{"validator1", "validator2"}))
+		require.NoError(t, err)
+		require.Error(t, verifySetupBindsParticipants(fewer, validated))
+	})
+
+	// Index order is part of the protocol, so a reorder is as consequential as
+	// a substitution.
+	t.Run("rejects reordered participants", func(t *testing.T) {
+		reordered, err := session.DklsKeygenSetupMsgNew(2, nil,
+			encode([]string{"validator3", "validator2", "validator1"}))
+		require.NoError(t, err)
+		require.Error(t, verifySetupBindsParticipants(reordered, validated))
+	})
+
+	t.Run("rejects undecodable setup and missing validated list", func(t *testing.T) {
+		require.Error(t, verifySetupBindsParticipants([]byte("not-a-setup"), validated))
+		require.Error(t, verifySetupBindsParticipants(nil, validated))
+		require.Error(t, verifySetupBindsParticipants(legitSetup, nil))
 	})
 }

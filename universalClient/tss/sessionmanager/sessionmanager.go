@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"slices"
 	"sync"
 	"time"
 
@@ -210,6 +211,17 @@ func (sm *SessionManager) handleSetupMessage(ctx context.Context, senderPeerID s
 				Msg("setup message does not sign the verified hash - rejecting")
 			return err
 		}
+	}
+
+	// 6d. Same split for the participant list: we validate msg.Participants above
+	// but the session runs on the list embedded in Payload, so an unbound setup
+	// could run over a different set than the one we approved.
+	if err := verifySetupBindsParticipants(msg.Payload, msg.Participants); err != nil {
+		sm.logger.Error().Err(err).
+			Str("event_id", msg.EventID).
+			Str("coordinator", senderPeerID).
+			Msg("setup message participants do not match the validated list - rejecting")
+		return err
 	}
 
 	// 7. Create session based on protocol type
@@ -1006,6 +1018,28 @@ func verifySetupBindsHash(setupData, verifiedHash []byte) error {
 	if !bytes.Equal(embedded, verifiedHash) {
 		return fmt.Errorf("setup message signs hash %s but verified hash is %s",
 			hex.EncodeToString(embedded), hex.EncodeToString(verifiedHash))
+	}
+	return nil
+}
+
+// verifySetupBindsParticipants requires the DKLS setup blob to embed exactly the
+// participant list the caller already validated, in the same order. Index order
+// is part of the protocol, so a reorder is as consequential as a substitution.
+//
+// Note this cannot cover the threshold: the setup embeds one, the wrapper exposes
+// no decoder for it, and the threshold argument the session constructors take is
+// unused. So the coordinator's embedded threshold is authoritative and unchecked.
+func verifySetupBindsParticipants(setupData []byte, validated []string) error {
+	if len(validated) == 0 {
+		return fmt.Errorf("no validated participants to bind setup message to")
+	}
+	embedded, err := dkls.SetupParticipants(setupData)
+	if err != nil {
+		return fmt.Errorf("cannot decode setup message participants: %w", err)
+	}
+	if !slices.Equal(embedded, validated) {
+		return fmt.Errorf("setup message participants %v do not match validated participants %v",
+			embedded, validated)
 	}
 	return nil
 }

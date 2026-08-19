@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"slices"
 	"sync"
 	"time"
 
@@ -194,6 +195,18 @@ func (sm *SessionManager) handleSetupMessage(ctx context.Context, senderPeerID s
 		if err := sm.verifyFundMigrationSigningRequest(ctx, event, msg.UnsignedSigningReq); err != nil {
 			return fmt.Errorf("fund migration signing request verification failed: %w", err)
 		}
+	}
+
+	// 6c. Everything validated above came from message fields, but the DKLS
+	// session runs on msg.Payload, and the two arrive unbound. Require the setup
+	// blob to carry exactly what we approved, before the ACK, so no shares are
+	// ever produced for a setup we did not verify.
+	if err := verifySetupMatchesValidated(msg, event.Type); err != nil {
+		sm.logger.Error().Err(err).
+			Str("event_id", msg.EventID).
+			Str("coordinator", senderPeerID).
+			Msg("setup message does not match the validated request - rejecting")
+		return err
 	}
 
 	// 7. Create session based on protocol type
@@ -973,6 +986,79 @@ func (sm *SessionManager) verifyOutboundSigningRequest(ctx context.Context, even
 		Str("our_hash", hex.EncodeToString(signingReq.SigningHash)).
 		Msg("sign metadata verified - hash matches")
 
+	return nil
+}
+
+// verifySetupMatchesValidated requires the coordinator's DKLS setup blob to
+// carry exactly the values the follower validated from the message fields.
+// DKLS runs on the blob, so without this the validated values are decorative:
+// a coordinator can present legitimate ones for checking and embed different
+// ones in Payload.
+//
+// Participants are checked for every protocol. Sign types additionally bind the
+// signing hash; key-lifecycle types additionally bind the threshold, which the
+// session constructors accept but ignore, so the embedded value is what the
+// protocol actually runs with.
+func verifySetupMatchesValidated(msg *coordinator.Message, eventType string) error {
+	if err := setupBindsParticipants(msg.Payload, msg.Participants); err != nil {
+		return err
+	}
+	if eventType == store.EventTypeSignOutbound || eventType == store.EventTypeSignFundMigrate {
+		if msg.UnsignedSigningReq == nil {
+			return fmt.Errorf("sign setup has no signing request to bind against")
+		}
+		return setupBindsHash(msg.Payload, msg.UnsignedSigningReq.SigningHash)
+	}
+	return setupBindsThreshold(msg.Payload, msg.Participants)
+}
+
+// setupBindsThreshold requires the setup blob to embed the threshold the
+// follower derives from the validated participants. Without it a coordinator can
+// embed a lower one and elicit help producing a weaker key than was agreed.
+func setupBindsThreshold(setupData []byte, validated []string) error {
+	expected := coordinator.CalculateThreshold(len(validated))
+	embedded, err := dkls.SetupThreshold(setupData)
+	if err != nil {
+		return fmt.Errorf("cannot decode setup message threshold: %w", err)
+	}
+	if embedded != expected {
+		return fmt.Errorf("setup message threshold %d does not match expected %d for %d participants",
+			embedded, expected, len(validated))
+	}
+	return nil
+}
+
+// setupBindsHash requires the setup blob to embed exactly the verified hash.
+func setupBindsHash(setupData, verifiedHash []byte) error {
+	if len(verifiedHash) == 0 {
+		return fmt.Errorf("no verified signing hash to bind setup message to")
+	}
+	embedded, err := dkls.SetupMessageHash(setupData)
+	if err != nil {
+		return fmt.Errorf("cannot decode setup message to check signing hash: %w", err)
+	}
+	if !bytes.Equal(embedded, verifiedHash) {
+		return fmt.Errorf("setup message signs hash %s but verified hash is %s",
+			hex.EncodeToString(embedded), hex.EncodeToString(verifiedHash))
+	}
+	return nil
+}
+
+// setupBindsParticipants requires the setup blob to embed exactly the validated
+// participants, in the same order. Index order is part of the protocol, so a
+// reorder is as consequential as a substitution.
+func setupBindsParticipants(setupData []byte, validated []string) error {
+	if len(validated) == 0 {
+		return fmt.Errorf("no validated participants to bind setup message to")
+	}
+	embedded, err := dkls.SetupParticipants(setupData)
+	if err != nil {
+		return fmt.Errorf("cannot decode setup message participants: %w", err)
+	}
+	if !slices.Equal(embedded, validated) {
+		return fmt.Errorf("setup message participants %v do not match validated participants %v",
+			embedded, validated)
+	}
 	return nil
 }
 

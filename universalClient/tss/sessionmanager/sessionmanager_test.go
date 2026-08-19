@@ -9,9 +9,12 @@ import (
 	"fmt"
 	"math/big"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 	"unsafe"
+
+	session "go-wrapper/go-dkls/sessions"
 
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
@@ -467,18 +470,17 @@ func TestSessionManager_Integration(t *testing.T) {
 		Type:         "setup",
 		EventID:      event.EventID,
 		Participants: []string{"validator1", "validator2", "validator3"},
-		Payload:      []byte("invalid setup data"), // Will fail when creating session
+		Payload:      []byte("invalid setup data"), // rejected before a session is created
 	}
 
-	// This will fail at session creation or GetLatestBlockNum, but validation should pass
+	// Rejected at the setup-binding check (the payload is not a decodable DKLS
+	// setup), or earlier at GetLatestBlockNum. Either way validation must not
+	// let an unbound payload reach session creation.
 	err := sm.HandleIncomingMessage(ctx, "peer1", &msg)
-	// We expect an error because we can't create a real DKLS session with invalid data
-	// or because GetLatestBlockNum fails
 	assert.Error(t, err)
-	// Error should be about session creation, DKLS library, or no endpoints
 	assert.True(t,
-		containsAny(err.Error(), []string{"failed to create session", "DKLS", "dkls", "session", "no endpoints"}),
-		"error should be about session creation or endpoints, got: %s", err.Error())
+		containsAny(err.Error(), []string{"failed to create session", "DKLS", "dkls", "session", "setup message", "no endpoints"}),
+		"error should be about setup binding, session creation or endpoints, got: %s", err.Error())
 }
 
 func TestVerifySigningRequest_OutboundDisabled(t *testing.T) {
@@ -1451,5 +1453,215 @@ func TestNonceBounds(t *testing.T) {
 	t.Run("finalized lookup failure errors", func(t *testing.T) {
 		_, _, err := nonceBounds(ctx, &nonceBuilder{finalizedErr: errors.New("rpc down")}, "0xtss")
 		require.Error(t, err)
+	})
+}
+
+// A follower verifies UnsignedSigningReq.SigningHash, but DKLS signs the hash
+// embedded in Message.Payload, and the two arrive unbound. Without this check a
+// coordinator can present a legitimate hash for verification and embed an
+// attacker-chosen one in the setup, harvesting honest shares over it.
+func TestSetupBindsHash(t *testing.T) {
+	participantIDs := []byte("party1\x00party2")
+	keyID := make([]byte, 32)
+
+	legitHash := make([]byte, 32)
+	copy(legitHash, "legitimate-outbound-hash-32bytes")
+	attackerHash := make([]byte, 32)
+	copy(attackerHash, "attacker-chosen-vault-call-digest")
+
+	legitSetup, err := session.DklsSignSetupMsgNew(keyID, nil, legitHash, participantIDs)
+	require.NoError(t, err)
+	attackerSetup, err := session.DklsSignSetupMsgNew(keyID, nil, attackerHash, participantIDs)
+	require.NoError(t, err)
+
+	t.Run("accepts setup that signs the verified hash", func(t *testing.T) {
+		require.NoError(t, setupBindsHash(legitSetup, legitHash))
+	})
+
+	// The reported attack.
+	t.Run("rejects setup embedding a different hash", func(t *testing.T) {
+		err := setupBindsHash(attackerSetup, legitHash)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "setup message signs hash")
+	})
+
+	t.Run("rejects undecodable setup", func(t *testing.T) {
+		require.Error(t, setupBindsHash([]byte("not-a-dkls-setup"), legitHash))
+		require.Error(t, setupBindsHash(nil, legitHash))
+	})
+
+	t.Run("rejects missing verified hash", func(t *testing.T) {
+		err := setupBindsHash(legitSetup, nil)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no verified signing hash")
+	})
+}
+
+// Keygen, keyrefresh and quorumchange have the same split as the sign path: we
+// validate msg.Participants, but the session runs on the list embedded in
+// Payload. The threshold cannot be bound this way, see verifySetupBindsParticipants.
+func TestSetupBindsParticipants(t *testing.T) {
+	validated := []string{"validator1", "validator2", "validator3"}
+	encode := func(ids []string) []byte {
+		return []byte(strings.Join(ids, "\x00"))
+	}
+
+	legitSetup, err := session.DklsKeygenSetupMsgNew(2, nil, encode(validated))
+	require.NoError(t, err)
+
+	t.Run("accepts setup with the validated participants", func(t *testing.T) {
+		require.NoError(t, setupBindsParticipants(legitSetup, validated))
+	})
+
+	t.Run("rejects setup with a substituted participant", func(t *testing.T) {
+		swapped, err := session.DklsKeygenSetupMsgNew(2, nil,
+			encode([]string{"validator1", "validator2", "attacker"}))
+		require.NoError(t, err)
+		err = setupBindsParticipants(swapped, validated)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "do not match validated participants")
+	})
+
+	t.Run("rejects setup with a dropped participant", func(t *testing.T) {
+		fewer, err := session.DklsKeygenSetupMsgNew(2, nil,
+			encode([]string{"validator1", "validator2"}))
+		require.NoError(t, err)
+		require.Error(t, setupBindsParticipants(fewer, validated))
+	})
+
+	// Index order is part of the protocol, so a reorder is as consequential as
+	// a substitution.
+	t.Run("rejects reordered participants", func(t *testing.T) {
+		reordered, err := session.DklsKeygenSetupMsgNew(2, nil,
+			encode([]string{"validator3", "validator2", "validator1"}))
+		require.NoError(t, err)
+		require.Error(t, setupBindsParticipants(reordered, validated))
+	})
+
+	t.Run("rejects undecodable setup and missing validated list", func(t *testing.T) {
+		require.Error(t, setupBindsParticipants([]byte("not-a-setup"), validated))
+		require.Error(t, setupBindsParticipants(nil, validated))
+		require.Error(t, setupBindsParticipants(legitSetup, nil))
+	})
+}
+
+// The regression the finding asks for: a Payload whose embedded hash differs
+// from the verified SigningHash must refuse session creation and produce no
+// shares. Driven through handleSetupMessage so it covers the wiring, not just
+// the comparison helper.
+func TestHandleSetupMessage_RejectsPayloadHashMismatch(t *testing.T) {
+	_, coord, evtStore, keyshareMgr, _, testDB := setupTestSessionManager(t)
+	ctx := context.Background()
+
+	// Sign-eligible validators are the ACTIVE ones in the fixture.
+	participants := []string{"validator1", "validator2"}
+	participantIDs := []byte(strings.Join(participants, "\x00"))
+	keyID := make([]byte, 32)
+
+	legitHash := make([]byte, 32)
+	copy(legitHash, "legitimate-outbound-hash-32bytes")
+	attackerHash := make([]byte, 32)
+	copy(attackerHash, "attacker-chosen-vault-call-digest")
+
+	newRecordingSM := func() (*SessionManager, *int) {
+		sends := 0
+		sm := NewSessionManager(
+			evtStore, coord, keyshareMgr, nil, nil,
+			func(context.Context, string, []byte) error { sends++; return nil },
+			"validator1", 3*time.Minute, 30*time.Second, 60, zerolog.Nop(), nil,
+		)
+		return sm, &sends
+	}
+
+	newEvent := func(t *testing.T, id string) {
+		t.Helper()
+		require.NoError(t, testDB.Create(&store.Event{
+			EventID: id, BlockHeight: 100,
+			Type:      store.EventTypeSignOutbound,
+			Status:    store.StatusConfirmed,
+			EventData: []byte(`{"destination_chain":"eip155:11155111"}`),
+		}).Error)
+	}
+
+	t.Run("substituted payload hash is refused, no session, no shares", func(t *testing.T) {
+		newEvent(t, "sign-mismatch")
+		sm, sends := newRecordingSM()
+
+		// Coordinator shows the legitimate hash but ships a setup over its own.
+		attackerSetup, err := session.DklsSignSetupMsgNew(keyID, nil, attackerHash, participantIDs)
+		require.NoError(t, err)
+
+		err = sm.HandleIncomingMessage(ctx, "peer1", &coordinator.Message{
+			Type:               coordinator.MessageTypeSetup,
+			EventID:            "sign-mismatch",
+			Participants:       participants,
+			Payload:            attackerSetup,
+			UnsignedSigningReq: &common.UnsignedSigningReq{SigningHash: legitHash, Nonce: 1},
+		})
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "setup message signs hash")
+
+		sm.mu.RLock()
+		sessionCount := len(sm.sessions)
+		sm.mu.RUnlock()
+		assert.Zero(t, sessionCount, "no session may be created for a mismatched setup")
+		assert.Zero(t, *sends, "no ACK or share may be emitted for a mismatched setup")
+	})
+
+	// Positive control: with the same wiring, a setup over the verified hash must
+	// get past the binding check, so the rejection above is the binding and not
+	// some earlier validation failing.
+	t.Run("matching payload hash passes the binding check", func(t *testing.T) {
+		newEvent(t, "sign-match")
+		sm, _ := newRecordingSM()
+
+		legitSetup, err := session.DklsSignSetupMsgNew(keyID, nil, legitHash, participantIDs)
+		require.NoError(t, err)
+
+		err = sm.HandleIncomingMessage(ctx, "peer1", &coordinator.Message{
+			Type:               coordinator.MessageTypeSetup,
+			EventID:            "sign-match",
+			Participants:       participants,
+			Payload:            legitSetup,
+			UnsignedSigningReq: &common.UnsignedSigningReq{SigningHash: legitHash, Nonce: 1},
+		})
+
+		if err != nil {
+			assert.NotContains(t, err.Error(), "setup message signs hash",
+				"matching setup must not be rejected by the hash binding")
+			assert.NotContains(t, err.Error(), "do not match validated participants",
+				"matching setup must not be rejected by the participant binding")
+		}
+	})
+}
+
+// The session constructors accept a threshold and ignore it, so the setup blob's
+// embedded threshold is what the protocol runs with. A coordinator embedding a
+// lower one would elicit help producing a weaker key than the participants
+// agreed to, which is worse than a bad signature since it persists.
+func TestSetupBindsThreshold(t *testing.T) {
+	validated := []string{"validator1", "validator2", "validator3"}
+	expected := coordinator.CalculateThreshold(len(validated))
+	encode := func(ids []string) []byte { return []byte(strings.Join(ids, "\x00")) }
+
+	t.Run("accepts the expected threshold", func(t *testing.T) {
+		setup, err := session.DklsKeygenSetupMsgNew(expected, nil, encode(validated))
+		require.NoError(t, err)
+		require.NoError(t, setupBindsThreshold(setup, validated))
+	})
+
+	t.Run("rejects a downgraded threshold", func(t *testing.T) {
+		require.Greater(t, expected, 1, "fixture must allow a strictly lower threshold")
+		downgraded, err := session.DklsKeygenSetupMsgNew(expected-1, nil, encode(validated))
+		require.NoError(t, err)
+		err = setupBindsThreshold(downgraded, validated)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "does not match expected")
+	})
+
+	t.Run("rejects undecodable setup", func(t *testing.T) {
+		require.Error(t, setupBindsThreshold([]byte("not-a-setup"), validated))
+		require.Error(t, setupBindsThreshold(nil, validated))
 	})
 }

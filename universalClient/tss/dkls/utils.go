@@ -97,10 +97,17 @@ func SetupThreshold(setupData []byte) (int, error) {
 			return 0, fmt.Errorf("setup message is malformed: tag %d claims %d bytes past the end", tag, length)
 		}
 		if tag == setupTagThreshold {
-			if length != 1 {
+			// keygen and quorumchange store the threshold as a u8; the weighted
+			// keygen variant uses a u16 under the same tag. Accept either so a
+			// library upgrade widening it does not reject every setup.
+			switch length {
+			case 1:
+				return int(setupData[valueStart]), nil
+			case 2:
+				return int(binary.LittleEndian.Uint16(setupData[valueStart : valueStart+2])), nil
+			default:
 				return 0, fmt.Errorf("threshold tag has unexpected length %d", length)
 			}
-			return int(setupData[valueStart]), nil
 		}
 		offset = valueStart + length
 	}

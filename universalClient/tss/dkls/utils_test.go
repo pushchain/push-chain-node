@@ -220,3 +220,46 @@ func TestSetupThreshold(t *testing.T) {
 		}
 	})
 }
+
+// The threshold check also runs on quorumchange, which is built by a different
+// constructor than keygen. This pins that DklsQcSetupMsgNew encodes the
+// threshold the same way, so a library rebuild that diverges fails here rather
+// than rejecting every quorum change in production.
+func TestSetupThreshold_QuorumChange(t *testing.T) {
+	participants := []string{"party1", "party2", "party3"}
+	ids := encodeParticipantIDs(participants)
+
+	kgSetup, err := session.DklsKeygenSetupMsgNew(2, nil, ids)
+	if err != nil {
+		t.Fatalf("failed to build keygen setup: %v", err)
+	}
+	sessions := map[string]Session{}
+	for _, p := range participants {
+		s, err := NewKeygenSession(kgSetup, "threshold-qc", p, participants, 2)
+		if err != nil {
+			t.Fatalf("failed to create keygen session for %s: %v", p, err)
+		}
+		sessions[p] = s
+	}
+	keyshare := runToCompletion(t, sessions)["party1"].Keyshare
+
+	handle, err := session.DklsKeyshareFromBytes(keyshare)
+	if err != nil {
+		t.Fatalf("failed to load keyshare: %v", err)
+	}
+	defer session.DklsKeyshareFree(handle)
+
+	for _, want := range []int{2, 3} {
+		qcSetup, err := session.DklsQcSetupMsgNew(handle, want, participants, []int{0, 1, 2}, []int{0, 1, 2})
+		if err != nil {
+			t.Fatalf("failed to build QC setup with threshold %d: %v", want, err)
+		}
+		got, err := SetupThreshold(qcSetup)
+		if err != nil {
+			t.Fatalf("SetupThreshold(qc) error = %v", err)
+		}
+		if got != want {
+			t.Errorf("SetupThreshold(qc) = %d, want %d", got, want)
+		}
+	}
+}

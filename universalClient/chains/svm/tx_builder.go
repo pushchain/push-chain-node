@@ -30,6 +30,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -478,8 +479,13 @@ func (tb *TxBuilder) VerifyBroadcastedTx(ctx context.Context, txHash string) (fo
 	}
 
 	tx, txErr := tb.rpcClient.GetTransaction(ctx, sig)
-	if txErr != nil {
+	// solana-go reports a genuinely absent tx as ErrNotFound, so that one is a verdict.
+	if errors.Is(txErr, rpc.ErrNotFound) {
 		return false, 0, 0, 0, nil
+	}
+	if txErr != nil {
+		// Reporting a not-found verdict here would let the resolver vote failure against a tx that already executed.
+		return false, 0, 0, 0, txErr
 	}
 
 	if tx == nil {

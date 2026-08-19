@@ -3,7 +3,11 @@ package evm
 import (
 	"context"
 	"encoding/hex"
+	"io"
 	"math/big"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -937,6 +941,130 @@ func TestSimulateBSC_RescueFunds_ERC20(t *testing.T) {
 // RPCClient or an integration test against a real node (similar to the
 // BSC simulation tests above).
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// VerifyBroadcastedTx
+// ---------------------------------------------------------------------------
+
+const testReceiptTxHash = "0x1111111111111111111111111111111111111111111111111111111111111111"
+
+// newReceiptRPCBuilder drives the real RPCClient against a local JSON-RPC
+// server, so these exercise the same path production takes rather than a mock
+// that can return errors the real client never produces.
+func newReceiptRPCBuilder(t *testing.T, respond func(method string, w http.ResponseWriter)) *TxBuilder {
+	t.Helper()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.Contains(string(body), "eth_getTransactionReceipt"):
+			respond("eth_getTransactionReceipt", w)
+		case strings.Contains(string(body), "eth_blockNumber"):
+			respond("eth_blockNumber", w)
+		default:
+			_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":"0x1"}`))
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	rpcClient, err := NewRPCClient([]string{server.URL}, 1, zerolog.Nop())
+	require.NoError(t, err)
+	t.Cleanup(rpcClient.Close)
+
+	return &TxBuilder{rpcClient: rpcClient, chainID: "eip155:1", chainIDInt: 1, logger: zerolog.Nop()}
+}
+
+// A receipt RPC failure is not evidence about the transaction. Reported as
+// not-found it combines with a consumed nonce to look like "never executed",
+// and the resolver votes failure against an outbound the destination already paid.
+func TestVerifyBroadcastedTx_ReceiptRPCFailureIsNotAVerdict(t *testing.T) {
+	t.Run("json-rpc error", func(t *testing.T) {
+		tb := newReceiptRPCBuilder(t, func(_ string, w http.ResponseWriter) {
+			_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"error":{"code":-32005,"message":"rate limited"}}`))
+		})
+
+		found, _, _, _, err := tb.VerifyBroadcastedTx(context.Background(), testReceiptTxHash)
+		require.Error(t, err, "an unreachable chain must not be reported as a verdict")
+		assert.False(t, found)
+	})
+
+	t.Run("transport failure", func(t *testing.T) {
+		tb := newReceiptRPCBuilder(t, func(_ string, w http.ResponseWriter) {
+			w.WriteHeader(http.StatusInternalServerError)
+		})
+
+		found, _, _, _, err := tb.VerifyBroadcastedTx(context.Background(), testReceiptTxHash)
+		require.Error(t, err)
+		assert.False(t, found)
+	})
+
+	t.Run("null receipt is a real not-found", func(t *testing.T) {
+		tb := newReceiptRPCBuilder(t, func(_ string, w http.ResponseWriter) {
+			_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":null}`))
+		})
+
+		found, _, _, _, err := tb.VerifyBroadcastedTx(context.Background(), testReceiptTxHash)
+		require.NoError(t, err, "the chain answered, so this is a verdict and not a failure")
+		assert.False(t, found)
+	})
+}
+
+func TestVerifyBroadcastedTx_ReceiptFound(t *testing.T) {
+	const receipt = `{"jsonrpc":"2.0","id":1,"result":{"status":"0x1","blockNumber":"0x64","gasUsed":"0x5208","effectiveGasPrice":"0x3b9aca00"}}`
+
+	t.Run("reports block height, confirmations and status", func(t *testing.T) {
+		tb := newReceiptRPCBuilder(t, func(method string, w http.ResponseWriter) {
+			if method == "eth_blockNumber" {
+				_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":"0x6e"}`)) // 110
+				return
+			}
+			_, _ = w.Write([]byte(receipt))
+		})
+
+		found, blockHeight, confs, status, err := tb.VerifyBroadcastedTx(context.Background(), testReceiptTxHash)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, uint64(100), blockHeight)
+		assert.Equal(t, uint64(11), confs)
+		assert.Equal(t, uint8(1), status)
+	})
+
+	// The block number is only needed for the confirmation count. Failing it must
+	// not discard the receipt we already have: zero confirmations makes the
+	// resolver wait, which is the correct outcome.
+	t.Run("block number failure keeps the tx found with zero confirmations", func(t *testing.T) {
+		tb := newReceiptRPCBuilder(t, func(method string, w http.ResponseWriter) {
+			if method == "eth_blockNumber" {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			_, _ = w.Write([]byte(receipt))
+		})
+
+		found, blockHeight, confs, status, err := tb.VerifyBroadcastedTx(context.Background(), testReceiptTxHash)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, uint64(100), blockHeight)
+		assert.Zero(t, confs)
+		assert.Equal(t, uint8(1), status)
+	})
+
+	t.Run("reverted receipt reports status zero", func(t *testing.T) {
+		tb := newReceiptRPCBuilder(t, func(method string, w http.ResponseWriter) {
+			if method == "eth_blockNumber" {
+				_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":"0x6e"}`))
+				return
+			}
+			_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":{"status":"0x0","blockNumber":"0x64","gasUsed":"0x5208"}}`))
+		})
+
+		found, _, _, status, err := tb.VerifyBroadcastedTx(context.Background(), testReceiptTxHash)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, uint8(0), status)
+	})
+}
 
 // ---------------------------------------------------------------------------
 // parseGasLimit — additional edge-case coverage

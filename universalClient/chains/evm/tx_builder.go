@@ -250,15 +250,19 @@ func (tb *TxBuilder) BroadcastOutboundSigningRequest(
 func (tb *TxBuilder) VerifyBroadcastedTx(ctx context.Context, txHash string) (found bool, blockHeight uint64, confirmations uint64, status uint8, err error) {
 	hash := ethcommon.HexToHash(txHash)
 	receipt, err := tb.rpcClient.GetTransactionReceipt(ctx, hash)
-	if err != nil || receipt == nil {
+	if err != nil {
+		// Reporting a not-found verdict here would let the resolver vote failure against a tx that already executed.
+		return false, 0, 0, 0, err
+	}
+	if receipt == nil {
 		return false, 0, 0, 0, nil
 	}
 
 	receiptBlock := receipt.BlockNumber
 
 	var confs uint64
-	latestBlock, err := tb.rpcClient.GetLatestBlock(ctx)
-	if err == nil && latestBlock >= receiptBlock {
+	latestBlock, blockErr := tb.rpcClient.GetLatestBlock(ctx)
+	if blockErr == nil && latestBlock >= receiptBlock {
 		confs = latestBlock - receiptBlock + 1
 	}
 

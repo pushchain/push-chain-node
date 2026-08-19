@@ -60,7 +60,9 @@ type TxBuilder interface {
 
 	// VerifyBroadcastedTx checks the status of a broadcasted transaction on the destination chain.
 	// Returns (found, blockHeight, confirmations, status, error):
-	// - found=false: tx not found or not yet mined
+	// - err != nil: the chain could not be queried. Callers must retry and must not
+	//   treat this as evidence about whether the tx executed.
+	// - found=false, err=nil: the chain answered and the tx is not there.
 	// - found=true: tx exists on-chain
 	//   - blockHeight: the block in which the tx was mined
 	//   - confirmations: number of blocks since the tx was mined (0 = just mined)

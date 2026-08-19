@@ -965,6 +965,39 @@ func TestResolveOutboundEVM_NotFound_NonceConsumed_Reverts(t *testing.T) {
 	builder.AssertCalled(t, "GetNextNonce", mock.Anything, testEVMTSSAddr, true)
 }
 
+// A receipt RPC failure combined with a consumed nonce is the dangerous
+// combination: the nonce alone reads as "another tx took our slot, ours never
+// executed", so a failure vote goes out against an outbound the destination has
+// already paid. The error must stop the resolver before the nonce is consulted.
+func TestResolveOutboundEVM_ReceiptError_NonceConsumed_DoesNotVoteFailure(t *testing.T) {
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "eip155:1", uregistrytypes.VmType_EVM, client)
+
+	eventData := makeOutboundEventDataWithNonce("tx-100", "utx-200", "eip155:1", 5)
+	insertBroadcastedEvent(t, db, "ev-18826", "eip155:1", "eip155:1:0xalreadypaid", eventData)
+
+	builder.On("VerifyBroadcastedTx", mock.Anything, "0xalreadypaid").
+		Return(false, uint64(0), uint64(0), uint8(0), assert.AnError).Once()
+	// Finalized nonce 7 > signed nonce 5, so the nonce check would say "consumed".
+	builder.On("GetNextNonce", mock.Anything, testEVMTSSAddr, true).Return(uint64(7), nil)
+
+	resolver := newResolverWithTSSAddress(evtStore, ch, testEVMTSSAddr)
+	resolver.processBroadcasted(context.Background())
+
+	require.Equal(t, store.StatusBroadcasted, getEvent(t, db, "ev-18826").Status)
+	builder.AssertNotCalled(t, "GetNextNonce", mock.Anything, mock.Anything, mock.Anything)
+
+	// RPC recovers and the receipt shows the destination did execute successfully.
+	builder.On("VerifyBroadcastedTx", mock.Anything, "0xalreadypaid").
+		Return(true, uint64(500), uint64(20), uint8(1), nil).Once()
+
+	resolver.processBroadcasted(context.Background())
+
+	require.Equal(t, store.StatusCompleted, getEvent(t, db, "ev-18826").Status)
+}
+
 func TestResolveOutboundEVM_NotFound_NonceUnconsumed_RewindsToSigned(t *testing.T) {
 	// Tx not found AND signed nonce >= finalized nonce → tx may still land
 	// (or was dropped from mempool). Rewind to SIGNED so the broadcaster

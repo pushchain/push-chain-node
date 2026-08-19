@@ -295,9 +295,29 @@ func (el *EventListener) processSignatureBatch(
 			continue
 		}
 
-		// Process each log in the transaction
+		// Process each log in the transaction.
+		// getSignaturesForAddress returns any tx that merely references the
+		// gateway in accountKeys, and a discriminator is a schema tag rather than
+		// an authenticator. So track the invocation stack and accept a
+		// "Program data:" line only while the gateway is the executing program;
+		// otherwise any program could emit a forged gateway event.
 		if tx != nil && tx.Meta != nil && len(tx.Meta.LogMessages) > 0 {
+			// Surface truncation loudly: a gateway event may have been dropped and
+			// is unrecoverable from RPC, so the deposit needs manual reconciliation.
+			// Visible logs are still processed, since events before the cut are real.
+			if logsTruncated(tx.Meta.LogMessages) {
+				el.logger.Error().
+					Str("signature", sig.Signature.String()).
+					Uint64("slot", sig.Slot).
+					Msg("solana log buffer truncated; a gateway event may have been dropped and needs manual review")
+			}
+
+			fromGateway := gatewayEmittedLogs(tx.Meta.LogMessages, el.gatewayAddress)
 			for logIndex, log := range tx.Meta.LogMessages {
+				if !fromGateway[logIndex] {
+					continue
+				}
+
 				// Determine event type based on discriminator
 				eventType := el.determineEventType(log)
 				if eventType == "" {
@@ -393,6 +413,98 @@ func (el *EventListener) getPollingInterval() time.Duration {
 		return time.Duration(el.eventPollingSeconds) * time.Second
 	}
 	return 5 * time.Second // default
+}
+
+// invokedProgram returns the program ID from a "Program <id> invoke [<depth>]"
+// runtime log. Programs cannot emit these: sol_log and sol_log_data are always
+// prefixed with "Program log: " / "Program data: ", so the invoke and exit lines
+// are runtime-generated and safe to build an attribution stack from.
+func invokedProgram(log string) (string, bool) {
+	const prefix = "Program "
+	if !strings.HasPrefix(log, prefix) {
+		return "", false
+	}
+	rest := log[len(prefix):]
+	idx := strings.Index(rest, " invoke [")
+	if idx <= 0 {
+		return "", false
+	}
+	programID := rest[:idx]
+	if _, err := solana.PublicKeyFromBase58(programID); err != nil {
+		return "", false
+	}
+	return programID, true
+}
+
+// gatewayEmittedLogs returns the indexes of "Program data:" lines emitted while
+// gatewayAddress was the executing program, walking the invoke/exit stack.
+// Lines emitted by any other program are excluded: a discriminator identifies an
+// encoding schema, not the emitter, so without this any program could log a
+// well-formed gateway event and have it observed as a real deposit.
+func gatewayEmittedLogs(logs []string, gatewayAddress string) map[int]bool {
+	emitted := make(map[int]bool)
+	var stack []string
+	for i, log := range logs {
+		if programID, ok := invokedProgram(log); ok {
+			stack = append(stack, programID)
+			continue
+		}
+		if isProgramExit(log) {
+			if len(stack) > 0 {
+				stack = stack[:len(stack)-1]
+			}
+			continue
+		}
+		if !strings.HasPrefix(log, "Program data: ") {
+			continue
+		}
+		if len(stack) > 0 && stack[len(stack)-1] == gatewayAddress {
+			emitted[i] = true
+		}
+	}
+	return emitted
+}
+
+// logsTruncated reports whether the runtime dropped part of this transaction's
+// log buffer. Programs can only emit "Program log:" and "Program data:" lines,
+// so a bare line is runtime-generated and cannot be spoofed. Matching on the
+// word rather than one exact literal keeps this working if the wording changes.
+//
+// It matters because gateway events are emitted with sol_log_data: once the
+// buffer overflows the event line is gone, and no RPC call can recover it. The
+// deposit would otherwise be missed in silence.
+func logsTruncated(logs []string) bool {
+	for _, log := range logs {
+		if strings.HasPrefix(log, "Program ") {
+			continue
+		}
+		if strings.Contains(strings.ToLower(log), "truncated") {
+			return true
+		}
+	}
+	return false
+}
+
+// isProgramExit reports whether log ends an invocation frame, i.e.
+// "Program <id> success" or "Program <id> failed: ...".
+// The program ID must parse as a pubkey: otherwise a program logging "success"
+// emits "Program log: success", which would pop a frame it does not own and let
+// a later log be attributed to its caller.
+func isProgramExit(log string) bool {
+	const prefix = "Program "
+	if !strings.HasPrefix(log, prefix) {
+		return false
+	}
+	rest := log[len(prefix):]
+	sp := strings.IndexByte(rest, ' ')
+	if sp <= 0 {
+		return false
+	}
+	if _, err := solana.PublicKeyFromBase58(rest[:sp]); err != nil {
+		return false
+	}
+	tail := rest[sp+1:]
+	return tail == "success" || strings.HasPrefix(tail, "failed")
 }
 
 // determineEventType determines the event type based on the log discriminator

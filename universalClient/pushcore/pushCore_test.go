@@ -1,6 +1,7 @@
 package pushcore
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -1046,11 +1047,8 @@ type mockUExecutorQueryClient struct {
 	allPendingOutboundsResp *uexecutortypes.QueryAllPendingOutboundsResponse
 	err                     error
 
-	// Paging support: `pages` is served in order, one per call, and the key the
-	// caller sent is recorded so tests can assert NextKey is actually followed.
-	pages         []*uexecutortypes.QueryAllPendingOutboundsResponse
-	requestedKeys [][]byte
-	failAfterPage int // when > 0, calls beyond this page number return err
+	// lastPendingReq records the request so tests can assert the limit sent.
+	lastPendingReq *uexecutortypes.QueryAllPendingOutboundsRequest
 }
 
 func (m *mockUExecutorQueryClient) GasPrice(ctx context.Context, req *uexecutortypes.QueryGasPriceRequest, opts ...grpc.CallOption) (*uexecutortypes.QueryGasPriceResponse, error) {
@@ -1077,21 +1075,7 @@ func (m *mockUExecutorQueryClient) AllUniversalTx(ctx context.Context, req *uexe
 }
 
 func (m *mockUExecutorQueryClient) AllPendingOutbounds(ctx context.Context, req *uexecutortypes.QueryAllPendingOutboundsRequest, opts ...grpc.CallOption) (*uexecutortypes.QueryAllPendingOutboundsResponse, error) {
-	if m.pages != nil {
-		var key []byte
-		if req.Pagination != nil {
-			key = req.Pagination.Key
-		}
-		m.requestedKeys = append(m.requestedKeys, key)
-		idx := len(m.requestedKeys) - 1
-		if m.failAfterPage > 0 && idx >= m.failAfterPage {
-			return nil, assert.AnError
-		}
-		if idx >= len(m.pages) {
-			return nil, assert.AnError
-		}
-		return m.pages[idx], nil
-	}
+	m.lastPendingReq = req
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -1188,217 +1172,54 @@ func TestClient_GetKeyByID(t *testing.T) {
 	})
 }
 
-// page builds one response carrying a single outbound, with nextKey signalling
-// whether more pages follow.
-func pendingPage(id string, nextKey []byte) *uexecutortypes.QueryAllPendingOutboundsResponse {
-	return &uexecutortypes.QueryAllPendingOutboundsResponse{
-		Entries:    []*uexecutortypes.PendingOutboundEntry{{OutboundId: id, UniversalTxId: "utx-" + id}},
-		Outbounds:  []*uexecutortypes.OutboundTx{{Id: id, DestinationChain: "eip155:1"}},
-		Pagination: &query.PageResponse{NextKey: nextKey},
-	}
-}
-
-// Pending outbounds are oldest-first and only leave the set on a quorum vote, so
-// a row that can never reach one sits at the head permanently. Reading a single
-// page would hide every newer outbound behind it, on every chain.
-func TestClient_GetAllPendingOutbounds_Paginates(t *testing.T) {
+// This server pages by offset and returns only Total, never a NextKey, and its
+// sort is unstable on a block height so offset boundaries can shift between
+// calls. One request covering the set, plus a Total check, is the only shape
+// that is correct against it.
+func TestClient_GetAllPendingOutbounds_CoversTheWholeSet(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("follows NextKey until exhausted", func(t *testing.T) {
-		mockClient := &mockUExecutorQueryClient{pages: []*uexecutortypes.QueryAllPendingOutboundsResponse{
-			pendingPage("stuck", []byte("k1")),
-			pendingPage("also-stuck", []byte("k2")),
-			pendingPage("reachable", nil), // last page
-		}}
-		client := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{mockClient}}
+	resp := func(n int, total uint64) *uexecutortypes.QueryAllPendingOutboundsResponse {
+		r := &uexecutortypes.QueryAllPendingOutboundsResponse{Pagination: &query.PageResponse{Total: total}}
+		for i := 0; i < n; i++ {
+			r.Entries = append(r.Entries, &uexecutortypes.PendingOutboundEntry{OutboundId: fmt.Sprintf("ob-%d", i)})
+			r.Outbounds = append(r.Outbounds, &uexecutortypes.OutboundTx{Id: fmt.Sprintf("ob-%d", i)})
+		}
+		return r
+	}
 
-		entries, outbounds, err := client.GetAllPendingOutbounds(ctx)
-		require.NoError(t, err)
-		require.Len(t, entries, 3)
-		require.Len(t, outbounds, 3)
-
-		// The outbound behind the stuck prefix must be visible.
-		assert.Equal(t, "reachable", entries[2].OutboundId)
-
-		// And the cursor must actually be threaded through, not just re-queried.
-		assert.Equal(t, [][]byte{nil, []byte("k1"), []byte("k2")}, mockClient.requestedKeys)
-	})
-
-	t.Run("single page with no NextKey stops immediately", func(t *testing.T) {
-		mockClient := &mockUExecutorQueryClient{pages: []*uexecutortypes.QueryAllPendingOutboundsResponse{
-			pendingPage("only", nil),
-		}}
+	t.Run("requests a limit covering the set", func(t *testing.T) {
+		mockClient := &mockUExecutorQueryClient{allPendingOutboundsResp: resp(1, 1)}
 		client := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{mockClient}}
 
 		entries, _, err := client.GetAllPendingOutbounds(ctx)
 		require.NoError(t, err)
 		require.Len(t, entries, 1)
-		assert.Len(t, mockClient.requestedKeys, 1, "must not request a second page")
+		require.NotNil(t, mockClient.lastPendingReq.Pagination)
+		assert.Equal(t, uint64(pendingOutboundLimit), mockClient.lastPendingReq.Pagination.Limit,
+			"a small page would let a stuck prefix hide newer outbounds")
 	})
 
-	t.Run("nil pagination stops the walk", func(t *testing.T) {
-		mockClient := &mockUExecutorQueryClient{pages: []*uexecutortypes.QueryAllPendingOutboundsResponse{
-			{Entries: []*uexecutortypes.PendingOutboundEntry{{OutboundId: "ob-1"}},
-				Outbounds: []*uexecutortypes.OutboundTx{{Id: "ob-1"}}},
-		}}
-		client := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{mockClient}}
+	// A shortfall means outbounds nobody is signing, so it has to be visible.
+	t.Run("reports a set larger than the limit", func(t *testing.T) {
+		var logBuf bytes.Buffer
+		mockClient := &mockUExecutorQueryClient{allPendingOutboundsResp: resp(1, 5)}
+		client := &Client{logger: zerolog.New(&logBuf), uexecutorClients: []uexecutortypes.QueryClient{mockClient}}
 
 		entries, _, err := client.GetAllPendingOutbounds(ctx)
 		require.NoError(t, err)
 		require.Len(t, entries, 1)
-		assert.Len(t, mockClient.requestedKeys, 1)
+		assert.Contains(t, logBuf.String(), "exceeds the request limit")
+		assert.Contains(t, logBuf.String(), `"total":5`)
 	})
 
-	// A later page failing must not discard the earlier ones: those outbounds are
-	// still signable, and returning nothing would stall them for no reason.
-	t.Run("mid-walk failure keeps the pages already fetched", func(t *testing.T) {
-		mockClient := &mockUExecutorQueryClient{
-			pages: []*uexecutortypes.QueryAllPendingOutboundsResponse{
-				pendingPage("ob-1", []byte("k1")),
-				pendingPage("ob-2", []byte("k2")),
-			},
-			failAfterPage: 1,
-		}
-		client := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{mockClient}}
+	t.Run("quiet when the set is fully covered", func(t *testing.T) {
+		var logBuf bytes.Buffer
+		mockClient := &mockUExecutorQueryClient{allPendingOutboundsResp: resp(2, 2)}
+		client := &Client{logger: zerolog.New(&logBuf), uexecutorClients: []uexecutortypes.QueryClient{mockClient}}
 
-		entries, outbounds, err := client.GetAllPendingOutbounds(ctx)
+		_, _, err := client.GetAllPendingOutbounds(ctx)
 		require.NoError(t, err)
-		require.Len(t, entries, 1)
-		require.Len(t, outbounds, 1)
-		assert.Equal(t, "ob-1", entries[0].OutboundId)
+		assert.NotContains(t, logBuf.String(), "exceeds the request limit")
 	})
-
-	t.Run("first page failing is an error", func(t *testing.T) {
-		mockClient := &mockUExecutorQueryClient{
-			pages:         []*uexecutortypes.QueryAllPendingOutboundsResponse{pendingPage("ob-1", nil)},
-			failAfterPage: 0,
-			err:           assert.AnError,
-		}
-		mockClient.pages = nil // fall through to the plain error path
-		client := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{mockClient}}
-
-		entries, _, err := client.GetAllPendingOutbounds(ctx)
-		require.Error(t, err)
-		assert.Nil(t, entries)
-	})
-
-	// The cap bounds one poll; the rest is picked up next tick rather than
-	// growing the request without limit.
-	t.Run("stops at the page cap", func(t *testing.T) {
-		pages := make([]*uexecutortypes.QueryAllPendingOutboundsResponse, pendingOutboundMaxPages+5)
-		for i := range pages {
-			pages[i] = pendingPage(fmt.Sprintf("ob-%d", i), []byte("more"))
-		}
-		mockClient := &mockUExecutorQueryClient{pages: pages}
-		client := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{mockClient}}
-
-		entries, _, err := client.GetAllPendingOutbounds(ctx)
-		require.NoError(t, err)
-		assert.Len(t, entries, pendingOutboundMaxPages)
-		assert.Len(t, mockClient.requestedKeys, pendingOutboundMaxPages)
-	})
-}
-
-func chainConfigPage(chain string, nextKey []byte) *uregistrytypes.QueryAllChainConfigsResponse {
-	return &uregistrytypes.QueryAllChainConfigsResponse{
-		Configs:    []*uregistrytypes.ChainConfig{{Chain: chain}},
-		Pagination: &query.PageResponse{NextKey: nextKey},
-	}
-}
-
-// The server paginates this collection, so omitting a PageRequest capped the
-// response at the SDK default of 100. A chain missing from the list is simply
-// never watched, so the walk must not be able to truncate.
-func TestClient_GetAllChainConfigs_Paginates(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("follows NextKey across pages", func(t *testing.T) {
-		mockClient := &mockRegistryQueryClient{chainConfigPages: []*uregistrytypes.QueryAllChainConfigsResponse{
-			chainConfigPage("eip155:1", []byte("k1")),
-			chainConfigPage("solana:x", nil),
-		}}
-		client := &Client{logger: zerolog.Nop(), eps: []uregistrytypes.QueryClient{mockClient}}
-
-		configs, err := client.GetAllChainConfigs(ctx)
-		require.NoError(t, err)
-		require.Len(t, configs, 2)
-		assert.Equal(t, "solana:x", configs[1].Chain)
-		assert.Equal(t, [][]byte{nil, []byte("k1")}, mockClient.chainConfigKeys)
-	})
-
-	t.Run("a page request is always sent", func(t *testing.T) {
-		mockClient := &mockRegistryQueryClient{chainConfigPages: []*uregistrytypes.QueryAllChainConfigsResponse{
-			chainConfigPage("eip155:1", nil),
-		}}
-		client := &Client{logger: zerolog.Nop(), eps: []uregistrytypes.QueryClient{mockClient}}
-
-		_, err := client.GetAllChainConfigs(ctx)
-		require.NoError(t, err)
-		require.Len(t, mockClient.chainConfigKeys, 1, "must not request a second page")
-	})
-
-	t.Run("error propagates", func(t *testing.T) {
-		client := &Client{logger: zerolog.Nop(), eps: []uregistrytypes.QueryClient{
-			&mockRegistryQueryClient{err: assert.AnError},
-		}}
-
-		configs, err := client.GetAllChainConfigs(ctx)
-		require.Error(t, err)
-		assert.Nil(t, configs)
-	})
-}
-
-// The page budget bounds one poll's work, so it must cost latency rather than
-// coverage: a set larger than the budget has to be walked in full across
-// successive polls instead of re-reading the same prefix forever.
-func TestClient_GetAllPendingOutbounds_CarriesCursorAcrossPolls(t *testing.T) {
-	ctx := context.Background()
-
-	total := pendingOutboundMaxPages + 3
-	pages := make([]*uexecutortypes.QueryAllPendingOutboundsResponse, total)
-	for i := range pages {
-		var next []byte
-		if i < total-1 {
-			next = []byte(fmt.Sprintf("k%d", i+1))
-		}
-		pages[i] = pendingPage(fmt.Sprintf("ob-%d", i), next)
-	}
-	mockClient := &mockUExecutorQueryClient{pages: pages}
-	client := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{mockClient}}
-
-	// First poll spends the budget and parks mid-set.
-	first, _, err := client.GetAllPendingOutbounds(ctx)
-	require.NoError(t, err)
-	require.Len(t, first, pendingOutboundMaxPages)
-	require.NotNil(t, client.pendingCursor, "must remember where it stopped")
-
-	// Second poll resumes from there rather than restarting at the head.
-	resumeFrom := client.pendingCursor
-	second, _, err := client.GetAllPendingOutbounds(ctx)
-	require.NoError(t, err)
-	require.Len(t, second, 3, "the remainder of the set")
-	assert.Equal(t, "ob-"+fmt.Sprint(pendingOutboundMaxPages), second[0].OutboundId,
-		"must continue after the parked cursor, not re-read the prefix")
-	assert.Equal(t, resumeFrom, mockClient.requestedKeys[pendingOutboundMaxPages],
-		"the parked cursor is what gets sent")
-
-	// Reaching the end resets, so tail additions are seen on the next poll.
-	assert.Nil(t, client.pendingCursor)
-}
-
-// A failed page must not lose the ground already covered either.
-func TestClient_GetAllPendingOutbounds_ResumesAfterPageFailure(t *testing.T) {
-	mockClient := &mockUExecutorQueryClient{
-		pages: []*uexecutortypes.QueryAllPendingOutboundsResponse{
-			pendingPage("ob-0", []byte("k1")),
-			pendingPage("ob-1", []byte("k2")),
-		},
-		failAfterPage: 1,
-	}
-	client := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{mockClient}}
-
-	entries, _, err := client.GetAllPendingOutbounds(context.Background())
-	require.NoError(t, err)
-	require.Len(t, entries, 1)
-	assert.Equal(t, []byte("k1"), client.pendingCursor, "resume at the page that failed")
 }

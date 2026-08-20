@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
-	"sync"
 	"sync/atomic"
 
 	cmtservice "github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
@@ -41,13 +40,6 @@ type Client struct {
 	authClients       []authtypes.QueryClient       // Auth query clients
 	conns             []*grpc.ClientConn            // Owned gRPC connections (for cleanup)
 	rr                uint32                        // Round-robin counter for endpoint selection
-
-	// Pagination cursor carried between pending-outbound polls. The page budget
-	// bounds one poll's work; this makes the budget cost latency rather than
-	// coverage, so a set larger than the budget is still walked in full over
-	// successive ticks. Nil means start from the beginning.
-	pendingMu     sync.Mutex
-	pendingCursor []byte
 }
 
 // New creates a new Client by dialing the provided gRPC URLs.
@@ -405,8 +397,14 @@ func (c *Client) GetPendingFundMigrations(ctx context.Context) ([]*utsstypes.Fun
 // Page size and page cap for the pending-outbound walk. The cap bounds a single
 // poll; the remainder is picked up on the next tick.
 const (
-	pendingOutboundPageSize = 1000
-	pendingOutboundMaxPages = 20
+	// AllPendingOutbounds pages by offset and returns only Total, never a NextKey,
+	// so a key-based walk stops after one page. It also loads and sorts the whole
+	// collection per call, so paging saves the server nothing. The sort is not
+	// stable and orders on CreatedAt, a block height, so rows sharing a height can
+	// change relative order between calls — which makes offset paging able to skip
+	// a row outright. One generous request plus a Total check is the only shape
+	// that is both correct and cheap against that server.
+	pendingOutboundLimit = 100_000
 
 	chainConfigPageSize = 200
 	chainConfigMaxPages = 20
@@ -415,68 +413,39 @@ const (
 // GetAllPendingOutbounds retrieves pending outbound transactions from Push Chain,
 // sorted by created_at (block height) ascending — oldest first.
 //
-// The result is paged rather than a single query. An outbound only leaves the
-// pending set once a quorum vote terminalizes it, so any row that cannot reach
-// one — for example a destination execution whose observation was never seen —
-// stays at the head of an oldest-first list forever. Reading one fixed page
-// would let such a prefix hide every newer outbound from signing, on every
-// chain, since this query is not chain-scoped.
+// An outbound only leaves the pending set once a quorum vote terminalizes it, so
+// a row that cannot reach one stays at the head of an oldest-first list forever.
+// The request must therefore cover the whole set: a fixed small page would let
+// such a prefix hide every newer outbound from signing, on every chain, since
+// this query is not chain-scoped.
 func (c *Client) GetAllPendingOutbounds(ctx context.Context) ([]*uexecutortypes.PendingOutboundEntry, []*uexecutortypes.OutboundTx, error) {
-	c.pendingMu.Lock()
-	defer c.pendingMu.Unlock()
-
-	var (
-		entries   []*uexecutortypes.PendingOutboundEntry
-		outbounds []*uexecutortypes.OutboundTx
-		nextKey   = c.pendingCursor
+	resp, err := retryWithRoundRobin(
+		len(c.uexecutorClients),
+		&c.rr,
+		func(idx int) (*uexecutortypes.QueryAllPendingOutboundsResponse, error) {
+			return c.uexecutorClients[idx].AllPendingOutbounds(ctx, &uexecutortypes.QueryAllPendingOutboundsRequest{
+				Pagination: &query.PageRequest{Limit: pendingOutboundLimit},
+			})
+		},
+		"GetAllPendingOutbounds",
+		c.logger,
 	)
-
-	for page := 0; page < pendingOutboundMaxPages; page++ {
-		key := nextKey
-		resp, err := retryWithRoundRobin(
-			len(c.uexecutorClients),
-			&c.rr,
-			func(idx int) (*uexecutortypes.QueryAllPendingOutboundsResponse, error) {
-				return c.uexecutorClients[idx].AllPendingOutbounds(ctx, &uexecutortypes.QueryAllPendingOutboundsRequest{
-					Pagination: &query.PageRequest{Key: key, Limit: pendingOutboundPageSize},
-				})
-			},
-			"GetAllPendingOutbounds",
-			c.logger,
-		)
-		if err != nil {
-			// Return what we have rather than nothing: a later page failing must
-			// not stop the caller acting on the pages that did arrive. Resume from
-			// the failed page next time instead of losing the ground already made.
-			if len(entries) > 0 {
-				c.pendingCursor = key
-				c.logger.Warn().Err(err).Int("page", page).Msg("pending outbound page failed, using pages fetched so far")
-				return entries, outbounds, nil
-			}
-			c.pendingCursor = nil
-			return nil, nil, err
-		}
-
-		entries = append(entries, resp.Entries...)
-		outbounds = append(outbounds, resp.Outbounds...)
-
-		if resp.Pagination == nil || len(resp.Pagination.NextKey) == 0 {
-			// Reached the end; the next poll starts from the beginning again so
-			// rows added at the tail since the walk began are picked up.
-			c.pendingCursor = nil
-			return entries, outbounds, nil
-		}
-		nextKey = resp.Pagination.NextKey
+	if err != nil {
+		return nil, nil, err
 	}
 
-	// Budget spent mid-set. Park the cursor so the next tick continues from here
-	// rather than re-reading the same prefix forever.
-	c.pendingCursor = nextKey
-	c.logger.Warn().
-		Int("max_pages", pendingOutboundMaxPages).
-		Int("fetched", len(entries)).
-		Msg("pending outbound page budget spent; continuing from this cursor next poll")
-	return entries, outbounds, nil
+	// Total is authoritative for the size of the pending set, so a shortfall means
+	// rows we will not act on this poll. Loud rather than silent: those outbounds
+	// are invisible to signing until the set shrinks.
+	if resp.Pagination != nil && resp.Pagination.Total > uint64(len(resp.Entries)) {
+		c.logger.Error().
+			Uint64("total", resp.Pagination.Total).
+			Int("received", len(resp.Entries)).
+			Uint64("limit", pendingOutboundLimit).
+			Msg("pending outbound set exceeds the request limit; the remainder is not being signed")
+	}
+
+	return resp.Entries, resp.Outbounds, nil
 }
 
 // createGRPCConnection creates a gRPC connection with appropriate transport security.

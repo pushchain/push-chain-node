@@ -25,6 +25,16 @@ func NewCosmosAnteHandler(ctx sdk.Context, options HandlerOptions) sdk.AnteHandl
 			sdk.MsgTypeURL(&evmtypes.MsgEthereumTx{}),
 			sdk.MsgTypeURL(&sdkvesting.MsgCreateVestingAccount{}),
 		),
+		// Vesting accounts can delegate locked coins, but the EVM state view only
+		// tracks spendable balance. Delegating more than the spendable balance makes
+		// the StateDB subtract more than it holds, which reconciles back to bank as a
+		// mint (or a burn for the victim). Block vesting-account creation outright so
+		// the precondition cannot be created permissionlessly.
+		NewBlockedMsgsDecorator(
+			sdk.MsgTypeURL(&sdkvesting.MsgCreateVestingAccount{}),
+			sdk.MsgTypeURL(&sdkvesting.MsgCreatePermanentLockedAccount{}),
+			sdk.MsgTypeURL(&sdkvesting.MsgCreatePeriodicVestingAccount{}),
+		),
 
 		ante.NewSetUpContextDecorator(),
 		wasmkeeper.NewLimitSimulationGasDecorator(options.WasmConfig.SimulationGasLimit), // after setup context to enforce limits early

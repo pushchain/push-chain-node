@@ -919,9 +919,24 @@ type mockRegistryQueryClient struct {
 	uregistrytypes.QueryClient
 	allChainConfigsResp *uregistrytypes.QueryAllChainConfigsResponse
 	err                 error
+
+	chainConfigPages []*uregistrytypes.QueryAllChainConfigsResponse
+	chainConfigKeys  [][]byte
 }
 
 func (m *mockRegistryQueryClient) AllChainConfigs(ctx context.Context, req *uregistrytypes.QueryAllChainConfigsRequest, opts ...grpc.CallOption) (*uregistrytypes.QueryAllChainConfigsResponse, error) {
+	if m.chainConfigPages != nil {
+		var key []byte
+		if req.Pagination != nil {
+			key = req.Pagination.Key
+		}
+		m.chainConfigKeys = append(m.chainConfigKeys, key)
+		idx := len(m.chainConfigKeys) - 1
+		if idx >= len(m.chainConfigPages) {
+			return nil, assert.AnError
+		}
+		return m.chainConfigPages[idx], nil
+	}
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -1281,5 +1296,54 @@ func TestClient_GetAllPendingOutbounds_Paginates(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, entries, pendingOutboundMaxPages)
 		assert.Len(t, mockClient.requestedKeys, pendingOutboundMaxPages)
+	})
+}
+
+func chainConfigPage(chain string, nextKey []byte) *uregistrytypes.QueryAllChainConfigsResponse {
+	return &uregistrytypes.QueryAllChainConfigsResponse{
+		Configs:    []*uregistrytypes.ChainConfig{{Chain: chain}},
+		Pagination: &query.PageResponse{NextKey: nextKey},
+	}
+}
+
+// The server paginates this collection, so omitting a PageRequest capped the
+// response at the SDK default of 100. A chain missing from the list is simply
+// never watched, so the walk must not be able to truncate.
+func TestClient_GetAllChainConfigs_Paginates(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("follows NextKey across pages", func(t *testing.T) {
+		mockClient := &mockRegistryQueryClient{chainConfigPages: []*uregistrytypes.QueryAllChainConfigsResponse{
+			chainConfigPage("eip155:1", []byte("k1")),
+			chainConfigPage("solana:x", nil),
+		}}
+		client := &Client{logger: zerolog.Nop(), eps: []uregistrytypes.QueryClient{mockClient}}
+
+		configs, err := client.GetAllChainConfigs(ctx)
+		require.NoError(t, err)
+		require.Len(t, configs, 2)
+		assert.Equal(t, "solana:x", configs[1].Chain)
+		assert.Equal(t, [][]byte{nil, []byte("k1")}, mockClient.chainConfigKeys)
+	})
+
+	t.Run("a page request is always sent", func(t *testing.T) {
+		mockClient := &mockRegistryQueryClient{chainConfigPages: []*uregistrytypes.QueryAllChainConfigsResponse{
+			chainConfigPage("eip155:1", nil),
+		}}
+		client := &Client{logger: zerolog.Nop(), eps: []uregistrytypes.QueryClient{mockClient}}
+
+		_, err := client.GetAllChainConfigs(ctx)
+		require.NoError(t, err)
+		require.Len(t, mockClient.chainConfigKeys, 1, "must not request a second page")
+	})
+
+	t.Run("error propagates", func(t *testing.T) {
+		client := &Client{logger: zerolog.Nop(), eps: []uregistrytypes.QueryClient{
+			&mockRegistryQueryClient{err: assert.AnError},
+		}}
+
+		configs, err := client.GetAllChainConfigs(ctx)
+		require.Error(t, err)
+		assert.Nil(t, configs)
 	})
 }

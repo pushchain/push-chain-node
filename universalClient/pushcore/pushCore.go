@@ -139,19 +139,45 @@ func retryWithRoundRobin[T any](
 
 // GetAllChainConfigs retrieves all chain configurations from Push Chain.
 func (c *Client) GetAllChainConfigs(ctx context.Context) ([]*uregistrytypes.ChainConfig, error) {
-	return retryWithRoundRobin(
-		len(c.eps),
-		&c.rr,
-		func(idx int) ([]*uregistrytypes.ChainConfig, error) {
-			resp, err := c.eps[idx].AllChainConfigs(ctx, &uregistrytypes.QueryAllChainConfigsRequest{})
-			if err != nil {
-				return nil, err
-			}
-			return resp.Configs, nil
-		},
-		"GetAllChainConfigs",
-		c.logger,
+	// Paged rather than a single request: the server paginates this collection,
+	// and an omitted PageRequest silently caps the response at the SDK default of
+	// 100. A chain missing from this list is simply never watched, so truncation
+	// must not be possible.
+	var (
+		configs []*uregistrytypes.ChainConfig
+		nextKey []byte
 	)
+	for page := 0; page < chainConfigMaxPages; page++ {
+		key := nextKey
+		resp, err := retryWithRoundRobin(
+			len(c.eps),
+			&c.rr,
+			func(idx int) (*uregistrytypes.QueryAllChainConfigsResponse, error) {
+				return c.eps[idx].AllChainConfigs(ctx, &uregistrytypes.QueryAllChainConfigsRequest{
+					Pagination: &query.PageRequest{Key: key, Limit: chainConfigPageSize},
+				})
+			},
+			"GetAllChainConfigs",
+			c.logger,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		configs = append(configs, resp.Configs...)
+
+		if resp.Pagination == nil || len(resp.Pagination.NextKey) == 0 {
+			return configs, nil
+		}
+		nextKey = resp.Pagination.NextKey
+	}
+
+	// Unreachable with any plausible number of chains; loud rather than silent.
+	c.logger.Error().
+		Int("max_pages", chainConfigMaxPages).
+		Int("fetched", len(configs)).
+		Msg("chain config page cap reached; some chains will not be watched")
+	return configs, nil
 }
 
 // GetLatestBlock retrieves the latest block from Push Chain.
@@ -373,6 +399,9 @@ func (c *Client) GetPendingFundMigrations(ctx context.Context) ([]*utsstypes.Fun
 const (
 	pendingOutboundPageSize = 1000
 	pendingOutboundMaxPages = 20
+
+	chainConfigPageSize = 200
+	chainConfigMaxPages = 20
 )
 
 // GetAllPendingOutbounds retrieves pending outbound transactions from Push Chain,

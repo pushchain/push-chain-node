@@ -18,7 +18,7 @@ import (
 // gasless message type list).
 func TestAccountInitDecorator_NonGaslessTxPassesThrough(t *testing.T) {
 	ak := newMockAccountKeeperAnte(sdk.AccAddress([]byte("feeCollector")))
-	aid := ante.NewAccountInitDecorator(ak, nil /*signModeHandler not needed for non-gasless*/)
+	aid := ante.NewAccountInitDecorator(ak, nil /*signModeHandler not needed for non-gasless*/, nil)
 
 	// banktypes.MsgSend is not gasless.
 	tx := mockFeeTx{
@@ -45,7 +45,7 @@ func TestAccountInitDecorator_GaslessTxExistingAccountPassesThrough(t *testing.T
 	// Pre-register the account.
 	ak.SetAccount(context.Background(), authtypes.NewBaseAccountWithAddress(existingAddr))
 
-	aid := ante.NewAccountInitDecorator(ak, nil)
+	aid := ante.NewAccountInitDecorator(ak, nil, nil)
 
 	// Use a non-authsigning tx — the decorator skips signature verification
 	// for existing accounts only when it can parse signers. Since mockFeeTx doesn't
@@ -76,7 +76,7 @@ func TestAccountInitDecorator_GaslessTxExistingAccountPassesThrough(t *testing.T
 // tx that does not implement authsigning.Tx is rejected with ErrTxDecode.
 func TestAccountInitDecorator_NonAuthSigningTxReturnsError(t *testing.T) {
 	ak := newMockAccountKeeperAnte(sdk.AccAddress([]byte("feeCollector")))
-	aid := ante.NewAccountInitDecorator(ak, nil)
+	aid := ante.NewAccountInitDecorator(ak, nil, nil)
 
 	// MsgVoteInbound is gasless.
 	tx := mockFeeTx{

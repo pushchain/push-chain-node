@@ -1,6 +1,7 @@
 package ante
 
 import (
+	"bytes"
 	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -8,23 +9,37 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 
 	errorsmod "cosmossdk.io/errors"
+	storetypes "cosmossdk.io/store/types"
 	txsigning "cosmossdk.io/x/tx/signing"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
+	"github.com/cosmos/cosmos-sdk/x/auth/ante"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	txpolicy "github.com/pushchain/push-chain-node/app/txpolicy"
 )
 
 type AccountInitDecorator struct {
 	ak              AccountKeeper
 	signModeHandler *txsigning.HandlerMap
+	sigGasConsumer  SignatureVerificationGasConsumer
 }
 
-func NewAccountInitDecorator(ak AccountKeeper, signModeHandler *txsigning.HandlerMap) AccountInitDecorator {
+// SignatureVerificationGasConsumer charges gas for a single signature, matching
+// the ante.SignatureVerificationGasConsumer contract used by the SDK's
+// SigGasConsumeDecorator.
+type SignatureVerificationGasConsumer func(meter storetypes.GasMeter, sig signing.SignatureV2, params authtypes.Params) error
+
+func NewAccountInitDecorator(ak AccountKeeper, signModeHandler *txsigning.HandlerMap, sigGasConsumer SignatureVerificationGasConsumer) AccountInitDecorator {
+	if sigGasConsumer == nil {
+		sigGasConsumer = ante.DefaultSigVerificationGasConsumer
+	}
+
 	return AccountInitDecorator{
 		ak:              ak,
 		signModeHandler: signModeHandler,
+		sigGasConsumer:  sigGasConsumer,
 	}
 }
 
@@ -55,7 +70,7 @@ func (aid AccountInitDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate 
 			"address", sdk.AccAddress(newAccAddr).String(),
 			"simulate", simulate,
 		)
-		// if account does not exist on chain, bypass rest of ante chain (especially gas and signature verification) here.
+		// if account does not exist on chain, bypass rest of ante chain here.
 		// Perform signature verification on account number e and sequence number e instead.
 		if err := aid.verifySignatureForNewAccount(ctx, tx, simulate); err != nil {
 			ctx.Logger().Debug("account init decorator: signature verification failed for new account",
@@ -103,11 +118,58 @@ func (aid AccountInitDecorator) verifySignatureForNewAccount(ctx sdk.Context, tx
 		return errorsmod.Wrapf(sdkerrors.ErrUnauthorized, "invalid number of signer;  expected: %d, got %d", len(signers), len(sigs))
 	}
 
-	newAccAddr := sdk.AccAddress(signers[0])
+	params := aid.ak.GetParams(ctx)
+
+	// Enforce the signature count limit before doing any verification work.
+	// This decorator short-circuits the ante chain for new accounts, so
+	// ante.ValidateSigCountDecorator never runs for them; without this an
+	// unpriced gasless tx could carry an arbitrarily large multisig key and
+	// force the node to verify every sub-signature for free.
+	sigCount := 0
 	for _, sig := range sigs {
+		if sig.PubKey == nil {
+			return errorsmod.Wrap(sdkerrors.ErrInvalidPubKey, "pubkey is not provided in signature")
+		}
+		sigCount += ante.CountSubKeys(sig.PubKey)
+		if uint64(sigCount) > params.TxSigLimit {
+			return errorsmod.Wrapf(sdkerrors.ErrTooManySignatures,
+				"signatures: %d, limit: %d", sigCount, params.TxSigLimit)
+		}
+	}
+
+	newAccAddr := sdk.AccAddress(signers[0])
+	for i, sig := range sigs {
 		pubKey := sig.PubKey
 		if pubKey == nil {
 			return errorsmod.Wrap(sdkerrors.ErrInvalidPubKey, "pubkey is not provided in signature")
+		}
+
+		// Bind the declared signer to the key that actually signed the tx.
+		//
+		// VerifySignature below only proves "this key signed this tx"; it says
+		// nothing about WHO the tx claims to be from. Because this decorator
+		// short-circuits the ante chain for new accounts, the SDK's
+		// SetPubKeyDecorator - which owns this check - never runs, so a tx could
+		// declare an arbitrary signer while being signed by an unrelated key.
+		// Bech32 account addresses may be up to 255 bytes, and downstream
+		// conversion to a 20-byte EVM address keeps only the rightmost bytes, so
+		// a crafted longer signer could alias a module address.
+		//
+		// Guards mirror x/auth/ante/sigverify.go exactly so simulation and gas
+		// estimation keep working.
+		if !simulate && ctx.IsSigverifyTx() && !bytes.Equal(pubKey.Address().Bytes(), signers[i]) {
+			return errorsmod.Wrapf(sdkerrors.ErrInvalidPubKey,
+				"pubKey does not match signer address %s with signer index: %d", sdk.AccAddress(signers[i]).String(), i)
+		}
+
+		// Charge gas for the signature, as ante.SigGasConsumeDecorator would
+		// have done had the ante chain not been short-circuited.
+		if err := aid.sigGasConsumer(ctx.GasMeter(), signing.SignatureV2{
+			PubKey:   pubKey,
+			Data:     sig.Data,
+			Sequence: sig.Sequence,
+		}, params); err != nil {
+			return err
 		}
 
 		// retrieve signer data

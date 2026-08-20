@@ -406,6 +406,12 @@ const (
 	// that is both correct and cheap against that server.
 	pendingOutboundLimit = 100_000
 
+	// gRPC receive cap. The default is 4 MiB, which the pending-outbound response
+	// outgrows at a few thousand rows; exceeding it fails the call rather than
+	// truncating, so the poll stops entirely. 64 MiB keeps the transport from
+	// being the binding constraint on a set the server will happily return.
+	maxCallRecvMsgSize = 64 * 1024 * 1024
+
 	chainConfigPageSize = 200
 	chainConfigMaxPages = 20
 )
@@ -484,6 +490,14 @@ func createGRPCConnection(endpoint string) (*grpc.ClientConn, error) {
 	} else {
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
+
+	// The pending-outbound query returns the whole set in one response and a row
+	// costs on the order of a kilobyte, so gRPC's 4 MiB default caps it at a few
+	// thousand rows — and it caps by failing the call outright, which takes the
+	// entire poll down rather than returning a short list we could detect.
+	opts = append(opts, grpc.WithDefaultCallOptions(
+		grpc.MaxCallRecvMsgSize(maxCallRecvMsgSize),
+	))
 
 	conn, err := grpc.NewClient(processedEndpoint, opts...)
 	if err != nil {

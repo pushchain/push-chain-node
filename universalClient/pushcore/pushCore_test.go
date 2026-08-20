@@ -1196,8 +1196,7 @@ func TestClient_GetAllPendingOutbounds_CoversTheWholeSet(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, entries, 1)
 		require.NotNil(t, mockClient.lastPendingReq.Pagination)
-		assert.Equal(t, uint64(pendingOutboundLimit), mockClient.lastPendingReq.Pagination.Limit,
-			"a small page would let a stuck prefix hide newer outbounds")
+		assert.Equal(t, uint64(pendingOutboundLimit), mockClient.lastPendingReq.Pagination.Limit)
 	})
 
 	// A shortfall means outbounds nobody is signing, so it has to be visible.
@@ -1222,4 +1221,28 @@ func TestClient_GetAllPendingOutbounds_CoversTheWholeSet(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotContains(t, logBuf.String(), "exceeds the request limit")
 	})
+}
+
+// A stuck prefix only ever builds at the oldest end, and new outbounds only ever
+// arrive at the newest end. Alternating the sweep means neither end can be
+// hidden by the other, without asking for a set large enough to break the
+// transport.
+func TestClient_GetAllPendingOutbounds_AlternatesSweepDirection(t *testing.T) {
+	mockClient := &mockUExecutorQueryClient{
+		allPendingOutboundsResp: &uexecutortypes.QueryAllPendingOutboundsResponse{
+			Entries:    []*uexecutortypes.PendingOutboundEntry{{OutboundId: "ob-1"}},
+			Outbounds:  []*uexecutortypes.OutboundTx{{Id: "ob-1"}},
+			Pagination: &query.PageResponse{Total: 1},
+		},
+	}
+	client := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{mockClient}}
+
+	seen := make([]bool, 0, 4)
+	for i := 0; i < 4; i++ {
+		_, _, err := client.GetAllPendingOutbounds(context.Background())
+		require.NoError(t, err)
+		seen = append(seen, mockClient.lastPendingReq.Pagination.Reverse)
+	}
+
+	assert.Equal(t, []bool{true, false, true, false}, seen, "each poll must flip the direction")
 }

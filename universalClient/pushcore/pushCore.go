@@ -40,6 +40,7 @@ type Client struct {
 	authClients       []authtypes.QueryClient       // Auth query clients
 	conns             []*grpc.ClientConn            // Owned gRPC connections (for cleanup)
 	rr                uint32                        // Round-robin counter for endpoint selection
+	pendingSweep      uint32                        // Alternates pending-outbound sort direction per poll
 }
 
 // New creates a new Client by dialing the provided gRPC URLs.
@@ -404,13 +405,10 @@ const (
 	// change relative order between calls — which makes offset paging able to skip
 	// a row outright. One generous request plus a Total check is the only shape
 	// that is both correct and cheap against that server.
-	pendingOutboundLimit = 100_000
-
-	// gRPC receive cap. The default is 4 MiB, which the pending-outbound response
-	// outgrows at a few thousand rows; exceeding it fails the call rather than
-	// truncating, so the poll stops entirely. 64 MiB keeps the transport from
-	// being the binding constraint on a set the server will happily return.
-	maxCallRecvMsgSize = 64 * 1024 * 1024
+	// A row costs roughly a kilobyte on the wire, so this stays well inside gRPC's
+	// 4 MiB default. Asking for the whole set instead would fail the call outright
+	// once the set grew, taking the poll down rather than returning a short list.
+	pendingOutboundLimit = 1000
 
 	chainConfigPageSize = 200
 	chainConfigMaxPages = 20
@@ -425,12 +423,19 @@ const (
 // such a prefix hide every newer outbound from signing, on every chain, since
 // this query is not chain-scoped.
 func (c *Client) GetAllPendingOutbounds(ctx context.Context) ([]*uexecutortypes.PendingOutboundEntry, []*uexecutortypes.OutboundTx, error) {
+	// Alternate direction per poll. New outbounds always arrive at the newest end,
+	// so a newest-first read stays useful however many unterminalized rows have
+	// piled up at the oldest end; the oldest-first read still covers the backlog
+	// and a cold local database. Rows seen in both directions are deduplicated by
+	// the caller, so the overlap costs nothing.
+	reverse := atomic.AddUint32(&c.pendingSweep, 1)%2 == 1
+
 	resp, err := retryWithRoundRobin(
 		len(c.uexecutorClients),
 		&c.rr,
 		func(idx int) (*uexecutortypes.QueryAllPendingOutboundsResponse, error) {
 			return c.uexecutorClients[idx].AllPendingOutbounds(ctx, &uexecutortypes.QueryAllPendingOutboundsRequest{
-				Pagination: &query.PageRequest{Limit: pendingOutboundLimit},
+				Pagination: &query.PageRequest{Limit: pendingOutboundLimit, Reverse: reverse},
 			})
 		},
 		"GetAllPendingOutbounds",
@@ -448,7 +453,8 @@ func (c *Client) GetAllPendingOutbounds(ctx context.Context) ([]*uexecutortypes.
 			Uint64("total", resp.Pagination.Total).
 			Int("received", len(resp.Entries)).
 			Uint64("limit", pendingOutboundLimit).
-			Msg("pending outbound set exceeds the request limit; the remainder is not being signed")
+			Bool("newest_first", reverse).
+			Msg("pending outbound set exceeds the request limit; the far end is only seen on the alternate sweep")
 	}
 
 	return resp.Entries, resp.Outbounds, nil
@@ -490,14 +496,6 @@ func createGRPCConnection(endpoint string) (*grpc.ClientConn, error) {
 	} else {
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
-
-	// The pending-outbound query returns the whole set in one response and a row
-	// costs on the order of a kilobyte, so gRPC's 4 MiB default caps it at a few
-	// thousand rows — and it caps by failing the call outright, which takes the
-	// entire poll down rather than returning a short list we could detect.
-	opts = append(opts, grpc.WithDefaultCallOptions(
-		grpc.MaxCallRecvMsgSize(maxCallRecvMsgSize),
-	))
 
 	conn, err := grpc.NewClient(processedEndpoint, opts...)
 	if err != nil {

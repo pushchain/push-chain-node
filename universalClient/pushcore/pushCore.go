@@ -368,24 +368,66 @@ func (c *Client) GetPendingFundMigrations(ctx context.Context) ([]*utsstypes.Fun
 	)
 }
 
-// GetAllPendingOutbounds retrieves up to the first 1000 pending outbound transactions from Push Chain.
-// Sorted by created_at (block height) ascending — oldest first.
+// Page size and page cap for the pending-outbound walk. The cap bounds a single
+// poll; the remainder is picked up on the next tick.
+const (
+	pendingOutboundPageSize = 1000
+	pendingOutboundMaxPages = 20
+)
+
+// GetAllPendingOutbounds retrieves pending outbound transactions from Push Chain,
+// sorted by created_at (block height) ascending — oldest first.
+//
+// The result is paged rather than a single query. An outbound only leaves the
+// pending set once a quorum vote terminalizes it, so any row that cannot reach
+// one — for example a destination execution whose observation was never seen —
+// stays at the head of an oldest-first list forever. Reading one fixed page
+// would let such a prefix hide every newer outbound from signing, on every
+// chain, since this query is not chain-scoped.
 func (c *Client) GetAllPendingOutbounds(ctx context.Context) ([]*uexecutortypes.PendingOutboundEntry, []*uexecutortypes.OutboundTx, error) {
-	resp, err := retryWithRoundRobin(
-		len(c.uexecutorClients),
-		&c.rr,
-		func(idx int) (*uexecutortypes.QueryAllPendingOutboundsResponse, error) {
-			return c.uexecutorClients[idx].AllPendingOutbounds(ctx, &uexecutortypes.QueryAllPendingOutboundsRequest{
-				Pagination: &query.PageRequest{Limit: 1000},
-			})
-		},
-		"GetAllPendingOutbounds",
-		c.logger,
+	var (
+		entries   []*uexecutortypes.PendingOutboundEntry
+		outbounds []*uexecutortypes.OutboundTx
+		nextKey   []byte
 	)
-	if err != nil {
-		return nil, nil, err
+
+	for page := 0; page < pendingOutboundMaxPages; page++ {
+		key := nextKey
+		resp, err := retryWithRoundRobin(
+			len(c.uexecutorClients),
+			&c.rr,
+			func(idx int) (*uexecutortypes.QueryAllPendingOutboundsResponse, error) {
+				return c.uexecutorClients[idx].AllPendingOutbounds(ctx, &uexecutortypes.QueryAllPendingOutboundsRequest{
+					Pagination: &query.PageRequest{Key: key, Limit: pendingOutboundPageSize},
+				})
+			},
+			"GetAllPendingOutbounds",
+			c.logger,
+		)
+		if err != nil {
+			// Return what we have rather than nothing: a later page failing must
+			// not stop the caller acting on the pages that did arrive.
+			if len(entries) > 0 {
+				c.logger.Warn().Err(err).Int("page", page).Msg("pending outbound page failed, using pages fetched so far")
+				return entries, outbounds, nil
+			}
+			return nil, nil, err
+		}
+
+		entries = append(entries, resp.Entries...)
+		outbounds = append(outbounds, resp.Outbounds...)
+
+		if resp.Pagination == nil || len(resp.Pagination.NextKey) == 0 {
+			return entries, outbounds, nil
+		}
+		nextKey = resp.Pagination.NextKey
 	}
-	return resp.Entries, resp.Outbounds, nil
+
+	c.logger.Warn().
+		Int("max_pages", pendingOutboundMaxPages).
+		Int("fetched", len(entries)).
+		Msg("pending outbound page cap reached; remainder deferred to next poll")
+	return entries, outbounds, nil
 }
 
 // createGRPCConnection creates a gRPC connection with appropriate transport security.

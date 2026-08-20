@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"sync"
 	"sync/atomic"
 
 	cmtservice "github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
@@ -40,6 +41,13 @@ type Client struct {
 	authClients       []authtypes.QueryClient       // Auth query clients
 	conns             []*grpc.ClientConn            // Owned gRPC connections (for cleanup)
 	rr                uint32                        // Round-robin counter for endpoint selection
+
+	// Pagination cursor carried between pending-outbound polls. The page budget
+	// bounds one poll's work; this makes the budget cost latency rather than
+	// coverage, so a set larger than the budget is still walked in full over
+	// successive ticks. Nil means start from the beginning.
+	pendingMu     sync.Mutex
+	pendingCursor []byte
 }
 
 // New creates a new Client by dialing the provided gRPC URLs.
@@ -414,10 +422,13 @@ const (
 // would let such a prefix hide every newer outbound from signing, on every
 // chain, since this query is not chain-scoped.
 func (c *Client) GetAllPendingOutbounds(ctx context.Context) ([]*uexecutortypes.PendingOutboundEntry, []*uexecutortypes.OutboundTx, error) {
+	c.pendingMu.Lock()
+	defer c.pendingMu.Unlock()
+
 	var (
 		entries   []*uexecutortypes.PendingOutboundEntry
 		outbounds []*uexecutortypes.OutboundTx
-		nextKey   []byte
+		nextKey   = c.pendingCursor
 	)
 
 	for page := 0; page < pendingOutboundMaxPages; page++ {
@@ -435,11 +446,14 @@ func (c *Client) GetAllPendingOutbounds(ctx context.Context) ([]*uexecutortypes.
 		)
 		if err != nil {
 			// Return what we have rather than nothing: a later page failing must
-			// not stop the caller acting on the pages that did arrive.
+			// not stop the caller acting on the pages that did arrive. Resume from
+			// the failed page next time instead of losing the ground already made.
 			if len(entries) > 0 {
+				c.pendingCursor = key
 				c.logger.Warn().Err(err).Int("page", page).Msg("pending outbound page failed, using pages fetched so far")
 				return entries, outbounds, nil
 			}
+			c.pendingCursor = nil
 			return nil, nil, err
 		}
 
@@ -447,15 +461,21 @@ func (c *Client) GetAllPendingOutbounds(ctx context.Context) ([]*uexecutortypes.
 		outbounds = append(outbounds, resp.Outbounds...)
 
 		if resp.Pagination == nil || len(resp.Pagination.NextKey) == 0 {
+			// Reached the end; the next poll starts from the beginning again so
+			// rows added at the tail since the walk began are picked up.
+			c.pendingCursor = nil
 			return entries, outbounds, nil
 		}
 		nextKey = resp.Pagination.NextKey
 	}
 
+	// Budget spent mid-set. Park the cursor so the next tick continues from here
+	// rather than re-reading the same prefix forever.
+	c.pendingCursor = nextKey
 	c.logger.Warn().
 		Int("max_pages", pendingOutboundMaxPages).
 		Int("fetched", len(entries)).
-		Msg("pending outbound page cap reached; remainder deferred to next poll")
+		Msg("pending outbound page budget spent; continuing from this cursor next poll")
 	return entries, outbounds, nil
 }
 

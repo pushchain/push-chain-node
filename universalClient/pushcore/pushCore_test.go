@@ -1347,3 +1347,58 @@ func TestClient_GetAllChainConfigs_Paginates(t *testing.T) {
 		assert.Nil(t, configs)
 	})
 }
+
+// The page budget bounds one poll's work, so it must cost latency rather than
+// coverage: a set larger than the budget has to be walked in full across
+// successive polls instead of re-reading the same prefix forever.
+func TestClient_GetAllPendingOutbounds_CarriesCursorAcrossPolls(t *testing.T) {
+	ctx := context.Background()
+
+	total := pendingOutboundMaxPages + 3
+	pages := make([]*uexecutortypes.QueryAllPendingOutboundsResponse, total)
+	for i := range pages {
+		var next []byte
+		if i < total-1 {
+			next = []byte(fmt.Sprintf("k%d", i+1))
+		}
+		pages[i] = pendingPage(fmt.Sprintf("ob-%d", i), next)
+	}
+	mockClient := &mockUExecutorQueryClient{pages: pages}
+	client := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{mockClient}}
+
+	// First poll spends the budget and parks mid-set.
+	first, _, err := client.GetAllPendingOutbounds(ctx)
+	require.NoError(t, err)
+	require.Len(t, first, pendingOutboundMaxPages)
+	require.NotNil(t, client.pendingCursor, "must remember where it stopped")
+
+	// Second poll resumes from there rather than restarting at the head.
+	resumeFrom := client.pendingCursor
+	second, _, err := client.GetAllPendingOutbounds(ctx)
+	require.NoError(t, err)
+	require.Len(t, second, 3, "the remainder of the set")
+	assert.Equal(t, "ob-"+fmt.Sprint(pendingOutboundMaxPages), second[0].OutboundId,
+		"must continue after the parked cursor, not re-read the prefix")
+	assert.Equal(t, resumeFrom, mockClient.requestedKeys[pendingOutboundMaxPages],
+		"the parked cursor is what gets sent")
+
+	// Reaching the end resets, so tail additions are seen on the next poll.
+	assert.Nil(t, client.pendingCursor)
+}
+
+// A failed page must not lose the ground already covered either.
+func TestClient_GetAllPendingOutbounds_ResumesAfterPageFailure(t *testing.T) {
+	mockClient := &mockUExecutorQueryClient{
+		pages: []*uexecutortypes.QueryAllPendingOutboundsResponse{
+			pendingPage("ob-0", []byte("k1")),
+			pendingPage("ob-1", []byte("k2")),
+		},
+		failAfterPage: 1,
+	}
+	client := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{mockClient}}
+
+	entries, _, err := client.GetAllPendingOutbounds(context.Background())
+	require.NoError(t, err)
+	require.Len(t, entries, 1)
+	assert.Equal(t, []byte("k1"), client.pendingCursor, "resume at the page that failed")
+}

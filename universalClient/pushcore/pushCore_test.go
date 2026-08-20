@@ -1199,17 +1199,16 @@ func TestClient_GetAllPendingOutbounds_CoversTheWholeSet(t *testing.T) {
 		assert.Equal(t, uint64(pendingOutboundLimit), mockClient.lastPendingReq.Pagination.Limit)
 	})
 
-	// A shortfall means outbounds nobody is signing, so it has to be visible.
-	t.Run("reports a set larger than the limit", func(t *testing.T) {
+	// A set too large for one request means the backlog is only seen in slices,
+	// which an operator should know about.
+	t.Run("reports a set larger than one request", func(t *testing.T) {
 		var logBuf bytes.Buffer
-		mockClient := &mockUExecutorQueryClient{allPendingOutboundsResp: resp(1, 5)}
+		mockClient := &mockUExecutorQueryClient{allPendingOutboundsResp: resp(1, pendingOutboundLimit+2500)}
 		client := &Client{logger: zerolog.New(&logBuf), uexecutorClients: []uexecutortypes.QueryClient{mockClient}}
 
-		entries, _, err := client.GetAllPendingOutbounds(ctx)
+		_, _, err := client.GetAllPendingOutbounds(ctx)
 		require.NoError(t, err)
-		require.Len(t, entries, 1)
-		assert.Contains(t, logBuf.String(), "exceeds the request limit")
-		assert.Contains(t, logBuf.String(), `"total":5`)
+		assert.Contains(t, logBuf.String(), "exceeds one request")
 	})
 
 	t.Run("quiet when the set is fully covered", func(t *testing.T) {
@@ -1223,26 +1222,91 @@ func TestClient_GetAllPendingOutbounds_CoversTheWholeSet(t *testing.T) {
 	})
 }
 
-// A stuck prefix only ever builds at the oldest end, and new outbounds only ever
-// arrive at the newest end. Alternating the sweep means neither end can be
-// hidden by the other, without asking for a set large enough to break the
-// transport.
-func TestClient_GetAllPendingOutbounds_AlternatesSweepDirection(t *testing.T) {
-	mockClient := &mockUExecutorQueryClient{
-		allPendingOutboundsResp: &uexecutortypes.QueryAllPendingOutboundsResponse{
-			Entries:    []*uexecutortypes.PendingOutboundEntry{{OutboundId: "ob-1"}},
-			Outbounds:  []*uexecutortypes.OutboundTx{{Id: "ob-1"}},
-			Pagination: &query.PageResponse{Total: 1},
-		},
+// pendingResp builds a response reporting `total` as the size of the pending set.
+func pendingResp(total uint64) *uexecutortypes.QueryAllPendingOutboundsResponse {
+	return &uexecutortypes.QueryAllPendingOutboundsResponse{
+		Entries:    []*uexecutortypes.PendingOutboundEntry{{OutboundId: "ob-1"}},
+		Outbounds:  []*uexecutortypes.OutboundTx{{Id: "ob-1"}},
+		Pagination: &query.PageResponse{Total: total},
 	}
-	client := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{mockClient}}
+}
 
-	seen := make([]bool, 0, 4)
-	for i := 0; i < 4; i++ {
-		_, _, err := client.GetAllPendingOutbounds(context.Background())
+// New outbounds only arrive at the newest end, so that read is what must never
+// be crowded out. The backlog sweep exists only for a set too large to fetch at
+// once, and reading it at a fixed offset would re-return the same prefix forever.
+func TestClient_GetAllPendingOutbounds_ReadStrategy(t *testing.T) {
+	ctx := context.Background()
+
+	read := func(m *mockUExecutorQueryClient) (bool, uint64) {
+		p := m.lastPendingReq.Pagination
+		return p.Reverse, p.Offset
+	}
+
+	t.Run("set fits in one request: always newest-first, never sweeps", func(t *testing.T) {
+		mockClient := &mockUExecutorQueryClient{allPendingOutboundsResp: pendingResp(9)}
+		client := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{mockClient}}
+
+		for i := 0; i < 4; i++ {
+			_, _, err := client.GetAllPendingOutbounds(ctx)
+			require.NoError(t, err)
+			rev, off := read(mockClient)
+			assert.True(t, rev, "poll %d should read newest-first", i)
+			assert.Zero(t, off, "poll %d should not sweep a set that fits", i)
+		}
+	})
+
+	t.Run("set too large: newest-first every other poll, backlog advances", func(t *testing.T) {
+		mockClient := &mockUExecutorQueryClient{allPendingOutboundsResp: pendingResp(3500)}
+		client := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{mockClient}}
+
+		var got [][2]any
+		for i := 0; i < 6; i++ {
+			_, _, err := client.GetAllPendingOutbounds(ctx)
+			require.NoError(t, err)
+			rev, off := read(mockClient)
+			got = append(got, [2]any{rev, off})
+		}
+
+		// poll 1 has no prior total, so it starts newest-first and the sweep
+		// engages once the size is known.
+		assert.Equal(t, [2]any{true, uint64(0)}, got[0])
+		assert.Equal(t, [2]any{false, uint64(0)}, got[1], "backlog sweep starts at the oldest end")
+		assert.Equal(t, [2]any{true, uint64(0)}, got[2], "newest rows read every other poll")
+		assert.Equal(t, [2]any{false, uint64(1000)}, got[3], "sweep advances")
+		assert.Equal(t, [2]any{true, uint64(0)}, got[4])
+		assert.Equal(t, [2]any{false, uint64(2000)}, got[5], "and keeps advancing")
+	})
+
+	t.Run("sweep wraps rather than running off the end", func(t *testing.T) {
+		mockClient := &mockUExecutorQueryClient{allPendingOutboundsResp: pendingResp(2500)}
+		client := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{mockClient}}
+
+		var offsets []uint64
+		for i := 0; i < 10; i++ {
+			_, _, err := client.GetAllPendingOutbounds(ctx)
+			require.NoError(t, err)
+			if rev, off := read(mockClient); !rev {
+				offsets = append(offsets, off)
+			}
+		}
+		assert.Equal(t, []uint64{0, 1000, 2000, 0, 1000}, offsets, "covers the set then starts over")
+	})
+
+	t.Run("sweep stops once the set shrinks to fit", func(t *testing.T) {
+		mockClient := &mockUExecutorQueryClient{allPendingOutboundsResp: pendingResp(3500)}
+		client := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{mockClient}}
+
+		_, _, err := client.GetAllPendingOutbounds(ctx) // learns the size
 		require.NoError(t, err)
-		seen = append(seen, mockClient.lastPendingReq.Pagination.Reverse)
-	}
+		mockClient.allPendingOutboundsResp = pendingResp(12) // backlog cleared
 
-	assert.Equal(t, []bool{true, false, true, false}, seen, "each poll must flip the direction")
+		_, _, err = client.GetAllPendingOutbounds(ctx)
+		require.NoError(t, err)
+		_, _, err = client.GetAllPendingOutbounds(ctx)
+		require.NoError(t, err)
+
+		rev, off := read(mockClient)
+		assert.True(t, rev)
+		assert.Zero(t, off, "no sweep needed once one request covers the set")
+	})
 }

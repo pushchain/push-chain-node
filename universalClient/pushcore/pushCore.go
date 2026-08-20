@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
-	"sync"
 	"sync/atomic"
 
 	cmtservice "github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
@@ -41,13 +40,6 @@ type Client struct {
 	authClients       []authtypes.QueryClient       // Auth query clients
 	conns             []*grpc.ClientConn            // Owned gRPC connections (for cleanup)
 	rr                uint32                        // Round-robin counter for endpoint selection
-
-	// Pending-outbound read state. Only consulted when the set outgrows a single
-	// request; below that the newest-first read is already complete.
-	pendingMu     sync.Mutex
-	pendingPoll   uint64 // poll counter, alternates newest-first with a backlog sweep
-	pendingTotal  uint64 // set size reported by the last poll
-	backlogOffset uint64 // rotating offset for the oldest-first sweep
 }
 
 // New creates a new Client by dialing the provided gRPC URLs.
@@ -421,23 +413,25 @@ const (
 	chainConfigMaxPages = 20
 )
 
-// GetAllPendingOutbounds retrieves pending outbound transactions from Push Chain,
-// sorted by created_at (block height) ascending — oldest first.
+// GetAllPendingOutbounds retrieves pending outbound transactions from Push Chain.
 //
-// An outbound only leaves the pending set once a quorum vote terminalizes it, so
-// a row that cannot reach one stays at the head of an oldest-first list forever.
-// The request must therefore cover the whole set: a fixed small page would let
-// such a prefix hide every newer outbound from signing, on every chain, since
-// this query is not chain-scoped.
+// Read newest-first. An outbound only leaves the pending set once a quorum vote
+// terminalizes it, so a row that cannot reach one stays at the head of an
+// oldest-first list forever and would hide every newer outbound behind it — on
+// every chain, since this query is not chain-scoped. New outbounds always arrive
+// at the newest end, so reading that end cannot be starved.
+//
+// This is discovery only and does not set signing priority. The event store
+// hands work to the signer ordered by block_height ASC, so older outbounds are
+// still signed first; reading newest-first only decides what reaches the store
+// to be ordered in the first place.
 func (c *Client) GetAllPendingOutbounds(ctx context.Context) ([]*uexecutortypes.PendingOutboundEntry, []*uexecutortypes.OutboundTx, error) {
-	reverse, offset := c.nextPendingRead()
-
 	resp, err := retryWithRoundRobin(
 		len(c.uexecutorClients),
 		&c.rr,
 		func(idx int) (*uexecutortypes.QueryAllPendingOutboundsResponse, error) {
 			return c.uexecutorClients[idx].AllPendingOutbounds(ctx, &uexecutortypes.QueryAllPendingOutboundsRequest{
-				Pagination: &query.PageRequest{Limit: pendingOutboundLimit, Reverse: reverse, Offset: offset},
+				Pagination: &query.PageRequest{Limit: pendingOutboundLimit, Reverse: true},
 			})
 		},
 		"GetAllPendingOutbounds",
@@ -447,63 +441,18 @@ func (c *Client) GetAllPendingOutbounds(ctx context.Context) ([]*uexecutortypes.
 		return nil, nil, err
 	}
 
-	var total uint64
-	if resp.Pagination != nil {
-		total = resp.Pagination.Total
-	}
-	c.recordPendingTotal(total)
-
-	if total > pendingOutboundLimit {
+	// Below the limit this read is the whole set and the direction is irrelevant.
+	// Above it, the direction is the point: anything older is already known
+	// locally, so continuing to re-read it would achieve nothing while the newer
+	// rows went unsigned.
+	if resp.Pagination != nil && resp.Pagination.Total > pendingOutboundLimit {
 		c.logger.Warn().
-			Uint64("total", total).
+			Uint64("total", resp.Pagination.Total).
 			Uint64("limit", pendingOutboundLimit).
-			Bool("newest_first", reverse).
-			Uint64("offset", offset).
-			Msg("pending outbound set exceeds one request; newest rows are read every poll, the backlog is swept in slices")
+			Msg("pending outbound set exceeds one request; only the newest are read, older rows must already be known locally")
 	}
 
 	return resp.Entries, resp.Outbounds, nil
-}
-
-// nextPendingRead picks the direction and offset for this poll.
-//
-// New outbounds only ever arrive at the newest end, so a newest-first read at
-// offset zero always surfaces them however many unterminalized rows have piled
-// up at the oldest end. That read alone is complete whenever the set fits in one
-// request, which is the normal case.
-//
-// Once it does not fit, alternate polls sweep the backlog oldest-first at an
-// advancing offset. That exists only so a node that started with a large pending
-// set — an empty local database, for instance — eventually sees the older rows;
-// steady-state discovery does not need it. Offsets over a set that is being
-// added to and terminalized can occasionally straddle a row, which is why the
-// sweep keeps cycling rather than running once.
-func (c *Client) nextPendingRead() (reverse bool, offset uint64) {
-	c.pendingMu.Lock()
-	defer c.pendingMu.Unlock()
-
-	c.pendingPoll++
-	if c.pendingTotal <= pendingOutboundLimit || c.pendingPoll%2 == 1 {
-		return true, 0
-	}
-
-	offset = c.backlogOffset
-	c.backlogOffset += pendingOutboundLimit
-	if c.backlogOffset >= c.pendingTotal {
-		c.backlogOffset = 0
-	}
-	return false, offset
-}
-
-// recordPendingTotal keeps the observed set size so the next poll can tell
-// whether a backlog sweep is needed at all.
-func (c *Client) recordPendingTotal(total uint64) {
-	c.pendingMu.Lock()
-	defer c.pendingMu.Unlock()
-	c.pendingTotal = total
-	if total <= pendingOutboundLimit {
-		c.backlogOffset = 0
-	}
 }
 
 // createGRPCConnection creates a gRPC connection with appropriate transport security.

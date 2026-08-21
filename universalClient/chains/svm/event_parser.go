@@ -43,7 +43,26 @@ func base58ToHex(base58Str string) (string, error) {
 
 // ParseEvent parses a log into a store.Event based on the event type.
 // eventType should be one of: "send_funds", "executeUniversalTx", "revertUniversalTx"
-func ParseEvent(log string, signature string, slot uint64, logIndex uint, eventType string, chainID string, logger zerolog.Logger) *store.Event {
+// A panic in the decoders is contained here rather than allowed to unwind. Log
+// data is supplied by an RPC and the listener runs on a background goroutine, so
+// an unrecovered panic would take down every chain and the TSS node with it. A
+// log we cannot decode is skipped like any other undecodable one.
+func ParseEvent(log string, signature string, slot uint64, logIndex uint, eventType string, chainID string, logger zerolog.Logger) (event *store.Event) {
+	defer func() {
+		if r := recover(); r != nil {
+			event = nil
+			logger.Error().
+				Interface("panic", r).
+				Str("event_type", eventType).
+				Str("signature", signature).
+				Uint("log_index", logIndex).
+				Msg("panic while decoding log; skipping it")
+		}
+	}()
+	return parseEvent(log, signature, slot, logIndex, eventType, chainID, logger)
+}
+
+func parseEvent(log string, signature string, slot uint64, logIndex uint, eventType string, chainID string, logger zerolog.Logger) *store.Event {
 	switch eventType {
 	case EventTypeSendFunds:
 		return parseSendFundsEvent(log, signature, slot, logIndex, chainID, logger)

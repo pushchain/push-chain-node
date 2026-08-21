@@ -23,18 +23,19 @@ func nopLogger() zerolog.Logger {
 // parseSendFundsEvent / decodeUniversalTxEvent call.
 //
 // Layout (Borsh):
-//   discriminator  8  bytes
-//   sender        32  bytes (Pubkey)
-//   recipient     20  bytes (byte20)
-//   bridge_token  32  bytes (Pubkey)
-//   bridge_amount  8  bytes (u64 LE)
-//   data_len       4  bytes (u32 LE)
-//   data           variable
-//   revert_recip  32  bytes (Pubkey)
-//   tx_type        1  byte
-//   sig_len        4  bytes (u32 LE)
-//   sig_data       variable
-//   fromCEA        1  byte
+//
+//	discriminator  8  bytes
+//	sender        32  bytes (Pubkey)
+//	recipient     20  bytes (byte20)
+//	bridge_token  32  bytes (Pubkey)
+//	bridge_amount  8  bytes (u64 LE)
+//	data_len       4  bytes (u32 LE)
+//	data           variable
+//	revert_recip  32  bytes (Pubkey)
+//	tx_type        1  byte
+//	sig_len        4  bytes (u32 LE)
+//	sig_data       variable
+//	fromCEA        1  byte
 func buildSendFundsPayload(
 	sender [32]byte,
 	recipient [20]byte,
@@ -116,12 +117,12 @@ func TestBase58ToHex(t *testing.T) {
 		},
 		{
 			name:  "known base58 value",
-			input: "1",   // base58 "1" decodes to a single 0x00 byte
+			input: "1", // base58 "1" decodes to a single 0x00 byte
 			want:  "0x00",
 		},
 		{
 			name:  "known base58 multi-byte",
-			input: "2g",  // base58 "2g" decodes to 0x61
+			input: "2g", // base58 "2g" decodes to 0x61
 			want:  "0x61",
 		},
 		{
@@ -619,5 +620,25 @@ func TestDecodeUniversalTxEvent_PartialData(t *testing.T) {
 		require.NoError(t, err)
 		// tx_type defaults to 0 when missing
 		assert.Equal(t, uint(0), result.TxType)
+	})
+}
+
+// Same containment as the EVM parser: log data comes from an RPC and the
+// listener has no caller between here and the goroutine root, so a decode panic
+// would end the process rather than skip one log.
+func TestParseEvent_PanicIsContained(t *testing.T) {
+	// A gateway-shaped payload truncated mid-field: enough to pass the length
+	// guard for one event type, short enough to be malformed for the decoder.
+	payload := make([]byte, 97)
+	encoded := "Program data: " + base64.StdEncoding.EncodeToString(payload)
+
+	require.NotPanics(t, func() {
+		ParseEvent(encoded, "sig", 100, 0, EventTypeSendFunds, "solana:test", zerolog.Nop())
+	})
+	require.NotPanics(t, func() {
+		ParseEvent(encoded, "sig", 100, 0, EventTypeFinalizeUniversalTx, "solana:test", zerolog.Nop())
+	})
+	require.NotPanics(t, func() {
+		ParseEvent("Program data: !!!not-base64!!!", "sig", 100, 0, EventTypeSendFunds, "solana:test", zerolog.Nop())
 	})
 }

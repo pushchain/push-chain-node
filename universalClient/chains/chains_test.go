@@ -1867,3 +1867,44 @@ func TestStopAll_ClosesEveryDatabase(t *testing.T) {
 	}
 	assert.Empty(t, c.chainDBs)
 }
+
+// ensurePushChain opens its own handle rather than going through addChain, so the
+// same ownership rule has to hold there: released on failure, and registered on
+// success so shutdown can close it.
+func TestEnsurePushChain_HandleOwnership(t *testing.T) {
+	t.Run("failure to construct the client releases the handle", func(t *testing.T) {
+		c := newTestChains()
+		c.config.NodeHome = t.TempDir()
+		c.pushCore = nil // push.NewClient rejects a nil core
+
+		var opened []*db.DB
+		realOpen := c.openDB
+		c.openDB = func(dir, filename string, migrate bool) (*db.DB, error) {
+			database, err := realOpen(dir, filename, migrate)
+			if err == nil {
+				opened = append(opened, database)
+			}
+			return database, err
+		}
+
+		err := c.ensurePushChain(context.Background())
+		require.Error(t, err)
+		require.Len(t, opened, 1)
+		assert.False(t, dbIsOpen(t, opened[0]), "handle must be released when the push client cannot be built")
+		assert.NotContains(t, c.chainDBs, c.pushChainID)
+	})
+
+	// On success the handle must be registered, or shutdown silently leaves the
+	// push chain's database open.
+	t.Run("shutdown closes a registered push handle", func(t *testing.T) {
+		c := newTestChains()
+		database, err := db.OpenFileDB(t.TempDir(), "push.db", true)
+		require.NoError(t, err)
+
+		c.chains[c.pushChainID] = &mockChainClient{}
+		c.chainDBs[c.pushChainID] = database
+
+		c.StopAll()
+		assert.False(t, dbIsOpen(t, database), "push chain handle must be closed on shutdown")
+	})
+}

@@ -502,6 +502,18 @@ func (c *Chains) ensurePushChain(ctx context.Context) error {
 		return fmt.Errorf("failed to get database for push chain: %w", err)
 	}
 
+	// Same ownership rule as addChain: the registry adopts the handle only once
+	// the client is live, and closes it on the way out of every other path.
+	adopted := false
+	defer func() {
+		if adopted {
+			return
+		}
+		if cerr := pushDB.Close(); cerr != nil {
+			c.logger.Warn().Err(cerr).Str("chain", c.pushChainID).Msg("failed to close database after unsuccessful push chain add")
+		}
+	}()
+
 	// Create a minimal chain config for push chain
 	// Push chain doesn't need gateway or other configs
 	pushConfig := &uregistrytypes.ChainConfig{
@@ -538,7 +550,9 @@ func (c *Chains) ensurePushChain(ctx context.Context) error {
 	c.chainsMu.Lock()
 	c.chains[c.pushChainID] = client
 	c.chainConfigs[c.pushChainID] = pushConfig
+	c.chainDBs[c.pushChainID] = pushDB
 	c.chainsMu.Unlock()
+	adopted = true
 
 	c.logger.Info().
 		Str("chain", c.pushChainID).

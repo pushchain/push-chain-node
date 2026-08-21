@@ -29,7 +29,27 @@ const (
 
 // ParseEvent parses a log into a store.Event based on the event type.
 // eventType should be one of: sendFunds, executeUniversalTx, revertUniversalTx.
-func ParseEvent(log *types.Log, eventType string, chainID string, logger zerolog.Logger) *store.Event {
+//
+// A panic in the decoders is contained here rather than allowed to unwind. Log
+// data is supplied by an RPC and the listener runs on a background goroutine, so
+// an unrecovered panic would take down every chain and the TSS node with it. A
+// log we cannot decode is skipped like any other undecodable one.
+func ParseEvent(log *types.Log, eventType string, chainID string, logger zerolog.Logger) (event *store.Event) {
+	defer func() {
+		if r := recover(); r != nil {
+			event = nil
+			logger.Error().
+				Interface("panic", r).
+				Str("event_type", eventType).
+				Str("tx_hash", log.TxHash.Hex()).
+				Uint("log_index", log.Index).
+				Msg("panic while decoding log; skipping it")
+		}
+	}()
+	return parseEvent(log, eventType, chainID, logger)
+}
+
+func parseEvent(log *types.Log, eventType string, chainID string, logger zerolog.Logger) *store.Event {
 	if len(log.Topics) == 0 {
 		return nil
 	}
@@ -175,17 +195,24 @@ func parseUniversalTxEvent(event *store.Event, log *types.Log, chainID string, l
 }
 
 // readDynamicBytes decodes ABI-encoded dynamic bytes at the given absolute offset in data.
+//
+// Both absOff and the length word are attacker-controlled: they come from the
+// log data an RPC returns. Bounds are therefore checked by subtracting from the
+// buffer length rather than adding to the offset — absOff+32 and dataStart+byteLen
+// each wrap on a near-2^64 word and would pass an additive guard, then panic on
+// the slice.
 func readDynamicBytes(data []byte, absOff uint64) (string, bool) {
-	if absOff+32 > uint64(len(data)) {
+	n := uint64(len(data))
+	if absOff > n || n-absOff < 32 {
 		return "", false
 	}
 	byteLen := new(big.Int).SetBytes(data[absOff : absOff+32]).Uint64()
-	dataStart := absOff + 32
-	dataEnd := dataStart + byteLen
-	if dataEnd > uint64(len(data)) {
+
+	dataStart := absOff + 32 // safe: absOff+32 <= n was just established
+	if n-dataStart < byteLen {
 		return "", false
 	}
-	return "0x" + hex.EncodeToString(data[dataStart:dataEnd]), true
+	return "0x" + hex.EncodeToString(data[dataStart:dataStart+byteLen]), true
 }
 
 // readWord returns the i-th 32-byte word from data, or nil if out of bounds.
@@ -278,5 +305,3 @@ func parseUniversalTx(event *store.Event, log *types.Log, dataOffset uint64, pay
 
 	finalizeEvent(event, payload, logger)
 }
-
-

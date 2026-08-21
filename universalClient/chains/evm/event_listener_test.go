@@ -2,6 +2,13 @@ package evm
 
 import (
 	"context"
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strconv"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -415,4 +422,139 @@ func TestEventListener_ContextCancellationStopsGoroutine(t *testing.T) {
 	// Stop to clean up
 	el.Stop()
 	assert.False(t, el.IsRunning())
+}
+
+// logQueryServer serves eth_getLogs, rejecting any query whose block span exceeds
+// maxSpan the way a provider rejects an over-large result set, and recording the
+// spans it was asked for so tests can assert how the client adapted.
+type logQueryServer struct {
+	maxSpan  uint64
+	failFrom uint64 // when non-zero, always reject queries starting at or after this block
+	mu       sync.Mutex
+	asked    [][2]uint64
+}
+
+func (s *logQueryServer) record(from, to uint64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.asked = append(s.asked, [2]uint64{from, to})
+}
+
+func (s *logQueryServer) spans() [][2]uint64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([][2]uint64(nil), s.asked...)
+}
+
+func (s *logQueryServer) start(t *testing.T) *RPCClient {
+	t.Helper()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		w.Header().Set("Content-Type", "application/json")
+
+		if !strings.Contains(string(body), "eth_getLogs") {
+			_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":"0x1"}`))
+			return
+		}
+
+		var req struct {
+			Params []struct {
+				FromBlock string `json:"fromBlock"`
+				ToBlock   string `json:"toBlock"`
+			} `json:"params"`
+		}
+		_ = json.Unmarshal(body, &req)
+		from, _ := strconv.ParseUint(strings.TrimPrefix(req.Params[0].FromBlock, "0x"), 16, 64)
+		to, _ := strconv.ParseUint(strings.TrimPrefix(req.Params[0].ToBlock, "0x"), 16, 64)
+		s.record(from, to)
+
+		overSpan := to-from+1 > s.maxSpan
+		stuck := s.failFrom != 0 && from >= s.failFrom
+		if overSpan || stuck {
+			_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"error":{"code":-32005,"message":"query returned more than 10000 results"}}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":[]}`))
+	}))
+	t.Cleanup(srv.Close)
+
+	rpcClient, err := NewRPCClient([]string{srv.URL}, 1, zerolog.Nop())
+	require.NoError(t, err)
+	t.Cleanup(rpcClient.Close)
+	return rpcClient
+}
+
+func newRangeListener(t *testing.T, rpcClient *RPCClient) *EventListener {
+	t.Helper()
+	el, err := NewEventListener(rpcClient, "0x1111111111111111111111111111111111111111",
+		"0x2222222222222222222222222222222222222222", "eip155:1", nil, nil, testDB(t), 10, nil, zerolog.Nop())
+	require.NoError(t, err)
+	return el
+}
+
+// Providers cap the result set, not the block count, so a dense window is
+// rejected at a span that is normally fine. A fixed span retries the same
+// rejected query forever and the cursor never moves past it.
+func TestProcessBlockRange_ShrinksSpanUntilTheQueryFits(t *testing.T) {
+	srv := &logQueryServer{maxSpan: 1000} // anything wider than 1000 blocks is rejected
+	el := newRangeListener(t, srv.start(t))
+
+	next, err := el.processBlockRange(context.Background(), 1, 2000, nil)
+	require.NoError(t, err)
+	assert.Equal(t, uint64(2001), next, "the whole range must end up covered")
+
+	spans := srv.spans()
+	require.NotEmpty(t, spans)
+
+	// The first attempt is optimistic, and every retry restarts at the same block
+	// rather than skipping the blocks that were rejected.
+	assert.Equal(t, uint64(1), spans[0][0])
+	assert.Equal(t, uint64(2000), spans[0][1], "first attempt spans the whole range")
+
+	var widths []uint64
+	for _, s := range spans {
+		if s[0] == 1 {
+			widths = append(widths, s[1]-s[0]+1)
+		}
+	}
+	require.Greater(t, len(widths), 1, "must retry the same start over a smaller span")
+	for i := 1; i < len(widths); i++ {
+		assert.Less(t, widths[i], widths[i-1], "each retry must be narrower")
+	}
+}
+
+// A window that cannot be read even at the floor must not be stepped over:
+// the blocks may contain deposits, and skipping them loses those permanently.
+func TestProcessBlockRange_DoesNotSkipAnUnreadableWindow(t *testing.T) {
+	srv := &logQueryServer{maxSpan: maxBlockRange, failFrom: 1} // every query fails
+	el := newRangeListener(t, srv.start(t))
+
+	next, err := el.processBlockRange(context.Background(), 1, 500, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "minimum span")
+	assert.Equal(t, uint64(1), next, "cursor must stay put, not advance past unread blocks")
+}
+
+// Work already done must be committed. Holding the cursor at the start would
+// re-read the earlier chunks on every tick, so one bad window would sit in front
+// of everything behind it.
+func TestProcessBlockRange_ReportsPartialProgressOnFailure(t *testing.T) {
+	// First 9000 blocks are readable; anything from 9001 always fails.
+	srv := &logQueryServer{maxSpan: maxBlockRange, failFrom: 9001}
+	el := newRangeListener(t, srv.start(t))
+
+	next, err := el.processBlockRange(context.Background(), 1, 20000, nil)
+	require.Error(t, err)
+	assert.Equal(t, uint64(9001), next, "must report the first block it could not cover")
+}
+
+func TestProcessBlockRange_SinglePassWhenNothingIsRejected(t *testing.T) {
+	srv := &logQueryServer{maxSpan: maxBlockRange}
+	el := newRangeListener(t, srv.start(t))
+
+	next, err := el.processBlockRange(context.Background(), 1, 500, nil)
+	require.NoError(t, err)
+	assert.Equal(t, uint64(501), next)
+	assert.Len(t, srv.spans(), 1, "a range that fits must not be split")
 }

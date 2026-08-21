@@ -18,7 +18,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	cosmosevmante "github.com/cosmos/evm/ante"
 
 	"github.com/pushchain/push-chain-node/app/ante"
 	appparams "github.com/pushchain/push-chain-node/app/params"
@@ -142,7 +141,7 @@ func buildSignedTx(t *testing.T, encCfg appparams.EncodingConfig, msg sdk.Msg, d
 func newSignerBindingDecorator(t *testing.T, encCfg appparams.EncodingConfig) (ante.AccountInitDecorator, *mockAccountKeeperAnte) {
 	t.Helper()
 	ak := newMockAccountKeeperAnte(sdk.AccAddress([]byte("feeCollector")))
-	return ante.NewAccountInitDecorator(ak, encCfg.TxConfig.SignModeHandler(), cosmosevmante.SigVerificationGasConsumer), ak
+	return ante.NewAccountInitDecorator(ak, encCfg.TxConfig.SignModeHandler()), ak
 }
 
 // TestAccountInitDecorator_RejectsAliasedModuleSigner is the regression test for
@@ -297,4 +296,3 @@ func TestAccountInitDecorator_EnforcesSignatureLimit(t *testing.T) {
 	require.True(t, sdkerrors.ErrTooManySignatures.Is(err), "expected ErrTooManySignatures, got: %v", err)
 	require.False(t, ak.HasAccount(context.Background(), signer))
 }
-

@@ -9,37 +9,24 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 
 	errorsmod "cosmossdk.io/errors"
-	storetypes "cosmossdk.io/store/types"
 	txsigning "cosmossdk.io/x/tx/signing"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	"github.com/cosmos/cosmos-sdk/x/auth/ante"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
-	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	txpolicy "github.com/pushchain/push-chain-node/app/txpolicy"
 )
 
 type AccountInitDecorator struct {
 	ak              AccountKeeper
 	signModeHandler *txsigning.HandlerMap
-	sigGasConsumer  SignatureVerificationGasConsumer
 }
 
-// SignatureVerificationGasConsumer charges gas for a single signature, matching
-// the ante.SignatureVerificationGasConsumer contract used by the SDK's
-// SigGasConsumeDecorator.
-type SignatureVerificationGasConsumer func(meter storetypes.GasMeter, sig signing.SignatureV2, params authtypes.Params) error
-
-func NewAccountInitDecorator(ak AccountKeeper, signModeHandler *txsigning.HandlerMap, sigGasConsumer SignatureVerificationGasConsumer) AccountInitDecorator {
-	if sigGasConsumer == nil {
-		sigGasConsumer = ante.DefaultSigVerificationGasConsumer
-	}
-
+func NewAccountInitDecorator(ak AccountKeeper, signModeHandler *txsigning.HandlerMap) AccountInitDecorator {
 	return AccountInitDecorator{
 		ak:              ak,
 		signModeHandler: signModeHandler,
-		sigGasConsumer:  sigGasConsumer,
 	}
 }
 
@@ -122,9 +109,11 @@ func (aid AccountInitDecorator) verifySignatureForNewAccount(ctx sdk.Context, tx
 
 	// Enforce the signature count limit before doing any verification work.
 	// This decorator short-circuits the ante chain for new accounts, so
-	// ante.ValidateSigCountDecorator never runs for them; without this an
-	// unpriced gasless tx could carry an arbitrarily large multisig key and
-	// force the node to verify every sub-signature for free.
+	// ante.ValidateSigCountDecorator never runs for them; without this hard cap
+	// a gasless tx could carry an arbitrarily large multisig key and force the
+	// node to verify every sub-signature. Gas is deliberately NOT consumed here:
+	// gasless txs skip fee deduction entirely, so charging gas would cost an
+	// attacker nothing - the count cap is what actually bounds the work.
 	sigCount := 0
 	for _, sig := range sigs {
 		if sig.PubKey == nil {
@@ -160,16 +149,6 @@ func (aid AccountInitDecorator) verifySignatureForNewAccount(ctx sdk.Context, tx
 		if !simulate && ctx.IsSigverifyTx() && !bytes.Equal(pubKey.Address().Bytes(), signers[i]) {
 			return errorsmod.Wrapf(sdkerrors.ErrInvalidPubKey,
 				"pubKey does not match signer address %s with signer index: %d", sdk.AccAddress(signers[i]).String(), i)
-		}
-
-		// Charge gas for the signature, as ante.SigGasConsumeDecorator would
-		// have done had the ante chain not been short-circuited.
-		if err := aid.sigGasConsumer(ctx.GasMeter(), signing.SignatureV2{
-			PubKey:   pubKey,
-			Data:     sig.Data,
-			Sequence: sig.Sequence,
-		}, params); err != nil {
-			return err
 		}
 
 		// retrieve signer data

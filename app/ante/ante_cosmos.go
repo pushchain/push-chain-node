@@ -44,9 +44,9 @@ func NewCosmosAnteHandler(ctx sdk.Context, options HandlerOptions) sdk.AnteHandl
 		// - this
 		// 1. generates the account for the new accounts only for gasless transactions,
 		// 2. binds the declared signer to the signing key, enforces the signature
-		//    count limit, charges signature gas and verifies the sig, and
+		//    count limit and verifies the sig, and
 		// 3. bypasses the rest of the ante chain
-		NewAccountInitDecorator(options.AccountKeeper, options.SignModeHandler, options.SigGasConsumer),
+		NewAccountInitDecorator(options.AccountKeeper, options.SignModeHandler),
 		// SetPubKeyDecorator must be called before all signature verification decorators
 		ante.NewSetPubKeyDecorator(options.AccountKeeper),
 		ante.NewValidateSigCountDecorator(options.AccountKeeper),

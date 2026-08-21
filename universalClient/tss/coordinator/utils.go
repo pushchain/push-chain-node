@@ -80,13 +80,26 @@ func selectRandomThreshold(eligible []*types.UniversalValidator) []*types.Univer
 		return eligible
 	}
 
-	// Randomly select at least minRequired participants
-	// Shuffle and take first minRequired
+	return selectRandomSubset(eligible, minRequired)
+}
+
+// selectRandomSubset returns a random n of eligible, or all of them when there
+// are no more than n. Used where the required count is not derived from the
+// input, such as fund migration, where the quorum belongs to the old key rather
+// than to the set of validators still holding its shares.
+func selectRandomSubset(eligible []*types.UniversalValidator, n int) []*types.UniversalValidator {
+	if len(eligible) == 0 || n <= 0 {
+		return nil
+	}
+	if len(eligible) <= n {
+		return eligible
+	}
+
 	shuffled := make([]*types.UniversalValidator, len(eligible))
 	copy(shuffled, eligible)
 	rand.Shuffle(len(shuffled), func(i, j int) {
 		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
 	})
 
-	return shuffled[:minRequired]
+	return shuffled[:n]
 }

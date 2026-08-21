@@ -63,6 +63,10 @@ func (m *mockPushCore) GetCurrentKey(_ context.Context) (*utsstypes.TssKey, erro
 	return &utsstypes.TssKey{KeyId: "test-key"}, nil
 }
 
+func (m *mockPushCore) GetKeyByID(_ context.Context, keyID string) (*utsstypes.TssKey, error) {
+	return &utsstypes.TssKey{KeyId: keyID}, nil
+}
+
 func (m *mockPushCore) GetAllUniversalValidators(_ context.Context) ([]*types.UniversalValidator, error) {
 	return nil, nil
 }

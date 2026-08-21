@@ -1123,6 +1123,10 @@ type stalenessMockPushCore struct {
 	block      uint64
 	validators []*types.UniversalValidator
 	failGetAll bool
+
+	// Old key history, consulted when selecting fund migration signers.
+	keysByID map[string]*utsstypes.TssKey
+	keyErr   error
 }
 
 func (m *stalenessMockPushCore) GetLatestBlock(_ context.Context) (uint64, error) {
@@ -1131,6 +1135,13 @@ func (m *stalenessMockPushCore) GetLatestBlock(_ context.Context) (uint64, error
 
 func (m *stalenessMockPushCore) GetCurrentKey(_ context.Context) (*utsstypes.TssKey, error) {
 	return &utsstypes.TssKey{KeyId: "test-key"}, nil
+}
+
+func (m *stalenessMockPushCore) GetKeyByID(_ context.Context, keyID string) (*utsstypes.TssKey, error) {
+	if m.keyErr != nil {
+		return nil, m.keyErr
+	}
+	return m.keysByID[keyID], nil
 }
 
 func (m *stalenessMockPushCore) GetAllUniversalValidators(_ context.Context) ([]*types.UniversalValidator, error) {

@@ -212,7 +212,7 @@ func readDynamicBytes(data []byte, absOff uint64) (string, bool) {
 	if n-dataStart < byteLen {
 		return "", false
 	}
-	return "0x" + hex.EncodeToString(data[dataStart : dataStart+byteLen]), true
+	return "0x" + hex.EncodeToString(data[dataStart:dataStart+byteLen]), true
 }
 
 // readWord returns the i-th 32-byte word from data, or nil if out of bounds.
@@ -305,5 +305,3 @@ func parseUniversalTx(event *store.Event, log *types.Log, dataOffset uint64, pay
 
 	finalizeEvent(event, payload, logger)
 }
-
-

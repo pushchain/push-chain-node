@@ -212,6 +212,7 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 		var contractReceipt *evmtypes.MsgEthereumTxResponse
 		var contractErr error
 		var feeErr error
+		var attachErr error
 
 		if tcErr != nil {
 			contractErr = fmt.Errorf("token config lookup failed: %w", tcErr)
@@ -250,7 +251,21 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 				if contractErr == nil {
 					feeErr = k.DeductGasFeesFromReceipt(cacheCtx, cacheCtx, ueaAddr, contractReceipt, utx.InboundTx.UniversalPayload)
 					if feeErr == nil {
-						writeCache()
+						// A successful callback may itself have called
+						// UniversalGatewayPC, burning PRC20 and emitting
+						// UniversalTxOutbound. DerivedEVMCall skips
+						// PostTxProcessing, so nothing else picks those logs up:
+						// without this attach the supply is burned and no
+						// OutboundTx / PendingOutbounds row is ever created.
+						// Attaching inside cacheCtx keeps the burn and the
+						// outbound rows atomic - if the attach fails the cache
+						// is discarded, rolling the burn back with it.
+						if contractReceipt != nil {
+							attachErr = k.AttachOutboundsToExistingUniversalTx(cacheCtx, contractReceipt, utx)
+						}
+						if attachErr == nil {
+							writeCache()
+						}
 					}
 				}
 			}
@@ -270,6 +285,8 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 			callPcTx.ErrorMsg = contractErr.Error()
 		case feeErr != nil:
 			callPcTx.ErrorMsg = fmt.Sprintf("gas fee deduction failed: %s", feeErr.Error())
+		case attachErr != nil:
+			callPcTx.ErrorMsg = fmt.Sprintf("outbound attach failed: %s", attachErr.Error())
 		default:
 			callPcTx.Status = "SUCCESS"
 		}

@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -429,9 +430,10 @@ func TestEventListener_ContextCancellationStopsGoroutine(t *testing.T) {
 // spans it was asked for so tests can assert how the client adapted.
 type logQueryServer struct {
 	maxSpan  uint64
-	failFrom uint64 // when non-zero, always reject queries starting at or after this block
+	failFrom uint64 // when non-zero, reject any query overlapping this block onwards
 	mu       sync.Mutex
 	asked    [][2]uint64
+	served   [][2]uint64 // only the queries that actually returned logs
 }
 
 func (s *logQueryServer) record(from, to uint64) {
@@ -444,6 +446,18 @@ func (s *logQueryServer) spans() [][2]uint64 {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return append([][2]uint64(nil), s.asked...)
+}
+
+func (s *logQueryServer) servedSpans() [][2]uint64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([][2]uint64(nil), s.served...)
+}
+
+func (s *logQueryServer) recordServed(from, to uint64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.served = append(s.served, [2]uint64{from, to})
 }
 
 func (s *logQueryServer) start(t *testing.T) *RPCClient {
@@ -470,11 +484,12 @@ func (s *logQueryServer) start(t *testing.T) *RPCClient {
 		s.record(from, to)
 
 		overSpan := to-from+1 > s.maxSpan
-		stuck := s.failFrom != 0 && from >= s.failFrom
+		stuck := s.failFrom != 0 && to >= s.failFrom
 		if overSpan || stuck {
 			_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"error":{"code":-32005,"message":"query returned more than 10000 results"}}`))
 			return
 		}
+		s.recordServed(from, to)
 		_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":[]}`))
 	}))
 	t.Cleanup(srv.Close)
@@ -557,4 +572,100 @@ func TestProcessBlockRange_SinglePassWhenNothingIsRejected(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, uint64(501), next)
 	assert.Len(t, srv.spans(), 1, "a range that fits must not be split")
+}
+
+// assertExactCoverage checks that the served queries tile [from,to] with no gap
+// and no block fetched twice. A gap is a block whose logs are never read, which
+// for an inbound is a deposit nobody observes.
+func assertExactCoverage(t *testing.T, served [][2]uint64, from, to uint64) {
+	t.Helper()
+
+	sort.Slice(served, func(i, j int) bool { return served[i][0] < served[j][0] })
+
+	require.NotEmpty(t, served, "nothing was fetched for %d-%d", from, to)
+	assert.Equal(t, from, served[0][0], "coverage must start at the first block")
+	assert.Equal(t, to, served[len(served)-1][1], "coverage must end at the last block")
+
+	for i := 1; i < len(served); i++ {
+		prevEnd, thisStart := served[i-1][1], served[i][0]
+		assert.Equal(t, prevEnd+1, thisStart,
+			"chunk %d starts at %d but the previous ended at %d", i, thisStart, prevEnd)
+	}
+
+	var covered uint64
+	for _, c := range served {
+		require.LessOrEqual(t, c[0], c[1], "chunk %d-%d is inverted", c[0], c[1])
+		covered += c[1] - c[0] + 1
+	}
+	assert.Equal(t, to-from+1, covered, "total blocks covered must equal the range size")
+}
+
+// Every block in the range must be fetched exactly once, whatever the span ends
+// up being. Off-by-one at a chunk boundary would silently skip a block.
+func TestProcessBlockRange_CoversEveryBlockExactlyOnce(t *testing.T) {
+	cases := []struct {
+		name       string
+		from, to   uint64
+		serverSpan uint64 // widest query the server will accept
+	}{
+		{"single block", 1, 1, maxBlockRange},
+		{"single block at zero", 0, 0, maxBlockRange},
+		{"range starting at zero", 0, 500, maxBlockRange},
+		{"exactly one full span", 1, maxBlockRange, maxBlockRange},
+		{"one block past a full span", 1, maxBlockRange + 1, maxBlockRange},
+		{"one block short of a full span", 1, maxBlockRange - 1, maxBlockRange},
+		{"several full spans", 1, maxBlockRange * 3, maxBlockRange},
+		{"several spans plus a remainder", 1, maxBlockRange*2 + 137, maxBlockRange},
+		{"forced shrink, divisible", 1, 2000, 1000},
+		{"forced shrink, not divisible", 1, 2500, 333},
+		{"forced shrink to the floor", 1, 1000, minBlockRange},
+		{"shrink with an odd start", 4097, 9999, 700},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := &logQueryServer{maxSpan: tc.serverSpan}
+			el := newRangeListener(t, srv.start(t))
+
+			next, err := el.processBlockRange(context.Background(), tc.from, tc.to, nil)
+			require.NoError(t, err)
+			assert.Equal(t, tc.to+1, next, "must report the range as fully covered")
+
+			assertExactCoverage(t, srv.servedSpans(), tc.from, tc.to)
+		})
+	}
+}
+
+// After a shrink the walk continues at the smaller span. The blocks either side
+// of the failure boundary must still be covered exactly once.
+func TestProcessBlockRange_NoGapAroundAShrink(t *testing.T) {
+	srv := &logQueryServer{maxSpan: 750}
+	el := newRangeListener(t, srv.start(t))
+
+	next, err := el.processBlockRange(context.Background(), 100, 3100, nil)
+	require.NoError(t, err)
+	assert.Equal(t, uint64(3101), next)
+
+	assertExactCoverage(t, srv.servedSpans(), 100, 3100)
+}
+
+// Across successive polls the caller resumes from the block the previous call
+// reported, so a partial range must hand back a boundary that leaves no hole.
+func TestProcessBlockRange_ResumeAfterPartialLeavesNoGap(t *testing.T) {
+	// Blocks from 5001 are unreadable, so the first call stops there.
+	srv := &logQueryServer{maxSpan: maxBlockRange, failFrom: 5001}
+	el := newRangeListener(t, srv.start(t))
+
+	next, err := el.processBlockRange(context.Background(), 1, 8000, nil)
+	require.Error(t, err)
+	assertExactCoverage(t, srv.servedSpans(), 1, next-1)
+
+	// The obstruction clears and the caller resumes from where it stopped.
+	srv2 := &logQueryServer{maxSpan: maxBlockRange}
+	el2 := newRangeListener(t, srv2.start(t))
+
+	final, err := el2.processBlockRange(context.Background(), next, 8000, nil)
+	require.NoError(t, err)
+	assert.Equal(t, uint64(8001), final)
+	assertExactCoverage(t, srv2.servedSpans(), next, 8000)
 }

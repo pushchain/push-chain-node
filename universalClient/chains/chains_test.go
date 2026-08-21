@@ -12,6 +12,7 @@ import (
 
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/config"
+	"github.com/pushchain/push-chain-node/universalClient/db"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
@@ -1665,8 +1666,8 @@ func TestNewChains_ConfigPreserved(t *testing.T) {
 	t.Run("preserves all config fields", func(t *testing.T) {
 		logger := zerolog.Nop()
 		cfg := &config.Config{
-			PushChainID:                 "push:1",
-			NodeHome:                    "/tmp/test",
+			PushChainID:                  "push:1",
+			NodeHome:                     "/tmp/test",
 			ConfigRefreshIntervalSeconds: 30,
 		}
 
@@ -1738,4 +1739,131 @@ func TestDetermineChainAction_PushChainID(t *testing.T) {
 		action := c.determineChainAction(cfg)
 		assert.Equal(t, chainActionAdd, action)
 	})
+}
+
+// dbIsOpen reports whether the handle still answers queries. A closed *db.DB
+// errors on use, which is how these tests tell a released handle from a leaked one.
+func dbIsOpen(t *testing.T, database *db.DB) bool {
+	t.Helper()
+	sqlDB, err := database.Client().DB()
+	if err != nil {
+		return false
+	}
+	return sqlDB.Ping() == nil
+}
+
+// A chain that drops out of the registry is removed under the write lock, so the
+// stale sweep must not still be holding the read lock when it calls removeChain.
+// sync.RWMutex is not reentrant: doing so parks the refresh goroutine forever
+// and every later reader of the registry blocks behind it.
+func TestFetchAndUpdate_StaleRemovalDoesNotDeadlock(t *testing.T) {
+	c := newTestChains()
+	c.chains["eip155:1"] = &mockChainClient{}
+	c.chainConfigs["eip155:1"] = &uregistrytypes.ChainConfig{Chain: "eip155:1"}
+
+	// Drive the stale sweep directly: the chain is absent from seenChains, which
+	// is what a delisted chain looks like on the next config fetch.
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		c.removeStaleChains(map[string]bool{c.pushChainID: true})
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("stale removal deadlocked: removeChain was called while the read lock was held")
+	}
+
+	// The registry must be usable afterwards, not left with a held lock.
+	acquired := make(chan struct{})
+	go func() {
+		c.chainsMu.Lock()
+		c.chainsMu.Unlock()
+		close(acquired)
+	}()
+	select {
+	case <-acquired:
+	case <-time.After(5 * time.Second):
+		t.Fatal("chainsMu still held after the stale sweep")
+	}
+
+	_, err := c.GetClient("eip155:1")
+	assert.Error(t, err, "the delisted chain should be gone")
+}
+
+// Every getChainDB call opens a fresh pool, so a handle that is dropped rather
+// than closed keeps its descriptors for the life of the process. A chain that
+// cannot start is retried on every refresh tick, which turns that into growth.
+func TestAddChain_ClosesDatabaseWhenTheChainCannotStart(t *testing.T) {
+	c := newTestChains()
+	c.config.NodeHome = t.TempDir()
+
+	// An unsupported VM type fails after the database has been opened.
+	cfg := &uregistrytypes.ChainConfig{
+		Chain:   "eip155:99",
+		VmType:  uregistrytypes.VmType(9999),
+		Enabled: &uregistrytypes.ChainEnabled{IsInboundEnabled: true},
+	}
+
+	// Capture every handle addChain opens so we can assert each was released.
+	var opened []*db.DB
+	realOpen := c.openDB
+	c.openDB = func(dir, filename string, migrate bool) (*db.DB, error) {
+		database, err := realOpen(dir, filename, migrate)
+		if err == nil {
+			opened = append(opened, database)
+		}
+		return database, err
+	}
+
+	for i := 0; i < 5; i++ { // five refresh ticks with the same broken config
+		err := c.addChain(context.Background(), cfg)
+		require.Error(t, err)
+	}
+
+	require.Len(t, opened, 5, "each attempt opens its own handle")
+	for i, database := range opened {
+		assert.False(t, dbIsOpen(t, database),
+			"handle from attempt %d leaked; a persistent misconfiguration would grow one per tick", i)
+	}
+	assert.NotContains(t, c.chains, "eip155:99")
+}
+
+// Removal has to release the handle too, not just drop the map entry.
+func TestRemoveChain_ClosesTheDatabase(t *testing.T) {
+	c := newTestChains()
+	database, err := db.OpenFileDB(t.TempDir(), "eip155_1.db", true)
+	require.NoError(t, err)
+
+	c.chains["eip155:1"] = &mockChainClient{}
+	c.chainConfigs["eip155:1"] = &uregistrytypes.ChainConfig{Chain: "eip155:1"}
+	c.chainDBs["eip155:1"] = database
+	require.True(t, dbIsOpen(t, database))
+
+	require.NoError(t, c.removeChain("eip155:1"))
+
+	assert.False(t, dbIsOpen(t, database), "removal must close the handle")
+	assert.NotContains(t, c.chainDBs, "eip155:1")
+}
+
+func TestStopAll_ClosesEveryDatabase(t *testing.T) {
+	c := newTestChains()
+	dir := t.TempDir()
+
+	var opened []*db.DB
+	for _, id := range []string{"eip155:1", "eip155:2"} {
+		database, err := db.OpenFileDB(dir, sanitizeChainID(id)+".db", true)
+		require.NoError(t, err)
+		c.chains[id] = &mockChainClient{}
+		c.chainDBs[id] = database
+		opened = append(opened, database)
+	}
+
+	c.StopAll()
+
+	for i, database := range opened {
+		assert.False(t, dbIsOpen(t, database), "handle %d must be closed", i)
+	}
+	assert.Empty(t, c.chainDBs)
 }

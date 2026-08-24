@@ -17,6 +17,13 @@ import (
 // (recovered by baseapp, so the tx just fails).
 const legacyUSigVerifierAddress = "0x00000000000000000000000000000000000000ca"
 
+// legacyUtxHashVerifierAddress is the other stale entry: the utxhashverifier
+// precompile has no implementation anywhere in the tree, and the
+// remove-utxverifier upgrade strips it from live chains. Leaving it in genesis
+// would re-introduce on every fresh chain exactly the address that upgrade
+// exists to remove.
+const legacyUtxHashVerifierAddress = "0x00000000000000000000000000000000000000cb"
+
 // TestGenesisScriptsActivateCurrentVerifier guards the genesis half of
 // F-2026-18829: a fresh chain must activate the address the verifier is actually
 // registered at, and must not declare the legacy one.
@@ -46,6 +53,8 @@ func TestGenesisScriptsActivateCurrentVerifier(t *testing.T) {
 
 			require.NotContains(t, strings.ToLower(line), strings.ToLower(legacyUSigVerifierAddress),
 				"genesis must not declare the legacy verifier address, nothing is registered at it")
+			require.NotContains(t, strings.ToLower(line), strings.ToLower(legacyUtxHashVerifierAddress),
+				"genesis must not declare the utxhashverifier address, nothing is registered at it")
 			require.Contains(t, strings.ToLower(line),
 				strings.ToLower(usigverifierprecompile.USigVerifierPrecompileAddress),
 				"genesis must activate the verifier address the node registers")

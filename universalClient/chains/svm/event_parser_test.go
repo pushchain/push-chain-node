@@ -23,18 +23,19 @@ func nopLogger() zerolog.Logger {
 // parseSendFundsEvent / decodeUniversalTxEvent call.
 //
 // Layout (Borsh):
-//   discriminator  8  bytes
-//   sender        32  bytes (Pubkey)
-//   recipient     20  bytes (byte20)
-//   bridge_token  32  bytes (Pubkey)
-//   bridge_amount  8  bytes (u64 LE)
-//   data_len       4  bytes (u32 LE)
-//   data           variable
-//   revert_recip  32  bytes (Pubkey)
-//   tx_type        1  byte
-//   sig_len        4  bytes (u32 LE)
-//   sig_data       variable
-//   fromCEA        1  byte
+//
+//	discriminator  8  bytes
+//	sender        32  bytes (Pubkey)
+//	recipient     20  bytes (byte20)
+//	bridge_token  32  bytes (Pubkey)
+//	bridge_amount  8  bytes (u64 LE)
+//	data_len       4  bytes (u32 LE)
+//	data           variable
+//	revert_recip  32  bytes (Pubkey)
+//	tx_type        1  byte
+//	sig_len        4  bytes (u32 LE)
+//	sig_data       variable
+//	fromCEA        1  byte
 func buildSendFundsPayload(
 	sender [32]byte,
 	recipient [20]byte,
@@ -116,12 +117,12 @@ func TestBase58ToHex(t *testing.T) {
 		},
 		{
 			name:  "known base58 value",
-			input: "1",   // base58 "1" decodes to a single 0x00 byte
+			input: "1", // base58 "1" decodes to a single 0x00 byte
 			want:  "0x00",
 		},
 		{
 			name:  "known base58 multi-byte",
-			input: "2g",  // base58 "2g" decodes to 0x61
+			input: "2g", // base58 "2g" decodes to 0x61
 			want:  "0x61",
 		},
 		{
@@ -345,22 +346,30 @@ func TestParseSendFundsEvent_TruncatedData(t *testing.T) {
 	chainID := "solana:devnet"
 	sig := "truncSig"
 
-	t.Run("data too short for sender returns event with nil EventData", func(t *testing.T) {
+	// A truncated event is discarded rather than stored. Every field it fails to
+	// reach would otherwise be left at its zero value, and tx_type 0 is GAS,
+	// which credits the sender UEA instead of depositing to the recipient.
+	t.Run("data too short for sender is discarded", func(t *testing.T) {
 		// Only discriminator (8 bytes), no sender
 		data := make([]byte, 8)
 		event := ParseEvent(wrapAsLog(data), sig, 1, 0, EventTypeSendFunds, chainID, logger)
-		require.NotNil(t, event)
-		// Event is created but parseUniversalTxEvent will fail to decode,
-		// so EventData may be nil
-		assert.Equal(t, store.EventTypeInbound, event.Type)
+		assert.Nil(t, event)
 	})
 
-	t.Run("data truncated after sender still returns event", func(t *testing.T) {
+	t.Run("data truncated after sender is discarded", func(t *testing.T) {
 		// 8 disc + 32 sender = 40 bytes, missing recipient
 		data := make([]byte, 40)
 		event := ParseEvent(wrapAsLog(data), sig, 1, 0, EventTypeSendFunds, chainID, logger)
-		require.NotNil(t, event)
-		assert.Equal(t, store.EventTypeInbound, event.Type)
+		assert.Nil(t, event)
+	})
+
+	t.Run("truncated one byte before tx_type is discarded", func(t *testing.T) {
+		// Everything through revert_recipient, then nothing. This is the exact
+		// shape that used to decode as TxType 0 and route to GAS.
+		data := make([]byte, 136)
+		binary.LittleEndian.PutUint32(data[100:104], 0)
+		event := ParseEvent(wrapAsLog(data), sig, 1, 0, EventTypeSendFunds, chainID, logger)
+		assert.Nil(t, event)
 	})
 }
 
@@ -582,42 +591,76 @@ func TestDecodeUniversalTxEvent_PartialData(t *testing.T) {
 		assert.Contains(t, err.Error(), "bridge_amount")
 	})
 
-	t.Run("returns partial result when no data field length", func(t *testing.T) {
+	// Everything through signature_data is required. Returning a partial result
+	// leaves tx_type at 0, which is GAS on the wire, so a truncated FUNDS
+	// transfer would be credited to the sender UEA instead of the recipient.
+
+	t.Run("returns error when no data field length", func(t *testing.T) {
 		// 8 + 32 + 20 + 32 + 8 = 100, no data_len
 		data := make([]byte, 100)
 		binary.LittleEndian.PutUint64(data[92:100], 777)
-		result, err := decodeUniversalTxEvent(data, logger)
-		require.NoError(t, err)
-		assert.Equal(t, "777", result.Amount)
+		_, err := decodeUniversalTxEvent(data, logger)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "data field length")
 	})
 
-	t.Run("returns partial result when data field exceeds available bytes", func(t *testing.T) {
+	t.Run("returns error when data field exceeds available bytes", func(t *testing.T) {
 		// 8 + 32 + 20 + 32 + 8 + 4 = 104
 		data := make([]byte, 104)
 		binary.LittleEndian.PutUint64(data[92:100], 555)
 		binary.LittleEndian.PutUint32(data[100:104], 999) // claims 999 bytes of payload
-		result, err := decodeUniversalTxEvent(data, logger)
-		require.NoError(t, err)
-		assert.Equal(t, "555", result.Amount)
-		assert.Empty(t, result.RawPayload) // not enough data, so payload is skipped
+		_, err := decodeUniversalTxEvent(data, logger)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "claims 999 bytes")
 	})
 
-	t.Run("returns partial result when missing revert recipient", func(t *testing.T) {
+	t.Run("returns error when missing revert recipient", func(t *testing.T) {
 		// 8 + 32 + 20 + 32 + 8 + 4(data_len=0) = 104
 		data := make([]byte, 104)
 		binary.LittleEndian.PutUint32(data[100:104], 0) // 0 length payload
-		result, err := decodeUniversalTxEvent(data, logger)
-		require.NoError(t, err)
-		assert.Empty(t, result.RevertFundRecipient)
+		_, err := decodeUniversalTxEvent(data, logger)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "revert recipient")
 	})
 
-	t.Run("returns partial result when missing tx_type", func(t *testing.T) {
+	t.Run("returns error when missing tx_type rather than defaulting to GAS", func(t *testing.T) {
 		// 8 + 32 + 20 + 32 + 8 + 4(data_len=0) + 32(revert) = 136
 		data := make([]byte, 136)
 		binary.LittleEndian.PutUint32(data[100:104], 0)
+		_, err := decodeUniversalTxEvent(data, logger)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "tx_type")
+	})
+
+	t.Run("returns error when missing signature length", func(t *testing.T) {
+		// 136 + 1(tx_type) = 137, no signature length
+		data := make([]byte, 137)
+		binary.LittleEndian.PutUint32(data[100:104], 0)
+		data[136] = 2 // Funds
+		_, err := decodeUniversalTxEvent(data, logger)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "signature length")
+	})
+
+	t.Run("returns error when signature data exceeds available bytes", func(t *testing.T) {
+		data := make([]byte, 141)
+		binary.LittleEndian.PutUint32(data[100:104], 0)
+		data[136] = 2
+		binary.LittleEndian.PutUint32(data[137:141], 500)
+		_, err := decodeUniversalTxEvent(data, logger)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "claims 500 bytes")
+	})
+
+	t.Run("from_cea stays optional and defaults to false", func(t *testing.T) {
+		// 141 bytes: complete through signature_data, no from_cea byte.
+		data := make([]byte, 141)
+		binary.LittleEndian.PutUint32(data[100:104], 0)
+		data[136] = 2 // Funds
+		binary.LittleEndian.PutUint32(data[137:141], 0)
 		result, err := decodeUniversalTxEvent(data, logger)
 		require.NoError(t, err)
-		// tx_type defaults to 0 when missing
-		assert.Equal(t, uint(0), result.TxType)
+		assert.Equal(t, uint(2), result.TxType)
+		assert.False(t, result.FromCEA)
 	})
 }

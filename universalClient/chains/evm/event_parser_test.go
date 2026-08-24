@@ -183,7 +183,10 @@ func TestParseEventData(t *testing.T) {
 		assert.NotNil(t, event.EventData)
 	})
 
-	t.Run("handles missing data gracefully", func(t *testing.T) {
+	// A log too short to carry txType is discarded rather than stored with the
+	// field left at 0, which is GAS on the wire and routes to a different
+	// account than FUNDS does.
+	t.Run("discards a log with no data", func(t *testing.T) {
 		log := &types.Log{
 			Topics: []ethcommon.Hash{
 				ethcommon.HexToHash("0x1234"),
@@ -193,9 +196,29 @@ func TestParseEventData(t *testing.T) {
 			Data: []byte{}, // Empty data
 		}
 
-		event := ParseEvent(log, EventTypeSendFunds, config.Chain, logger)
-		// Should still create event but with minimal data
-		require.NotNil(t, event)
+		assert.Nil(t, ParseEvent(log, EventTypeSendFunds, config.Chain, logger))
+	})
+
+	t.Run("discards a log one word short of txType", func(t *testing.T) {
+		log := &types.Log{
+			Topics: []ethcommon.Hash{
+				ethcommon.HexToHash("0x1234"),
+				ethcommon.HexToHash("0x000000000000000000000000742d35cc6634c0532925a3b844bc9e7595f0beb7"),
+				ethcommon.HexToHash("0x000000000000000000000000dac17f958d2ee523a2206206994597c13d831ec7"),
+			},
+			Data: make([]byte, 32*4), // words 0..3 present, txType (word 4) missing
+		}
+
+		assert.Nil(t, ParseEvent(log, EventTypeSendFunds, config.Chain, logger))
+	})
+
+	t.Run("discards a log without the indexed fields", func(t *testing.T) {
+		log := &types.Log{
+			Topics: []ethcommon.Hash{ethcommon.HexToHash("0x1234")},
+			Data:   make([]byte, 32*8),
+		}
+
+		assert.Nil(t, ParseEvent(log, EventTypeSendFunds, config.Chain, logger))
 	})
 }
 

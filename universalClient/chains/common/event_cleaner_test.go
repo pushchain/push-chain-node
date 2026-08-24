@@ -75,8 +75,8 @@ func TestEventCleanerStruct(t *testing.T) {
 		assert.Nil(t, ec.database)
 		assert.Equal(t, time.Duration(0), ec.cleanupInterval)
 		assert.Equal(t, time.Duration(0), ec.retentionPeriod)
-		assert.Nil(t, ec.ticker)
 		assert.Nil(t, ec.stopCh)
+		assert.False(t, ec.running)
 	})
 }
 
@@ -250,7 +250,7 @@ func TestEventCleanerStart(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 
 		require.NoError(t, cleaner.Start(ctx))
-		require.NotNil(t, cleaner.ticker)
+		require.NotNil(t, cleaner.stopCh)
 
 		cancel()
 		time.Sleep(100 * time.Millisecond)

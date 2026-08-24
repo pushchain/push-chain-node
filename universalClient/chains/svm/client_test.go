@@ -255,7 +255,7 @@ func TestApplyDefaults_GasPriceOverride(t *testing.T) {
 	gasPriceInterval := 60
 	gasPriceMarkup := 20
 	chainSpecific := &config.ChainSpecificConfig{
-		RPCURLs:               []string{"https://rpc.example.com"},
+		RPCURLs:                 []string{"https://rpc.example.com"},
 		GasPriceIntervalSeconds: &gasPriceInterval,
 		GasPriceMarkupPercent:   &gasPriceMarkup,
 	}

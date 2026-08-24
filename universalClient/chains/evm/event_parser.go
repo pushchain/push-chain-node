@@ -95,8 +95,15 @@ func parseSendFundsEvent(log *types.Log, chainID string, logger zerolog.Logger) 
 		ExpiryBlockHeight: 0, // 0 means no expiry
 	}
 
-	// Parse universal tx event data
-	parseUniversalTxEvent(event, log, chainID, logger)
+	// Parse universal tx event data. A malformed event is dropped rather than
+	// stored half-decoded: the zero values it would carry are not neutral.
+	if err := parseUniversalTxEvent(event, log, chainID, logger); err != nil {
+		logger.Warn().
+			Err(err).
+			Str("event_id", eventID).
+			Msg("discarding malformed UniversalTx event")
+		return nil
+	}
 
 	return event
 }
@@ -167,10 +174,13 @@ func parseOutboundObservationEvent(log *types.Log, chainID string, logger zerolo
 }
 
 // parseUniversalTxEvent parses a UniversalTx event from log data.
-func parseUniversalTxEvent(event *store.Event, log *types.Log, chainID string, logger zerolog.Logger) {
+//
+// Static words through txType are required. A truncated log is rejected rather
+// than returned half-filled, since the zero values are not neutral: txType 0 is
+// GAS, which routes funds to a different account than FUNDS does.
+func parseUniversalTxEvent(event *store.Event, log *types.Log, chainID string, logger zerolog.Logger) error {
 	if len(log.Topics) < 3 {
-		logger.Warn().Msg("not enough indexed fields; nothing to do")
-		return
+		return fmt.Errorf("need 3 indexed fields, got %d", len(log.Topics))
 	}
 
 	payload := common.UniversalTx{
@@ -181,9 +191,7 @@ func parseUniversalTxEvent(event *store.Event, log *types.Log, chainID string, l
 	}
 
 	if len(log.Data) < 32*5 {
-		b, _ := json.Marshal(payload)
-		event.EventData = b
-		return
+		return fmt.Errorf("log data has %d bytes, need at least %d for the static words", len(log.Data), 32*5)
 	}
 
 	// Parse common static fields: token (Word 0), amount (Word 1)
@@ -191,7 +199,7 @@ func parseUniversalTxEvent(event *store.Event, log *types.Log, chainID string, l
 	payload.Amount = new(big.Int).SetBytes(log.Data[1*32 : 2*32]).String()
 
 	dataOffset := new(big.Int).SetBytes(log.Data[2*32 : 3*32]).Uint64()
-	parseUniversalTx(event, log, dataOffset, &payload, logger)
+	return parseUniversalTx(event, log, dataOffset, &payload, logger)
 }
 
 // readDynamicBytes decodes ABI-encoded dynamic bytes at the given absolute offset in data.
@@ -278,7 +286,7 @@ UniversalTx Event (V2 - upgraded chains):
   - signatureData (bytes)       — Word 5 (offset)
   - fromCEA (bool)              — Word 6
 */
-func parseUniversalTx(event *store.Event, log *types.Log, dataOffset uint64, payload *common.UniversalTx, logger zerolog.Logger) {
+func parseUniversalTx(event *store.Event, log *types.Log, dataOffset uint64, payload *common.UniversalTx, logger zerolog.Logger) error {
 	data := log.Data
 
 	decodePayload(data, dataOffset, payload, logger)
@@ -288,10 +296,9 @@ func parseUniversalTx(event *store.Event, log *types.Log, dataOffset uint64, pay
 		payload.RevertFundRecipient = ethcommon.BytesToAddress(w[12:32]).Hex()
 	}
 
-	// txType (Word 4)
-	if w := readWord(data, 4); w != nil {
-		payload.TxType = uint(new(big.Int).SetBytes(w).Uint64())
-	}
+	// txType (Word 4). Always present: the caller rejects anything shorter than
+	// five words, which is what stops this being left at 0 and read as GAS.
+	payload.TxType = uint(new(big.Int).SetBytes(readWord(data, 4)).Uint64())
 
 	// signatureData (Word 5 offset)
 	if w := readWord(data, 5); w != nil {
@@ -304,4 +311,5 @@ func parseUniversalTx(event *store.Event, log *types.Log, dataOffset uint64, pay
 	}
 
 	finalizeEvent(event, payload, logger)
+	return nil
 }

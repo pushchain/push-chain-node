@@ -249,21 +249,21 @@ func TestSelectParticipants_RoutesFundMigrateToShareholders(t *testing.T) {
 	})
 }
 
-// selectRandomSubset is what keeps the count tied to the old key rather than to
-// the surviving holders.
-func TestSelectRandomSubset(t *testing.T) {
+// The caller-supplied threshold is what keeps the count tied to the old key
+// rather than to the surviving holders.
+func TestSelectRandomThreshold_ExplicitCount(t *testing.T) {
 	all := validatorSet("v1", "v2", "v3", "v4", "v5")
 
-	assert.Nil(t, selectRandomSubset(nil, 3))
-	assert.Nil(t, selectRandomSubset(all, 0))
-	assert.Nil(t, selectRandomSubset(all, -1))
-	assert.Len(t, selectRandomSubset(all, 5), 5)
-	assert.Len(t, selectRandomSubset(all, 9), 5)
+	assert.Nil(t, selectRandomThreshold(nil, 3))
+	assert.Nil(t, selectRandomThreshold(all, 0))
+	assert.Nil(t, selectRandomThreshold(all, -1))
+	assert.Len(t, selectRandomThreshold(all, 5), 5)
+	assert.Len(t, selectRandomThreshold(all, 9), 5)
 
 	// Picks vary across calls and never repeat a validator within one pick.
 	seen := map[string]bool{}
 	for i := 0; i < 200; i++ {
-		got := selectRandomSubset(all, 3)
+		got := selectRandomThreshold(all, 3)
 		require.Len(t, got, 3)
 		unique := map[string]bool{}
 		for _, addr := range addressesOf(got) {

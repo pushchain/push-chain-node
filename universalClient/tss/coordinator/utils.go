@@ -65,33 +65,17 @@ func deriveKeyIDBytes(keyID string) []byte {
 	return sum[:]
 }
 
-// selectRandomThreshold selects a random subset of at least threshold count from eligible validators.
-// Returns a shuffled copy of at least threshold validators (or all if fewer than threshold).
-func selectRandomThreshold(eligible []*types.UniversalValidator) []*types.UniversalValidator {
-	if len(eligible) == 0 {
+// selectRandomThreshold selects a random threshold count of eligible validators.
+// Returns a shuffled copy of threshold validators (or all if fewer than threshold).
+// The caller supplies the threshold: for fund migration it belongs to the old key,
+// not to the set of validators still holding its shares.
+func selectRandomThreshold(eligible []*types.UniversalValidator, threshold int) []*types.UniversalValidator {
+	if len(eligible) == 0 || threshold <= 0 {
 		return nil
 	}
 
-	// Calculate minimum required: >2/3 (same as threshold calculation)
-	minRequired := CalculateThreshold(len(eligible))
-
-	// If we have fewer than minRequired, return all
-	if len(eligible) <= minRequired {
-		return eligible
-	}
-
-	return selectRandomSubset(eligible, minRequired)
-}
-
-// selectRandomSubset returns a random n of eligible, or all of them when there
-// are no more than n. Used where the required count is not derived from the
-// input, such as fund migration, where the quorum belongs to the old key rather
-// than to the set of validators still holding its shares.
-func selectRandomSubset(eligible []*types.UniversalValidator, n int) []*types.UniversalValidator {
-	if len(eligible) == 0 || n <= 0 {
-		return nil
-	}
-	if len(eligible) <= n {
+	// If we have fewer than threshold, return all
+	if len(eligible) <= threshold {
 		return eligible
 	}
 
@@ -101,5 +85,5 @@ func selectRandomSubset(eligible []*types.UniversalValidator, n int) []*types.Un
 		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
 	})
 
-	return shuffled[:n]
+	return shuffled[:threshold]
 }

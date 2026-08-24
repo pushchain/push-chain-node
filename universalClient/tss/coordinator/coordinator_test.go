@@ -379,21 +379,21 @@ func TestSelectRandomThreshold(t *testing.T) {
 
 	t.Run("returns exactly threshold count", func(t *testing.T) {
 		// threshold(5) = 4
-		assert.Len(t, selectRandomThreshold(makeN(5)), 4)
+		assert.Len(t, selectRandomThreshold(makeN(5), CalculateThreshold(5)), 4)
 	})
 
 	t.Run("returns all when count equals threshold", func(t *testing.T) {
 		// threshold(2) = 2 → returns all 2
-		assert.Len(t, selectRandomThreshold(makeN(2)), 2)
+		assert.Len(t, selectRandomThreshold(makeN(2), CalculateThreshold(2)), 2)
 	})
 
 	t.Run("returns all when count is below threshold", func(t *testing.T) {
 		// threshold(1) = 1 → returns all 1
-		assert.Len(t, selectRandomThreshold(makeN(1)), 1)
+		assert.Len(t, selectRandomThreshold(makeN(1), CalculateThreshold(1)), 1)
 	})
 
 	t.Run("returns nil for empty list", func(t *testing.T) {
-		assert.Nil(t, selectRandomThreshold(nil))
+		assert.Nil(t, selectRandomThreshold(nil, 3))
 	})
 }
 

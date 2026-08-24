@@ -979,7 +979,7 @@ func getSignParticipants(allValidators []*types.UniversalValidator) []*types.Uni
 	eligible := getSignEligible(allValidators)
 
 	// Use utils function to select random threshold subset
-	return selectRandomThreshold(eligible)
+	return selectRandomThreshold(eligible, CalculateThreshold(len(eligible)))
 }
 
 // getInFlightSignCountPerChain returns per-chain in-flight SIGN count.
@@ -1209,7 +1209,7 @@ func (c *Coordinator) fundMigrateParticipants(
 	if err != nil {
 		return nil, err
 	}
-	return selectRandomSubset(holders, required), nil
+	return selectRandomThreshold(holders, required), nil
 }
 
 // fundMigrateEligible resolves the eligible signers and the required count for

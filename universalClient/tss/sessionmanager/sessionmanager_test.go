@@ -53,6 +53,9 @@ func containsAny(s string, substrings []string) bool {
 // block height (0 by default) so coordinator-at-block math is deterministic.
 type mockPushCore struct {
 	block uint64
+
+	// Old key history, consulted when validating fund migration signers.
+	keysByID map[string]*utsstypes.TssKey
 }
 
 func (m *mockPushCore) GetLatestBlock(_ context.Context) (uint64, error) {
@@ -64,6 +67,9 @@ func (m *mockPushCore) GetCurrentKey(_ context.Context) (*utsstypes.TssKey, erro
 }
 
 func (m *mockPushCore) GetKeyByID(_ context.Context, keyID string) (*utsstypes.TssKey, error) {
+	if key, ok := m.keysByID[keyID]; ok {
+		return key, nil
+	}
 	return &utsstypes.TssKey{KeyId: keyID}, nil
 }
 
@@ -371,6 +377,11 @@ func setCoordinatorValidators(coord *coordinator.Coordinator, validators []*type
 	if field.IsValid() {
 		*(*[]*types.UniversalValidator)(unsafe.Pointer(field.UnsafeAddr())) = validators
 	}
+	// Keep the cache fresh, otherwise a slow test trips the staleness halt and
+	// the snapshot comes back empty.
+	if refresh := coordValue.FieldByName("lastValidatorsRefreshAt"); refresh.IsValid() {
+		*(*time.Time)(unsafe.Pointer(refresh.UnsafeAddr())) = time.Now()
+	}
 }
 
 func makeActiveValidator(addr string) *types.UniversalValidator {
@@ -402,54 +413,69 @@ func TestValidateParticipants(t *testing.T) {
 
 	t.Run("SIGN: threshold subset is valid", func(t *testing.T) {
 		// 3 of 4 eligible satisfies threshold(4)=3
-		assert.NoError(t, sm.validateParticipants([]string{"v1", "v2", "v3"}, signEvent))
+		assert.NoError(t, sm.validateParticipants(context.Background(), []string{"v1", "v2", "v3"}, signEvent))
 	})
 
 	t.Run("SIGN: all eligible is also valid (threshold is a minimum)", func(t *testing.T) {
-		assert.NoError(t, sm.validateParticipants([]string{"v1", "v2", "v3", "v4"}, signEvent))
+		assert.NoError(t, sm.validateParticipants(context.Background(), []string{"v1", "v2", "v3", "v4"}, signEvent))
 	})
 
 	t.Run("SIGN: below threshold is rejected", func(t *testing.T) {
 		// 2 < threshold(4)=3
-		err := sm.validateParticipants([]string{"v1", "v2"}, signEvent)
+		err := sm.validateParticipants(context.Background(), []string{"v1", "v2"}, signEvent)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "threshold")
 	})
 
 	t.Run("SIGN: non-eligible participant is rejected", func(t *testing.T) {
-		err := sm.validateParticipants([]string{"v1", "v2", "unknown"}, signEvent)
+		err := sm.validateParticipants(context.Background(), []string{"v1", "v2", "unknown"}, signEvent)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "not eligible")
 	})
 
-	// --- SIGN_FUND_MIGRATE: same threshold rules as SIGN_OUTBOUND ---
+	// --- SIGN_FUND_MIGRATE: rules come from the old key, not the current set ---
 
-	fmEvent := &store.Event{EventID: "fm-1", Type: store.EventTypeSignFundMigrate}
+	// The old key's shareholders are v1..v4, matching the current set here, so
+	// the threshold is the same 3 as for SIGN_OUTBOUND above. The two diverge
+	// once the sets differ, covered in fund_migrate_e2e_test.go.
+	setCoordinatorPushCore(coord, &mockPushCore{
+		keysByID: map[string]*utsstypes.TssKey{
+			"old-key": {KeyId: "old-key", Participants: []string{"v1", "v2", "v3", "v4"}},
+		},
+	})
+	fmEvent := fundMigrateStoreEvent(t, "old-key")
 
 	t.Run("SIGN_FUND_MIGRATE: threshold subset is valid", func(t *testing.T) {
-		assert.NoError(t, sm.validateParticipants([]string{"v1", "v2", "v3"}, fmEvent))
+		assert.NoError(t, sm.validateParticipants(context.Background(), []string{"v1", "v2", "v3"}, fmEvent))
 	})
 
 	t.Run("SIGN_FUND_MIGRATE: below threshold is rejected", func(t *testing.T) {
-		err := sm.validateParticipants([]string{"v1", "v2"}, fmEvent)
+		err := sm.validateParticipants(context.Background(), []string{"v1", "v2"}, fmEvent)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "threshold")
+	})
+
+	t.Run("SIGN_FUND_MIGRATE: event without an old key id is rejected", func(t *testing.T) {
+		bare := &store.Event{EventID: "fm-bare", Type: store.EventTypeSignFundMigrate}
+		err := sm.validateParticipants(context.Background(), []string{"v1", "v2", "v3"}, bare)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "resolve fund migration signers")
 	})
 
 	// --- KEYGEN: exact-match rules (all eligible must participate) ---
 
 	t.Run("KEYGEN: all eligible is valid", func(t *testing.T) {
-		assert.NoError(t, sm.validateParticipants([]string{"v1", "v2", "v3", "v4"}, keygenEvent))
+		assert.NoError(t, sm.validateParticipants(context.Background(), []string{"v1", "v2", "v3", "v4"}, keygenEvent))
 	})
 
 	t.Run("KEYGEN: missing participant is rejected", func(t *testing.T) {
-		err := sm.validateParticipants([]string{"v1", "v2", "v3"}, keygenEvent) // v4 missing
+		err := sm.validateParticipants(context.Background(), []string{"v1", "v2", "v3"}, keygenEvent) // v4 missing
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "does not match eligible count")
 	})
 
 	t.Run("KEYGEN: non-eligible participant is rejected", func(t *testing.T) {
-		err := sm.validateParticipants([]string{"v1", "v2", "v3", "v4", "unknown"}, keygenEvent)
+		err := sm.validateParticipants(context.Background(), []string{"v1", "v2", "v3", "v4", "unknown"}, keygenEvent)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "not eligible")
 	})

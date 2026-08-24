@@ -223,7 +223,7 @@ func TestSelectParticipants_RoutesFundMigrateToShareholders(t *testing.T) {
 
 	t.Run("fund migrate is confined to the old key", func(t *testing.T) {
 		for i := 0; i < 100; i++ {
-			got, err := c.selectParticipants(context.Background(), fundMigrateEvent(t, "old-key"), all)
+			got, err := c.SelectParticipants(context.Background(), fundMigrateEvent(t, "old-key"), all)
 			require.NoError(t, err)
 			assert.ElementsMatch(t, []string{"v1", "v2", "v3"}, addressesOf(got))
 		}
@@ -231,19 +231,19 @@ func TestSelectParticipants_RoutesFundMigrateToShareholders(t *testing.T) {
 
 	t.Run("outbound still uses the current set", func(t *testing.T) {
 		event := store.Event{EventID: "ob-1", Type: store.EventTypeSignOutbound}
-		got, err := c.selectParticipants(context.Background(), event, all)
+		got, err := c.SelectParticipants(context.Background(), event, all)
 		require.NoError(t, err)
 		assert.Len(t, got, CalculateThreshold(len(all)))
 	})
 
 	t.Run("fund migrate reports rather than returning a short set", func(t *testing.T) {
-		_, err := c.selectParticipants(context.Background(), fundMigrateEvent(t, "gone"), all)
+		_, err := c.SelectParticipants(context.Background(), fundMigrateEvent(t, "gone"), all)
 		require.Error(t, err)
 	})
 
 	t.Run("other protocols take every eligible validator", func(t *testing.T) {
 		event := store.Event{EventID: "kg-1", Type: store.EventTypeKeygen}
-		got, err := c.selectParticipants(context.Background(), event, all)
+		got, err := c.SelectParticipants(context.Background(), event, all)
 		require.NoError(t, err)
 		assert.Len(t, got, len(all))
 	})

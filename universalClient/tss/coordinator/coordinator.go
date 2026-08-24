@@ -473,7 +473,7 @@ func (c *Coordinator) processConfirmedEvents(ctx context.Context) error {
 		// For SIGN/FUND_MIGRATE: pick a random threshold subset (>2/3 of eligible) rather than all eligible.
 		// A threshold subset suffices for signing and is more resilient when some nodes are offline.
 		// For all other protocols (keygen, keyrefresh, quorum_change), all eligible must participate.
-		participants, err := c.selectParticipants(ctx, event, allValidators)
+		participants, err := c.SelectParticipants(ctx, event, allValidators)
 		if err != nil {
 			c.logger.Error().Err(err).
 				Str("event_id", event.EventID).
@@ -1160,12 +1160,12 @@ func (c *Coordinator) assignFundMigrateNonce(ctx context.Context, event store.Ev
 	return builder.GetNextNonce(ctx, oldTSSAddr, true)
 }
 
-// selectParticipants picks who takes part in an event.
+// SelectParticipants picks who takes part in an event.
 //
 // For SIGN a random threshold subset (>2/3 of eligible) suffices and is more
 // resilient when some nodes are offline. For all other protocols (keygen,
 // keyrefresh, quorum change) every eligible validator must participate.
-func (c *Coordinator) selectParticipants(
+func (c *Coordinator) SelectParticipants(
 	ctx context.Context,
 	event store.Event,
 	allValidators []*types.UniversalValidator,
@@ -1184,36 +1184,64 @@ func (c *Coordinator) selectParticipants(
 	}
 }
 
+// FundMigrateEligible returns the validators that may sign a fund migration,
+// and how many of them are required.
+//
+// Used by the coordinator to select signers and by every participant to
+// validate the selection it receives. Both derive the answer from the same
+// chain state, so a set the coordinator can legitimately pick is a set the
+// participants accept.
+func (c *Coordinator) FundMigrateEligible(
+	ctx context.Context,
+	event store.Event,
+) ([]*types.UniversalValidator, int, error) {
+	return c.fundMigrateEligible(ctx, event, c.validatorsSnapshot())
+}
+
 // fundMigrateParticipants selects signers for a fund migration from the
 // validators that hold the old key's shares.
+func (c *Coordinator) fundMigrateParticipants(
+	ctx context.Context,
+	event store.Event,
+	allValidators []*types.UniversalValidator,
+) ([]*types.UniversalValidator, error) {
+	holders, required, err := c.fundMigrateEligible(ctx, event, allValidators)
+	if err != nil {
+		return nil, err
+	}
+	return selectRandomSubset(holders, required), nil
+}
+
+// fundMigrateEligible resolves the eligible signers and the required count for
+// a fund migration.
 //
 // The signature is produced with the old keyshare, so eligibility is decided by
 // the historical shareholder set recorded on chain, not by who is a validator
 // today. The required count is the old key's threshold for the same reason: it
 // is the quorum that key was created under.
 //
-// Fails rather than returning a short set. Too few surviving shareholders means
-// no subset can sign, and returning one anyway would stall the session on an
-// ACK that is never coming instead of reporting why.
-func (c *Coordinator) fundMigrateParticipants(
+// Fails rather than returning a set that is already too small. Too few
+// surviving shareholders means no subset can sign, and proceeding anyway would
+// stall the session on an ACK that is never coming instead of reporting why.
+func (c *Coordinator) fundMigrateEligible(
 	ctx context.Context,
 	event store.Event,
 	allValidators []*types.UniversalValidator,
-) ([]*types.UniversalValidator, error) {
+) ([]*types.UniversalValidator, int, error) {
 	var migrationData utsstypes.FundMigrationInitiatedEventData
 	if err := json.Unmarshal(event.EventData, &migrationData); err != nil {
-		return nil, fmt.Errorf("parse fund migration data: %w", err)
+		return nil, 0, fmt.Errorf("parse fund migration data: %w", err)
 	}
 	if migrationData.OldKeyID == "" {
-		return nil, fmt.Errorf("fund migration event carries no old key id")
+		return nil, 0, fmt.Errorf("fund migration event carries no old key id")
 	}
 
 	oldKey, err := c.pushCore.GetKeyByID(ctx, migrationData.OldKeyID)
 	if err != nil {
-		return nil, fmt.Errorf("fetch old key %s: %w", migrationData.OldKeyID, err)
+		return nil, 0, fmt.Errorf("fetch old key %s: %w", migrationData.OldKeyID, err)
 	}
 	if oldKey == nil || len(oldKey.Participants) == 0 {
-		return nil, fmt.Errorf("old key %s records no participants", migrationData.OldKeyID)
+		return nil, 0, fmt.Errorf("old key %s records no participants", migrationData.OldKeyID)
 	}
 
 	shareholders := make(map[string]bool, len(oldKey.Participants))
@@ -1230,10 +1258,10 @@ func (c *Coordinator) fundMigrateParticipants(
 
 	required := CalculateThreshold(len(oldKey.Participants))
 	if len(holders) < required {
-		return nil, fmt.Errorf(
+		return nil, 0, fmt.Errorf(
 			"key %s needs %d of its %d shareholders to sign, only %d are still eligible",
 			migrationData.OldKeyID, required, len(oldKey.Participants), len(holders))
 	}
 
-	return selectRandomSubset(holders, required), nil
+	return holders, required, nil
 }

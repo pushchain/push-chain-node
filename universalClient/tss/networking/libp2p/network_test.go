@@ -221,5 +221,3 @@ func TestNetwork_ResetsStreamAfterPeerRevoked(t *testing.T) {
 	case <-time.After(500 * time.Millisecond):
 	}
 }
-
-

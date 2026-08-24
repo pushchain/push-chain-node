@@ -15,6 +15,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// testSigner is the bech32 form of the 20-byte account that these fixtures have
+// always resolved to on the EVM side. It replaces an older literal that decoded
+// to 42 bytes - GetAddressPair used to truncate it down to exactly these bytes,
+// and now rejects it outright.
+const testSigner = "cosmos18pjnzwr9xdnx2vnpv5mxywfnv56xxef5cludl5"
+
 func TestExecutePayload(t *testing.T) {
 	app, ctx, _ := utils.SetAppWithValidators(t)
 
@@ -100,7 +106,7 @@ func TestExecutePayload(t *testing.T) {
 		require.NoError(t, err)
 
 		msg := &uexecutortypes.MsgExecutePayload{
-			Signer:             "cosmos1xpurwdecvsenyvpkxvmnge3cv93nyd34xuersef38pjnxen9xfsk2dnz8yek2drrv56qmn2ak9",
+			Signer:             testSigner,
 			UniversalAccountId: validUA,
 			UniversalPayload:   validUP,
 			VerificationData:   "0x91987784d56359fa91c3e3e0332f4f0cffedf9c081eb12874a63b41d5b5e5c660dc827947c2ae26e658d0551ad4b2d2aa073d62691429a0ae239d2cc58055bf11c",
@@ -130,7 +136,7 @@ func TestExecutePayload(t *testing.T) {
 		}
 
 		msg := &uexecutortypes.MsgExecutePayload{
-			Signer:             "cosmos1xpurwdecvsenyvpkxvmnge3cv93nyd34xuersef38pjnxen9xfsk2dnz8yek2drrv56qmn2ak9",
+			Signer:             testSigner,
 			UniversalAccountId: validUA,
 			UniversalPayload:   validUP,
 		}
@@ -160,7 +166,7 @@ func TestExecutePayload(t *testing.T) {
 		}
 
 		msg := &uexecutortypes.MsgExecutePayload{
-			Signer:             "cosmos1xpurwdecvsenyvpkxvmnge3cv93nyd34xuersef38pjnxen9xfsk2dnz8yek2drrv56qmn2ak9",
+			Signer:             testSigner,
 			UniversalAccountId: validUA,
 			UniversalPayload:   validUP,
 			VerificationData:   "0xZZZZ",
@@ -261,7 +267,7 @@ func TestExecutePayload_AutoDeployOnPreFundedAddress(t *testing.T) {
 
 	// Submit MsgExecutePayload directly — no standalone DeployUEAV2 call beforehand.
 	msg := &uexecutortypes.MsgExecutePayload{
-		Signer:             "cosmos1xpurwdecvsenyvpkxvmnge3cv93nyd34xuersef38pjnxen9xfsk2dnz8yek2drrv56qmn2ak9",
+		Signer:             testSigner,
 		UniversalAccountId: validUA,
 		UniversalPayload:   validUP,
 		VerificationData:   "0x91987784d56359fa91c3e3e0332f4f0cffedf9c081eb12874a63b41d5b5e5c660dc827947c2ae26e658d0551ad4b2d2aa073d62691429a0ae239d2cc58055bf11c",
@@ -333,7 +339,7 @@ func TestExecutePayload_RejectWhenUndeployedAndUnfunded(t *testing.T) {
 	}
 
 	msg := &uexecutortypes.MsgExecutePayload{
-		Signer:             "cosmos1xpurwdecvsenyvpkxvmnge3cv93nyd34xuersef38pjnxen9xfsk2dnz8yek2drrv56qmn2ak9",
+		Signer:             testSigner,
 		UniversalAccountId: validUA,
 		UniversalPayload:   validUP,
 		VerificationData:   "0x1234",

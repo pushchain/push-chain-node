@@ -1223,6 +1223,9 @@ func (c *Coordinator) fundMigrateParticipants(
 // Fails rather than returning a set that is already too small. Too few
 // surviving shareholders means no subset can sign, and proceeding anyway would
 // stall the session on an ACK that is never coming instead of reporting why.
+//
+// Nothing here can rebuild a lost quorum: an old key of N tolerates only
+// N-threshold(N) departures, so migration must follow keygen promptly.
 func (c *Coordinator) fundMigrateEligible(
 	ctx context.Context,
 	event store.Event,

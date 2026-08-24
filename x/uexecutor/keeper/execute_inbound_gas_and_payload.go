@@ -309,6 +309,7 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 		ueaAddr,
 		utx.InboundTx.UniversalPayload,
 		utx.InboundTx.VerificationData,
+		utx,
 	)
 
 	payloadPcTx := types.PCTx{
@@ -335,16 +336,9 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 			"tx_hash", receipt.Hash,
 			"gas_used", receipt.GasUsed,
 		)
+		// Outbounds are attached inside ExecutePayloadV2, atomically with the
+		// payload execution: reaching here means they are already committed.
 		payloadPcTx.Status = "SUCCESS"
-
-		if attachErr := k.AttachOutboundsToExistingUniversalTx(sdkCtx, receipt, utx); attachErr != nil {
-			if storeErr := k.UpdateUniversalTx(sdkCtx, universalTxKey, func(u *types.UniversalTx) error {
-				u.RevertError = attachErr.Error()
-				return nil
-			}); storeErr != nil {
-				return storeErr
-			}
-		}
 	}
 
 	updateErr := k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {

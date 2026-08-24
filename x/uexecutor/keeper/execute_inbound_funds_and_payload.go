@@ -304,7 +304,7 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 	// --- Step 3: execute payload via UEA
 	k.Logger().Debug("executing payload via UEA", "utx_key", universalTxKey, "uea", ueaAddr.Hex())
 	var payloadErr error
-	receipt, payloadErr = k.ExecutePayloadV2(ctx, ueModuleAddr, ueaAddr, utx.InboundTx.UniversalPayload, utx.InboundTx.VerificationData)
+	receipt, payloadErr = k.ExecutePayloadV2(ctx, ueModuleAddr, ueaAddr, utx.InboundTx.UniversalPayload, utx.InboundTx.VerificationData, utx)
 
 	payloadPcTx := types.PCTx{
 		Sender:      ueModuleAddressStr,
@@ -330,16 +330,9 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 			"tx_hash", receipt.Hash,
 			"gas_used", receipt.GasUsed,
 		)
+		// Outbounds are attached inside ExecutePayloadV2, atomically with the
+		// payload execution: reaching here means they are already committed.
 		payloadPcTx.Status = "SUCCESS"
-
-		if attachErr := k.AttachOutboundsToExistingUniversalTx(sdkCtx, receipt, utx); attachErr != nil {
-			if storeErr := k.UpdateUniversalTx(sdkCtx, universalTxKey, func(u *types.UniversalTx) error {
-				u.RevertError = attachErr.Error()
-				return nil
-			}); storeErr != nil {
-				return storeErr
-			}
-		}
 	}
 
 	updateErr2 := k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {

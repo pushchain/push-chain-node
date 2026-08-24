@@ -822,3 +822,4 @@ func TestFundMigrationEVM_BroadcastFails_NonceNotConsumed_StaysSigned(t *testing
 	ev := getEvent(t, db, "fm-1")
 	require.Equal(t, store.StatusSigned, ev.Status) // stays SIGNED for retry
 }
+

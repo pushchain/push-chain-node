@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr/net"
+	"github.com/libp2p/go-libp2p/core/peer"
 )
 
 // PeerInfo contains information about a peer.
@@ -75,3 +75,4 @@ func NormalizeMultiaddr(addr string) (string, error) {
 
 	return maddr.String(), nil
 }
+

@@ -25,9 +25,9 @@ const (
 // when the participant already holds a valid signature for this event,
 // letting the coordinator skip a fresh DKLS run.
 type SignedDataPayload struct {
-	Signature              []byte   `json:"signature"`    // ECDSA (r || s [|| v])
-	SigningHash            []byte   `json:"signing_hash"` // 32-byte message hash
-	Nonce                  uint64   `json:"nonce"`        // EVM nonce; ignored by SVM
+	Signature              []byte   `json:"signature"`              // ECDSA (r || s [|| v])
+	SigningHash            []byte   `json:"signing_hash"`           // 32-byte message hash
+	Nonce                  uint64   `json:"nonce"`                  // EVM nonce; ignored by SVM
 	TSSFundMigrationAmount *big.Int `json:"tss_fund_migration_amount,omitempty"`
 }
 

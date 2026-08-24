@@ -253,6 +253,7 @@ func TestConvertPrivateKeyHexToBase64(t *testing.T) {
 	})
 }
 
+
 func TestNewNode_DefaultValues(t *testing.T) {
 	database, err := db.OpenInMemoryDB(true)
 	require.NoError(t, err)

@@ -379,21 +379,21 @@ func TestSelectRandomThreshold(t *testing.T) {
 
 	t.Run("returns exactly threshold count", func(t *testing.T) {
 		// threshold(5) = 4
-		assert.Len(t, selectRandomThreshold(makeN(5)), 4)
+		assert.Len(t, selectRandomThreshold(makeN(5), CalculateThreshold(5)), 4)
 	})
 
 	t.Run("returns all when count equals threshold", func(t *testing.T) {
 		// threshold(2) = 2 → returns all 2
-		assert.Len(t, selectRandomThreshold(makeN(2)), 2)
+		assert.Len(t, selectRandomThreshold(makeN(2), CalculateThreshold(2)), 2)
 	})
 
 	t.Run("returns all when count is below threshold", func(t *testing.T) {
 		// threshold(1) = 1 → returns all 1
-		assert.Len(t, selectRandomThreshold(makeN(1)), 1)
+		assert.Len(t, selectRandomThreshold(makeN(1), CalculateThreshold(1)), 1)
 	})
 
 	t.Run("returns nil for empty list", func(t *testing.T) {
-		assert.Nil(t, selectRandomThreshold(nil))
+		assert.Nil(t, selectRandomThreshold(nil, 3))
 	})
 }
 
@@ -1123,6 +1123,10 @@ type stalenessMockPushCore struct {
 	block      uint64
 	validators []*types.UniversalValidator
 	failGetAll bool
+
+	// Old key history, consulted when selecting fund migration signers.
+	keysByID map[string]*utsstypes.TssKey
+	keyErr   error
 }
 
 func (m *stalenessMockPushCore) GetLatestBlock(_ context.Context) (uint64, error) {
@@ -1131,6 +1135,13 @@ func (m *stalenessMockPushCore) GetLatestBlock(_ context.Context) (uint64, error
 
 func (m *stalenessMockPushCore) GetCurrentKey(_ context.Context) (*utsstypes.TssKey, error) {
 	return &utsstypes.TssKey{KeyId: "test-key"}, nil
+}
+
+func (m *stalenessMockPushCore) GetKeyByID(_ context.Context, keyID string) (*utsstypes.TssKey, error) {
+	if m.keyErr != nil {
+		return nil, m.keyErr
+	}
+	return m.keysByID[keyID], nil
 }
 
 func (m *stalenessMockPushCore) GetAllUniversalValidators(_ context.Context) ([]*types.UniversalValidator, error) {

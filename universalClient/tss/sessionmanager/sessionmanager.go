@@ -25,6 +25,7 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
+	uvalidatortypes "github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
 // SendFunc is a function type for sending messages to participants.
@@ -179,7 +180,7 @@ func (sm *SessionManager) handleSetupMessage(ctx context.Context, senderPeerID s
 	}
 
 	// 5. Validate participants list matches event protocol requirements
-	if err := sm.validateParticipants(msg.Participants, event); err != nil {
+	if err := sm.validateParticipants(ctx, msg.Participants, event); err != nil {
 		return fmt.Errorf("participants validation failed: %w", err)
 	}
 
@@ -752,9 +753,24 @@ func (sm *SessionManager) createSession(ctx context.Context, event *store.Event,
 // validateParticipants validates that participants match protocol requirements.
 // For keygen/keyrefresh: participants must match exactly with eligible participants (same elements).
 // For sign: participants must be a valid >2/3 subset of eligible participants.
-func (sm *SessionManager) validateParticipants(participants []string, event *store.Event) error {
-	// Get eligible validators for this protocol
-	eligible := sm.coordinator.GetEligibleUV(string(event.Type))
+func (sm *SessionManager) validateParticipants(ctx context.Context, participants []string, event *store.Event) error {
+	// Get eligible validators for this protocol.
+	//
+	// Fund migration is signed with the old key's shares, so both who may take
+	// part and how many are required come from that key rather than from the
+	// current validator set. Resolved through the coordinator so the check here
+	// mirrors the selection exactly.
+	var eligible []*uvalidatortypes.UniversalValidator
+	var fundMigrateRequired int
+	if event.Type == store.EventTypeSignFundMigrate {
+		var err error
+		eligible, fundMigrateRequired, err = sm.coordinator.FundMigrateEligible(ctx, *event)
+		if err != nil {
+			return fmt.Errorf("resolve fund migration signers: %w", err)
+		}
+	} else {
+		eligible = sm.coordinator.GetEligibleUV(string(event.Type))
+	}
 	if len(eligible) == 0 {
 		return fmt.Errorf("no eligible validators for protocol")
 	}
@@ -793,14 +809,23 @@ func (sm *SessionManager) validateParticipants(participants []string, event *sto
 			}
 		}
 
-	case store.EventTypeSignOutbound, store.EventTypeSignFundMigrate:
-		// For SIGN and FUND_MIGRATE the coordinator picks a random threshold subset (>2/3 of eligible)
+	case store.EventTypeSignOutbound:
+		// For SIGN the coordinator picks a random threshold subset (>2/3 of eligible)
 		// rather than all eligible validators. Accept any subset as long as it meets the threshold
 		// minimum; all participants are already verified eligible by the eligibleSet check above.
 		threshold := coordinator.CalculateThreshold(len(eligibleList))
 		if len(participants) < threshold {
 			return fmt.Errorf("%s participants count %d is below required threshold %d (eligible: %d)",
 				event.Type, len(participants), threshold, len(eligibleList))
+		}
+
+	case store.EventTypeSignFundMigrate:
+		// The old key's threshold, not the current set's. Sizing this from the
+		// live validator set would reject a legitimate selection whenever the
+		// set has grown since that key was created.
+		if len(participants) < fundMigrateRequired {
+			return fmt.Errorf("%s participants count %d is below required threshold %d (shareholders still eligible: %d)",
+				event.Type, len(participants), fundMigrateRequired, len(eligibleList))
 		}
 
 	default:

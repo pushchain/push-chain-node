@@ -7,13 +7,10 @@ import (
 
 	"github.com/pushchain/push-chain-node/app/upgrades"
 	"github.com/pushchain/push-chain-node/app/upgrades/noop"
-	removegroup "github.com/pushchain/push-chain-node/app/upgrades/remove-group"
 )
 
 // Upgrades list of chain upgrades
-var Upgrades = []upgrades.Upgrade{
-	removegroup.NewUpgrade(),
-}
+var Upgrades = []upgrades.Upgrade{}
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers
 func (app *ChainApp) RegisterUpgradeHandlers() {

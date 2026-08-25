@@ -698,3 +698,81 @@ func TestProcessPendingEvents_OutboundGasFeeIncludesL1Fee(t *testing.T) {
 	executionOnly := new(big.Int).Mul(new(big.Int).SetUint64(gasUsed), big.NewInt(effectiveGasPrice)).String()
 	assert.NotEqual(t, executionOnly, stored.GasFeeUsed)
 }
+
+// A receipt without effectiveGasPrice cannot yield a true cost, so the outbound
+// must stay PENDING and be retried. Confirming anyway would record a fee missing
+// its execution component, which applyGasRefund would refund back to the user.
+func TestProcessPendingEvents_OutboundMissingEffectiveGasPrice_StaysPending(t *testing.T) {
+	txHash := "0x7777777777777777777777777777777777777777777777777777777777777777"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		body := make([]byte, r.ContentLength)
+		r.Body.Read(body)
+		bodyStr := string(body)
+
+		switch {
+		case strings.Contains(bodyStr, "eth_chainId"):
+			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":"0x1"}`))
+		case strings.Contains(bodyStr, "eth_blockNumber"):
+			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":"0x96"}`))
+		case strings.Contains(bodyStr, "eth_getTransactionReceipt"):
+			// No effectiveGasPrice field, as a pre-London or non-compliant RPC returns.
+			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":{` +
+				`"transactionHash":"` + txHash + `",` +
+				`"blockNumber":"0x64",` +
+				`"blockHash":"0x8888888888888888888888888888888888888888888888888888888888888888",` +
+				`"transactionIndex":"0x0",` +
+				`"gasUsed":"0x5208",` +
+				`"cumulativeGasUsed":"0x5208",` +
+				`"logsBloom":"0x` + strings.Repeat("0", 512) + `",` +
+				`"logs":[],` +
+				`"status":"0x1",` +
+				`"type":"0x2"` +
+				`}}`))
+		default:
+			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":null}`))
+		}
+	}))
+	defer server.Close()
+
+	logger := zerolog.Nop()
+	rpcClient, err := NewRPCClient([]string{server.URL}, 1, logger)
+	require.NoError(t, err)
+	defer rpcClient.Close()
+
+	memDB, err := db.OpenInMemoryDB(true)
+	require.NoError(t, err)
+	defer memDB.Close()
+
+	ec := NewEventConfirmer(rpcClient, memDB, "eip155:84532", 5, 5, 12, logger)
+	cs := common.NewChainStore(memDB)
+
+	outboundData, err := json.Marshal(common.OutboundEvent{TxID: "0xtx", UniversalTxID: "0xutx"})
+	require.NoError(t, err)
+
+	pending := &store.Event{
+		EventID:          txHash + ":0",
+		BlockHeight:      100,
+		Type:             store.EventTypeOutbound,
+		ConfirmationType: store.ConfirmationStandard,
+		Status:           store.StatusPending,
+		EventData:        outboundData,
+	}
+	inserted, err := cs.InsertEventIfNotExists(pending)
+	require.NoError(t, err)
+	require.True(t, inserted)
+
+	require.NotPanics(t, func() {
+		require.NoError(t, ec.processPendingEvents(context.Background()))
+	})
+
+	var got store.Event
+	require.NoError(t, memDB.Client().Where("event_id = ?", pending.EventID).First(&got).Error)
+	assert.Equal(t, store.StatusPending, got.Status,
+		"a receipt with no effectiveGasPrice must defer, not record a partial cost")
+
+	var stored common.OutboundEvent
+	require.NoError(t, json.Unmarshal(got.EventData, &stored))
+	assert.Empty(t, stored.GasFeeUsed, "no cost should be recorded from an unusable receipt")
+}

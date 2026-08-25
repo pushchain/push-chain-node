@@ -211,6 +211,27 @@ func (c *Client) GetCurrentKey(ctx context.Context) (*utsstypes.TssKey, error) {
 	)
 }
 
+// GetKeyByID retrieves a single TSS key from the on-chain key history.
+// Returns an error if the key ID is not in the history.
+func (c *Client) GetKeyByID(ctx context.Context, keyID string) (*utsstypes.TssKey, error) {
+	return retryWithRoundRobin(
+		len(c.utssClients),
+		&c.rr,
+		func(idx int) (*utsstypes.TssKey, error) {
+			resp, err := c.utssClients[idx].KeyById(ctx, &utsstypes.QueryKeyByIdRequest{KeyId: keyID})
+			if err != nil {
+				return nil, err
+			}
+			if resp == nil || resp.Key == nil {
+				return nil, fmt.Errorf("pushcore: TSS key %s not found", keyID)
+			}
+			return resp.Key, nil
+		},
+		"GetKeyByID",
+		c.logger,
+	)
+}
+
 // GetGasPrice retrieves the median gas price for a specific chain from the on-chain oracle.
 func (c *Client) GetGasPrice(ctx context.Context, chainID string) (*big.Int, error) {
 	if chainID == "" {

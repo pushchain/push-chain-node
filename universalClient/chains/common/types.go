@@ -60,7 +60,9 @@ type TxBuilder interface {
 
 	// VerifyBroadcastedTx checks the status of a broadcasted transaction on the destination chain.
 	// Returns (found, blockHeight, confirmations, status, error):
-	// - found=false: tx not found or not yet mined
+	// - err != nil: the chain could not be queried. Callers must retry and must not
+	//   treat this as evidence about whether the tx executed.
+	// - found=false, err=nil: the chain answered and the tx is not there.
 	// - found=true: tx exists on-chain
 	//   - blockHeight: the block in which the tx was mined
 	//   - confirmations: number of blocks since the tx was mined (0 = just mined)
@@ -78,9 +80,10 @@ type TxBuilder interface {
 	IsAlreadyExecuted(ctx context.Context, txID string) (executed bool, queryBlockTime int64, err error)
 
 	// GetGasFeeUsed returns the gas fee used by a transaction on the destination chain.
-	// EVM: fetches receipt and returns gasUsed * effectiveGasPrice as decimal string.
+	// EVM: gasUsed * effectiveGasPrice + OP-Stack l1Fee, as a decimal string; errors
+	// when the fee cannot be determined so callers retry instead of recording an
+	// under-reported fee.
 	// SVM: returns "0" (gas accounting is handled via vault gasFee reimbursement).
-	// Returns "0" if the transaction is not found.
 	GetGasFeeUsed(ctx context.Context, txHash string) (string, error)
 
 	// GetFundMigrationSigningRequest builds a native token transfer for fund migration,

@@ -21,9 +21,13 @@ import (
 //   - Tx not found, nonce check unavailable          → stay BROADCASTED (retry)
 //
 // The nonce IS the give-up signal; there is no max-retry counter. The two
-// flows differ only in (a) which vote function records success/failure and
-// (b) where the signer address comes from — current TSS for outbound, OLD TSS
-// (derived from the event's old pubkey) for fund migration.
+// flows differ only in which vote function records success/failure.
+//
+// Both check the nonce against the key that actually signed, never the current
+// TSS: nonces are per-EOA, so after a rotation the live key is a different EOA
+// whose sequence says nothing about an outbound signed under the previous one.
+// Outbound recovers that signer from the signature, fund migration derives it
+// from the event's old pubkey.
 //
 // Shared types (SignedOutboundData / SigningData) and helpers (DecodeSigningData,
 // ReadSignedNonce, ReadFundMigrationSigner, CheckNonce, NonceVerdict) live in
@@ -164,21 +168,12 @@ func (r *Resolver) resolveFundMigrationEVM(ctx context.Context, event *store.Eve
 func (r *Resolver) outboundSigner(ctx context.Context, event *store.Event) (string, uint64, bool) {
 	log := r.logger.With().Str("event_id", event.EventID).Logger()
 
-	signedNonce, ok := txflow.ReadSignedNonce(event)
+	signer, signedNonce, ok := txflow.RecoverOutboundSigner(event)
 	if !ok {
-		log.Warn().Msg("EVM tx not found and signed nonce unavailable, staying BROADCASTED")
+		log.Warn().Msg("EVM tx not found and signing key unrecoverable, staying BROADCASTED")
 		return "", 0, false
 	}
-	if r.getTSSAddress == nil {
-		log.Warn().Msg("EVM tx not found and no TSS-address resolver configured, staying BROADCASTED")
-		return "", 0, false
-	}
-	addr, err := r.getTSSAddress(ctx)
-	if err != nil {
-		log.Debug().Err(err).Msg("could not fetch TSS address, will retry next tick")
-		return "", 0, false
-	}
-	return addr, signedNonce, true
+	return signer, signedNonce, true
 }
 
 // rewindToSigned moves a BROADCASTED event back to SIGNED so the broadcaster

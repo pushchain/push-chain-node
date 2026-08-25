@@ -1,6 +1,7 @@
 package ante
 
 import (
+	"bytes"
 	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -12,6 +13,7 @@ import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
+	"github.com/cosmos/cosmos-sdk/x/auth/ante"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	txpolicy "github.com/pushchain/push-chain-node/app/txpolicy"
 )
@@ -55,7 +57,7 @@ func (aid AccountInitDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate 
 			"address", sdk.AccAddress(newAccAddr).String(),
 			"simulate", simulate,
 		)
-		// if account does not exist on chain, bypass rest of ante chain (especially gas and signature verification) here.
+		// if account does not exist on chain, bypass rest of ante chain here.
 		// Perform signature verification on account number e and sequence number e instead.
 		if err := aid.verifySignatureForNewAccount(ctx, tx, simulate); err != nil {
 			ctx.Logger().Debug("account init decorator: signature verification failed for new account",
@@ -103,11 +105,50 @@ func (aid AccountInitDecorator) verifySignatureForNewAccount(ctx sdk.Context, tx
 		return errorsmod.Wrapf(sdkerrors.ErrUnauthorized, "invalid number of signer;  expected: %d, got %d", len(signers), len(sigs))
 	}
 
-	newAccAddr := sdk.AccAddress(signers[0])
+	params := aid.ak.GetParams(ctx)
+
+	// Enforce the signature count limit before doing any verification work.
+	// This decorator short-circuits the ante chain for new accounts, so
+	// ante.ValidateSigCountDecorator never runs for them; without this hard cap
+	// a gasless tx could carry an arbitrarily large multisig key and force the
+	// node to verify every sub-signature. Gas is deliberately NOT consumed here:
+	// gasless txs skip fee deduction entirely, so charging gas would cost an
+	// attacker nothing - the count cap is what actually bounds the work.
+	sigCount := 0
 	for _, sig := range sigs {
+		if sig.PubKey == nil {
+			return errorsmod.Wrap(sdkerrors.ErrInvalidPubKey, "pubkey is not provided in signature")
+		}
+		sigCount += ante.CountSubKeys(sig.PubKey)
+		if uint64(sigCount) > params.TxSigLimit {
+			return errorsmod.Wrapf(sdkerrors.ErrTooManySignatures,
+				"signatures: %d, limit: %d", sigCount, params.TxSigLimit)
+		}
+	}
+
+	newAccAddr := sdk.AccAddress(signers[0])
+	for i, sig := range sigs {
 		pubKey := sig.PubKey
 		if pubKey == nil {
 			return errorsmod.Wrap(sdkerrors.ErrInvalidPubKey, "pubkey is not provided in signature")
+		}
+
+		// Bind the declared signer to the key that actually signed the tx.
+		//
+		// VerifySignature below only proves "this key signed this tx"; it says
+		// nothing about WHO the tx claims to be from. Because this decorator
+		// short-circuits the ante chain for new accounts, the SDK's
+		// SetPubKeyDecorator - which owns this check - never runs, so a tx could
+		// declare an arbitrary signer while being signed by an unrelated key.
+		// Bech32 account addresses may be up to 255 bytes, and downstream
+		// conversion to a 20-byte EVM address keeps only the rightmost bytes, so
+		// a crafted longer signer could alias a module address.
+		//
+		// Guards mirror x/auth/ante/sigverify.go exactly so simulation and gas
+		// estimation keep working.
+		if !simulate && ctx.IsSigverifyTx() && !bytes.Equal(pubKey.Address().Bytes(), signers[i]) {
+			return errorsmod.Wrapf(sdkerrors.ErrInvalidPubKey,
+				"pubKey does not match signer address %s with signer index: %d", sdk.AccAddress(signers[i]).String(), i)
 		}
 
 		// retrieve signer data

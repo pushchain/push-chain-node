@@ -8,6 +8,9 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -2391,7 +2394,7 @@ func buildAndSimulateRescue(t *testing.T, rpcClient *RPCClient, builder *TxBuild
 	require.NoError(t, err)
 	copy(sender[:], senderBytes)
 
-	isNative := assetAddr == ""
+	isNative := isNativeAsset(assetAddr)
 	var token [32]byte
 	var mintPubkey solana.PublicKey
 	if !isNative {
@@ -2717,4 +2720,154 @@ func TestSimulate_RefRoute_Execute(t *testing.T) {
 	storeSim, _, err := buildAndSimulateRefRoute(t, rpcClient, builder, data, evmKey)
 	require.NoError(t, err)
 	requireSimulationSuccess(t, storeSim)
+}
+
+// Both encodings of native SOL reach the builder, verified against donut:
+// withdrawals carry the EVM zero hex from the registry token address, reverts
+// carry the base58 SystemProgram marker copied from the inbound. Missing either
+// builds an SPL transfer whose ATA-create reverts, since neither is a mint.
+func TestIsNativeAsset(t *testing.T) {
+	t.Run("core withdrawal form is native", func(t *testing.T) {
+		// create_outbound.go copies the registry token address verbatim.
+		assert.True(t, isNativeAsset("0x0000000000000000000000000000000000000000"))
+	})
+
+	t.Run("core revert form is native", func(t *testing.T) {
+		// build_revert_outbound.go copies inbound.AssetAddr, which the SVM parser
+		// sets from the pubkey, so native SOL arrives base58 encoded.
+		assert.True(t, isNativeAsset("11111111111111111111111111111111"))
+		assert.True(t, isNativeAsset(solana.SystemProgramID.String()))
+		assert.True(t, isNativeAsset(solana.PublicKey{}.String()))
+	})
+
+	t.Run("other zero spellings are native", func(t *testing.T) {
+		assert.True(t, isNativeAsset(""))
+		assert.True(t, isNativeAsset("0x0"))
+		assert.True(t, isNativeAsset("0x"+strings.Repeat("0", 64)), "hex-encoded zero pubkey")
+	})
+
+	// SPL mints are base58 in both directions, so they parse normally and must
+	// keep taking the token path.
+	t.Run("real SPL mints are not native", func(t *testing.T) {
+		assert.False(t, isNativeAsset("EiXDnrAg9ea2Q6vEPV7E5TpTU1vh41jcuZqKjU5Dc4ZF"), "USDT.sol")
+		assert.False(t, isNativeAsset("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"), "USDC.sol")
+		assert.False(t, isNativeAsset(solana.TokenProgramID.String()))
+	})
+
+	t.Run("malformed addresses are not native", func(t *testing.T) {
+		assert.False(t, isNativeAsset("not-base58-0OlI"))
+		assert.False(t, isNativeAsset("0x1234"))
+	})
+}
+
+// Core sent the base58 marker before switching to the EVM zero, so both forms
+// are live: withdrawals carry the zero hex and reverts still carry base58. Both
+// must build the identical native account layout, with no recipient ATA.
+func TestNativeMarkerFormsBuildIdenticalAccounts(t *testing.T) {
+	builder := newTestBuilder(t)
+
+	caller := solana.NewWallet().PublicKey()
+	config := solana.NewWallet().PublicKey()
+	vault := solana.NewWallet().PublicKey()
+	cea := solana.NewWallet().PublicKey()
+	tss := solana.NewWallet().PublicKey()
+	executed := solana.NewWallet().PublicKey()
+	recipient := solana.NewWallet().PublicKey()
+
+	build := func(t *testing.T, assetAddr string) []*solana.AccountMeta {
+		t.Helper()
+		isNative := isNativeAsset(assetAddr)
+		require.True(t, isNative, "asset %q must classify as native", assetAddr)
+		return builder.buildWithdrawAndExecuteAccounts(
+			caller, config, vault, cea, tss, executed,
+			solana.SystemProgramID,
+			isNative, 1,
+			recipient, solana.PublicKey{},
+			nil,
+			solana.PublicKey{}, solana.PublicKey{},
+		)
+	}
+
+	withdrawForm := build(t, "0x0000000000000000000000000000000000000000")
+	revertForm := build(t, "11111111111111111111111111111111")
+
+	assert.Equal(t, withdrawForm, revertForm,
+		"revert-form native SOL must build the same accounts as withdraw-form")
+
+	// The old bug took the SPL path and derived an ATA for a non-mint.
+	ata, _, err := solana.FindAssociatedTokenAddress(recipient, solana.SystemProgramID)
+	require.NoError(t, err)
+	for _, acc := range revertForm {
+		assert.NotEqual(t, ata, acc.PublicKey, "native layout must not include a recipient ATA")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// VerifyBroadcastedTx
+// ---------------------------------------------------------------------------
+
+const testVerifySignature = "5VERv8NMvzbJMEkV8xnrLkEaWRtSz9CosKDYjCJjBRnbJLgp8uirBgmQpjKhoR4tjF3ZpRzrFmBV6UjKdiSZkQUW"
+
+// newVerifyRPCBuilder drives the real RPCClient against a local JSON-RPC server.
+// getHealth must answer for NewRPCClient to keep the endpoint; the genesis hash
+// check is skipped by passing an empty expected hash.
+func newVerifyRPCBuilder(t *testing.T, respond func(method string, w http.ResponseWriter)) *TxBuilder {
+	t.Helper()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.Contains(string(body), `"getHealth"`):
+			_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":"ok"}`))
+		case strings.Contains(string(body), `"getTransaction"`):
+			respond("getTransaction", w)
+		case strings.Contains(string(body), `"getSlot"`):
+			respond("getSlot", w)
+		default:
+			_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":null}`))
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	rpcClient, err := NewRPCClient([]string{server.URL}, "", zerolog.Nop())
+	require.NoError(t, err)
+
+	return &TxBuilder{rpcClient: rpcClient, chainID: "solana:test", logger: zerolog.Nop()}
+}
+
+// solana-go collapses both cases onto the error return: a genuinely absent tx
+// comes back as ErrNotFound, everything else is a real RPC failure. Only the
+// first is a verdict; treating the second as one lets the resolver vote failure
+// against a tx that already executed.
+func TestVerifyBroadcastedTx_NotFoundVersusRPCFailure(t *testing.T) {
+	t.Run("absent tx is a verdict, not an error", func(t *testing.T) {
+		tb := newVerifyRPCBuilder(t, func(_ string, w http.ResponseWriter) {
+			_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":null}`))
+		})
+
+		found, _, _, _, err := tb.VerifyBroadcastedTx(context.Background(), testVerifySignature)
+		require.NoError(t, err, "an absent tx must resolve, not retry forever")
+		assert.False(t, found)
+	})
+
+	t.Run("rpc failure surfaces as an error", func(t *testing.T) {
+		tb := newVerifyRPCBuilder(t, func(_ string, w http.ResponseWriter) {
+			_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"error":{"code":-32005,"message":"rate limited"}}`))
+		})
+
+		found, _, _, _, err := tb.VerifyBroadcastedTx(context.Background(), testVerifySignature)
+		require.Error(t, err, "an unreachable chain must not be reported as a verdict")
+		assert.False(t, found)
+	})
+
+	t.Run("malformed signature is a verdict", func(t *testing.T) {
+		tb := newVerifyRPCBuilder(t, func(_ string, w http.ResponseWriter) {
+			_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":null}`))
+		})
+
+		found, _, _, _, err := tb.VerifyBroadcastedTx(context.Background(), "not-a-signature")
+		require.NoError(t, err)
+		assert.False(t, found)
+	})
 }

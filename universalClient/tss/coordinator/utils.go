@@ -65,28 +65,25 @@ func deriveKeyIDBytes(keyID string) []byte {
 	return sum[:]
 }
 
-// selectRandomThreshold selects a random subset of at least threshold count from eligible validators.
-// Returns a shuffled copy of at least threshold validators (or all if fewer than threshold).
-func selectRandomThreshold(eligible []*types.UniversalValidator) []*types.UniversalValidator {
-	if len(eligible) == 0 {
+// selectRandomThreshold selects a random threshold count of eligible validators.
+// Returns a shuffled copy of threshold validators (or all if fewer than threshold).
+// The caller supplies the threshold: for fund migration it belongs to the old key,
+// not to the set of validators still holding its shares.
+func selectRandomThreshold(eligible []*types.UniversalValidator, threshold int) []*types.UniversalValidator {
+	if len(eligible) == 0 || threshold <= 0 {
 		return nil
 	}
 
-	// Calculate minimum required: >2/3 (same as threshold calculation)
-	minRequired := CalculateThreshold(len(eligible))
-
-	// If we have fewer than minRequired, return all
-	if len(eligible) <= minRequired {
+	// If we have fewer than threshold, return all
+	if len(eligible) <= threshold {
 		return eligible
 	}
 
-	// Randomly select at least minRequired participants
-	// Shuffle and take first minRequired
 	shuffled := make([]*types.UniversalValidator, len(eligible))
 	copy(shuffled, eligible)
 	rand.Shuffle(len(shuffled), func(i, j int) {
 		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
 	})
 
-	return shuffled[:minRequired]
+	return shuffled[:threshold]
 }

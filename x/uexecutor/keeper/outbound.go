@@ -176,6 +176,14 @@ func (k Keeper) handleSuccessfulOutbound(ctx sdk.Context, utxId string, outbound
 // It is called for both successful and failed outbounds — gas is consumed on the
 // external chain regardless of execution outcome.
 func (k Keeper) applyGasRefund(ctx sdk.Context, outbound *types.OutboundTx, obs *types.OutboundObservation) {
+	// INBOUND_REVERT is protocol-initiated: the user was never charged a gas fee for
+	// the revert, so its GasFee (when present) is only a relayer gas hint, not a
+	// user-paid budget. Refunding "excess" would hand the user funds they never paid,
+	// so never refund for a revert — regardless of PC20/PRC20 or whether GasFee is set.
+	if outbound.TxType == types.TxType_INBOUND_REVERT {
+		return
+	}
+
 	if obs.GasFeeUsed == "" || outbound.GasFee == "" || outbound.GasToken == "" {
 		return
 	}

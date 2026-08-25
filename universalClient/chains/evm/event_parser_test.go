@@ -3,6 +3,7 @@ package evm
 import (
 	"encoding/hex"
 	"encoding/json"
+	"math"
 	"math/big"
 	"testing"
 
@@ -182,7 +183,10 @@ func TestParseEventData(t *testing.T) {
 		assert.NotNil(t, event.EventData)
 	})
 
-	t.Run("handles missing data gracefully", func(t *testing.T) {
+	// A log too short to carry txType is discarded rather than stored with the
+	// field left at 0, which is GAS on the wire and routes to a different
+	// account than FUNDS does.
+	t.Run("discards a log with no data", func(t *testing.T) {
 		log := &types.Log{
 			Topics: []ethcommon.Hash{
 				ethcommon.HexToHash("0x1234"),
@@ -192,9 +196,29 @@ func TestParseEventData(t *testing.T) {
 			Data: []byte{}, // Empty data
 		}
 
-		event := ParseEvent(log, EventTypeSendFunds, config.Chain, logger)
-		// Should still create event but with minimal data
-		require.NotNil(t, event)
+		assert.Nil(t, ParseEvent(log, EventTypeSendFunds, config.Chain, logger))
+	})
+
+	t.Run("discards a log one word short of txType", func(t *testing.T) {
+		log := &types.Log{
+			Topics: []ethcommon.Hash{
+				ethcommon.HexToHash("0x1234"),
+				ethcommon.HexToHash("0x000000000000000000000000742d35cc6634c0532925a3b844bc9e7595f0beb7"),
+				ethcommon.HexToHash("0x000000000000000000000000dac17f958d2ee523a2206206994597c13d831ec7"),
+			},
+			Data: make([]byte, 32*4), // words 0..3 present, txType (word 4) missing
+		}
+
+		assert.Nil(t, ParseEvent(log, EventTypeSendFunds, config.Chain, logger))
+	})
+
+	t.Run("discards a log without the indexed fields", func(t *testing.T) {
+		log := &types.Log{
+			Topics: []ethcommon.Hash{ethcommon.HexToHash("0x1234")},
+			Data:   make([]byte, 32*8),
+		}
+
+		assert.Nil(t, ParseEvent(log, EventTypeSendFunds, config.Chain, logger))
 	})
 }
 
@@ -654,5 +678,104 @@ func TestFinalizeEvent(t *testing.T) {
 		assert.Equal(t, "0xrecipient", decoded.Recipient)
 		assert.Equal(t, "0xtoken", decoded.Token)
 		assert.Equal(t, "1000", decoded.Amount)
+	})
+}
+
+// abiWord returns a 32-byte big-endian word holding v, for building hostile log data.
+func abiWord(v *big.Int) []byte {
+	w := make([]byte, 32)
+	v.FillBytes(w)
+	return w
+}
+
+// Both the offset and the length word come from the RPC, so both can be chosen
+// to overflow uint64. Addition-based bounds wrap and pass, then the slice panics
+// — and the listener has no caller between here and the goroutine root, so that
+// panic would end the process.
+func TestReadDynamicBytes_OverflowIsRejectedNotPanicked(t *testing.T) {
+	maxU64 := new(big.Int).SetUint64(math.MaxUint64)
+
+	t.Run("offset near 2^64 does not wrap past the bounds check", func(t *testing.T) {
+		data := make([]byte, 128)
+		for _, off := range []uint64{
+			math.MaxUint64,      // absOff + 32 wraps to 31
+			math.MaxUint64 - 16, // wraps to 15
+			math.MaxUint64 - 31, // wraps to 0
+			math.MaxUint64 - 32, // wraps to exactly 0 after the +32
+		} {
+			_, ok := readDynamicBytes(data, off)
+			assert.False(t, ok, "offset %d must be rejected", off)
+		}
+	})
+
+	t.Run("length near 2^64 does not wrap the end below the start", func(t *testing.T) {
+		// Word at offset 0 is the length; make it enormous so dataStart+byteLen wraps.
+		data := make([]byte, 128)
+		copy(data[0:32], abiWord(maxU64))
+
+		_, ok := readDynamicBytes(data, 0)
+		assert.False(t, ok, "a length that wraps the end must be rejected")
+	})
+
+	t.Run("length just past the buffer is rejected without wrapping", func(t *testing.T) {
+		data := make([]byte, 128)
+		copy(data[0:32], abiWord(big.NewInt(97))) // 32 header + 97 > 128
+		_, ok := readDynamicBytes(data, 0)
+		assert.False(t, ok)
+	})
+
+	t.Run("well formed input still decodes", func(t *testing.T) {
+		data := make([]byte, 128)
+		copy(data[0:32], abiWord(big.NewInt(4)))
+		copy(data[32:36], []byte{0xDE, 0xAD, 0xBE, 0xEF})
+
+		got, ok := readDynamicBytes(data, 0)
+		require.True(t, ok)
+		assert.Equal(t, "0xdeadbeef", got)
+	})
+
+	t.Run("zero length decodes to empty", func(t *testing.T) {
+		data := make([]byte, 64)
+		got, ok := readDynamicBytes(data, 0)
+		require.True(t, ok)
+		assert.Equal(t, "0x", got)
+	})
+
+	t.Run("exactly filling the buffer decodes", func(t *testing.T) {
+		data := make([]byte, 64)
+		copy(data[0:32], abiWord(big.NewInt(32)))
+		copy(data[32:64], abiWord(big.NewInt(1)))
+
+		_, ok := readDynamicBytes(data, 32+32-32) // offset 32 is past the end for a 64-byte buffer
+		assert.False(t, ok)
+
+		got, ok := readDynamicBytes(data, 0)
+		require.True(t, ok)
+		assert.Len(t, got, 2+64)
+	})
+}
+
+// End to end: a log carrying an overflowing payload offset must be skipped, not
+// crash the listener goroutine.
+func TestParseEvent_HostileLogDoesNotPanic(t *testing.T) {
+	// 5 words of data so the length guard passes, with word 2 (the payload
+	// offset) set to a value that overflows when 32 is added to it.
+	data := make([]byte, 32*5)
+	copy(data[2*32:3*32], abiWord(new(big.Int).SetUint64(math.MaxUint64)))
+
+	log := &types.Log{
+		Topics: []ethcommon.Hash{
+			ethcommon.HexToHash("0x01"),
+			ethcommon.HexToHash("0x02"),
+			ethcommon.HexToHash("0x03"),
+		},
+		Data:    data,
+		TxHash:  ethcommon.HexToHash("0xabc"),
+		Index:   7,
+		Address: ethcommon.HexToAddress("0xdead"),
+	}
+
+	require.NotPanics(t, func() {
+		ParseEvent(log, EventTypeSendFunds, "eip155:1", zerolog.Nop())
 	})
 }

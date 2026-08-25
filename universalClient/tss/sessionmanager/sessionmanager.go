@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"slices"
 	"sync"
 	"time"
 
@@ -24,6 +25,7 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
+	uvalidatortypes "github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
 // SendFunc is a function type for sending messages to participants.
@@ -178,7 +180,7 @@ func (sm *SessionManager) handleSetupMessage(ctx context.Context, senderPeerID s
 	}
 
 	// 5. Validate participants list matches event protocol requirements
-	if err := sm.validateParticipants(msg.Participants, event); err != nil {
+	if err := sm.validateParticipants(ctx, msg.Participants, event); err != nil {
 		return fmt.Errorf("participants validation failed: %w", err)
 	}
 
@@ -194,6 +196,18 @@ func (sm *SessionManager) handleSetupMessage(ctx context.Context, senderPeerID s
 		if err := sm.verifyFundMigrationSigningRequest(ctx, event, msg.UnsignedSigningReq); err != nil {
 			return fmt.Errorf("fund migration signing request verification failed: %w", err)
 		}
+	}
+
+	// 6c. Everything validated above came from message fields, but the DKLS
+	// session runs on msg.Payload, and the two arrive unbound. Require the setup
+	// blob to carry exactly what we approved, before the ACK, so no shares are
+	// ever produced for a setup we did not verify.
+	if err := verifySetupMatchesValidated(msg, event.Type); err != nil {
+		sm.logger.Error().Err(err).
+			Str("event_id", msg.EventID).
+			Str("coordinator", senderPeerID).
+			Msg("setup message does not match the validated request - rejecting")
+		return err
 	}
 
 	// 7. Create session based on protocol type
@@ -739,9 +753,24 @@ func (sm *SessionManager) createSession(ctx context.Context, event *store.Event,
 // validateParticipants validates that participants match protocol requirements.
 // For keygen/keyrefresh: participants must match exactly with eligible participants (same elements).
 // For sign: participants must be a valid >2/3 subset of eligible participants.
-func (sm *SessionManager) validateParticipants(participants []string, event *store.Event) error {
-	// Get eligible validators for this protocol
-	eligible := sm.coordinator.GetEligibleUV(string(event.Type))
+func (sm *SessionManager) validateParticipants(ctx context.Context, participants []string, event *store.Event) error {
+	// Get eligible validators for this protocol.
+	//
+	// Fund migration is signed with the old key's shares, so both who may take
+	// part and how many are required come from that key rather than from the
+	// current validator set. Resolved through the coordinator so the check here
+	// mirrors the selection exactly.
+	var eligible []*uvalidatortypes.UniversalValidator
+	var fundMigrateRequired int
+	if event.Type == store.EventTypeSignFundMigrate {
+		var err error
+		eligible, fundMigrateRequired, err = sm.coordinator.FundMigrateEligible(ctx, *event)
+		if err != nil {
+			return fmt.Errorf("resolve fund migration signers: %w", err)
+		}
+	} else {
+		eligible = sm.coordinator.GetEligibleUV(string(event.Type))
+	}
 	if len(eligible) == 0 {
 		return fmt.Errorf("no eligible validators for protocol")
 	}
@@ -780,14 +809,23 @@ func (sm *SessionManager) validateParticipants(participants []string, event *sto
 			}
 		}
 
-	case store.EventTypeSignOutbound, store.EventTypeSignFundMigrate:
-		// For SIGN and FUND_MIGRATE the coordinator picks a random threshold subset (>2/3 of eligible)
+	case store.EventTypeSignOutbound:
+		// For SIGN the coordinator picks a random threshold subset (>2/3 of eligible)
 		// rather than all eligible validators. Accept any subset as long as it meets the threshold
 		// minimum; all participants are already verified eligible by the eligibleSet check above.
 		threshold := coordinator.CalculateThreshold(len(eligibleList))
 		if len(participants) < threshold {
 			return fmt.Errorf("%s participants count %d is below required threshold %d (eligible: %d)",
 				event.Type, len(participants), threshold, len(eligibleList))
+		}
+
+	case store.EventTypeSignFundMigrate:
+		// The old key's threshold, not the current set's. Sizing this from the
+		// live validator set would reject a legitimate selection whenever the
+		// set has grown since that key was created.
+		if len(participants) < fundMigrateRequired {
+			return fmt.Errorf("%s participants count %d is below required threshold %d (shareholders still eligible: %d)",
+				event.Type, len(participants), fundMigrateRequired, len(eligibleList))
 		}
 
 	default:
@@ -973,6 +1011,79 @@ func (sm *SessionManager) verifyOutboundSigningRequest(ctx context.Context, even
 		Str("our_hash", hex.EncodeToString(signingReq.SigningHash)).
 		Msg("sign metadata verified - hash matches")
 
+	return nil
+}
+
+// verifySetupMatchesValidated requires the coordinator's DKLS setup blob to
+// carry exactly the values the follower validated from the message fields.
+// DKLS runs on the blob, so without this the validated values are decorative:
+// a coordinator can present legitimate ones for checking and embed different
+// ones in Payload.
+//
+// Participants are checked for every protocol. Sign types additionally bind the
+// signing hash; key-lifecycle types additionally bind the threshold, which the
+// session constructors accept but ignore, so the embedded value is what the
+// protocol actually runs with.
+func verifySetupMatchesValidated(msg *coordinator.Message, eventType string) error {
+	if err := setupBindsParticipants(msg.Payload, msg.Participants); err != nil {
+		return err
+	}
+	if eventType == store.EventTypeSignOutbound || eventType == store.EventTypeSignFundMigrate {
+		if msg.UnsignedSigningReq == nil {
+			return fmt.Errorf("sign setup has no signing request to bind against")
+		}
+		return setupBindsHash(msg.Payload, msg.UnsignedSigningReq.SigningHash)
+	}
+	return setupBindsThreshold(msg.Payload, msg.Participants)
+}
+
+// setupBindsThreshold requires the setup blob to embed the threshold the
+// follower derives from the validated participants. Without it a coordinator can
+// embed a lower one and elicit help producing a weaker key than was agreed.
+func setupBindsThreshold(setupData []byte, validated []string) error {
+	expected := coordinator.CalculateThreshold(len(validated))
+	embedded, err := dkls.SetupThreshold(setupData)
+	if err != nil {
+		return fmt.Errorf("cannot decode setup message threshold: %w", err)
+	}
+	if embedded != expected {
+		return fmt.Errorf("setup message threshold %d does not match expected %d for %d participants",
+			embedded, expected, len(validated))
+	}
+	return nil
+}
+
+// setupBindsHash requires the setup blob to embed exactly the verified hash.
+func setupBindsHash(setupData, verifiedHash []byte) error {
+	if len(verifiedHash) == 0 {
+		return fmt.Errorf("no verified signing hash to bind setup message to")
+	}
+	embedded, err := dkls.SetupMessageHash(setupData)
+	if err != nil {
+		return fmt.Errorf("cannot decode setup message to check signing hash: %w", err)
+	}
+	if !bytes.Equal(embedded, verifiedHash) {
+		return fmt.Errorf("setup message signs hash %s but verified hash is %s",
+			hex.EncodeToString(embedded), hex.EncodeToString(verifiedHash))
+	}
+	return nil
+}
+
+// setupBindsParticipants requires the setup blob to embed exactly the validated
+// participants, in the same order. Index order is part of the protocol, so a
+// reorder is as consequential as a substitution.
+func setupBindsParticipants(setupData []byte, validated []string) error {
+	if len(validated) == 0 {
+		return fmt.Errorf("no validated participants to bind setup message to")
+	}
+	embedded, err := dkls.SetupParticipants(setupData)
+	if err != nil {
+		return fmt.Errorf("cannot decode setup message participants: %w", err)
+	}
+	if !slices.Equal(embedded, validated) {
+		return fmt.Errorf("setup message participants %v do not match validated participants %v",
+			embedded, validated)
+	}
 	return nil
 }
 

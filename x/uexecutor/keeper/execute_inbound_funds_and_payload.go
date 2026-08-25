@@ -212,6 +212,7 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 		var contractReceipt *evmtypes.MsgEthereumTxResponse
 		var contractErr error
 		var feeErr error
+		var attachErr error
 
 		if tcErr != nil {
 			contractErr = fmt.Errorf("token config lookup failed: %w", tcErr)
@@ -250,7 +251,21 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 				if contractErr == nil {
 					feeErr = k.DeductGasFeesFromReceipt(cacheCtx, cacheCtx, ueaAddr, contractReceipt, utx.InboundTx.UniversalPayload)
 					if feeErr == nil {
-						writeCache()
+						// A successful callback may itself have called
+						// UniversalGatewayPC, burning PRC20 and emitting
+						// UniversalTxOutbound. DerivedEVMCall skips
+						// PostTxProcessing, so nothing else picks those logs up:
+						// without this attach the supply is burned and no
+						// OutboundTx / PendingOutbounds row is ever created.
+						// Attaching inside cacheCtx keeps the burn and the
+						// outbound rows atomic - if the attach fails the cache
+						// is discarded, rolling the burn back with it.
+						if contractReceipt != nil {
+							attachErr = k.AttachOutboundsToExistingUniversalTx(cacheCtx, contractReceipt, utx)
+						}
+						if attachErr == nil {
+							writeCache()
+						}
 					}
 				}
 			}
@@ -270,6 +285,8 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 			callPcTx.ErrorMsg = contractErr.Error()
 		case feeErr != nil:
 			callPcTx.ErrorMsg = fmt.Sprintf("gas fee deduction failed: %s", feeErr.Error())
+		case attachErr != nil:
+			callPcTx.ErrorMsg = fmt.Sprintf("outbound attach failed: %s", attachErr.Error())
 		default:
 			callPcTx.Status = "SUCCESS"
 		}
@@ -287,7 +304,7 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 	// --- Step 3: execute payload via UEA
 	k.Logger().Debug("executing payload via UEA", "utx_key", universalTxKey, "uea", ueaAddr.Hex())
 	var payloadErr error
-	receipt, payloadErr = k.ExecutePayloadV2(ctx, ueModuleAddr, ueaAddr, utx.InboundTx.UniversalPayload, utx.InboundTx.VerificationData)
+	receipt, payloadErr = k.ExecutePayloadV2(ctx, ueModuleAddr, ueaAddr, utx.InboundTx.UniversalPayload, utx.InboundTx.VerificationData, utx)
 
 	payloadPcTx := types.PCTx{
 		Sender:      ueModuleAddressStr,
@@ -313,16 +330,9 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 			"tx_hash", receipt.Hash,
 			"gas_used", receipt.GasUsed,
 		)
+		// Outbounds are attached inside ExecutePayloadV2, atomically with the
+		// payload execution: reaching here means they are already committed.
 		payloadPcTx.Status = "SUCCESS"
-
-		if attachErr := k.AttachOutboundsToExistingUniversalTx(sdkCtx, receipt, utx); attachErr != nil {
-			if storeErr := k.UpdateUniversalTx(sdkCtx, universalTxKey, func(u *types.UniversalTx) error {
-				u.RevertError = attachErr.Error()
-				return nil
-			}); storeErr != nil {
-				return storeErr
-			}
-		}
 	}
 
 	updateErr2 := k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {

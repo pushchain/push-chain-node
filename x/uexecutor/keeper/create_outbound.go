@@ -63,7 +63,10 @@ func (k Keeper) BuildOutboundsFromReceipt(
 			event.Token, // PRC20 address
 		)
 		if err != nil {
-			return nil, err
+			// Wrapped so the caller can surface an actionable reason: the bare
+			// collections.ErrNotFound ("not found") says nothing about which leg
+			// of a multicall failed.
+			return nil, fmt.Errorf("no token config for PRC20 %s on chain %s: %w", event.Token, event.ChainId, err)
 		}
 
 		outbound := &types.OutboundTx{

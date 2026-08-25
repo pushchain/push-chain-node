@@ -8,6 +8,9 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -2797,4 +2800,74 @@ func TestNativeMarkerFormsBuildIdenticalAccounts(t *testing.T) {
 	for _, acc := range revertForm {
 		assert.NotEqual(t, ata, acc.PublicKey, "native layout must not include a recipient ATA")
 	}
+}
+
+// ---------------------------------------------------------------------------
+// VerifyBroadcastedTx
+// ---------------------------------------------------------------------------
+
+const testVerifySignature = "5VERv8NMvzbJMEkV8xnrLkEaWRtSz9CosKDYjCJjBRnbJLgp8uirBgmQpjKhoR4tjF3ZpRzrFmBV6UjKdiSZkQUW"
+
+// newVerifyRPCBuilder drives the real RPCClient against a local JSON-RPC server.
+// getHealth must answer for NewRPCClient to keep the endpoint; the genesis hash
+// check is skipped by passing an empty expected hash.
+func newVerifyRPCBuilder(t *testing.T, respond func(method string, w http.ResponseWriter)) *TxBuilder {
+	t.Helper()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.Contains(string(body), `"getHealth"`):
+			_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":"ok"}`))
+		case strings.Contains(string(body), `"getTransaction"`):
+			respond("getTransaction", w)
+		case strings.Contains(string(body), `"getSlot"`):
+			respond("getSlot", w)
+		default:
+			_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":null}`))
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	rpcClient, err := NewRPCClient([]string{server.URL}, "", zerolog.Nop())
+	require.NoError(t, err)
+
+	return &TxBuilder{rpcClient: rpcClient, chainID: "solana:test", logger: zerolog.Nop()}
+}
+
+// solana-go collapses both cases onto the error return: a genuinely absent tx
+// comes back as ErrNotFound, everything else is a real RPC failure. Only the
+// first is a verdict; treating the second as one lets the resolver vote failure
+// against a tx that already executed.
+func TestVerifyBroadcastedTx_NotFoundVersusRPCFailure(t *testing.T) {
+	t.Run("absent tx is a verdict, not an error", func(t *testing.T) {
+		tb := newVerifyRPCBuilder(t, func(_ string, w http.ResponseWriter) {
+			_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":null}`))
+		})
+
+		found, _, _, _, err := tb.VerifyBroadcastedTx(context.Background(), testVerifySignature)
+		require.NoError(t, err, "an absent tx must resolve, not retry forever")
+		assert.False(t, found)
+	})
+
+	t.Run("rpc failure surfaces as an error", func(t *testing.T) {
+		tb := newVerifyRPCBuilder(t, func(_ string, w http.ResponseWriter) {
+			_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"error":{"code":-32005,"message":"rate limited"}}`))
+		})
+
+		found, _, _, _, err := tb.VerifyBroadcastedTx(context.Background(), testVerifySignature)
+		require.Error(t, err, "an unreachable chain must not be reported as a verdict")
+		assert.False(t, found)
+	})
+
+	t.Run("malformed signature is a verdict", func(t *testing.T) {
+		tb := newVerifyRPCBuilder(t, func(_ string, w http.ResponseWriter) {
+			_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":null}`))
+		})
+
+		found, _, _, _, err := tb.VerifyBroadcastedTx(context.Background(), "not-a-signature")
+		require.NoError(t, err)
+		assert.False(t, found)
+	})
 }

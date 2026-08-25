@@ -322,6 +322,48 @@ func TestGetChainCleanupSettings(t *testing.T) {
 	})
 }
 
+// A registry depth of 0 is honored only with an out-of-band signal, since
+// proto3 gives the same encoding to a deliberate 0 and an unset field.
+func TestAllowsZeroConfirmationsForChain(t *testing.T) {
+	const instantChain = "eip155:1101"
+	const normalChain = "eip155:1"
+
+	withInstant := map[string]ChainSpecificConfig{
+		instantChain: {InstantFinality: true},
+		normalChain:  {},
+	}
+
+	t.Run("mainnet honors 0 only for a declared instant-finality chain", func(t *testing.T) {
+		c := &Config{PushNetwork: "mainnet", ChainConfigs: withInstant}
+		assert.True(t, c.AllowsZeroConfirmationsForChain(instantChain))
+		assert.False(t, c.AllowsZeroConfirmationsForChain(normalChain))
+	})
+
+	t.Run("an unconfigured chain falls back on mainnet", func(t *testing.T) {
+		c := &Config{PushNetwork: "mainnet", ChainConfigs: withInstant}
+		assert.False(t, c.AllowsZeroConfirmationsForChain("eip155:999"))
+	})
+
+	t.Run("unset network is treated as mainnet", func(t *testing.T) {
+		c := &Config{ChainConfigs: withInstant}
+		assert.True(t, c.AllowsZeroConfirmationsForChain(instantChain),
+			"an explicit per-chain declaration still applies")
+		assert.False(t, c.AllowsZeroConfirmationsForChain(normalChain))
+	})
+
+	t.Run("testnet honors 0 everywhere", func(t *testing.T) {
+		c := &Config{PushNetwork: "testnet", ChainConfigs: withInstant}
+		assert.True(t, c.AllowsZeroConfirmationsForChain(instantChain))
+		assert.True(t, c.AllowsZeroConfirmationsForChain(normalChain))
+		assert.True(t, c.AllowsZeroConfirmationsForChain("eip155:999"))
+	})
+
+	t.Run("nil chain configs does not panic and falls back", func(t *testing.T) {
+		c := &Config{PushNetwork: "mainnet"}
+		assert.False(t, c.AllowsZeroConfirmationsForChain(instantChain))
+	})
+}
+
 func TestNetworkGating(t *testing.T) {
 	cases := []struct {
 		network     string
@@ -339,7 +381,6 @@ func TestNetworkGating(t *testing.T) {
 		t.Run("network="+tc.network, func(t *testing.T) {
 			c := &Config{PushNetwork: tc.network}
 			assert.Equal(t, tc.wantTestnet, c.IsTestnet())
-			assert.Equal(t, tc.wantTestnet, c.AllowsZeroConfirmations())
 		})
 	}
 }

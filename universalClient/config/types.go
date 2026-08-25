@@ -21,10 +21,18 @@ func (c *Config) IsTestnet() bool {
 	return strings.EqualFold(strings.TrimSpace(c.PushNetwork), NetworkTestnet)
 }
 
-// AllowsZeroConfirmations reports whether a registry confirmation depth of 0 is
-// honored (instant routes) instead of falling back to a safe depth.
-func (c *Config) AllowsZeroConfirmations() bool {
-	return c.IsTestnet()
+// AllowsZeroConfirmationsForChain reports whether a registry confirmation depth
+// of 0 is honored for this chain instead of falling back to a safe depth.
+//
+// A registry 0 is ambiguous: proto3 encodes a deliberate 0 and an unset field
+// identically, so it cannot be read as "instant finality" on its own. Honoring
+// it therefore requires an out-of-band signal, either a testnet deployment or an
+// explicit per-chain declaration. Anything else falls back.
+func (c *Config) AllowsZeroConfirmationsForChain(chainID string) bool {
+	if c.IsTestnet() {
+		return true
+	}
+	return c.GetChainConfig(chainID).InstantFinality
 }
 
 // Config holds all configuration for the Universal Validator.
@@ -72,9 +80,15 @@ type ChainSpecificConfig struct {
 	EventPollingIntervalSeconds *int              `json:"event_polling_interval_seconds,omitempty"`
 	EventStartFrom              *int64            `json:"event_start_from,omitempty"`
 	GasPriceIntervalSeconds     *int              `json:"gas_price_interval_seconds,omitempty"`
-	GasPriceMarkupPercent       *int              `json:"gas_price_markup_percent,omitempty"`    // % markup on fetched gas price to handle spikes
-	ProtocolALT                 string            `json:"protocol_alt,omitempty"`            // Protocol ALT address (base58) for V0 transactions
-	TokenALTs                   map[string]string `json:"token_alts,omitempty"`              // mint address → token ALT address (base58)
+	GasPriceMarkupPercent       *int              `json:"gas_price_markup_percent,omitempty"` // % markup on fetched gas price to handle spikes
+	ProtocolALT                 string            `json:"protocol_alt,omitempty"`             // Protocol ALT address (base58) for V0 transactions
+	TokenALTs                   map[string]string `json:"token_alts,omitempty"`               // mint address → token ALT address (base58)
+
+	// InstantFinality declares that this chain's source finality is immediate, so
+	// a registry confirmation depth of 0 is honored rather than replaced by a
+	// safe default. Required because proto3 cannot distinguish a deliberate 0
+	// from an unset field, so the intent has to be stated out of band.
+	InstantFinality bool `json:"instant_finality,omitempty"`
 
 	// SVM rent reclaimer (orphaned StoredIxData PDA cleanup). Both default if unset.
 	RentReclaimSweepIntervalSeconds *int `json:"rent_reclaim_sweep_interval_seconds,omitempty"` // how often to sweep

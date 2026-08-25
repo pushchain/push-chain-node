@@ -1295,7 +1295,8 @@ func isNativeAsset(addr string) bool {
 		return pubkey.IsZero()
 	}
 	// The builder also accepts hex mints, so cover a hex-encoded zero pubkey.
-	// Length must be checked first: PublicKeyFromBytes panics on a short slice.
+	// The length check is load bearing: PublicKeyFromBytes panics on anything
+	// other than 32 bytes, and a short hex string such as 0x1234 reaches here.
 	if raw, err := hex.DecodeString(removeHexPrefix(addr)); err == nil && len(raw) == 32 {
 		return solana.PublicKeyFromBytes(raw).IsZero()
 	}

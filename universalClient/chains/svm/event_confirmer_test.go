@@ -442,3 +442,74 @@ func TestEventConfirmer_StartStop_ZeroPollInterval(t *testing.T) {
 		t.Fatal("event confirmer did not stop after context cancellation with zero poll interval")
 	}
 }
+
+// The skew this finding reports, end to end: the endpoint serving the
+// transaction is ahead of the one serving the slot, so the tx slot is above the
+// latest slot. Unchecked, latest-tx underflows to near 2^64 and clears any
+// threshold. The event must stay PENDING and be retried, never confirmed.
+func TestProcessPendingEvents_RPCHeightSkew_StaysPending(t *testing.T) {
+	sigStr := strings.Repeat("1", 64)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		body := make([]byte, r.ContentLength)
+		r.Body.Read(body)
+		bodyStr := string(body)
+
+		switch {
+		case strings.Contains(bodyStr, `"getHealth"`):
+			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":"ok"}`))
+		case strings.Contains(bodyStr, `"getSlot"`):
+			// The tip endpoint lags well behind the tx endpoint.
+			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":100}`))
+		case strings.Contains(bodyStr, `"getTransaction"`):
+			// Successful tx, but at a slot the observed tip has not reached.
+			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":{` +
+				`"slot":1000,` +
+				`"meta":{` +
+				`"err":null,` +
+				`"fee":5000,` +
+				`"preBalances":[],` +
+				`"postBalances":[],` +
+				`"logMessages":[],` +
+				`"status":{"Ok":null}` +
+				`},` +
+				`"transaction":["AQ==","base64"]` +
+				`}}`))
+		default:
+			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":null}`))
+		}
+	}))
+	defer server.Close()
+
+	logger := zerolog.Nop()
+	rpcClient, err := NewRPCClient([]string{server.URL}, "", logger)
+	require.NoError(t, err)
+	defer rpcClient.Close()
+
+	memDB, err := db.OpenInMemoryDB(true)
+	require.NoError(t, err)
+	defer memDB.Close()
+
+	ec := NewEventConfirmer(rpcClient, memDB, "solana:mainnet", 5, 5, 12, logger)
+	cs := common.NewChainStore(memDB)
+
+	pending := &store.Event{
+		EventID:          sigStr + ":0",
+		BlockHeight:      1000,
+		Type:             store.EventTypeInbound,
+		ConfirmationType: store.ConfirmationStandard,
+		Status:           store.StatusPending,
+		EventData:        []byte(`{}`),
+	}
+	inserted, err := cs.InsertEventIfNotExists(pending)
+	require.NoError(t, err)
+	require.True(t, inserted)
+
+	require.NoError(t, ec.processPendingEvents(context.Background()))
+
+	var got store.Event
+	require.NoError(t, memDB.Client().Where("event_id = ?", pending.EventID).First(&got).Error)
+	assert.Equal(t, store.StatusPending, got.Status,
+		"a tx slot above the observed tip must defer, not confirm")
+}

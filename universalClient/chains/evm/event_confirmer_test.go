@@ -3,6 +3,7 @@ package evm
 import (
 	"context"
 	"encoding/json"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -601,4 +602,99 @@ func TestProcessPendingEvents_RPCHeightSkew_StaysPending(t *testing.T) {
 	require.NoError(t, memDB.Client().Where("event_id = ?", pending.EventID).First(&got).Error)
 	assert.Equal(t, store.StatusPending, got.Status,
 		"a tx block above the observed tip must defer, not confirm")
+}
+
+// The success path from the finding: an outbound confirmed through the
+// confirmer must record execution fee plus the OP-Stack L1 data fee. Recording
+// only gasUsed*gasPrice makes applyGasRefund treat the omitted L1 component as
+// unused user gas and over-refund by that amount.
+func TestProcessPendingEvents_OutboundGasFeeIncludesL1Fee(t *testing.T) {
+	txHash := "0x5555555555555555555555555555555555555555555555555555555555555555"
+	const (
+		gasUsed           = uint64(0x5208)    // 21000
+		effectiveGasPrice = int64(0x3b9aca00) // 1 gwei
+		l1Fee             = int64(0x1e8480)   // 2,000,000 wei of L1 data fee
+	)
+	// 21000 * 1e9 + 2e6
+	wantFee := new(big.Int).Add(
+		new(big.Int).Mul(new(big.Int).SetUint64(gasUsed), big.NewInt(effectiveGasPrice)),
+		big.NewInt(l1Fee),
+	).String()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		body := make([]byte, r.ContentLength)
+		r.Body.Read(body)
+		bodyStr := string(body)
+
+		switch {
+		case strings.Contains(bodyStr, "eth_chainId"):
+			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":"0x1"}`))
+		case strings.Contains(bodyStr, "eth_blockNumber"):
+			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":"0x96"}`)) // 150, well past 100
+		case strings.Contains(bodyStr, "eth_getTransactionReceipt"):
+			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":{` +
+				`"transactionHash":"` + txHash + `",` +
+				`"blockNumber":"0x64",` +
+				`"blockHash":"0x6666666666666666666666666666666666666666666666666666666666666666",` +
+				`"transactionIndex":"0x0",` +
+				`"gasUsed":"0x5208",` +
+				`"cumulativeGasUsed":"0x5208",` +
+				`"effectiveGasPrice":"0x3b9aca00",` +
+				`"l1Fee":"0x1e8480",` +
+				`"logsBloom":"0x` + strings.Repeat("0", 512) + `",` +
+				`"logs":[],` +
+				`"status":"0x1",` +
+				`"type":"0x2"` +
+				`}}`))
+		default:
+			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":null}`))
+		}
+	}))
+	defer server.Close()
+
+	logger := zerolog.Nop()
+	rpcClient, err := NewRPCClient([]string{server.URL}, 1, logger)
+	require.NoError(t, err)
+	defer rpcClient.Close()
+
+	memDB, err := db.OpenInMemoryDB(true)
+	require.NoError(t, err)
+	defer memDB.Close()
+
+	ec := NewEventConfirmer(rpcClient, memDB, "eip155:84532", 5, 5, 12, logger)
+	cs := common.NewChainStore(memDB)
+
+	outboundData, err := json.Marshal(common.OutboundEvent{
+		TxID:          "0xtx",
+		UniversalTxID: "0xutx",
+	})
+	require.NoError(t, err)
+
+	pending := &store.Event{
+		EventID:          txHash + ":0",
+		BlockHeight:      100,
+		Type:             store.EventTypeOutbound,
+		ConfirmationType: store.ConfirmationStandard,
+		Status:           store.StatusPending,
+		EventData:        outboundData,
+	}
+	inserted, err := cs.InsertEventIfNotExists(pending)
+	require.NoError(t, err)
+	require.True(t, inserted)
+
+	require.NoError(t, ec.processPendingEvents(context.Background()))
+
+	var got store.Event
+	require.NoError(t, memDB.Client().Where("event_id = ?", pending.EventID).First(&got).Error)
+	require.Equal(t, store.StatusConfirmed, got.Status)
+
+	var stored common.OutboundEvent
+	require.NoError(t, json.Unmarshal(got.EventData, &stored))
+	assert.Equal(t, wantFee, stored.GasFeeUsed,
+		"recorded cost must include the L1 data fee, not execution gas alone")
+
+	// Execution-only would under-report by exactly the L1 fee.
+	executionOnly := new(big.Int).Mul(new(big.Int).SetUint64(gasUsed), big.NewInt(effectiveGasPrice)).String()
+	assert.NotEqual(t, executionOnly, stored.GasFeeUsed)
 }

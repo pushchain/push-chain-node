@@ -225,6 +225,44 @@ func newBroadcaster(evtStore *eventstore.Store, ch *chains.Chains) *Broadcaster 
 	})
 }
 
+// The rotation case, mirroring the resolver. The broadcaster must query the
+// nonce of the key that signed, not whichever key is current: after a rotation
+// they are separate EOAs, and reading the successor's sequence would report a
+// still-free nonce as consumed.
+func TestEVM_BroadcastError_AfterRotation_ChecksSigningKeyNonce(t *testing.T) {
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "eip155:1", uregistrytypes.VmType_EVM, client)
+
+	rotatedKey, err := crypto.HexToECDSA("8a1f9a8f9c8b7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e")
+	require.NoError(t, err)
+	rotatedSigner, err := coordinator.DeriveEVMAddressFromPubkey(
+		hex.EncodeToString(crypto.CompressPubkey(&rotatedKey.PublicKey)))
+	require.NoError(t, err)
+	require.NotEqual(t, testBroadcastSigner, rotatedSigner)
+
+	// Signed under the original key at nonce 5.
+	insertSignedEvent(t, db, "ev-rotated", "eip155:1", 5)
+
+	builder.On("BroadcastOutboundSigningRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return("0xabc", fmt.Errorf("already known"))
+	builder.On("VerifyBroadcastedTx", mock.Anything, "0xabc").
+		Return(false, uint64(0), uint64(0), uint8(0), nil)
+	// The signing key's nonce 5 is still free, so the tx can still mine.
+	builder.On("GetNextNonce", mock.Anything, testBroadcastSigner, true).Return(uint64(5), nil)
+	// The rotated key has moved past it. Reading this domain is the bug.
+	builder.On("GetNextNonce", mock.Anything, rotatedSigner, true).Return(uint64(42), nil)
+
+	b := newBroadcaster(evtStore, ch)
+	b.processSigned(context.Background())
+
+	builder.AssertCalled(t, "GetNextNonce", mock.Anything, testBroadcastSigner, true)
+	builder.AssertNotCalled(t, "GetNextNonce", mock.Anything, rotatedSigner, true)
+	require.Equal(t, store.StatusSigned, getEvent(t, db, "ev-rotated").Status,
+		"signing key nonce still free means retry, not a consumed-nonce transition")
+}
+
 func TestEVM_BroadcastError_NonceConsumed_MarksBroadcasted(t *testing.T) {
 	// Broadcast fails with txHash, finalized nonce shows consumed → BROADCASTED.
 	evtStore, db := setupTestDB(t)

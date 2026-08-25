@@ -52,9 +52,6 @@ func ReadSigningDeadline(event *store.Event) int64 {
 	return data.SigningDeadline
 }
 
-// ReadFundMigrationSigner derives the sender EVM address (old TSS) and reads
-// the signed nonce from a fund migration event payload. Returns ok=false on
-// missing/invalid fields — caller defers in that case.
 // RecoverOutboundSigner returns the EVM address that actually signed a SIGNED or
 // BROADCASTED outbound, recovered from the persisted signature and signing hash.
 //
@@ -87,6 +84,9 @@ func RecoverOutboundSigner(event *store.Event) (signer string, nonce uint64, ok 
 	return addr, data.SigningData.Nonce, true
 }
 
+// ReadFundMigrationSigner derives the sender EVM address (old TSS) and reads
+// the signed nonce from a fund migration event payload. Returns ok=false on
+// missing/invalid fields, and the caller defers in that case.
 func ReadFundMigrationSigner(event *store.Event) (signer string, nonce uint64, ok bool) {
 	var data SignedFundMigrationData
 	if err := json.Unmarshal(event.EventData, &data); err != nil || data.SigningData == nil || data.OldTssPubkey == "" {

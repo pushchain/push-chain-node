@@ -159,7 +159,17 @@ func (ec *EventConfirmer) processPendingEvents(ctx context.Context) error {
 
 		// Check if transaction is confirmed based on confirmation type
 		requiredConfirmations := ec.getRequiredConfirmations(event.ConfirmationType)
-		confirmations := latestBlock - receipt.BlockNumber + 1
+		txBlock := receipt.BlockNumber
+		confirmations, ok := chaincommon.ConfirmationDepth(latestBlock, txBlock)
+		if !ok {
+			// RPC height skew: latest block is behind the tx block. Defer.
+			ec.logger.Debug().
+				Str("event_id", event.EventID).
+				Uint64("latest_block", latestBlock).
+				Uint64("tx_block", txBlock).
+				Msg("latest block behind tx block (RPC height skew); deferring confirmation")
+			continue
+		}
 
 		if confirmations >= requiredConfirmations {
 			var rowsAffected int64
@@ -242,24 +252,13 @@ func (ec *EventConfirmer) getTxHashFromEventID(eventID string) string {
 	return parts[0]
 }
 
-// getRequiredConfirmations returns the required number of confirmations based on confirmation type
+// getRequiredConfirmations returns the depth for a confirmation type. Values are
+// resolved by applyDefaults, so a 0 here is an intentional instant route.
 func (ec *EventConfirmer) getRequiredConfirmations(confirmationType string) uint64 {
 	switch confirmationType {
 	case store.ConfirmationFast:
-		if ec.fastConfirmations >= 0 {
-			return ec.fastConfirmations
-		}
-		return 5
-	case store.ConfirmationStandard:
-		if ec.standardConfirmations >= 0 {
-			return ec.standardConfirmations
-		}
-		return 12
+		return ec.fastConfirmations
 	default:
-		// Default to standard if unknown
-		if ec.standardConfirmations >= 0 {
-			return ec.standardConfirmations
-		}
-		return 12
+		return ec.standardConfirmations
 	}
 }

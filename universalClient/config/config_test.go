@@ -321,3 +321,25 @@ func TestGetChainCleanupSettings(t *testing.T) {
 		assert.Contains(t, err.Error(), "cleanup_interval_seconds")
 	})
 }
+
+func TestNetworkGating(t *testing.T) {
+	cases := []struct {
+		network     string
+		wantTestnet bool
+	}{
+		{"", false},
+		{"mainnet", false},
+		{"MAINNET", false},
+		{"prod", false},
+		{"testnet", true},
+		{"TESTNET", true},
+		{"  testnet  ", true},
+	}
+	for _, tc := range cases {
+		t.Run("network="+tc.network, func(t *testing.T) {
+			c := &Config{PushNetwork: tc.network}
+			assert.Equal(t, tc.wantTestnet, c.IsTestnet())
+			assert.Equal(t, tc.wantTestnet, c.AllowsZeroConfirmations())
+		})
+	}
+}

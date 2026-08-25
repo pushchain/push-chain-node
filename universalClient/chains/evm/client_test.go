@@ -36,7 +36,7 @@ func TestClientInitialization(t *testing.T) {
 		}
 
 		chainSpecificConfig := testChainConfig([]string{"https://eth-mainnet.example.com"})
-		client, err := NewClient(chainConfig, nil, chainSpecificConfig, nil, logger)
+		client, err := NewClient(chainConfig, nil, chainSpecificConfig, nil, false, logger)
 		require.NoError(t, err)
 		assert.NotNil(t, client)
 		assert.Equal(t, chainConfig, client.GetConfig())
@@ -44,7 +44,7 @@ func TestClientInitialization(t *testing.T) {
 	})
 
 	t.Run("Nil config", func(t *testing.T) {
-		client, err := NewClient(nil, nil, nil, nil, logger)
+		client, err := NewClient(nil, nil, nil, nil, false, logger)
 		assert.Error(t, err)
 		assert.Nil(t, client)
 		assert.Contains(t, err.Error(), "config is nil")
@@ -57,7 +57,7 @@ func TestClientInitialization(t *testing.T) {
 		}
 
 		chainSpecificConfig := testChainConfig([]string{})
-		client, err := NewClient(chainConfig, nil, chainSpecificConfig, nil, logger)
+		client, err := NewClient(chainConfig, nil, chainSpecificConfig, nil, false, logger)
 		assert.Error(t, err)
 		assert.Nil(t, client)
 		assert.Contains(t, err.Error(), "no RPC URLs configured")
@@ -69,7 +69,7 @@ func TestClientInitialization(t *testing.T) {
 			VmType: uregistrytypes.VmType_SVM, // Wrong VM type
 		}
 
-		client, err := NewClient(chainConfig, nil, nil, nil, logger)
+		client, err := NewClient(chainConfig, nil, nil, nil, false, logger)
 		assert.Error(t, err)
 		assert.Nil(t, client)
 		assert.Contains(t, err.Error(), "invalid VM type for EVM client")
@@ -177,7 +177,7 @@ func TestClientStartStop(t *testing.T) {
 		}
 
 		chainSpecificConfig := testChainConfig([]string{server.URL})
-		client, err := NewClient(chainConfig, nil, chainSpecificConfig, nil, logger)
+		client, err := NewClient(chainConfig, nil, chainSpecificConfig, nil, false, logger)
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -199,7 +199,7 @@ func TestClientStartStop(t *testing.T) {
 
 		chainSpecificConfig := testChainConfig([]string{"http://invalid.localhost:99999"})
 
-		client, err := NewClient(chainConfig, nil, chainSpecificConfig, nil, logger)
+		client, err := NewClient(chainConfig, nil, chainSpecificConfig, nil, false, logger)
 		require.NoError(t, err)
 
 		// Use context with timeout to ensure fast failure
@@ -238,7 +238,7 @@ func TestClientStartStop(t *testing.T) {
 
 		// Use valid URL but cancel context immediately
 		chainSpecificConfig := testChainConfig([]string{server.URL})
-		client, err := NewClient(chainConfig, nil, chainSpecificConfig, nil, logger)
+		client, err := NewClient(chainConfig, nil, chainSpecificConfig, nil, false, logger)
 		require.NoError(t, err)
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -295,7 +295,7 @@ func TestClientIsHealthy(t *testing.T) {
 		}
 
 		chainSpecificConfig := testChainConfig([]string{server.URL})
-		client, err := NewClient(chainConfig, nil, chainSpecificConfig, nil, logger)
+		client, err := NewClient(chainConfig, nil, chainSpecificConfig, nil, false, logger)
 		require.NoError(t, err)
 
 		// Start the client
@@ -320,7 +320,7 @@ func TestClientIsHealthy(t *testing.T) {
 		// Provide valid RPC URLs for NewClient to succeed
 		// But don't start the client
 		chainSpecificConfig := testChainConfig([]string{"https://eth-mainnet.example.com"})
-		client, err := NewClient(chainConfig, nil, chainSpecificConfig, nil, logger)
+		client, err := NewClient(chainConfig, nil, chainSpecificConfig, nil, false, logger)
 		require.NoError(t, err)
 
 		healthy := client.IsHealthy()
@@ -342,7 +342,7 @@ func TestApplyDefaults(t *testing.T) {
 		assert.Equal(t, 5, cfg.eventPollingInterval)
 		assert.Equal(t, 30, cfg.gasPriceInterval)
 		assert.Equal(t, 0, cfg.gasPriceMarkupPercent)
-		assert.Equal(t, uint64(2), cfg.fastConfirmations)
+		assert.Equal(t, uint64(5), cfg.fastConfirmations)
 		assert.Equal(t, uint64(12), cfg.standardConfirmations)
 	})
 
@@ -412,7 +412,7 @@ func TestApplyDefaults(t *testing.T) {
 		}
 
 		cfg := client.applyDefaults()
-		assert.Equal(t, uint64(2), cfg.fastConfirmations)
+		assert.Equal(t, uint64(5), cfg.fastConfirmations)
 		assert.Equal(t, uint64(12), cfg.standardConfirmations)
 	})
 
@@ -426,8 +426,65 @@ func TestApplyDefaults(t *testing.T) {
 		}
 
 		cfg := client.applyDefaults()
-		assert.Equal(t, uint64(2), cfg.fastConfirmations)
+		assert.Equal(t, uint64(5), cfg.fastConfirmations)
 		assert.Equal(t, uint64(12), cfg.standardConfirmations)
+	})
+}
+
+// A registry-configured 0 falls back to a safe depth unless instant routes are
+// enabled, in which case it is honored.
+func TestApplyDefaults_ZeroConfirmations(t *testing.T) {
+	logger := zerolog.New(zerolog.NewTestWriter(t))
+
+	zeroRegistry := &uregistrytypes.ChainConfig{
+		BlockConfirmation: &uregistrytypes.BlockConfirmation{
+			FastInbound:     0,
+			StandardInbound: 0,
+		},
+	}
+
+	t.Run("mainnet falls back to safe depth", func(t *testing.T) {
+		client := &Client{
+			logger:                 logger,
+			chainIDStr:             "eip155:1",
+			registryConfig:         zeroRegistry,
+			allowZeroConfirmations: false,
+		}
+
+		cfg := client.applyDefaults()
+		assert.Equal(t, uint64(5), cfg.fastConfirmations, "zero fast must not disable depth on mainnet")
+		assert.Equal(t, uint64(12), cfg.standardConfirmations, "zero standard must not disable depth on mainnet")
+	})
+
+	t.Run("testnet honors zero as instant", func(t *testing.T) {
+		client := &Client{
+			logger:                 logger,
+			chainIDStr:             "eip155:1",
+			registryConfig:         zeroRegistry,
+			allowZeroConfirmations: true,
+		}
+
+		cfg := client.applyDefaults()
+		assert.Equal(t, uint64(0), cfg.fastConfirmations, "testnet instant route keeps zero")
+		assert.Equal(t, uint64(0), cfg.standardConfirmations, "testnet instant route keeps zero")
+	})
+
+	t.Run("nonzero registry values unaffected by flag", func(t *testing.T) {
+		client := &Client{
+			logger:     logger,
+			chainIDStr: "eip155:1",
+			registryConfig: &uregistrytypes.ChainConfig{
+				BlockConfirmation: &uregistrytypes.BlockConfirmation{
+					FastInbound:     3,
+					StandardInbound: 9,
+				},
+			},
+			allowZeroConfirmations: false,
+		}
+
+		cfg := client.applyDefaults()
+		assert.Equal(t, uint64(3), cfg.fastConfirmations)
+		assert.Equal(t, uint64(9), cfg.standardConfirmations)
 	})
 }
 
@@ -441,7 +498,7 @@ func TestGetTxBuilderNil(t *testing.T) {
 	}
 
 	chainSpecificConfig := testChainConfig([]string{"https://eth-mainnet.example.com"})
-	client, err := NewClient(chainConfig, nil, chainSpecificConfig, nil, logger)
+	client, err := NewClient(chainConfig, nil, chainSpecificConfig, nil, false, logger)
 	require.NoError(t, err)
 
 	// txBuilder is nil because gateway is not configured / Start not called
@@ -464,7 +521,7 @@ func TestClientGetMethods(t *testing.T) {
 	}
 
 	chainSpecificConfig := testChainConfig([]string{"https://eth-sepolia.example.com"})
-	client, err := NewClient(chainConfig, nil, chainSpecificConfig, nil, logger)
+	client, err := NewClient(chainConfig, nil, chainSpecificConfig, nil, false, logger)
 	require.NoError(t, err)
 
 	t.Run("ChainID", func(t *testing.T) {
@@ -496,7 +553,7 @@ func TestClientConcurrency(t *testing.T) {
 	}
 
 	chainSpecificConfig := testChainConfig([]string{server.URL})
-	client, err := NewClient(chainConfig, nil, chainSpecificConfig, nil, logger)
+	client, err := NewClient(chainConfig, nil, chainSpecificConfig, nil, false, logger)
 	require.NoError(t, err)
 
 	ctx := context.Background()

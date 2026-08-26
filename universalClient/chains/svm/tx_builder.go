@@ -300,10 +300,7 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 	//   - Execute (id=2): the target program to CPI into (target = destination_program)
 	//   - Revert (id=3,4): the wallet that gets the refund
 	//
-	// An empty recipient is the gateway's parking sentinel and resolves to the
-	// sender's CEA rather than to a wallet — see resolveRecipient. It is only
-	// meaningful for withdraw; checkParkedRecipientScope enforces that below,
-	// once instructionID is known.
+	// An empty recipient is the parking sentinel; see resolveRecipient.
 	recipientPubkey, recipientParked, err := tb.resolveRecipient(data.Recipient, sender)
 	if err != nil {
 		return nil, err
@@ -776,9 +773,8 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 		gasFee, _ = strconv.ParseUint(data.GasFee, 10, 64)
 	}
 
-	// Empty recipient = the gateway's parking sentinel, resolved to the sender's
-	// CEA. Must resolve identically to GetOutboundSigningRequest or the accounts
-	// list would not match the pubkey already bound into the TSS message.
+	// Must resolve identically to GetOutboundSigningRequest, or the accounts list
+	// would not match the pubkey already bound into the TSS message.
 	recipientPubkey, recipientParked, err := tb.resolveRecipient(data.Recipient, sender)
 	if err != nil {
 		return nil, 0, err
@@ -1141,8 +1137,6 @@ func (tb *TxBuilder) BuildRefRouteTransactions(
 	if instructionID != 2 {
 		return nil, nil, solana.PublicKey{}, fmt.Errorf("ref route only valid for execute mode (instruction_id=2), got %d", instructionID)
 	}
-	// Ref route is execute-only, so the parking sentinel is always out of scope
-	// here — recipientPubkey is the CPI target program, not a fund destination.
 	if err := checkParkedRecipientScope(recipientParked, instructionID); err != nil {
 		return nil, nil, solana.PublicKey{}, err
 	}
@@ -1317,49 +1311,14 @@ func isNativeAsset(addr string) bool {
 	return false
 }
 
-// =============================================================================
-//  Empty-Recipient Parking Sentinel
-//
-//  The Push Chain gateway documents an empty recipient as an instruction to
-//  PARK the funds in the caller's destination CEA instead of forwarding them
-//  to a wallet. It is a feature, not a malformed outbound:
-//
-//    evm-gateway/src/libraries/TypesUGPC.sol — UniversalOutboundTxRequest:
-//        bytes recipient;  // bytes("") => park funds in caller's CEA
-//    evm-gateway/src/interfaces/IUniversalGatewayPC.sol — UniversalTxOutbound:
-//        "Raw destination address on the target chain (bytes for SVM compat);
-//         bytes("") means park funds in the caller's CEA."
-//
-//  Core hex-encodes the raw event bytes unconditionally
-//  (x/uexecutor/types/gateway_pc_event_decode.go), so bytes("") is persisted on
-//  the outbound as the two-character string "0x". That is deliberate and stays:
-//  "0x" can never collide with a real recipient — CanonicalizeAddressByNamespace
-//  rejects it for both the solana: and the eip155: namespace — so one encoding
-//  serves every destination and the destination client decides what it means.
-//
-//  On SVM the parked destination is the CEA PDA the gateway derives for this
-//  sender: FindProgramAddress(["push_identity", push_account], gateway_program),
-//  CEA_SEED in svm-gateway/programs/universal-gateway/src/state.rs. Naming that
-//  PDA as the recipient is all that is required — finalize_universal_tx already
-//  stages vault -> CEA before dispatch, and internal_withdraw short-circuits
-//  when recipient == cea_authority ("If recipient == CEA, vault->CEA already
-//  completed in finalize flow", svm-gateway/.../instructions/withdraw.rs). The
-//  funds simply stay in the CEA, where the sender can spend them later.
-//
-//  Without this the builder rejected "0x" pre-sign: no TSS request, no
-//  broadcast, no observation, and therefore no failure vote and no remint — the
-//  outbound sat PENDING forever with the user's PRC20 already burned
-//  (audit finding F-2026-18184).
-// =============================================================================
+// An empty recipient is the gateway's sentinel for parking funds in the caller's
+// CEA rather than forwarding them to a wallet. Core hex-encodes the raw event
+// bytes, so it arrives as "0x". The builder used to reject that pre-sign, which
+// stranded the outbound PENDING with the PRC20 already burned.
 
-// isParkedRecipient reports whether recipient is the gateway's empty-bytes
-// parking sentinel.
-//
-// The test is "decodes to zero bytes" rather than equality with the literal
-// "0x". Core's encoder only ever emits lowercase "0x", but "" and "0X" denote
-// the same empty byte string and there is no address either could otherwise
-// stand for, so all three are accepted. Anything decoding to at least one byte
-// — "0x00" included — is a real address and is parsed normally.
+// isParkedRecipient reports whether recipient decodes to zero bytes. Tested that
+// way rather than against the literal "0x" so "" and "0X" are covered too;
+// anything decoding to a byte or more is a real address.
 func isParkedRecipient(recipient string) bool {
 	s := strings.TrimSpace(recipient)
 	if len(s) >= 2 && (s[:2] == "0x" || s[:2] == "0X") {
@@ -1370,13 +1329,9 @@ func isParkedRecipient(recipient string) bool {
 }
 
 // resolveRecipient converts the outbound recipient into a Solana pubkey,
-// honouring the parking sentinel. It returns parked=true when the sentinel was
-// used; every caller must then run checkParkedRecipientScope once the
-// instruction id is known, because parking is a withdraw-only convention.
-//
-// Both GetOutboundSigningRequest and BuildOutboundTransaction resolve the
-// recipient through here, so the pubkey bound into the TSS message and the one
-// placed in the accounts list are derived the same way from the same event.
+// resolving the sentinel to the sender's CEA PDA. Callers must then run
+// checkParkedRecipientScope once the instruction id is known. Shared by the
+// signing and build paths so both derive the same pubkey.
 func (tb *TxBuilder) resolveRecipient(recipient string, sender [20]byte) (solana.PublicKey, bool, error) {
 	if isParkedRecipient(recipient) {
 		ceaAuthorityPDA, _, err := solana.FindProgramAddress([][]byte{ceaAuthoritySeed, sender[:]}, tb.gatewayAddress)
@@ -1397,19 +1352,10 @@ func (tb *TxBuilder) resolveRecipient(recipient string, sender [20]byte) (solana
 	return recipientPubkey, false, nil
 }
 
-// checkParkedRecipientScope confines the parking sentinel to withdraw (id=1).
-//
-// Only the withdraw path treats the recipient as a fund destination, and only
-// PC-origin outbounds carry the raw event bytes that can be empty
-// (create_outbound.go sets Recipient = event.Target for id=1/2). The other ids
-// would silently misread it:
-//
-//   - id=2 execute — the recipient is the program to CPI into. An empty target
-//     would mean "CPI into the CEA", which is not the documented convention.
-//   - id=3 revert / id=4 rescue — the destination is the original inbound's
-//     sender or its RevertInstructions.FundRecipient, both observed source-chain
-//     addresses that are never the sentinel. Seeing it there means the outbound
-//     is malformed, and erroring keeps that visible.
+// checkParkedRecipientScope confines the sentinel to withdraw (id=1), the only
+// path where the recipient is a fund destination. On execute it is the CPI
+// target, and on revert/rescue it is an observed source-chain address, so an
+// empty value there means the outbound is malformed.
 func checkParkedRecipientScope(parked bool, instructionID uint8) error {
 	if !parked || instructionID == 1 {
 		return nil

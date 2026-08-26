@@ -18,10 +18,12 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	"github.com/cosmos/cosmos-sdk/x/authz"
 
 	"github.com/pushchain/push-chain-node/app/ante"
 	appparams "github.com/pushchain/push-chain-node/app/params"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
+	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 )
 
 // uexecutorModuleEVMAddr is the EVM address of the uexecutor module account -
@@ -39,6 +41,8 @@ func newSignerBindingEncodingConfig(t *testing.T) appparams.EncodingConfig {
 	std.RegisterInterfaces(encCfg.InterfaceRegistry)
 	authtypes.RegisterInterfaces(encCfg.InterfaceRegistry)
 	uexecutortypes.RegisterInterfaces(encCfg.InterfaceRegistry)
+	utsstypes.RegisterInterfaces(encCfg.InterfaceRegistry)
+	authz.RegisterInterfaces(encCfg.InterfaceRegistry)
 	return encCfg
 }
 
@@ -141,7 +145,11 @@ func buildSignedTx(t *testing.T, encCfg appparams.EncodingConfig, msg sdk.Msg, d
 func newSignerBindingDecorator(t *testing.T, encCfg appparams.EncodingConfig) (ante.AccountInitDecorator, *mockAccountKeeperAnte) {
 	t.Helper()
 	ak := newMockAccountKeeperAnte(sdk.AccAddress([]byte("feeCollector")))
-	return ante.NewAccountInitDecorator(ak, encCfg.TxConfig.SignModeHandler()), ak
+	// The uvalidator mock knows about nobody, so it rejects every address it is
+	// asked about. Every test in this file uses MsgExecutePayload / MsgMigrateUEA,
+	// which are deliberately NOT gated on validator status (F-2026-18186), so they
+	// must keep working against it.
+	return ante.NewAccountInitDecorator(ak, newMockUValidatorKeeperAnte(), encCfg.TxConfig.SignModeHandler()), ak
 }
 
 // TestAccountInitDecorator_RejectsAliasedModuleSigner is the regression test for

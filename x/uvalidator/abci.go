@@ -65,6 +65,28 @@ func BeginBlocker(ctx sdk.Context, uvalidatorKeeper keeper.Keeper) error {
 	return nil
 }
 
+// EndBlocker runs the ballot expiry sweep once per block.
+//
+// Expiry used to be driven off ballot *creation*, which meant it both scanned
+// the whole active set on a consensus hot path and only ran when inbound
+// traffic happened to arrive. Running it here decouples expiry from traffic.
+//
+// A failed sweep is logged and swallowed rather than returned: expiry must
+// never halt the chain, and the work is idempotent — anything not expired this
+// block is still in PendingByExpiry for the next one.
+func EndBlocker(ctx sdk.Context, uvalidatorKeeper keeper.Keeper) error {
+	defer telemetry.ModuleMeasureSince(types.ModuleName, time.Now(), telemetry.MetricKeyEndBlocker)
+
+	if err := uvalidatorKeeper.ExpireBallotsBeforeHeight(ctx, ctx.BlockHeight()); err != nil {
+		ctx.Logger().Error("uvalidator: ballot expiry sweep failed",
+			"height", ctx.BlockHeight(),
+			"err", err.Error(),
+		)
+	}
+
+	return nil
+}
+
 // AllocateTokens performs reward and fee distribution to all validators based
 // on the F1 fee distribution specification.
 func AllocateTokens(ctx context.Context, totalPreviousPower int64, bondedVotes []abci.VoteInfo, k keeper.Keeper) error {

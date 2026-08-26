@@ -68,17 +68,15 @@ func (b *Broadcaster) broadcastOutboundEVM(ctx context.Context, event *store.Eve
 		return
 	}
 
-	tssAddress := ""
-	if b.getTSSAddress != nil {
-		var addrErr error
-		tssAddress, addrErr = b.getTSSAddress(ctx)
-		if addrErr != nil {
-			log.Warn().Err(addrErr).Msg("failed to get TSS address for nonce check, will retry next tick")
-			return
-		}
+	// Nonce check must use the key that signed this tx, not the live TSS: after a
+	// rotation they are different EOAs with unrelated nonce sequences.
+	signer, signedNonce, ok := txflow.RecoverOutboundSigner(event)
+	if !ok {
+		log.Warn().Msg("could not recover signing key for nonce check, will retry next tick")
+		return
 	}
 
-	b.checkNonceAndMarkBroadcasted(ctx, event, builder, chainID, txHash, tssAddress, data.SigningData.Nonce, broadcastErr)
+	b.checkNonceAndMarkBroadcasted(ctx, event, builder, chainID, txHash, signer, signedNonce, broadcastErr)
 }
 
 // broadcastFundMigrationEVM broadcasts a signed EVM fund migration transaction.

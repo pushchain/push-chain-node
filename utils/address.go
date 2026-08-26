@@ -58,22 +58,41 @@ func ConvertAnyAddressesToBytes[T ByteType](addr ...string) ([]T, error) {
 	return res, nil
 }
 
-// get address pair returns both the cosmos and the 0x addresses, or an error
+// GetAddressPair returns both the cosmos and the 0x addresses, or an error.
+//
+// The address MUST decode to exactly 20 bytes. The Cosmos SDK accepts bech32
+// account addresses of up to 255 bytes, while common.BytesToAddress silently
+// keeps only the RIGHTMOST 20 bytes. A longer address would therefore collapse
+// onto an unrelated EVM address - e.g. 0x01 || <uexecutor module address>
+// truncates to the uexecutor module itself - so reject it instead of
+// truncating.
 func GetAddressPair(addr string) (sdk.AccAddress, common.Address, error) {
 	bz, err := ConvertAnyAddressToBytes(addr)
 	if err != nil {
 		return nil, common.Address{}, err
 	}
 
+	if len(bz) != common.AddressLength {
+		return nil, common.Address{}, fmt.Errorf(
+			"invalid address length for %q: got %d bytes, want %d", addr, len(bz), common.AddressLength)
+	}
+
 	return sdk.AccAddress(bz), common.BytesToAddress(bz), nil
 }
 
+// MustConvertCosmosToHex returns the 0x form of addr, or an empty string when
+// addr cannot be represented as a 20-byte EVM address.
+//
+// It never panics and never truncates: the previous common.Address(bz)
+// conversion panicked for inputs shorter than 20 bytes and silently kept the
+// LEFTMOST 20 bytes for longer ones - the opposite end from
+// common.BytesToAddress used elsewhere in this file.
 func MustConvertCosmosToHex(addr string) string {
 	bz, err := ConvertAnyAddressToBytes(addr)
-	if err != nil {
+	if err != nil || len(bz) != common.AddressLength {
 		return ""
 	}
-	return common.Address(bz).Hex()
+	return common.BytesToAddress(bz).Hex()
 }
 
 // create an enum for COSMOS, 0x, or EITHER

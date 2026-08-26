@@ -251,14 +251,18 @@ func (tb *TxBuilder) VerifyBroadcastedTx(ctx context.Context, txHash string) (fo
 	hash := ethcommon.HexToHash(txHash)
 	receipt, err := tb.rpcClient.GetTransactionReceipt(ctx, hash)
 	if err != nil {
+		// Reporting a not-found verdict here would let the resolver vote failure against a tx that already executed.
+		return false, 0, 0, 0, err
+	}
+	if receipt == nil {
 		return false, 0, 0, 0, nil
 	}
 
-	receiptBlock := receipt.BlockNumber.Uint64()
+	receiptBlock := receipt.BlockNumber
 
 	var confs uint64
-	latestBlock, err := tb.rpcClient.GetLatestBlock(ctx)
-	if err == nil && latestBlock >= receiptBlock {
+	latestBlock, blockErr := tb.rpcClient.GetLatestBlock(ctx)
+	if blockErr == nil && latestBlock >= receiptBlock {
 		confs = latestBlock - receiptBlock + 1
 	}
 
@@ -448,29 +452,29 @@ func (tb *TxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, 
 	return false, 0, nil
 }
 
-// GetGasFeeUsed returns the gas fee used by a transaction on the EVM chain.
-// Fetches the receipt for gasUsed and the transaction for gasPrice, then returns
-// gasUsed * gasPrice as a decimal string. Returns "0" if not found.
+// GetGasFeeUsed returns the gas fee used by a transaction on the EVM chain:
+// L2 execution (gasUsed * effectiveGasPrice) plus the OP-Stack L1 data fee
+// (0 on non-OP chains). Errors when the fee cannot be determined so callers
+// retry rather than record an under-reported fee.
 func (tb *TxBuilder) GetGasFeeUsed(ctx context.Context, txHash string) (string, error) {
-	hash := ethcommon.HexToHash(txHash)
-	receipt, err := tb.rpcClient.GetTransactionReceipt(ctx, hash)
+	receipt, err := tb.rpcClient.GetTransactionReceipt(ctx, ethcommon.HexToHash(txHash))
 	if err != nil {
-		return "0", nil
+		return "", fmt.Errorf("failed to fetch receipt for %s: %w", txHash, err)
 	}
-
-	tx, _, err := tb.rpcClient.GetTransactionByHash(ctx, hash)
-	if err != nil {
-		return "0", nil
+	if receipt == nil {
+		return "", fmt.Errorf("receipt not found for %s", txHash)
 	}
-
-	gasUsed := new(big.Int).SetUint64(receipt.GasUsed)
-	gasPrice := tx.GasPrice()
-	if gasPrice == nil || gasPrice.Sign() == 0 {
-		return "0", nil
+	if receipt.EffectiveGasPrice == nil {
+		return "", fmt.Errorf("receipt for %s missing effectiveGasPrice", txHash)
 	}
+	return gasFeeUsed(receipt.GasUsed, receipt.EffectiveGasPrice, receipt.L1Fee).String(), nil
+}
 
-	gasFeeUsed := new(big.Int).Mul(gasUsed, gasPrice)
-	return gasFeeUsed.String(), nil
+// gasFeeUsed returns the full destination cost of an included tx: L2 execution
+// (gasUsed * effectiveGasPrice) plus the OP-Stack L1 data fee.
+func gasFeeUsed(gasUsed uint64, gasPrice, l1Fee *big.Int) *big.Int {
+	fee := new(big.Int).Mul(new(big.Int).SetUint64(gasUsed), gasPrice)
+	return fee.Add(fee, l1Fee)
 }
 
 // GetFundMigrationSigningRequest builds the native transfer sweeping the old TSS

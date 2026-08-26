@@ -93,8 +93,15 @@ func parseSendFundsEvent(log string, signature string, slot uint64, logIndex uin
 		ExpiryBlockHeight: 0, // Will be set based on confirmation type if needed
 	}
 
-	// Parse event data from this log
-	parseUniversalTxEvent(event, decoded, logIndex, chainID, logger)
+	// Parse event data from this log. A malformed event is dropped rather than
+	// stored half-decoded: the zero values it would carry are not neutral.
+	if err := parseUniversalTxEvent(event, decoded, logIndex, chainID, logger); err != nil {
+		logger.Warn().
+			Err(err).
+			Str("event_id", eventID).
+			Msg("discarding malformed UniversalTx event")
+		return nil
+	}
 
 	return event
 }
@@ -201,15 +208,11 @@ func parseOutboundObservationEvent(log string, signature string, slot uint64, lo
 
 // parseUniversalTxEvent extracts specific data from a single log event
 // For TxWithFunds events, it JSON-marshals the decoded fields into event.EventData.
-func parseUniversalTxEvent(event *store.Event, decoded []byte, logIndex uint, chainID string, logger zerolog.Logger) {
-	// Parse the TxWithFunds event
+func parseUniversalTxEvent(event *store.Event, decoded []byte, logIndex uint, chainID string, logger zerolog.Logger) error {
+	// Parse the UniversalTx event
 	payload, err := decodeUniversalTxEvent(decoded, logger)
 	if err != nil {
-		logger.Warn().
-			Err(err).
-			Uint("log_index", logIndex).
-			Msg("failed to decode TxWithFunds event")
-		return
+		return fmt.Errorf("decode UniversalTx event: %w", err)
 	}
 
 	// Set source chain and log index
@@ -217,13 +220,11 @@ func parseUniversalTxEvent(event *store.Event, decoded []byte, logIndex uint, ch
 	payload.LogIndex = logIndex
 
 	// Marshal and store into event.EventData
-	if b, err := json.Marshal(payload); err == nil {
-		event.EventData = b
-	} else {
-		logger.Warn().
-			Err(err).
-			Msg("failed to marshal universal tx payload")
+	b, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("marshal universal tx payload: %w", err)
 	}
+	event.EventData = b
 
 	// if TxType is 0 or 1, use FAST else use STANDARD
 	if payload.TxType == 0 || payload.TxType == 1 {
@@ -231,16 +232,20 @@ func parseUniversalTxEvent(event *store.Event, decoded []byte, logIndex uint, ch
 	} else {
 		event.ConfirmationType = store.ConfirmationStandard
 	}
+
+	return nil
 }
 
-// decodeUniversalTxEvent decodes a TxWithFunds event
+// decodeUniversalTxEvent decodes the gateway's Borsh-encoded UniversalTx event:
+//
+//	sender 32, recipient 20, token 32, amount u64, payload (u32 len + bytes),
+//	revert_recipient 32, tx_type 1, signature_data (u32 len + bytes), from_cea 1
+//
+// Every field through signature_data is required. A truncated event is rejected
+// rather than returned half-filled, since the zero values are not neutral:
+// tx_type 0 is GAS, which routes funds to a different account than FUNDS does.
+// Only from_cea is optional, defaulting to false as its absence cannot misroute.
 func decodeUniversalTxEvent(data []byte, logger zerolog.Logger) (*common.UniversalTx, error) {
-	if len(data) < 120 {
-		logger.Warn().
-			Int("data_len", len(data)).
-			Msg("data might be too short for complete TxWithFunds event")
-	}
-
 	offset := 8
 	payload := &common.UniversalTx{}
 
@@ -286,19 +291,14 @@ func decodeUniversalTxEvent(data []byte, logger zerolog.Logger) (*common.Univers
 
 	// Parse data field length (4 bytes)
 	if len(data) < offset+4 {
-		logger.Warn().Msg("not enough data for data field length")
-		return payload, nil
+		return nil, fmt.Errorf("not enough data for data field length")
 	}
 	dataLen := binary.LittleEndian.Uint32(data[offset : offset+4])
 	offset += 4
 
 	// Parse data field
 	if len(data) < offset+int(dataLen) {
-		logger.Warn().
-			Uint32("expected_len", dataLen).
-			Int("available", len(data)-offset).
-			Msg("not enough data for data field")
-		return payload, nil
+		return nil, fmt.Errorf("data field claims %d bytes, only %d available", dataLen, len(data)-offset)
 	}
 	if dataLen > 0 {
 		dataField := data[offset : offset+int(dataLen)]
@@ -308,18 +308,19 @@ func decodeUniversalTxEvent(data []byte, logger zerolog.Logger) (*common.Univers
 
 	// Parse revert_recipient (Pubkey)
 	if len(data) < offset+32 {
-		logger.Warn().Msg("not enough data for revert recipient")
-		return payload, nil
+		return nil, fmt.Errorf("not enough data for revert recipient")
 	}
 	revertRecipient := solana.PublicKey(data[offset : offset+32])
 	payload.RevertFundRecipient = revertRecipient.String()
 	offset += 32
 
 	// Parse tx_type (TxType enum)
+	//
+	// No default. Wire 0 is GAS, which credits the sender UEA via swap rather
+	// than depositing to the recipient, and also selects fast confirmation.
+	// Guessing it on a truncated event silently changes where the money goes.
 	if len(data) <= offset {
-		logger.Warn().Msg("not enough data for tx_type, defaulting to Funds")
-		payload.TxType = uint(0)
-		return payload, nil
+		return nil, fmt.Errorf("not enough data for tx_type")
 	}
 	txType := data[offset]
 	payload.TxType = uint(txType)
@@ -327,19 +328,14 @@ func decodeUniversalTxEvent(data []byte, logger zerolog.Logger) (*common.Univers
 
 	// Parse signature data length (4 bytes)
 	if len(data) < offset+4 {
-		logger.Warn().Msg("not enough data for signature length")
-		return payload, nil
+		return nil, fmt.Errorf("not enough data for signature length")
 	}
 	sigLen := binary.LittleEndian.Uint32(data[offset : offset+4])
 	offset += 4
 
 	remainingBytes := len(data) - offset
 	if int(sigLen) > remainingBytes {
-		logger.Warn().
-			Uint32("expected_len", sigLen).
-			Int("available", remainingBytes).
-			Msg("signature data length exceeds available data, skipping")
-		return payload, nil
+		return nil, fmt.Errorf("signature data claims %d bytes, only %d available", sigLen, remainingBytes)
 	}
 
 	if sigLen > 0 {
@@ -369,4 +365,3 @@ func decodeUniversalTxEvent(data []byte, logger zerolog.Logger) (*common.Univers
 
 	return payload, nil
 }
-

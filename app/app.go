@@ -91,9 +91,6 @@ import (
 	govkeeper "github.com/cosmos/cosmos-sdk/x/gov/keeper"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	govv1beta1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1beta1"
-	"github.com/cosmos/cosmos-sdk/x/group"
-	groupkeeper "github.com/cosmos/cosmos-sdk/x/group/keeper"
-	groupmodule "github.com/cosmos/cosmos-sdk/x/group/module"
 	"github.com/cosmos/cosmos-sdk/x/mint"
 	mintkeeper "github.com/cosmos/cosmos-sdk/x/mint/keeper"
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
@@ -195,7 +192,6 @@ var (
 	capabilities = []string{
 		"iterator",
 		"staking",
-		"stargate",
 		"cosmwasm_1_1", "cosmwasm_1_2", "cosmwasm_1_3", "cosmwasm_1_4",
 		"token_factory",
 	}
@@ -312,7 +308,6 @@ type ChainApp struct {
 	AuthzKeeper           authzkeeper.Keeper
 	EvidenceKeeper        evidencekeeper.Keeper
 	FeeGrantKeeper        feegrantkeeper.Keeper
-	GroupKeeper           groupkeeper.Keeper
 	NFTKeeper             nftkeeper.Keeper
 	ConsensusParamsKeeper consensusparamkeeper.Keeper
 	CircuitKeeper         circuitkeeper.Keeper
@@ -433,7 +428,6 @@ func NewChainApp(
 		circuittypes.StoreKey,
 		authzkeeper.StoreKey,
 		nftkeeper.StoreKey,
-		group.StoreKey,
 		// non sdk store keys
 		ibcexported.StoreKey,
 		ibctransfertypes.StoreKey,
@@ -587,17 +581,6 @@ func NewChainApp(
 		appCodec,
 		app.MsgServiceRouter(),
 		app.AccountKeeper,
-	)
-
-	groupConfig := group.DefaultConfig()
-	groupConfig.MaxMetadataLen = 10000
-	app.GroupKeeper = groupkeeper.NewKeeper(
-		keys[group.StoreKey],
-		// runtime.NewKVStoreService(keys[group.StoreKey]),
-		appCodec,
-		app.MsgServiceRouter(),
-		app.AccountKeeper,
-		groupConfig,
 	)
 
 	// get skipUpgradeHeights from the app options
@@ -1026,7 +1009,6 @@ func NewChainApp(
 		evidence.NewAppModule(app.EvidenceKeeper),
 		params.NewAppModule(app.ParamsKeeper),
 		authzmodule.NewAppModule(appCodec, app.AuthzKeeper, app.AccountKeeper, app.BankKeeper, app.interfaceRegistry),
-		groupmodule.NewAppModule(appCodec, app.GroupKeeper, app.AccountKeeper, app.BankKeeper, app.interfaceRegistry),
 		nftmodule.NewAppModule(appCodec, app.NFTKeeper, app.AccountKeeper, app.BankKeeper, app.interfaceRegistry),
 		consensus.NewAppModule(appCodec, app.ConsensusParamsKeeper),
 		circuit.NewAppModule(appCodec, app.CircuitKeeper),
@@ -1111,7 +1093,6 @@ func NewChainApp(
 		stakingtypes.ModuleName,
 		genutiltypes.ModuleName,
 		feegrant.ModuleName,
-		group.ModuleName,
 		// additional non simd modules
 		evmtypes.ModuleName, erc20types.ModuleName, feemarkettypes.ModuleName,
 		ibctransfertypes.ModuleName,
@@ -1157,7 +1138,6 @@ func NewChainApp(
 		authz.ModuleName,
 		feegrant.ModuleName,
 		nft.ModuleName,
-		group.ModuleName,
 		paramstypes.ModuleName,
 		upgradetypes.ModuleName,
 		vestingtypes.ModuleName,

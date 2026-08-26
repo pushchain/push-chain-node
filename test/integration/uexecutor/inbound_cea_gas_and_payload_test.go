@@ -468,9 +468,11 @@ func TestInboundCEAGasAndPayload(t *testing.T) {
 		// Check that PRC20 was deposited into the UEA (recipient)
 		res, err := chainApp.EVMKeeper.CallEVM(
 			ctx,
+			chainApp.EVMKeeper.NewStateDB(ctx),
 			prc20ABI,
 			ueModuleAccAddress,
 			prc20Address,
+			false,
 			false,
 			nil,
 			"balanceOf",
@@ -497,7 +499,7 @@ func TestInboundCEAGasAndPayload(t *testing.T) {
 		chainApp.UregistryKeeper.AddChainConfig(ctx, &uregistrytypes.ChainConfig{
 			Chain:          "eip155:97",
 			VmType:         uregistrytypes.VmType_EVM,
-			PublicRpcUrl:    "https://data-seed-prebsc-1-s1.binance.org:8545",
+			PublicRpcUrl:   "https://data-seed-prebsc-1-s1.binance.org:8545",
 			GatewayAddress: "0x0000000000000000000000000000000000000000",
 			BlockConfirmation: &uregistrytypes.BlockConfirmation{
 				FastInbound:     5,

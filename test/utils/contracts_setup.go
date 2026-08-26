@@ -89,10 +89,12 @@ func setupHandlerContract(
 	// Set UEA proxy implementation
 	_, err := app.EVMKeeper.CallEVM(
 		ctx,
+		app.EVMKeeper.NewStateDB(ctx),
 		handlerABI,
 		owner,
 		handlerAddr,
 		true,
+		false,
 		nil,
 		"initialize",
 		common.HexToAddress(WPCAddress),
@@ -116,16 +118,16 @@ func setupFactoryContract(
 	owner := common.BytesToAddress(accounts.DefaultAccount.GetAddress().Bytes())
 
 	// Check initial factory owner
-	ownerResult, err := app.EVMKeeper.CallEVM(ctx, factoryABI, owner, factoryAddr, true, nil, "owner")
+	ownerResult, err := app.EVMKeeper.CallEVM(ctx, app.EVMKeeper.NewStateDB(ctx), factoryABI, owner, factoryAddr, true, false, nil, "owner")
 	require.NoError(t, err)
 	t.Logf("Factory owner after genesis: %s", common.BytesToAddress(ownerResult.Ret).Hex())
 
 	// Initialize factory with owner
-	_, err = app.EVMKeeper.CallEVM(ctx, factoryABI, owner, factoryAddr, true, nil, "initialize", owner)
+	_, err = app.EVMKeeper.CallEVM(ctx, app.EVMKeeper.NewStateDB(ctx), factoryABI, owner, factoryAddr, true, false, nil, "initialize", owner)
 	require.NoError(t, err)
 
 	// Verify owner is set
-	ownerResult, err = app.EVMKeeper.CallEVM(ctx, factoryABI, owner, factoryAddr, true, nil, "owner")
+	ownerResult, err = app.EVMKeeper.CallEVM(ctx, app.EVMKeeper.NewStateDB(ctx), factoryABI, owner, factoryAddr, true, false, nil, "owner")
 	require.NoError(t, err)
 	t.Logf("Factory owner after initialization: %s", common.BytesToAddress(ownerResult.Ret).Hex())
 
@@ -141,10 +143,12 @@ func setupFactoryContract(
 	// Set UEA proxy implementation
 	receipt, err := app.EVMKeeper.CallEVM(
 		ctx,
+		app.EVMKeeper.NewStateDB(ctx),
 		factoryABI,
 		owner,
 		factoryAddr,
 		true,
+		false,
 		nil,
 		"setUEAProxyImplementation",
 		ProxyAddress,
@@ -178,10 +182,12 @@ func setupPrc20Contract(
 	// Set UEA proxy implementation
 	_, err := app.EVMKeeper.CallEVM(
 		ctx,
+		app.EVMKeeper.NewStateDB(ctx),
 		prc20ABI,
 		ueModuleAccAddress,
 		prc20Addr,
 		true,
+		false,
 		nil,
 		"updateHandlerContract",
 		opts.Addresses.HandlerAddr,
@@ -218,10 +224,12 @@ func registerEVMChainAndUEA(
 	// Register new EVM chain
 	_, err = chainApp.EVMKeeper.CallEVM(
 		ctx,
+		chainApp.EVMKeeper.NewStateDB(ctx),
 		factoryABI,
 		owner,
 		factoryAddr,
 		true,
+		false,
 		nil,
 		"registerNewChain",
 		ChainHashEVM,
@@ -249,10 +257,12 @@ func registerEVMChainAndUEA(
 	// Register UEA : EVM
 	_, err = chainApp.EVMKeeper.CallEVM(
 		ctx,
+		chainApp.EVMKeeper.NewStateDB(ctx),
 		factoryABI,
 		owner,
 		factoryAddr,
 		true,
+		false,
 		nil,
 		"registerUEA",
 		ChainHashEVM,
@@ -264,10 +274,12 @@ func registerEVMChainAndUEA(
 	// Get UEA (EVM) address
 	ueaAddrResultEVM, err := chainApp.EVMKeeper.CallEVM(
 		ctx,
+		chainApp.EVMKeeper.NewStateDB(ctx),
 		factoryABI,
 		owner,
 		factoryAddr,
 		true,
+		false,
 		nil,
 		"getUEA",
 		ChainHashEVM,

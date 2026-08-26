@@ -40,9 +40,9 @@ func (m *MockEVMKeeper) EXPECT() *MockEVMKeeperMockRecorder {
 }
 
 // CallEVM mocks base method.
-func (m *MockEVMKeeper) CallEVM(ctx types.Context, abi abi.ABI, from, contract common.Address, commit bool, gasCap *big.Int, method string, args ...interface{}) (*types0.MsgEthereumTxResponse, error) {
+func (m *MockEVMKeeper) CallEVM(ctx types.Context, stateDB *statedb.StateDB, abi abi.ABI, from, contract common.Address, commit, callFromPrecompile bool, gasCap *big.Int, method string, args ...interface{}) (*types0.MsgEthereumTxResponse, error) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{ctx, abi, from, contract, commit, gasCap, method}
+	varargs := []interface{}{ctx, stateDB, abi, from, contract, commit, callFromPrecompile, gasCap, method}
 	for _, a := range args {
 		varargs = append(varargs, a)
 	}
@@ -53,10 +53,24 @@ func (m *MockEVMKeeper) CallEVM(ctx types.Context, abi abi.ABI, from, contract c
 }
 
 // CallEVM indicates an expected call of CallEVM.
-func (mr *MockEVMKeeperMockRecorder) CallEVM(ctx, abi, from, contract, commit, gasCap, method interface{}, args ...interface{}) *gomock.Call {
+func (mr *MockEVMKeeperMockRecorder) CallEVM(ctx, stateDB, abi, from, contract, commit, callFromPrecompile, gasCap, method interface{}, args ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{ctx, abi, from, contract, commit, gasCap, method}, args...)
+	varargs := append([]interface{}{ctx, stateDB, abi, from, contract, commit, callFromPrecompile, gasCap, method}, args...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CallEVM", reflect.TypeOf((*MockEVMKeeper)(nil).CallEVM), varargs...)
+}
+
+// NewStateDB mocks base method.
+func (m *MockEVMKeeper) NewStateDB(ctx types.Context) *statedb.StateDB {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NewStateDB", ctx)
+	ret0, _ := ret[0].(*statedb.StateDB)
+	return ret0
+}
+
+// NewStateDB indicates an expected call of NewStateDB.
+func (mr *MockEVMKeeperMockRecorder) NewStateDB(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewStateDB", reflect.TypeOf((*MockEVMKeeper)(nil).NewStateDB), ctx)
 }
 
 // GetCodeHash mocks base method.

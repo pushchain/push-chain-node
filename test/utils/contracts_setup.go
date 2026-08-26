@@ -22,7 +22,7 @@ func setupUESystem(
 	accounts TestAccounts,
 ) error {
 	// Initialize UE genesis
-	app.UexecutorKeeper.InitGenesis(ctx, &uetypes.GenesisState{})
+	app.UexecutorKeeper.InitGenesis(ctx, uetypes.DefaultGenesis())
 
 	// Parse factory ABI
 	factoryABI, err := uetypes.ParseFactoryABI()

@@ -61,6 +61,10 @@ type HandlerOptions struct {
 	FeeMarketKeeper anteinterfaces.FeeMarketKeeper
 	EvmKeeper       anteinterfaces.EVMKeeper
 
+	// UexecutorKeeper supplies the governance-controlled cap on the gas a
+	// fee-exempt (gasless) tx may declare.
+	UexecutorKeeper GaslessParamsKeeper
+
 
 	IBCKeeper     *ibckeeper.Keeper
 	CircuitKeeper *circuitkeeper.Keeper
@@ -102,6 +106,9 @@ func (options HandlerOptions) Validate() error {
 	}
 	if options.EvmKeeper == nil {
 		return errorsmod.Wrap(errortypes.ErrLogic, "evm keeper is required for AnteHandler")
+	}
+	if options.UexecutorKeeper == nil {
+		return errorsmod.Wrap(errortypes.ErrLogic, "uexecutor keeper is required for AnteHandler")
 	}
 
 	return nil

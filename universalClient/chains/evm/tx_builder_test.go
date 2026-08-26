@@ -3,6 +3,7 @@ package evm
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"io"
 	"math/big"
 	"net/http"
@@ -13,6 +14,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	ethcommon "github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
@@ -20,6 +23,7 @@ import (
 
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
+	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 )
 
 // testVaultAddress is a non-zero address used as the vault in tests
@@ -1397,4 +1401,118 @@ func TestGetFundMigrationSigningRequest_PinnedBalance(t *testing.T) {
 
 		assert.Equal(t, reqFunded.SigningHash, reqDrained.SigningHash)
 	})
+}
+
+// End to end for the pinned sweep amount: the value the chain pinned is the
+// value that gets signed, and the value that reaches the wire. It no longer
+// travels with the signature, so nothing but the event determines it.
+func TestFundMigration_PinnedAmountReachesTheWire(t *testing.T) {
+	const (
+		fromAddr = "0x1111111111111111111111111111111111111111"
+		toAddr   = "0x2222222222222222222222222222222222222222"
+		nonce    = uint64(7)
+	)
+	pinned := big.NewInt(1_234_567_890_000_000)
+	gasPrice := big.NewInt(20_000_000_000)
+	gasLimit := uint64(21000)
+
+	// The event as the chain pins it at initiate time.
+	migration := utsstypes.FundMigrationInitiatedEventData{
+		Chain:          "eip155:11155111",
+		GasPrice:       gasPrice.String(),
+		GasLimit:       gasLimit,
+		L1GasFee:       "0",
+		TransferAmount: pinned.String(),
+	}
+
+	dataFromEvent := func() *common.FundMigrationData {
+		amount, ok := new(big.Int).SetString(migration.TransferAmount, 10)
+		require.True(t, ok)
+		gp, ok := new(big.Int).SetString(migration.GasPrice, 10)
+		require.True(t, ok)
+		l1, ok := new(big.Int).SetString(migration.L1GasFee, 10)
+		require.True(t, ok)
+		return &common.FundMigrationData{
+			From:           fromAddr,
+			To:             toAddr,
+			GasPrice:       gp,
+			GasLimit:       migration.GasLimit,
+			L1GasFee:       l1,
+			TransferAmount: amount,
+		}
+	}
+
+	// Coordinator and a follower on a chain whose balance has since moved.
+	coordinator := txBuilderWithBalance(t, new(big.Int).Add(pinned, big.NewInt(1_000_000_000_000_000)))
+	follower := txBuilderWithBalance(t, big.NewInt(0))
+
+	coordReq, err := coordinator.GetFundMigrationSigningRequest(context.Background(), dataFromEvent(), nonce)
+	require.NoError(t, err)
+	followerReq, err := follower.GetFundMigrationSigningRequest(context.Background(), dataFromEvent(), nonce)
+	require.NoError(t, err)
+	require.Equal(t, coordReq.SigningHash, followerReq.SigningHash,
+		"validators must agree on the hash regardless of what the balance is doing")
+
+	key, err := crypto.HexToECDSA("4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318")
+	require.NoError(t, err)
+	signature, err := crypto.Sign(coordReq.SigningHash, key)
+	require.NoError(t, err)
+
+	sent, sender := txBuilderCapturingSend(t)
+	txHash, err := sender.BroadcastFundMigrationTx(context.Background(), coordReq, dataFromEvent(), signature)
+	require.NoError(t, err)
+	require.NotEmpty(t, txHash)
+
+	raw := <-sent
+	var broadcast types.Transaction
+	require.NoError(t, broadcast.UnmarshalBinary(raw))
+
+	assert.Equal(t, pinned.String(), broadcast.Value().String(), "the wire value must be the pinned amount")
+	assert.Equal(t, toAddr, strings.ToLower(broadcast.To().Hex()))
+	assert.Equal(t, nonce, broadcast.Nonce())
+	assert.Equal(t, gasLimit, broadcast.Gas())
+
+	// The signature covers exactly this transaction.
+	recovered, err := types.Sender(types.NewEIP155Signer(big.NewInt(11155111)), &broadcast)
+	require.NoError(t, err)
+	assert.Equal(t, crypto.PubkeyToAddress(key.PublicKey), recovered)
+}
+
+// txBuilderCapturingSend returns a builder whose RPC accepts eth_sendRawTransaction
+// and hands the raw bytes back on the channel.
+func txBuilderCapturingSend(t *testing.T) (chan []byte, *TxBuilder) {
+	t.Helper()
+	sent := make(chan []byte, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		body, _ := io.ReadAll(r.Body)
+		switch {
+		case strings.Contains(string(body), "eth_chainId"):
+			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":"0xaa36a7"}`))
+		case strings.Contains(string(body), "eth_sendRawTransaction"):
+			var req struct {
+				Params []string `json:"params"`
+			}
+			require.NoError(t, json.Unmarshal(body, &req))
+			require.Len(t, req.Params, 1)
+			decoded, err := hexutil.Decode(req.Params[0])
+			require.NoError(t, err)
+			sent <- decoded
+			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":"0x` + strings.Repeat("ab", 32) + `"}`))
+		default:
+			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":null}`))
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	rc, err := NewRPCClient([]string{server.URL}, 11155111, zerolog.Nop())
+	require.NoError(t, err)
+	t.Cleanup(func() { rc.Close() })
+
+	return sent, &TxBuilder{
+		rpcClient:  rc,
+		chainID:    "eip155:11155111",
+		chainIDInt: 11155111,
+		logger:     zerolog.Nop(),
+	}
 }

@@ -20,8 +20,37 @@ func (p UniversalPayload) String() string {
 	return string(bz)
 }
 
+// ValidateSize enforces the flat MaxUniversalPayloadBytes cap on the serialized
+// payload. Split out of ValidateBasic so the keeper can apply the cap on its
+// own, independently of whichever msg carried the payload in.
+func (p *UniversalPayload) ValidateSize() error {
+	if p == nil {
+		return nil
+	}
+	if n := p.Size(); n > MaxUniversalPayloadBytes {
+		return errors.Wrapf(sdkerrors.ErrInvalidRequest,
+			"universal payload too large: %d bytes exceeds the %d byte limit", n, MaxUniversalPayloadBytes)
+	}
+	return nil
+}
+
+// ValidatePayloadBlobSize enforces MaxUniversalPayloadBytes on a hex blob that
+// carries a universal payload (or its verification data) before it is decoded.
+func ValidatePayloadBlobSize(field, blob string) error {
+	if len(blob) > MaxUniversalPayloadBytes {
+		return errors.Wrapf(sdkerrors.ErrInvalidRequest,
+			"%s too large: %d bytes exceeds the %d byte limit", field, len(blob), MaxUniversalPayloadBytes)
+	}
+	return nil
+}
+
 // ValidateBasic does the sanity check on the UniversalPayload fields.
 func (p UniversalPayload) ValidateBasic() error {
+	// Reject oversized payloads before any of the per-field work below.
+	if err := p.ValidateSize(); err != nil {
+		return err
+	}
+
 	// Validate 'to' address
 	if strings.TrimSpace(p.To) == "" {
 		return errors.Wrap(sdkerrors.ErrInvalidAddress, "to address cannot be empty")

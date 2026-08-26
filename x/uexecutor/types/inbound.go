@@ -70,6 +70,29 @@ func (p *Inbound) NormalizeForTxType() error {
 	return nil
 }
 
+// ValidateSize enforces MaxUniversalPayloadBytes on every variable-length
+// payload field an inbound carries. raw_payload is the wire form of the
+// universal payload and universal_payload is what a validator submits before
+// the core decodes raw_payload itself; both land in PendingInbounds state on
+// the first vote, on a fee-exempt msg, so both are bounded here.
+//
+// Split out of ValidateBasic so the keeper can apply the cap on its own: a
+// universal validator submits votes wrapped in authz.MsgExec
+// (universalClient/pushsigner/pushsigner.go wrapWithAuthZ), which baseapp does
+// not validate at CheckTx, so the cap must not depend on one call site.
+func (p *Inbound) ValidateSize() error {
+	if p == nil {
+		return nil
+	}
+	if err := ValidatePayloadBlobSize("raw_payload", p.RawPayload); err != nil {
+		return err
+	}
+	if err := ValidatePayloadBlobSize("verification_data", p.VerificationData); err != nil {
+		return err
+	}
+	return p.UniversalPayload.ValidateSize()
+}
+
 // Stringer method for Params.
 func (p Inbound) String() string {
 	bz, err := json.Marshal(p)
@@ -87,6 +110,13 @@ func (p Inbound) String() string {
 // (with a failed PCTx / revert) instead of silently dropping the vote and leaving
 // user funds stuck in the gateway.
 func (p Inbound) ValidateBasic() error {
+	// Reject oversized payload blobs before anything else: unlike the
+	// execution-level checks below, this one is a resource bound, and the bytes
+	// are already in the block by the time execution validation runs.
+	if err := p.ValidateSize(); err != nil {
+		return err
+	}
+
 	// Validate source_chain (must follow CAIP-2 format) — needed for UTX key
 	chain := strings.TrimSpace(p.SourceChain)
 	if chain == "" {

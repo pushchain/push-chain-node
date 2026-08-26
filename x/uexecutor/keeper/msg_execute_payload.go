@@ -25,7 +25,16 @@ func (k Keeper) ExecutePayload(ctx context.Context, evmFrom common.Address, univ
 		"owner", universalAccountId.Owner,
 	)
 
-	// Step 1: Validate payload and verificationData early (fast-fail before EVM work)
+	// Step 1: Validate payload and verificationData early (fast-fail before EVM work).
+	// The size cap is re-applied here rather than left to MsgExecutePayload's
+	// ValidateBasic so it holds for every caller of this keeper method — the msg
+	// route is fee exempt, so nothing else prices these bytes.
+	if err := universalPayload.ValidateSize(); err != nil {
+		return err
+	}
+	if err := types.ValidatePayloadBlobSize("verificationData", verificationData); err != nil {
+		return err
+	}
 	if _, err := types.NewAbiUniversalPayload(universalPayload); err != nil {
 		return errors.Wrapf(err, "invalid universal payload")
 	}

@@ -120,8 +120,13 @@ func TestGaslessExecutePayloadWithModuleSender(t *testing.T) {
 
 	// The gasless message itself: signer is a relayer, the EVM caller is the
 	// uexecutor module. This must still succeed after the x/vm change.
+	// testSigner (execute_payload_test.go) is a valid 20-byte account. The
+	// literal this test originally carried decoded to 42 bytes, which
+	// F-2026-18200's signer-length guard rejects in GetAddressPair before
+	// ExecutePayload does any work - so the test failed on an address that was
+	// never the thing under test.
 	_, err = ms.ExecutePayload(ctx, &uexecutortypes.MsgExecutePayload{
-		Signer:             "cosmos1xpurwdecvsenyvpkxvmnge3cv93nyd34xuersef38pjnxen9xfsk2dnz8yek2drrv56qmn2ak9",
+		Signer:             testSigner,
 		UniversalAccountId: universalAccount,
 		UniversalPayload:   payload,
 		VerificationData:   "0x91987784d56359fa91c3e3e0332f4f0cffedf9c081eb12874a63b41d5b5e5c660dc827947c2ae26e658d0551ad4b2d2aa073d62691429a0ae239d2cc58055bf11c",

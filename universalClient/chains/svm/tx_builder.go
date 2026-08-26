@@ -299,14 +299,11 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 	//   - Withdraw (id=1): the wallet that receives the funds (target = recipient)
 	//   - Execute (id=2): the target program to CPI into (target = destination_program)
 	//   - Revert (id=3,4): the wallet that gets the refund
-	var recipientPubkey solana.PublicKey
-	recipientPubkey, err = solana.PublicKeyFromBase58(data.Recipient)
+	//
+	// An empty recipient is the parking sentinel; see resolveRecipient.
+	recipientPubkey, recipientParked, err := tb.resolveRecipient(data.Recipient, sender)
 	if err != nil {
-		hexBytes, hexErr := hex.DecodeString(removeHexPrefix(data.Recipient))
-		if hexErr != nil || len(hexBytes) != 32 {
-			return nil, fmt.Errorf("invalid recipient address format (expected Solana Pubkey): %s", data.Recipient)
-		}
-		recipientPubkey = solana.PublicKeyFromBytes(hexBytes)
+		return nil, err
 	}
 
 	// --- Determine instruction ID and decode payload ---
@@ -390,6 +387,10 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 				copy(targetProgram[:], recipientPubkey.Bytes())
 			}
 		}
+	}
+
+	if err := checkParkedRecipientScope(recipientParked, instructionID); err != nil {
+		return nil, err
 	}
 
 	// --- Construct the TSS message and hash it ---
@@ -772,13 +773,11 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 		gasFee, _ = strconv.ParseUint(data.GasFee, 10, 64)
 	}
 
-	recipientPubkey, err := solana.PublicKeyFromBase58(data.Recipient)
+	// Must resolve identically to GetOutboundSigningRequest, or the accounts list
+	// would not match the pubkey already bound into the TSS message.
+	recipientPubkey, recipientParked, err := tb.resolveRecipient(data.Recipient, sender)
 	if err != nil {
-		hexBytes, hexErr := hex.DecodeString(removeHexPrefix(data.Recipient))
-		if hexErr != nil || len(hexBytes) != 32 {
-			return nil, 0, fmt.Errorf("invalid recipient address format: %s", data.Recipient)
-		}
-		recipientPubkey = solana.PublicKeyFromBytes(hexBytes)
+		return nil, 0, err
 	}
 
 	revertMsgBytes, err := hex.DecodeString(removeHexPrefix(data.RevertMsg))
@@ -822,6 +821,10 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 			}
 			instructionID = fallbackID
 		}
+	}
+
+	if err := checkParkedRecipientScope(recipientParked, instructionID); err != nil {
+		return nil, 0, err
 	}
 
 	// --- Derive PDAs ---
@@ -922,8 +925,7 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 	// --- Assemble the Solana transaction ---
 	// Instructions in order:
 	//   1. SetComputeUnitLimit — tells the runtime how many compute units to allocate
-	//   2. (SPL only) CreateAssociatedTokenAccount — creates recipient ATA if it doesn't exist
-	//   3. The actual gateway instruction (withdraw/execute/revert)
+	//   2. The actual gateway instruction (withdraw/execute/revert)
 
 	gatewayInstruction := solana.NewInstruction(
 		tb.gatewayAddress,
@@ -936,19 +938,9 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 	computeLimitIx := tb.buildSetComputeUnitLimitInstruction(defaultComputeUnitLimit)
 
 	// Build the instruction list.
-	instructions := []solana.Instruction{computeLimitIx}
-
-	needsRecipientATA := (instructionID == 1 && !isNative) || ((instructionID == 3 || instructionID == 4) && !isNative)
-	if needsRecipientATA {
-		createATAInstruction := tb.buildCreateATAIdempotentInstruction(
-			relayerKeypair.PublicKey(),
-			recipientPubkey,
-			mintPubkey,
-		)
-		instructions = append(instructions, createATAInstruction)
-	}
-
-	instructions = append(instructions, gatewayInstruction)
+	// The recipient ATA is created by the gateway, which meters the rent into
+	// gas_used. Creating it here left that cost outside the metered path.
+	instructions := []solana.Instruction{computeLimitIx, gatewayInstruction}
 
 	// Get a recent blockhash — Solana uses this instead of nonces for transaction expiry.
 	// Transactions expire after ~60-90 seconds if not confirmed.
@@ -1109,13 +1101,9 @@ func (tb *TxBuilder) BuildRefRouteTransactions(
 		gasFee, _ = strconv.ParseUint(data.GasFee, 10, 64)
 	}
 
-	recipientPubkey, err := solana.PublicKeyFromBase58(data.Recipient)
+	recipientPubkey, recipientParked, err := tb.resolveRecipient(data.Recipient, sender)
 	if err != nil {
-		hexBytes, hexErr := hex.DecodeString(removeHexPrefix(data.Recipient))
-		if hexErr != nil || len(hexBytes) != 32 {
-			return nil, nil, solana.PublicKey{}, fmt.Errorf("invalid recipient address format: %s", data.Recipient)
-		}
-		recipientPubkey = solana.PublicKeyFromBytes(hexBytes)
+		return nil, nil, solana.PublicKey{}, err
 	}
 
 	// Decode payload — ref route is execute-only, so we require an instruction_id of 2.
@@ -1137,6 +1125,9 @@ func (tb *TxBuilder) BuildRefRouteTransactions(
 	}
 	if instructionID != 2 {
 		return nil, nil, solana.PublicKey{}, fmt.Errorf("ref route only valid for execute mode (instruction_id=2), got %d", instructionID)
+	}
+	if err := checkParkedRecipientScope(recipientParked, instructionID); err != nil {
+		return nil, nil, solana.PublicKey{}, err
 	}
 	if len(ixData) == 0 {
 		return nil, nil, solana.PublicKey{}, fmt.Errorf("ref route requires non-empty ix_data")
@@ -1242,14 +1233,7 @@ func (tb *TxBuilder) BuildRefRouteTransactions(
 	refInstruction := solana.NewInstruction(tb.gatewayAddress, refAccounts, refInstructionData)
 	computeLimitIx := tb.buildSetComputeUnitLimitInstruction(defaultComputeUnitLimit)
 
-	instructions := []solana.Instruction{computeLimitIx}
-	needsRecipientATA := !isNative && false // execute mode (id=2) doesn't create recipient ATA; gateway handles cea_ata internally
-	if needsRecipientATA {
-		instructions = append(instructions, tb.buildCreateATAIdempotentInstruction(
-			relayerKeypair.PublicKey(), recipientPubkey, mintPubkey,
-		))
-	}
-	instructions = append(instructions, refInstruction)
+	instructions := []solana.Instruction{computeLimitIx, refInstruction}
 
 	refOpts := []solana.TransactionOption{solana.TransactionPayer(relayerKeypair.PublicKey())}
 	addressTables, altErr := tb.fetchAddressTables(ctx, mintPubkey, isNative)
@@ -1307,6 +1291,61 @@ func isNativeAsset(addr string) bool {
 		return solana.PublicKeyFromBytes(raw).IsZero()
 	}
 	return false
+}
+
+// An empty recipient is the gateway's sentinel for parking funds in the caller's
+// CEA rather than forwarding them to a wallet. Core hex-encodes the raw event
+// bytes, so it arrives as "0x". The builder used to reject that pre-sign, which
+// stranded the outbound PENDING with the PRC20 already burned.
+
+// isParkedRecipient reports whether recipient decodes to zero bytes. Tested that
+// way rather than against the literal "0x" so "" and "0X" are covered too;
+// anything decoding to a byte or more is a real address.
+func isParkedRecipient(recipient string) bool {
+	s := strings.TrimSpace(recipient)
+	if len(s) >= 2 && (s[:2] == "0x" || s[:2] == "0X") {
+		s = s[2:]
+	}
+	decoded, err := hex.DecodeString(s)
+	return err == nil && len(decoded) == 0
+}
+
+// resolveRecipient converts the outbound recipient into a Solana pubkey,
+// resolving the sentinel to the sender's CEA PDA. Callers must then run
+// checkParkedRecipientScope once the instruction id is known. Shared by the
+// signing and build paths so both derive the same pubkey.
+func (tb *TxBuilder) resolveRecipient(recipient string, sender [20]byte) (solana.PublicKey, bool, error) {
+	if isParkedRecipient(recipient) {
+		ceaAuthorityPDA, _, err := solana.FindProgramAddress([][]byte{ceaAuthoritySeed, sender[:]}, tb.gatewayAddress)
+		if err != nil {
+			return solana.PublicKey{}, true, fmt.Errorf("failed to derive cea_authority PDA for parked recipient: %w", err)
+		}
+		return ceaAuthorityPDA, true, nil
+	}
+
+	recipientPubkey, err := solana.PublicKeyFromBase58(recipient)
+	if err != nil {
+		hexBytes, hexErr := hex.DecodeString(removeHexPrefix(recipient))
+		if hexErr != nil || len(hexBytes) != 32 {
+			return solana.PublicKey{}, false, fmt.Errorf("invalid recipient address format (expected Solana Pubkey): %s", recipient)
+		}
+		recipientPubkey = solana.PublicKeyFromBytes(hexBytes)
+	}
+	return recipientPubkey, false, nil
+}
+
+// checkParkedRecipientScope confines the sentinel to withdraw (id=1), the only
+// path where the recipient is a fund destination. On execute it is the CPI
+// target, and on revert/rescue it is an observed source-chain address, so an
+// empty value there means the outbound is malformed.
+func checkParkedRecipientScope(parked bool, instructionID uint8) error {
+	if !parked || instructionID == 1 {
+		return nil
+	}
+	return fmt.Errorf(
+		"empty recipient parks funds in the sender CEA and is only valid for withdraw (instruction_id=1), got instruction_id=%d",
+		instructionID,
+	)
 }
 
 // =============================================================================
@@ -2333,33 +2372,6 @@ func (tb *TxBuilder) buildCloseStoredIxDataAccounts(caller, storedIxDataPDA, exe
 		{PublicKey: caller, IsWritable: true, IsSigner: false},
 		{PublicKey: executedSubTxPDA, IsWritable: false, IsSigner: false},
 	}
-}
-
-// buildCreateATAIdempotentInstruction creates the recipient's ATA if absent
-// (no-op if present). Required for SPL withdraw/revert flows because the
-// gateway validates the recipient ATA exists but does NOT create it. Relayer
-// pays the ~0.002 SOL rent, reimbursed via gas_fee.
-func (tb *TxBuilder) buildCreateATAIdempotentInstruction(
-	payer solana.PublicKey,
-	owner solana.PublicKey,
-	mint solana.PublicKey,
-) solana.Instruction {
-	ata, _, _ := solana.FindProgramAddress(
-		[][]byte{owner.Bytes(), solana.TokenProgramID.Bytes(), mint.Bytes()},
-		solana.SPLAssociatedTokenAccountProgramID,
-	)
-
-	accounts := []*solana.AccountMeta{
-		{PublicKey: payer, IsWritable: true, IsSigner: true},
-		{PublicKey: ata, IsWritable: true, IsSigner: false},
-		{PublicKey: owner, IsWritable: false, IsSigner: false},
-		{PublicKey: mint, IsWritable: false, IsSigner: false},
-		{PublicKey: solana.SystemProgramID, IsWritable: false, IsSigner: false},
-		{PublicKey: solana.TokenProgramID, IsWritable: false, IsSigner: false},
-	}
-
-	// ATA program instruction discriminator: 0 = Create (fails if exists), 1 = CreateIdempotent.
-	return solana.NewInstruction(solana.SPLAssociatedTokenAccountProgramID, accounts, []byte{1})
 }
 
 // =============================================================================

@@ -504,8 +504,31 @@ func NewChainApp(
 		logger,
 	)
 
-	// enable sign mode textual by overwriting the default tx config (after setting the bank keeper)
-	enabledSignModes := append(tx.DefaultSignModes, signingtype.SignMode_SIGN_MODE_TEXTUAL)
+	// Enabled sign modes, listed explicitly rather than appending to
+	// tx.DefaultSignModes so that what the chain accepts is stated here rather
+	// than inherited.
+	//
+	// SIGN_MODE_DIRECT_AUX is deliberately excluded (F-2026-18784). The handler
+	// in cosmossdk.io/x/tx rejects a fee payer who also signs with DIRECT_AUX
+	// using a raw string compare:
+	//
+	//	if feePayer == signerData.Address { ... unauthorized ... }
+	//
+	// BIP-173 permits an all-uppercase bech32 encoding of the same account, so
+	// an uppercase Fee.Payer aliasing the victim's lowercase signer address
+	// fails that check open, while everything downstream decodes both to the
+	// same AccAddress and deduplicates signers. A sponsor holding a victim's
+	// DIRECT_AUX signature over a fixed TxBody could then rewrite AuthInfo to
+	// charge the victim. Still present in our pinned x/tx v0.14.0.
+	//
+	// Nothing on Push signs with DIRECT_AUX — the universal client pins
+	// SIGN_MODE_DIRECT — so enabling it only exposes surface. Restore it once
+	// x/tx compares decoded bytes (or folds case), not before.
+	enabledSignModes := []signingtype.SignMode{
+		signingtype.SignMode_SIGN_MODE_DIRECT,
+		signingtype.SignMode_SIGN_MODE_LEGACY_AMINO_JSON,
+		signingtype.SignMode_SIGN_MODE_TEXTUAL,
+	}
 	txConfigOpts := tx.ConfigOptions{
 		EnabledSignModes:           enabledSignModes,
 		TextualCoinMetadataQueryFn: txmodule.NewBankKeeperCoinMetadataQueryFn(app.BankKeeper),

@@ -7,10 +7,56 @@ import (
 	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	evmtypes "github.com/cosmos/evm/x/vm/types"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
+
+// derivedModuleCall issues one committing EVM call whose sender is the uexecutor
+// module account.
+//
+// It is the only place a module-sender DerivedEVMCall may be made from, because
+// it is the only place that maintains the module's nonce (F-2026-18189). The
+// nonce is taken from nextModuleSenderNonce and consumed by burnModuleSenderNonce
+// whether or not the call succeeded — a reverted attempt commits nothing, so
+// giving its nonce back would let a byte-identical retry reproduce a derived tx
+// hash that was already emitted. Callers get the EVM error unchanged; the nonce
+// bookkeeping is not part of it.
+func (k Keeper) derivedModuleCall(
+	ctx sdk.Context,
+	contractABI abi.ABI,
+	moduleAddr, contract common.Address,
+	value, gasLimit *big.Int,
+	method string,
+	args ...interface{},
+) (*evmtypes.MsgEthereumTxResponse, error) {
+	nonce, err := k.nextModuleSenderNonce(ctx, moduleAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	res, callErr := k.evmKeeper.DerivedEVMCall(
+		ctx,
+		contractABI,
+		moduleAddr, // sender: module account
+		contract,   // destination
+		value,
+		gasLimit,
+		true,   // commit = true (real tx, not simulation)
+		false,  // gasless = false (@dev: we need gas to be emitted in the tx receipt)
+		true,   // module sender = true
+		&nonce, // manual nonce of module
+		method,
+		args...,
+	)
+
+	if err := k.burnModuleSenderNonce(ctx, moduleAddr, nonce); err != nil {
+		return nil, err
+	}
+
+	return res, callErr
+}
 
 // CallFactoryToGetUEAAddressForOrigin calls FactoryV1.getUEAForOrigin(...)
 func (k Keeper) CallFactoryToGetUEAAddressForOrigin(
@@ -279,28 +325,13 @@ func (k Keeper) CallPRC20Deposit(
 
 	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
 
-	// Before sending an EVM tx from module
-	nonce, err := k.GetModuleAccountNonce(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// increment first (safe for internal modules)
-	if _, err := k.IncrementModuleAccountNonce(ctx); err != nil {
-		return nil, err
-	}
-
-	return k.evmKeeper.DerivedEVMCall(
+	return k.derivedModuleCall(
 		ctx,
 		abi,
-		ueModuleAccAddress, // sender: module account
-		handlerAddr,        // destination
+		ueModuleAccAddress,
+		handlerAddr,
 		big.NewInt(0),
 		nil,
-		true,   // commit = true (real tx, not simulation)
-		false,  // gasless = false (@dev: we need gas to be emitted in the tx receipt)
-		true,   // module sender = true
-		&nonce, // manual nonce of module
 		"depositPRC20Token",
 		prc20Address,
 		amount,
@@ -325,26 +356,13 @@ func (k Keeper) CallUniversalCoreSetChainMeta(
 
 	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
 
-	nonce, err := k.GetModuleAccountNonce(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	if _, err := k.IncrementModuleAccountNonce(ctx); err != nil {
-		return nil, err
-	}
-
-	return k.evmKeeper.DerivedEVMCall(
+	return k.derivedModuleCall(
 		ctx,
 		abi,
 		ueModuleAccAddress,
 		handlerAddr,
 		big.NewInt(0),
 		nil,
-		true,
-		false,
-		true,
-		&nonce,
 		"setChainMeta",
 		chainNamespace,
 		price,
@@ -566,28 +584,13 @@ func (k Keeper) CallPRC20DepositAutoSwap(
 
 	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
 
-	// Before sending an EVM tx from module
-	nonce, err := k.GetModuleAccountNonce(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// increment first (safe for internal modules)
-	if _, err := k.IncrementModuleAccountNonce(ctx); err != nil {
-		return nil, err
-	}
-
-	return k.evmKeeper.DerivedEVMCall(
+	return k.derivedModuleCall(
 		ctx,
 		abi,
-		ueModuleAccAddress, // who is sending the transaction
-		handlerAddr,        // destination: Handler contract
+		ueModuleAccAddress,
+		handlerAddr,
 		big.NewInt(0),
 		nil,
-		true,   // commit = true (real tx, not simulation)
-		false,  // gasless = false (@dev: we need gas to be emitted in the tx receipt)
-		true,   // module sender = true
-		&nonce, // manual nonce of module
 		"depositPRC20WithAutoSwap",
 		prc20Address,
 		amount,
@@ -618,27 +621,14 @@ func (k Keeper) CallUniversalCoreRefundUnusedGas(
 
 	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
 
-	nonce, err := k.GetModuleAccountNonce(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	if _, err := k.IncrementModuleAccountNonce(ctx); err != nil {
-		return nil, err
-	}
-
 	// fee is uint24 in Solidity — pass as *big.Int (go-ethereum ABI packs non-standard widths as *big.Int)
-	return k.evmKeeper.DerivedEVMCall(
+	return k.derivedModuleCall(
 		ctx,
 		abi,
 		ueModuleAccAddress,
 		handlerAddr,
 		big.NewInt(0),
 		nil,
-		true,
-		false,
-		true,
-		&nonce,
 		"refundUnusedGas",
 		gasToken,
 		amount,
@@ -668,25 +658,13 @@ func (k Keeper) CallExecuteUniversalTx(
 
 	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
 
-	nonce, err := k.GetModuleAccountNonce(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if _, err := k.IncrementModuleAccountNonce(ctx); err != nil {
-		return nil, err
-	}
-
-	return k.evmKeeper.DerivedEVMCall(
+	return k.derivedModuleCall(
 		ctx,
 		recipientABI,
 		ueModuleAccAddress,
 		recipientAddr,
 		big.NewInt(0),
 		nil,
-		true,
-		false,
-		true,
-		&nonce,
 		"executeUniversalTx",
 		sourceChain,
 		ceaAddress,

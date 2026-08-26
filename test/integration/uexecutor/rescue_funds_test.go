@@ -4,6 +4,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -18,7 +20,9 @@ import (
 	"github.com/pushchain/push-chain-node/app"
 	utils "github.com/pushchain/push-chain-node/test/utils"
 	chainutils "github.com/pushchain/push-chain-node/utils"
+	uexecutorkeeper "github.com/pushchain/push-chain-node/x/uexecutor/keeper"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
 // buildRescueFundsLog constructs a synthetic evmtypes.Log that looks exactly like a
@@ -71,8 +75,22 @@ func buildRescueFundsLog(
 	}
 }
 
-// setupRescueFundsTest creates a CEA inbound whose deposit will fail (asset address has
-// no registered token config), drives it to quorum, and returns the UTX key of the failed UTX.
+// Asset of the stuck deposit built by setupRescueFundsTest: a pETH-style 18-decimal
+// token, registered in uregistry but whose PRC20 has no deployed contract — so the
+// deposit fails while the asset still resolves through the registry.
+//
+// The 18-decimal choice is deliberate: the default token registered by the CEA setup is
+// 6-decimal USDC, so the two form the 18 → 6 pair where a cross-asset rescue amplifies.
+// 1e18 raw of an 18-decimal token is one whole token; reinterpreted as 6-decimal USDC the
+// same raw integer is a claim on 10^12 whole USDC.
+var (
+	rescueOriginalAsset  = common.HexToAddress("0x000000000000000000000000000000000000DEAD")
+	rescueOriginalPRC20  = common.HexToAddress("0x0000000000000000000000000000000000000eE1")
+	rescueOriginalAmount = "1000000000000000000" // 1e18 raw = 1 whole 18-decimal token
+)
+
+// setupRescueFundsTest creates a CEA inbound whose deposit will fail (its PRC20 has no
+// deployed contract), drives it to quorum, and returns the UTX key of the failed UTX.
 // The returned UTX has at least one FAILED PCTx and is ready for a rescue outbound.
 func setupRescueFundsTest(
 	t *testing.T,
@@ -91,21 +109,37 @@ func setupRescueFundsTest(
 
 	testAddress := utils.GetDefaultAddresses().DefaultTestAddr
 	recipient := utils.GetDefaultAddresses().TargetAddr2
-	// Use an asset address that has no registered token config — depositPRC20 will fail.
-	unregisteredAsset := common.HexToAddress("0x000000000000000000000000000000000000DEAD")
+
+	// Register the stuck asset. A rescue derives its asset from the original inbound, so
+	// the original asset must resolve; the deposit still fails because rescueOriginalPRC20
+	// has no contract deployed at it, leaving the funds stuck on the source chain — which
+	// is exactly the situation rescue exists for.
+	require.NoError(t, chainApp.UregistryKeeper.AddTokenConfig(ctx, &uregistrytypes.TokenConfig{
+		Chain:        "eip155:11155111",
+		Address:      rescueOriginalAsset.String(),
+		Name:         "Push Ether",
+		Symbol:       "pETH",
+		Decimals:     18,
+		Enabled:      true,
+		LiquidityCap: "1000000000000000000000000",
+		TokenType:    1,
+		NativeRepresentation: &uregistrytypes.NativeRepresentation{
+			ContractAddress: rescueOriginalPRC20.String(),
+		},
+	}))
 
 	inbound := &uexecutortypes.Inbound{
 		SourceChain: "eip155:11155111",
 		TxHash:      "0xrescue01",
 		Sender:      testAddress,
 		Recipient:   recipient,
-		Amount:      "1000000",
-		AssetAddr:   unregisteredAsset.String(),
+		Amount:      rescueOriginalAmount,
+		AssetAddr:   rescueOriginalAsset.String(),
 		LogIndex:    "1",
 		TxType:      uexecutortypes.TxType_FUNDS_AND_PAYLOAD,
 		UniversalPayload: &uexecutortypes.UniversalPayload{
 			To:                   recipient,
-			Value:                "1000000",
+			Value:                rescueOriginalAmount,
 			Data:                 "0x",
 			GasLimit:             "21000000",
 			MaxFeePerGas:         "1000000000",
@@ -134,7 +168,7 @@ func setupRescueFundsTest(
 	require.True(t, found, "UTX must exist after quorum")
 
 	require.NotEmpty(t, utx.PcTx, "setup: at least one PCTx must exist")
-	require.Equal(t, "FAILED", utx.PcTx[0].Status, "setup: deposit must fail for unregistered asset")
+	require.Equal(t, "FAILED", utx.PcTx[0].Status, "setup: deposit must fail so the funds stay stuck")
 
 	return chainApp, ctx, vals, utxId, coreVals
 }
@@ -149,7 +183,12 @@ func makeRescueReceipt(t *testing.T, txHash string, log *evmtypes.Log) *evmtypes
 }
 
 func TestRescueFunds(t *testing.T) {
-	prc20Addr := utils.GetDefaultAddresses().PRC20USDCAddr
+	// A rescue event must name the PRC20 registered for the stuck inbound's OWN asset, so
+	// each subtest uses the PRC20 belonging to whichever setup it built its inbound from:
+	// setupRescueFundsTest stakes the 18-decimal pETH, the bridge/CEA-payload setups the
+	// 6-decimal USDC.
+	prc20Addr := rescueOriginalPRC20
+	usdcPRC20Addr := utils.GetDefaultAddresses().PRC20USDCAddr
 	senderAddr := common.HexToAddress(utils.GetDefaultAddresses().DefaultTestAddr)
 
 	t.Run("rescue outbound is attached to original UTX on valid CEA inbound with failed deposit", func(t *testing.T) {
@@ -172,8 +211,15 @@ func TestRescueFunds(t *testing.T) {
 		require.Equal(t, uexecutortypes.Status_PENDING, rescueObs.OutboundStatus)
 		require.Equal(t, uexecutortypes.TxType_RESCUE_FUNDS, rescueObs.TxType)
 		require.Equal(t, "eip155:11155111", rescueObs.DestinationChain)
-		require.Equal(t, "1000000", rescueObs.Amount)
+		require.Equal(t, rescueOriginalAmount, rescueObs.Amount)
 		require.Equal(t, "111", rescueObs.GasFee)
+
+		// The asset is the original inbound's, derived from the registry — never the
+		// caller's. Amount and asset must describe the same deposit.
+		require.Equal(t, rescueOriginalAsset.String(), rescueObs.ExternalAssetAddr,
+			"rescue must carry the original inbound's external asset")
+		require.Equal(t, rescueOriginalPRC20.String(), rescueObs.Prc20AssetAddr,
+			"rescue must carry the PRC20 registered for the original asset")
 
 		// The rescue call must be recorded as a PCTx in the UTX history.
 		// UTX already had the failed deposit PCTx; the rescue pcTx is appended after it.
@@ -181,6 +227,106 @@ func TestRescueFunds(t *testing.T) {
 		lastPcTx := utx.PcTx[len(utx.PcTx)-1]
 		require.Equal(t, "0xrescuetx01", lastPcTx.TxHash)
 		require.Equal(t, "SUCCESS", lastPcTx.Status)
+	})
+
+	// --- F-2026-18177: the rescue asset is derived, never supplied ----------------
+
+	t.Run("rescue naming a different registered PRC20 than the original asset is rejected", func(t *testing.T) {
+		// The headline case. The stuck deposit is 1e18 raw of an 18-decimal token; the
+		// rescue event names 6-decimal USDC, which is registered on the same chain and so
+		// passes every "is this a real PRC20" check. The amount always comes from the
+		// original inbound, so honouring the caller's PRC20 would emit an outbound paying
+		// 1e18 base units of USDC — 10^12 whole USDC — for a stuck deposit of one pETH.
+		chainApp, ctx, _, utxId, _ := setupRescueFundsTest(t, 4)
+
+		pendingBefore := pendingOutboundIds(t, ctx, chainApp)
+
+		log := buildRescueFundsLog(t, utxId, usdcPRC20Addr, senderAddr,
+			"eip155", big.NewInt(111), big.NewInt(1_000_000_000), big.NewInt(200_000))
+		err := chainApp.UexecutorKeeper.AttachRescueOutboundFromReceipt(ctx,
+			makeRescueReceipt(t, "0xrescuetx13", log),
+			uexecutortypes.PCTx{TxHash: "0xrescuetx13", Status: "SUCCESS"})
+
+		// State is asserted before the error: if the derivation regresses, the call
+		// succeeds and the substituted outbound shows up here, rather than the subtest
+		// aborting on the require.Error below and never reaching these checks.
+		utx, found, getErr := chainApp.UexecutorKeeper.GetUniversalTx(ctx, utxId)
+		require.NoError(t, getErr)
+		require.True(t, found)
+		require.Nil(t, findRescueOutbound(utx),
+			"no rescue outbound may be created when the event names another asset")
+		require.Equal(t, pendingBefore, pendingOutboundIds(t, ctx, chainApp),
+			"a rejected cross-asset rescue must not add a PendingOutbounds row")
+
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "does not match")
+	})
+
+	t.Run("rescue for an original asset with no registered token config is rejected", func(t *testing.T) {
+		chainApp, ctx, _, utxId, _ := setupRescueFundsTest(t, 4)
+
+		// Point the stored inbound at an asset uregistry knows nothing about. An
+		// unregistered original asset must be an error, not an opening to substitute
+		// whichever asset the caller happens to name.
+		unregistered := common.HexToAddress("0x000000000000000000000000000000000000BEEF")
+		require.NoError(t, chainApp.UexecutorKeeper.UpdateUniversalTx(ctx, utxId,
+			func(utx *uexecutortypes.UniversalTx) error {
+				utx.InboundTx.AssetAddr = unregistered.String()
+				return nil
+			}))
+
+		pendingBefore := pendingOutboundIds(t, ctx, chainApp)
+
+		log := buildRescueFundsLog(t, utxId, prc20Addr, senderAddr,
+			"eip155", big.NewInt(111), big.NewInt(1_000_000_000), big.NewInt(200_000))
+		err := chainApp.UexecutorKeeper.AttachRescueOutboundFromReceipt(ctx,
+			makeRescueReceipt(t, "0xrescuetx14", log),
+			uexecutortypes.PCTx{TxHash: "0xrescuetx14", Status: "SUCCESS"})
+
+		utx, _, getErr := chainApp.UexecutorKeeper.GetUniversalTx(ctx, utxId)
+		require.NoError(t, getErr)
+		require.Nil(t, findRescueOutbound(utx),
+			"no rescue outbound may be created for an unregistered original asset")
+		require.Equal(t, pendingBefore, pendingOutboundIds(t, ctx, chainApp),
+			"a rejected rescue must not add a PendingOutbounds row")
+
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "no token config registered for original asset")
+	})
+
+	t.Run("rescue PRC20 comparison ignores address casing", func(t *testing.T) {
+		// The event's PRC20 is always EIP-55 checksummed by the log decoder, while the
+		// registry stores whatever an admin registered. Comparing canonically means a
+		// lowercase registry entry is still the same PRC20.
+		chainApp, ctx, _, utxId, _ := setupRescueFundsTest(t, 4)
+
+		require.NoError(t, chainApp.UregistryKeeper.UpdateTokenConfig(ctx, &uregistrytypes.TokenConfig{
+			Chain:        "eip155:11155111",
+			Address:      rescueOriginalAsset.String(),
+			Name:         "Push Ether",
+			Symbol:       "pETH",
+			Decimals:     18,
+			Enabled:      true,
+			LiquidityCap: "1000000000000000000000000",
+			TokenType:    1,
+			NativeRepresentation: &uregistrytypes.NativeRepresentation{
+				ContractAddress: strings.ToLower(rescueOriginalPRC20.String()),
+			},
+		}))
+
+		log := buildRescueFundsLog(t, utxId, rescueOriginalPRC20, senderAddr,
+			"eip155", big.NewInt(111), big.NewInt(1_000_000_000), big.NewInt(200_000))
+		err := chainApp.UexecutorKeeper.AttachRescueOutboundFromReceipt(ctx,
+			makeRescueReceipt(t, "0xrescuetx15", log),
+			uexecutortypes.PCTx{TxHash: "0xrescuetx15", Status: "SUCCESS"})
+		require.NoError(t, err)
+
+		utx, _, err := chainApp.UexecutorKeeper.GetUniversalTx(ctx, utxId)
+		require.NoError(t, err)
+		rescueOb := findRescueOutbound(utx)
+		require.NotNil(t, rescueOb)
+		require.Equal(t, strings.ToLower(rescueOriginalPRC20.String()), rescueOb.Prc20AssetAddr,
+			"the registry's spelling of the PRC20 is what lands on the outbound")
 	})
 
 	t.Run("rescue outbound recipient defaults to inbound sender when no revert instructions", func(t *testing.T) {
@@ -222,11 +368,11 @@ func TestRescueFunds(t *testing.T) {
 		}
 		utxId := uexecutortypes.GetInboundUniversalTxKey(*inbound)
 
-		log := buildRescueFundsLog(t, utxId, prc20Addr, senderAddr,
+		log := buildRescueFundsLog(t, utxId, usdcPRC20Addr, senderAddr,
 			"eip155", big.NewInt(111), big.NewInt(1_000_000_000), big.NewInt(200_000))
 		err := chainApp.UexecutorKeeper.AttachRescueOutboundFromReceipt(ctx, makeRescueReceipt(t, "0xrescuetx03", log), uexecutortypes.PCTx{TxHash: "0xrescuetx03", Status: "SUCCESS"})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "no reverted inbound-revert outbound")
+		require.Contains(t, err.Error(), "no reverted or aborted inbound-revert outbound")
 	})
 
 	t.Run("rescue is rejected for non-CEA inbound when auto-revert is PENDING", func(t *testing.T) {
@@ -251,11 +397,11 @@ func TestRescueFunds(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		log := buildRescueFundsLog(t, utxId, prc20Addr, senderAddr,
+		log := buildRescueFundsLog(t, utxId, usdcPRC20Addr, senderAddr,
 			"eip155", big.NewInt(111), big.NewInt(1_000_000_000), big.NewInt(200_000))
 		err = chainApp.UexecutorKeeper.AttachRescueOutboundFromReceipt(ctx, makeRescueReceipt(t, "0xrescuetx03b", log), uexecutortypes.PCTx{TxHash: "0xrescuetx03b", Status: "SUCCESS"})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "no reverted inbound-revert outbound")
+		require.Contains(t, err.Error(), "no reverted or aborted inbound-revert outbound")
 	})
 
 	t.Run("rescue succeeds for non-CEA inbound with reverted auto-revert", func(t *testing.T) {
@@ -280,7 +426,7 @@ func TestRescueFunds(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		log := buildRescueFundsLog(t, utxId, prc20Addr, senderAddr,
+		log := buildRescueFundsLog(t, utxId, usdcPRC20Addr, senderAddr,
 			"eip155", big.NewInt(222), big.NewInt(1_000_000_000), big.NewInt(200_000))
 		err = chainApp.UexecutorKeeper.AttachRescueOutboundFromReceipt(ctx, makeRescueReceipt(t, "0xrescuetx03c", log), uexecutortypes.PCTx{TxHash: "0xrescuetx03c", Status: "SUCCESS"})
 		require.NoError(t, err)
@@ -317,7 +463,7 @@ func TestRescueFunds(t *testing.T) {
 		// Confirm first PCTx (deposit) succeeded — that's the invariant we rely on.
 		require.Equal(t, "SUCCESS", utx.PcTx[0].Status, "deposit must have succeeded for this test to be meaningful")
 
-		log := buildRescueFundsLog(t, utxId, prc20Addr, senderAddr,
+		log := buildRescueFundsLog(t, utxId, usdcPRC20Addr, senderAddr,
 			"eip155", big.NewInt(111), big.NewInt(1_000_000_000), big.NewInt(200_000))
 		err = chainApp.UexecutorKeeper.AttachRescueOutboundFromReceipt(ctx, makeRescueReceipt(t, "0xrescuetx04", log), uexecutortypes.PCTx{TxHash: "0xrescuetx04", Status: "SUCCESS"})
 		require.Error(t, err)
@@ -585,6 +731,21 @@ func TestRescueFunds(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "not found")
 	})
+}
+
+// pendingOutboundIds returns the sorted outbound IDs currently in the PendingOutbounds
+// index, so a test can assert that a rejected rescue left the index untouched.
+func pendingOutboundIds(t *testing.T, ctx sdk.Context, chainApp *app.ChainApp) []string {
+	t.Helper()
+	querier := uexecutorkeeper.NewQuerier(chainApp.UexecutorKeeper)
+	resp, err := querier.AllPendingOutbounds(ctx, &uexecutortypes.QueryAllPendingOutboundsRequest{})
+	require.NoError(t, err)
+	ids := make([]string, 0, len(resp.Entries))
+	for _, e := range resp.Entries {
+		ids = append(ids, e.OutboundId)
+	}
+	sort.Strings(ids)
+	return ids
 }
 
 // findRescueOutbound returns the first RESCUE_FUNDS outbound from a UTX, or nil.

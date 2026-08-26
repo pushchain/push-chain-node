@@ -153,14 +153,6 @@ func (ms msgServer) VoteChainMeta(ctx context.Context, msg *types.MsgVoteChainMe
 
 	signerValAddr := sdk.ValAddress(signerAccAddr)
 
-	isBonded, err := ms.k.uvalidatorKeeper.IsBondedUniversalValidator(ctx, msg.Signer)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to check bonded status for signer %s", msg.Signer)
-	}
-	if !isBonded {
-		return nil, fmt.Errorf("universal validator for signer %s is not bonded", msg.Signer)
-	}
-
 	isTombstoned, err := ms.k.uvalidatorKeeper.IsTombstonedUniversalValidator(ctx, msg.Signer)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to check tombstoned status for signer %s", msg.Signer)
@@ -169,11 +161,55 @@ func (ms msgServer) VoteChainMeta(ctx context.Context, msg *types.MsgVoteChainMe
 		return nil, fmt.Errorf("universal validator for signer %s is tombstoned", msg.Signer)
 	}
 
+	// Admission is gated on the same eligibility predicate ballot creation uses
+	// (lifecycle ACTIVE/PENDING_JOIN AND bonded AND not tombstoned) rather than
+	// the lifecycle-blind IsBondedUniversalValidator. Admin removal moves a
+	// universal validator to PENDING_LEAVE while its stake can remain bonded,
+	// and AfterValidatorRemoved prunes its ChainMeta rows but revokes neither
+	// its AuthZ grant nor its membership in the universal validator set -- so
+	// under the bonded-only gate the removed hotkey could reinsert votes right
+	// after the prune.
+	//
+	// Tightening admission is safe here, and only here, because ChainMeta is
+	// median-based rather than ballot-based: there is no CreateBallot, no
+	// snapshotted EligibleVoters and no frozen VotingThreshold. Every vote
+	// recomputes the median over whichever votes are currently fresh, so a
+	// narrower voter set cannot strand anything in flight. The ballot-based
+	// vote paths (VoteInbound/VoteOutbound above) deliberately keep the looser
+	// gate: tightening them would make already-frozen thresholds unreachable.
+	if err := ms.requireEligibleChainMetaVoter(ctx, signerValAddr); err != nil {
+		return nil, err
+	}
+
 	err = ms.k.VoteChainMeta(ctx, signerValAddr, msg.ObservedChainId, msg.Price, msg.ChainHeight)
 	if err != nil {
 		return nil, err
 	}
 	return &types.MsgVoteChainMetaResponse{}, nil
+}
+
+// requireEligibleChainMetaVoter returns nil only when signerValAddr is present
+// in the current eligible-voter set, i.e. it satisfies exactly the same
+// predicate uvalidator applies when it snapshots a ballot's voters. Reusing
+// GetEligibleVoters rather than re-deriving the checks keeps ChainMeta vote
+// admission from drifting away from that definition.
+func (ms msgServer) requireEligibleChainMetaVoter(ctx context.Context, signerValAddr sdk.ValAddress) error {
+	eligible, err := ms.k.uvalidatorKeeper.GetEligibleVoters(ctx)
+	if err != nil {
+		return errors.Wrapf(err, "failed to fetch eligible voters for signer %s", signerValAddr.String())
+	}
+
+	want := signerValAddr.String()
+	for _, uv := range eligible {
+		if uv.IdentifyInfo != nil && uv.IdentifyInfo.CoreValidatorAddress == want {
+			return nil
+		}
+	}
+
+	return fmt.Errorf(
+		"universal validator %s is not an eligible voter; only ACTIVE or PENDING_JOIN universal validators with bonded, non-tombstoned staking state may vote on chain meta",
+		want,
+	)
 }
 
 // RevertStuckInbound is the admin escape hatch — see Keeper.RevertStuckInbound.

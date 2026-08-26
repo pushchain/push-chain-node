@@ -4,9 +4,45 @@ import (
 	"fmt"
 	"testing"
 
+	"cosmossdk.io/collections"
+	"github.com/pushchain/push-chain-node/x/uvalidator/keeper"
 	"github.com/pushchain/push-chain-node/x/uvalidator/types"
 	"github.com/stretchr/testify/require"
 )
+
+const inboundBallot = types.BallotObservationType_BALLOT_OBSERVATION_TYPE_INBOUND_TX
+
+// pendingIndexed reports whether the (expiryHeight, ballotID) row exists in the
+// PendingByExpiry index.
+func pendingIndexed(t *testing.T, f *testFixture, id string, expiryHeight int64) bool {
+	t.Helper()
+	has, err := f.k.PendingByExpiry.Has(f.ctx, collections.Join(expiryHeight, id))
+	require.NoError(t, err)
+	return has
+}
+
+// pendingIndexIDs returns every ballot ID currently carried by the expiry index.
+func pendingIndexIDs(t *testing.T, f *testFixture) []string {
+	t.Helper()
+	ids := []string{}
+	require.NoError(t, f.k.PendingByExpiry.Walk(f.ctx, nil,
+		func(key collections.Pair[int64, string]) (bool, error) {
+			ids = append(ids, key.K2())
+			return false, nil
+		}))
+	return ids
+}
+
+// expiredCount returns how many ballots sit in ExpiredBallotIDs.
+func expiredCount(t *testing.T, f *testFixture) int {
+	t.Helper()
+	n := 0
+	require.NoError(t, f.k.ExpiredBallotIDs.Walk(f.ctx, nil, func(string) (bool, error) {
+		n++
+		return false, nil
+	}))
+	return n
+}
 
 func TestCreateAndGetBallot(t *testing.T) {
 	f := SetupTest(t)
@@ -150,32 +186,48 @@ func TestExpireBallotsBeforeHeight(t *testing.T) {
 	require.Equal(types.BallotStatus_BALLOT_STATUS_PENDING, got2.Status)
 }
 
-func TestCreateBallot_ExpiresOldOnCreate(t *testing.T) {
+// Creation must no longer sweep expired ballots: that scan walked the whole
+// active set on a consensus hot path. Expiry moved to the module EndBlocker.
+func TestCreateBallot_DoesNotExpireOnCreate(t *testing.T) {
 	f := SetupTest(t)
 	require := require.New(t)
 
-	// Create a ballot that expires quickly (expiry = 1 block)
+	// Create a ballot that comes due quickly (expiry = 1 block)
 	oldBallot, err := f.k.CreateBallot(f.ctx, "old",
 		types.BallotObservationType_BALLOT_OBSERVATION_TYPE_INBOUND_TX,
 		[]string{"v1"}, 1, 1)
 	require.NoError(err)
 
-	// Manually simulate advancing block height
+	// Advance well past the old ballot's expiry height
 	f.ctx = f.ctx.WithBlockHeight(oldBallot.BlockHeightCreated + 5)
 
-	// Now create a NEW ballot → should trigger expiry cleanup of the old one
+	// Creating a NEW ballot must NOT expire the due one — no scan on create.
 	newBallot, err := f.k.CreateBallot(f.ctx, "new",
 		types.BallotObservationType_BALLOT_OBSERVATION_TYPE_INBOUND_TX,
 		[]string{"v2"}, 1, 10)
 	require.NoError(err)
-
-	// New ballot must be created fine
 	require.Equal("new", newBallot.Id)
 
-	// Old ballot should now be expired
 	got, err := f.k.GetBallot(f.ctx, "old")
 	require.NoError(err)
+	require.Equal(types.BallotStatus_BALLOT_STATUS_PENDING, got.Status,
+		"CreateBallot must not expire ballots; expiry belongs to the EndBlocker sweep")
+
+	has, err := f.k.ActiveBallotIDs.Has(f.ctx, "old")
+	require.NoError(err)
+	require.True(has, "due ballot must stay active until the sweep runs")
+
+	// The sweep — not creation — is what expires it.
+	require.NoError(f.k.ExpireBallotsBeforeHeight(f.ctx, f.ctx.BlockHeight()))
+
+	got, err = f.k.GetBallot(f.ctx, "old")
+	require.NoError(err)
 	require.Equal(types.BallotStatus_BALLOT_STATUS_EXPIRED, got.Status)
+
+	// The not-yet-due ballot survives the sweep.
+	gotNew, err := f.k.GetBallot(f.ctx, "new")
+	require.NoError(err)
+	require.Equal(types.BallotStatus_BALLOT_STATUS_PENDING, gotNew.Status)
 }
 
 func TestCreateBallot_NoExpiryTriggered(t *testing.T) {
@@ -207,7 +259,7 @@ func TestCreateBallot_NoExpiryTriggered(t *testing.T) {
 	require.Equal("newer", got2.Id)
 }
 
-func TestCreateBallot_ExpiresMultipleOld(t *testing.T) {
+func TestCreateBallot_DoesNotExpireMultipleOldOnCreate(t *testing.T) {
 	f := SetupTest(t)
 	require := require.New(t)
 
@@ -225,18 +277,29 @@ func TestCreateBallot_ExpiresMultipleOld(t *testing.T) {
 	// Advance height beyond both expiries
 	f.ctx = f.ctx.WithBlockHeight(b2.BlockHeightCreated + 5)
 
-	// Create fresh ballot (triggers cleanup)
+	// Create fresh ballot — must NOT trigger any cleanup
 	_, err = f.k.CreateBallot(f.ctx, "fresh",
 		types.BallotObservationType_BALLOT_OBSERVATION_TYPE_INBOUND_TX,
 		[]string{"v3"}, 1, 5)
 	require.NoError(err)
 
-	// Both old ballots should now be expired
+	// Both due ballots must still be pending — creation does not sweep
 	got1, err := f.k.GetBallot(f.ctx, b1.Id)
+	require.NoError(err)
+	require.Equal(types.BallotStatus_BALLOT_STATUS_PENDING, got1.Status)
+
+	got2, err := f.k.GetBallot(f.ctx, b2.Id)
+	require.NoError(err)
+	require.Equal(types.BallotStatus_BALLOT_STATUS_PENDING, got2.Status)
+
+	// The sweep expires them.
+	require.NoError(f.k.ExpireBallotsBeforeHeight(f.ctx, f.ctx.BlockHeight()))
+
+	got1, err = f.k.GetBallot(f.ctx, b1.Id)
 	require.NoError(err)
 	require.Equal(types.BallotStatus_BALLOT_STATUS_EXPIRED, got1.Status)
 
-	got2, err := f.k.GetBallot(f.ctx, b2.Id)
+	got2, err = f.k.GetBallot(f.ctx, b2.Id)
 	require.NoError(err)
 	require.Equal(types.BallotStatus_BALLOT_STATUS_EXPIRED, got2.Status)
 }
@@ -400,4 +463,183 @@ func TestExpireBallotsBeforeHeight_EmptySet(t *testing.T) {
 	// Call with no active ballots — should not error
 	err := f.k.ExpireBallotsBeforeHeight(f.ctx, 100)
 	require.NoError(err)
+}
+
+// ─── PendingByExpiry index ───────────────────────────────────────────────────
+
+// TestPendingByExpiryIndex_MirrorsEveryActiveSetWriter is the guard against a
+// missed mirror site. Every writer of ActiveBallotIDs must write PendingByExpiry
+// too; a miss makes the index drift from reality, which either hides a ballot
+// from the sweep forever or lets the sweep act on a ballot that is no longer
+// active. Each subtest asserts the index state FIRST, so the assertion that
+// catches the missing mirror runs before anything else can abort the subtest.
+func TestPendingByExpiryIndex_MirrorsEveryActiveSetWriter(t *testing.T) {
+	t.Run("CreateBallot indexes under the expiry height", func(t *testing.T) {
+		f := SetupTest(t)
+
+		b, err := f.k.CreateBallot(f.ctx, "idx-create", inboundBallot, []string{"v1"}, 1, 7)
+		require.NoError(t, err)
+
+		require.True(t, pendingIndexed(t, f, "idx-create", b.BlockHeightExpiry),
+			"CreateBallot must mirror ActiveBallotIDs into PendingByExpiry")
+		require.Equal(t, []string{"idx-create"}, pendingIndexIDs(t, f))
+
+		// The row must be keyed by the expiry height, not the creation height —
+		// that is the whole point of the index.
+		require.NotEqual(t, b.BlockHeightCreated, b.BlockHeightExpiry)
+		require.False(t, pendingIndexed(t, f, "idx-create", b.BlockHeightCreated),
+			"index must be keyed by expiry height, not creation height")
+	})
+
+	t.Run("MarkBallotExpired unindexes", func(t *testing.T) {
+		f := SetupTest(t)
+
+		b, err := f.k.CreateBallot(f.ctx, "idx-expire", inboundBallot, []string{"v1"}, 1, 3)
+		require.NoError(t, err)
+		require.NoError(t, f.k.MarkBallotExpired(f.ctx, b.Id))
+
+		require.False(t, pendingIndexed(t, f, b.Id, b.BlockHeightExpiry),
+			"MarkBallotExpired must remove the PendingByExpiry row")
+		require.Empty(t, pendingIndexIDs(t, f))
+
+		// A leaked row would be re-processed by the sweep every single block,
+		// permanently consuming part of the per-block budget.
+		require.NoError(t, f.k.ExpireBallotsBeforeHeight(f.ctx, b.BlockHeightExpiry+1))
+		require.Empty(t, pendingIndexIDs(t, f))
+	})
+
+	t.Run("MarkBallotFinalized unindexes", func(t *testing.T) {
+		f := SetupTest(t)
+
+		b, err := f.k.CreateBallot(f.ctx, "idx-final", inboundBallot, []string{"v1"}, 1, 3)
+		require.NoError(t, err)
+		require.NoError(t, f.k.MarkBallotFinalized(f.ctx, b.Id, types.BallotStatus_BALLOT_STATUS_PASSED))
+
+		require.False(t, pendingIndexed(t, f, b.Id, b.BlockHeightExpiry),
+			"MarkBallotFinalized must remove the PendingByExpiry row")
+
+		// Behavioural consequence of a leaked row: the sweep would reach a
+		// finalized ballot and overwrite PASSED with EXPIRED.
+		require.NoError(t, f.k.ExpireBallotsBeforeHeight(f.ctx, b.BlockHeightExpiry+1))
+		got, err := f.k.GetBallot(f.ctx, b.Id)
+		require.NoError(t, err)
+		require.Equal(t, types.BallotStatus_BALLOT_STATUS_PASSED, got.Status,
+			"a stale index row let the sweep overwrite a finalized ballot")
+	})
+
+	t.Run("DeleteBallot unindexes", func(t *testing.T) {
+		f := SetupTest(t)
+
+		b, err := f.k.CreateBallot(f.ctx, "idx-delete", inboundBallot, []string{"v1"}, 1, 3)
+		require.NoError(t, err)
+		require.NoError(t, f.k.DeleteBallot(f.ctx, b.Id))
+
+		require.False(t, pendingIndexed(t, f, b.Id, b.BlockHeightExpiry),
+			"DeleteBallot must remove the PendingByExpiry row")
+		require.Empty(t, pendingIndexIDs(t, f))
+
+		// Deleting an absent ballot stays a no-op.
+		require.NoError(t, f.k.DeleteBallot(f.ctx, b.Id))
+		require.Empty(t, pendingIndexIDs(t, f))
+	})
+
+	t.Run("VoteOnBallot create path indexes the new ballot", func(t *testing.T) {
+		f := SetupTest(t)
+
+		b, _, isNew, err := f.k.VoteOnBallot(f.ctx, "idx-vote", inboundBallot,
+			"v1", types.VoteResult_VOTE_RESULT_SUCCESS,
+			[]string{"v1", "v2"}, 2, 9)
+		require.NoError(t, err)
+		require.True(t, isNew)
+
+		require.True(t, pendingIndexed(t, f, "idx-vote", b.BlockHeightExpiry),
+			"the vote-driven create path must leave the expiry index populated")
+	})
+}
+
+// TestExpireBallotsBeforeHeight_OnlyDueRowsAreTouched pins the range semantics:
+// rows past currentHeight are neither expired nor dropped from the index.
+func TestExpireBallotsBeforeHeight_OnlyDueRowsAreTouched(t *testing.T) {
+	f := SetupTest(t)
+	require := require.New(t)
+
+	// Created at height 0 → expiry heights 3, 10 and exactly 5.
+	due, err := f.k.CreateBallot(f.ctx, "due", inboundBallot, []string{"v1"}, 1, 3)
+	require.NoError(err)
+	atBoundary, err := f.k.CreateBallot(f.ctx, "at-boundary", inboundBallot, []string{"v1"}, 1, 5)
+	require.NoError(err)
+	future, err := f.k.CreateBallot(f.ctx, "future", inboundBallot, []string{"v1"}, 1, 10)
+	require.NoError(err)
+
+	require.NoError(f.k.ExpireBallotsBeforeHeight(f.ctx, 5))
+
+	// The not-yet-due row must survive in the index for a later block.
+	require.Equal([]string{"future"}, pendingIndexIDs(t, f))
+	require.True(pendingIndexed(t, f, future.Id, future.BlockHeightExpiry))
+
+	gotFuture, err := f.k.GetBallot(f.ctx, future.Id)
+	require.NoError(err)
+	require.Equal(types.BallotStatus_BALLOT_STATUS_PENDING, gotFuture.Status)
+
+	// Expiry is inclusive of currentHeight (`<=` semantics).
+	for _, id := range []string{due.Id, atBoundary.Id} {
+		got, err := f.k.GetBallot(f.ctx, id)
+		require.NoError(err)
+		require.Equal(types.BallotStatus_BALLOT_STATUS_EXPIRED, got.Status, "ballot %s should be expired", id)
+	}
+}
+
+// TestExpireBallotsBeforeHeight_CapsAtMaxExpiriesPerBlock proves the per-block
+// bound holds and that the leftovers are carried in the index to the next block.
+func TestExpireBallotsBeforeHeight_CapsAtMaxExpiriesPerBlock(t *testing.T) {
+	f := SetupTest(t)
+	require := require.New(t)
+
+	const extra = 7
+	total := keeper.MaxExpiriesPerBlock + extra
+
+	// All due at height 1, i.e. the whole backlog comes due at once.
+	for i := 0; i < total; i++ {
+		_, err := f.k.CreateBallot(f.ctx, fmt.Sprintf("cap-%03d", i), inboundBallot, []string{"v1"}, 1, 1)
+		require.NoError(err)
+	}
+	require.Len(pendingIndexIDs(t, f), total)
+
+	// First sweep: exactly MaxExpiriesPerBlock, never the whole backlog.
+	require.NoError(f.k.ExpireBallotsBeforeHeight(f.ctx, 100))
+	require.Equal(keeper.MaxExpiriesPerBlock, expiredCount(t, f),
+		"a single sweep must expire at most MaxExpiriesPerBlock ballots")
+	require.Len(pendingIndexIDs(t, f), extra,
+		"the remainder must stay in the index for the next block")
+
+	// Second sweep drains the rest.
+	require.NoError(f.k.ExpireBallotsBeforeHeight(f.ctx, 100))
+	require.Equal(total, expiredCount(t, f))
+	require.Empty(pendingIndexIDs(t, f))
+}
+
+// TestExpireBallotsBeforeHeight_OrphanedIndexRow covers the defensive path: an
+// index row whose ballot record is gone must be dropped instead of wedging the
+// sweep on every subsequent block.
+func TestExpireBallotsBeforeHeight_OrphanedIndexRow(t *testing.T) {
+	f := SetupTest(t)
+	require := require.New(t)
+
+	b, err := f.k.CreateBallot(f.ctx, "orphan", inboundBallot, []string{"v1"}, 1, 1)
+	require.NoError(err)
+
+	// Drop the record behind the index row's back.
+	require.NoError(f.k.Ballots.Remove(f.ctx, b.Id))
+	require.True(pendingIndexed(t, f, b.Id, b.BlockHeightExpiry))
+
+	// A healthy ballot queued behind the orphan must still get expired.
+	good, err := f.k.CreateBallot(f.ctx, "good", inboundBallot, []string{"v1"}, 1, 2)
+	require.NoError(err)
+
+	require.NoError(f.k.ExpireBallotsBeforeHeight(f.ctx, 100))
+
+	require.Empty(pendingIndexIDs(t, f), "the orphaned row must be dropped, not retried forever")
+	gotGood, err := f.k.GetBallot(f.ctx, good.Id)
+	require.NoError(err)
+	require.Equal(types.BallotStatus_BALLOT_STATUS_EXPIRED, gotGood.Status)
 }

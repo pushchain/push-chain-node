@@ -6,12 +6,25 @@ import (
 	"testing"
 	"time"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
 
+	"github.com/pushchain/push-chain-node/app"
 	"github.com/pushchain/push-chain-node/x/utss/types"
 )
 
 const validSigner = "push1fgaewhyd9fkwtqaj9c233letwcuey6dgly9gv9"
+
+// setBech32Prefixes installs the push prefixes on the global SDK config. Without
+// it validSigner fails to parse, ValidateBasic returns on the signer check
+// before reaching anything else, and every assertion below becomes vacuous.
+// Tests in a package share this global, so each entry point sets it rather than
+// relying on another test file having run first.
+func setBech32Prefixes() {
+	cfg := sdk.GetConfig()
+	cfg.SetBech32PrefixForAccount(app.Bech32PrefixAccAddr, app.Bech32PrefixAccPub)
+	cfg.SetBech32PrefixForValidator(app.Bech32PrefixValAddr, app.Bech32PrefixValPub)
+}
 
 func baseInitiateMsg() *types.MsgInitiateFundMigration {
 	return &types.MsgInitiateFundMigration{
@@ -23,6 +36,8 @@ func baseInitiateMsg() *types.MsgInitiateFundMigration {
 }
 
 func TestMsgInitiateFundMigration_ValidateBasic(t *testing.T) {
+	setBech32Prefixes()
+
 	maxUint256 := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(1))
 
 	tests := []struct {
@@ -79,6 +94,8 @@ func TestMsgInitiateFundMigration_ValidateBasic(t *testing.T) {
 // Decimal parsing is superlinear, so without the cap a caller-supplied
 // multi-million-digit balance is fully parsed and then thrown away.
 func TestMsgInitiateFundMigration_RejectsHugeBalanceFast(t *testing.T) {
+	setBech32Prefixes()
+
 	msg := baseInitiateMsg()
 	msg.Balance = strings.Repeat("9", 3_000_000)
 

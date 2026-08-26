@@ -16,16 +16,55 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/auth/ante"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	txpolicy "github.com/pushchain/push-chain-node/app/txpolicy"
+	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
+	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 )
+
+// validatorOnlyGaslessMsgTypes is the subset of the gasless allowlist that only
+// a bonded universal validator can ever execute successfully: every one of these
+// msg servers gates on IsBondedUniversalValidator (VoteChainMeta gates on the
+// strictly narrower eligible-voter set, of which bonded is a component).
+//
+// The remaining gasless types - MsgExecutePayload and MsgMigrateUEA - are
+// deliberately absent: they are permissionless by design and creating an account
+// for a first-time universal user is the intended behaviour of this decorator.
+var validatorOnlyGaslessMsgTypes = map[string]struct{}{
+	sdk.MsgTypeURL(&uexecutortypes.MsgVoteInbound{}):   {},
+	sdk.MsgTypeURL(&uexecutortypes.MsgVoteOutbound{}):  {},
+	sdk.MsgTypeURL(&uexecutortypes.MsgVoteChainMeta{}): {},
+	sdk.MsgTypeURL(&utsstypes.MsgVoteTssKeyProcess{}):  {},
+	sdk.MsgTypeURL(&utsstypes.MsgVoteFundMigration{}):  {},
+}
+
+// isValidatorOnlyGaslessTx reports whether tx carries at least one message that
+// only a bonded universal validator can execute.
+//
+// authz.MsgExec is deliberately NOT unwrapped. A universal validator submits its
+// votes wrapped in authz.MsgExec (universalClient/pushsigner wrapWithAuthZ), and
+// there the tx signer is the grantee hotkey while the vote's own signer - the one
+// the msg server checks - is the granter. That hotkey is legitimately not a
+// universal validator itself, so unwrapping here would reject the real voting
+// path. Only a top-level vote message declares the universal validator as the tx
+// signer, and that is exactly the case this gate covers.
+func isValidatorOnlyGaslessTx(tx sdk.Tx) bool {
+	for _, msg := range tx.GetMsgs() {
+		if _, ok := validatorOnlyGaslessMsgTypes[sdk.MsgTypeURL(msg)]; ok {
+			return true
+		}
+	}
+	return false
+}
 
 type AccountInitDecorator struct {
 	ak              AccountKeeper
+	uvk             UValidatorKeeper
 	signModeHandler *txsigning.HandlerMap
 }
 
-func NewAccountInitDecorator(ak AccountKeeper, signModeHandler *txsigning.HandlerMap) AccountInitDecorator {
+func NewAccountInitDecorator(ak AccountKeeper, uvk UValidatorKeeper, signModeHandler *txsigning.HandlerMap) AccountInitDecorator {
 	return AccountInitDecorator{
 		ak:              ak,
+		uvk:             uvk,
 		signModeHandler: signModeHandler,
 	}
 }
@@ -57,6 +96,27 @@ func (aid AccountInitDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate 
 			"address", sdk.AccAddress(newAccAddr).String(),
 			"simulate", simulate,
 		)
+		// F-2026-18186: this decorator writes the account row and then returns
+		// without running the message, so the row survives even when the message
+		// later fails. For the validator-only vote messages that is a free,
+		// repeatable state-bloat primitive: a fresh key sends a gasless vote, the
+		// account is committed by the ante cache, and the msg server then rejects
+		// it for not being a bonded universal validator.
+		//
+		// Reject those before any account is created - and before the expensive
+		// signature verification below. A universal validator that can legitimately
+		// vote is bonded and therefore already has an account, so this path should
+		// never legitimately create one for a vote.
+		if isValidatorOnlyGaslessTx(tx) {
+			if err := aid.requireBondedUniversalValidator(ctx, newAccAddr); err != nil {
+				ctx.Logger().Debug("account init decorator: rejecting validator-only gasless tx from non-validator signer",
+					"address", sdk.AccAddress(newAccAddr).String(),
+					"error", err,
+				)
+				return ctx, err
+			}
+		}
+
 		// if account does not exist on chain, bypass rest of ante chain here.
 		// Perform signature verification on account number e and sequence number e instead.
 		if err := aid.verifySignatureForNewAccount(ctx, tx, simulate); err != nil {
@@ -80,6 +140,33 @@ func (aid AccountInitDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate 
 		"address", sdk.AccAddress(newAccAddr).String(),
 	)
 	return next(ctx, tx, simulate)
+}
+
+// requireBondedUniversalValidator returns nil only when signer is a bonded
+// universal validator.
+//
+// IsBondedUniversalValidator takes the bech32 ACCOUNT address (it derives the
+// operator address from those bytes itself), which is the same string the vote
+// msg servers hand it as msg.Signer. It returns an error - not (false, nil) -
+// when the signer is absent from the universal validator set, so both branches
+// have to be treated as a rejection; failing closed is correct here because the
+// only thing being denied is the creation of an account row for a message that
+// cannot succeed.
+func (aid AccountInitDecorator) requireBondedUniversalValidator(ctx sdk.Context, signer sdk.AccAddress) error {
+	if aid.uvk == nil {
+		return errorsmod.Wrap(sdkerrors.ErrLogic, "uvalidator keeper not configured on account init decorator")
+	}
+
+	bonded, err := aid.uvk.IsBondedUniversalValidator(ctx, signer.String())
+	if err != nil {
+		return errorsmod.Wrapf(sdkerrors.ErrUnauthorized,
+			"signer %s may not create an account with a validator-only gasless message: %s", signer.String(), err.Error())
+	}
+	if !bonded {
+		return errorsmod.Wrapf(sdkerrors.ErrUnauthorized,
+			"signer %s may not create an account with a validator-only gasless message: not a bonded universal validator", signer.String())
+	}
+	return nil
 }
 
 func (aid AccountInitDecorator) verifySignatureForNewAccount(ctx sdk.Context, tx sdk.Tx, simulate bool) error {

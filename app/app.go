@@ -1233,6 +1233,7 @@ func NewChainApp(
 		Cdc:                   app.appCodec,
 		AccountKeeper:         app.AccountKeeper,
 		BankKeeper:            app.BankKeeper,
+		UValidatorKeeper:      app.UvalidatorKeeper,
 		FeegrantKeeper:        app.FeeGrantKeeper,
 		FeeMarketKeeper:       app.FeeMarketKeeper,
 		SignModeHandler:       txConfig.SignModeHandler(),

@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"math/big"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -74,15 +73,11 @@ func (s *Store) PersistSignature(
 	signature []byte,
 	signingHash []byte,
 	nonce uint64,
-	fundMigrationAmount *big.Int,
 ) (bool, error) {
 	signingData := map[string]any{
 		"signature":    hex.EncodeToString(signature),
 		"signing_hash": hex.EncodeToString(signingHash),
 		"nonce":        nonce,
-	}
-	if fundMigrationAmount != nil && fundMigrationAmount.Sign() > 0 {
-		signingData["tss_fund_migration_amount"] = fundMigrationAmount
 	}
 
 	var raw map[string]any

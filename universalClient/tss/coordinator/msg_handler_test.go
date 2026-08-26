@@ -202,7 +202,7 @@ func TestHandleSignedAck_FailurePaths(t *testing.T) {
 		assert.Contains(t, err.Error(), "has no signature to verify")
 	})
 
-	t.Run("fund migration without claimed amount rejected", func(t *testing.T) {
+	t.Run("fund migration with unusable event data rejected", func(t *testing.T) {
 		require.NoError(t, db.Create(&store.Event{
 			EventID:     "fm-evt",
 			BlockHeight: 1,
@@ -216,7 +216,7 @@ func TestHandleSignedAck_FailurePaths(t *testing.T) {
 			SigningHash: make([]byte, 32),
 		})
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "requires positive claimed amount")
+		assert.Contains(t, err.Error(), "rebuild signing hash")
 	})
 
 	t.Run("verification failure does not touch ackTracking", func(t *testing.T) {

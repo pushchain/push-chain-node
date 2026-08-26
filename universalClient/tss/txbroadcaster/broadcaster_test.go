@@ -686,7 +686,7 @@ const testNewTSSPubkey = "02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac
 
 func makeSignedFundMigrationData(t *testing.T, chainID string, nonce uint64) []byte {
 	t.Helper()
-	return makeSignedFundMigrationDataWithTransfer(t, chainID, nonce, nil)
+	return makeSignedFundMigrationDataWithTransfer(t, chainID, nonce, big.NewInt(500_000_000_000_000_000))
 }
 
 func makeSignedFundMigrationDataWithTransfer(t *testing.T, chainID string, nonce uint64, transferAmount *big.Int) []byte {
@@ -704,17 +704,24 @@ func makeSignedFundMigrationDataWithTransfer(t *testing.T, chainID string, nonce
 			GasPrice:         "1000000000",
 			GasLimit:         21100,
 			L1GasFee:         "150",
+			TransferAmount:   transferAmountString(transferAmount),
 		},
 		SigningData: &txflow.SigningData{
-			Signature:              sig,
-			SigningHash:            hash,
-			Nonce:                  nonce,
-			TSSFundMigrationAmount: transferAmount,
+			Signature:   sig,
+			SigningHash: hash,
+			Nonce:       nonce,
 		},
 	}
 	b, err := json.Marshal(data)
 	require.NoError(t, err)
 	return b
+}
+
+func transferAmountString(v *big.Int) string {
+	if v == nil {
+		return ""
+	}
+	return v.String()
 }
 
 func insertSignedFundMigrationEvent(t *testing.T, db *gorm.DB, eventID, chainID string, nonce uint64) {
@@ -786,10 +793,10 @@ func TestFundMigrationEVM_TSSFundMigrationAmountThreaded(t *testing.T) {
 
 	builder.On("BroadcastFundMigrationTx",
 		mock.Anything,
-		mock.MatchedBy(func(req *common.UnsignedSigningReq) bool {
-			return req.TSSFundMigrationAmount != nil && req.TSSFundMigrationAmount.String() == "777000000000000000"
-		}),
 		mock.Anything,
+		mock.MatchedBy(func(data *common.FundMigrationData) bool {
+			return data.TransferAmount != nil && data.TransferAmount.String() == "777000000000000000"
+		}),
 		mock.Anything).
 		Return("0xmigrate777", nil)
 

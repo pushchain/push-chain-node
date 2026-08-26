@@ -3,6 +3,7 @@ package keeper
 import (
 	"context"
 	"fmt"
+	"math/big"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pushchain/push-chain-node/x/utss/types"
@@ -10,7 +11,15 @@ import (
 
 // InitiateFundMigration validates and creates a fund migration from an old TSS key vault
 // to the current TSS key vault for a specific chain.
-func (k Keeper) InitiateFundMigration(ctx context.Context, oldKeyId, chain string) (uint64, error) {
+//
+// balance is the native balance the admin observed on the old TSS address. The
+// amount to sweep is derived here rather than supplied, because the gas figures
+// it depends on are read from UniversalCore below, after the admin signed the
+// message. Deriving it here means transfer_amount and the gas fields recorded on
+// the migration are consistent by construction, and every universal validator
+// signs that one pinned amount instead of re-deriving it from a live balance
+// that any 1-wei inflow can shift (F-2026-18142).
+func (k Keeper) InitiateFundMigration(ctx context.Context, oldKeyId, chain, balance string) (uint64, error) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
 	// 1. Validate old key exists in history
@@ -88,6 +97,23 @@ func (k Keeper) InitiateFundMigration(ctx context.Context, oldKeyId, chain strin
 		return 0, fmt.Errorf("failed to get next migration id: %w", err)
 	}
 
+	// Derive the sweep amount from the observed balance and the fees just
+	// fetched. Rejecting here turns a balance that cannot cover its own transfer
+	// into a clean error at initiate time, rather than a migration that is
+	// created PENDING and then fails to sign.
+	observedBalance, err := types.ParseBalance(balance)
+	if err != nil {
+		return 0, err
+	}
+	totalFee := new(big.Int).Mul(gasPrice, new(big.Int).SetUint64(gasLimit))
+	totalFee.Add(totalFee, l1GasFee)
+	transferAmount := new(big.Int).Sub(observedBalance, totalFee)
+	if transferAmount.Sign() <= 0 {
+		return 0, fmt.Errorf(
+			"balance %s on the old TSS address does not cover the migration fee %s (gas_price %s * gas_limit %d + l1_gas_fee %s) for chain %s",
+			observedBalance, totalFee, gasPrice, gasLimit, l1GasFee, chain)
+	}
+
 	migration := types.FundMigration{
 		Id:               migrationId,
 		OldKeyId:         oldKeyId,
@@ -100,6 +126,7 @@ func (k Keeper) InitiateFundMigration(ctx context.Context, oldKeyId, chain strin
 		GasPrice:         gasPrice.String(),
 		GasLimit:         gasLimit,
 		L1GasFee:         l1GasFee.String(),
+		TransferAmount:   transferAmount.String(),
 	}
 
 	if err := k.FundMigrations.Set(ctx, migrationId, migration); err != nil {
@@ -121,6 +148,7 @@ func (k Keeper) InitiateFundMigration(ctx context.Context, oldKeyId, chain strin
 		GasPrice:         gasPrice.String(),
 		GasLimit:         gasLimit,
 		L1GasFee:         l1GasFee.String(),
+		TransferAmount:   transferAmount.String(),
 	})
 	if err != nil {
 		return 0, fmt.Errorf("failed to create migration event: %w", err)

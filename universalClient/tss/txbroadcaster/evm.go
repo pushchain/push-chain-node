@@ -118,12 +118,19 @@ func (b *Broadcaster) broadcastFundMigrationEVM(ctx context.Context, event *stor
 	l1GasFee := new(big.Int)
 	l1GasFee.SetString(data.L1GasFee, 10)
 
+	transferAmount, ok := new(big.Int).SetString(data.TransferAmount, 10)
+	if !ok || transferAmount.Sign() <= 0 {
+		log.Warn().Str("transfer_amount", data.TransferAmount).Msg("event carries no usable transfer amount")
+		return
+	}
+
 	migrationData := &common.FundMigrationData{
-		From:     oldTSSAddr,
-		To:       currentTSSAddr,
-		GasPrice: gasPrice,
-		GasLimit: data.GasLimit,
-		L1GasFee: l1GasFee,
+		From:           oldTSSAddr,
+		To:             currentTSSAddr,
+		GasPrice:       gasPrice,
+		GasLimit:       data.GasLimit,
+		L1GasFee:       l1GasFee,
+		TransferAmount: transferAmount,
 	}
 
 	txHash, broadcastErr := builder.BroadcastFundMigrationTx(ctx, signingReq, migrationData, signature)

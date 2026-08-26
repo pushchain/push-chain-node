@@ -110,6 +110,10 @@ type FundMigrationInitiatedEventData struct {
 	GasPrice         string `json:"gas_price"`
 	GasLimit         uint64 `json:"gas_limit"`
 	L1GasFee         string `json:"l1_gas_fee"`
+	// TransferAmount is the native amount (wei) to sweep, pinned by the chain as
+	// balance - (gas_price * gas_limit) - l1_gas_fee. Universal validators sign
+	// this value instead of re-deriving it from a live balance (F-2026-18142).
+	TransferAmount string `json:"transfer_amount"`
 }
 
 // NewFundMigrationInitiatedEvent creates and returns a Cosmos SDK event.
@@ -130,6 +134,7 @@ func NewFundMigrationInitiatedEvent(e FundMigrationInitiatedEventData) (sdk.Even
 		sdk.NewAttribute("gas_price", e.GasPrice),
 		sdk.NewAttribute("gas_limit", fmt.Sprintf("%d", e.GasLimit)),
 		sdk.NewAttribute("l1_gas_fee", e.L1GasFee),
+		sdk.NewAttribute("transfer_amount", e.TransferAmount),
 		sdk.NewAttribute("data", string(bz)),
 	)
 

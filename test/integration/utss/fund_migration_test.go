@@ -60,6 +60,11 @@ const universalCoreSetupABI = `[
     }
 ]`
 
+// testBalance is the native balance the admin reports observing on the old TSS
+// address. Comfortably above gas_price*21000 + 150 so the derived
+// transfer_amount is positive for any oracle gas price the harness produces.
+const testBalance = "1000000000000000000" // 1e18 wei
+
 // seedFundMigrationChainValues grants MANAGER_ROLE to the admin and seeds the
 // per-chain tss-fund-migration gas limit and L1 gas fee on UniversalCore.
 // InitiateFundMigration rejects a zero gas limit, so without this seeding the
@@ -196,7 +201,7 @@ func TestInitiateFundMigration(t *testing.T) {
 	t.Run("Successfully initiates fund migration", func(t *testing.T) {
 		app, ctx, _, oldKeyId := setupFundMigrationTest(t, 3, false)
 
-		migrationId, err := app.UtssKeeper.InitiateFundMigration(ctx, oldKeyId, testChain)
+		migrationId, err := app.UtssKeeper.InitiateFundMigration(ctx, oldKeyId, testChain, testBalance)
 		require.NoError(t, err)
 		require.Equal(t, uint64(0), migrationId)
 
@@ -228,10 +233,68 @@ func TestInitiateFundMigration(t *testing.T) {
 		require.True(t, found, "FundMigrationInitiatedEvent should be emitted")
 	})
 
+	t.Run("Derives transfer_amount from the observed balance and pinned fees", func(t *testing.T) {
+		app, ctx, _, oldKeyId := setupFundMigrationTest(t, 3, false)
+
+		migrationId, err := app.UtssKeeper.InitiateFundMigration(ctx, oldKeyId, testChain, testBalance)
+		require.NoError(t, err)
+
+		migration, err := app.UtssKeeper.FundMigrations.Get(ctx, migrationId)
+		require.NoError(t, err)
+
+		// transfer_amount must equal balance - (gas_price * gas_limit) - l1_gas_fee,
+		// computed from the very fields recorded alongside it. Deriving it here
+		// rather than accepting it from the admin is what makes the two consistent
+		// by construction — the admin cannot know these fees, they are read from
+		// UniversalCore inside the handler (F-2026-18142).
+		gasPrice, ok := new(big.Int).SetString(migration.GasPrice, 10)
+		require.True(t, ok)
+		l1GasFee, ok := new(big.Int).SetString(migration.L1GasFee, 10)
+		require.True(t, ok)
+		balance, ok := new(big.Int).SetString(testBalance, 10)
+		require.True(t, ok)
+
+		want := new(big.Int).Mul(gasPrice, new(big.Int).SetUint64(migration.GasLimit))
+		want.Add(want, l1GasFee)
+		want.Sub(balance, want)
+
+		require.Equal(t, want.String(), migration.TransferAmount)
+		require.Positive(t, want.Sign(), "the fixture balance must exceed the fees or this proves nothing")
+
+		// The pinned amount must also reach the universal validators, which read
+		// it off the event rather than re-deriving it from a live balance.
+		var attr string
+		for _, ev := range ctx.EventManager().Events() {
+			if ev.Type != utsstypes.EventTypeFundMigrationInitiated {
+				continue
+			}
+			for _, a := range ev.Attributes {
+				if a.Key == "transfer_amount" {
+					attr = a.Value
+				}
+			}
+		}
+		require.Equal(t, migration.TransferAmount, attr,
+			"transfer_amount must be emitted on the event")
+	})
+
+	t.Run("Fails when the balance cannot cover the migration fee", func(t *testing.T) {
+		app, ctx, _, oldKeyId := setupFundMigrationTest(t, 3, false)
+
+		// 1 wei cannot cover gas_price*21000 + 150. Rejecting at initiate time
+		// beats creating a PENDING migration that can never be signed.
+		_, err := app.UtssKeeper.InitiateFundMigration(ctx, oldKeyId, testChain, "1")
+		require.ErrorContains(t, err, "does not cover the migration fee")
+
+		// Nothing may be left behind.
+		_, err = app.UtssKeeper.FundMigrations.Get(ctx, 0)
+		require.Error(t, err, "a rejected migration must not be stored")
+	})
+
 	t.Run("Fails if old key not found", func(t *testing.T) {
 		app, ctx, _, _ := setupFundMigrationTest(t, 3, false)
 
-		_, err := app.UtssKeeper.InitiateFundMigration(ctx, "nonexistent-key", testChain)
+		_, err := app.UtssKeeper.InitiateFundMigration(ctx, "nonexistent-key", testChain, testBalance)
 		require.ErrorContains(t, err, "not found in TssKeyHistory")
 	})
 
@@ -241,25 +304,25 @@ func TestInitiateFundMigration(t *testing.T) {
 		currentKey, err := app.UtssKeeper.CurrentTssKey.Get(ctx)
 		require.NoError(t, err)
 
-		_, err = app.UtssKeeper.InitiateFundMigration(ctx, currentKey.KeyId, testChain)
+		_, err = app.UtssKeeper.InitiateFundMigration(ctx, currentKey.KeyId, testChain, testBalance)
 		require.ErrorContains(t, err, "current active key")
 	})
 
 	t.Run("Fails if outbound is still enabled", func(t *testing.T) {
 		app, ctx, _, oldKeyId := setupFundMigrationTest(t, 3, true) // outbound enabled
 
-		_, err := app.UtssKeeper.InitiateFundMigration(ctx, oldKeyId, testChain)
+		_, err := app.UtssKeeper.InitiateFundMigration(ctx, oldKeyId, testChain, testBalance)
 		require.ErrorContains(t, err, "outbound is still enabled")
 	})
 
 	t.Run("Fails if duplicate pending migration exists", func(t *testing.T) {
 		app, ctx, _, oldKeyId := setupFundMigrationTest(t, 3, false)
 
-		_, err := app.UtssKeeper.InitiateFundMigration(ctx, oldKeyId, testChain)
+		_, err := app.UtssKeeper.InitiateFundMigration(ctx, oldKeyId, testChain, testBalance)
 		require.NoError(t, err)
 
 		// Try again — should fail (same chain already has pending migration)
-		_, err = app.UtssKeeper.InitiateFundMigration(ctx, oldKeyId, testChain)
+		_, err = app.UtssKeeper.InitiateFundMigration(ctx, oldKeyId, testChain, testBalance)
 		require.ErrorContains(t, err, "pending migration already exists for chain")
 	})
 }
@@ -269,7 +332,7 @@ func TestVoteFundMigration(t *testing.T) {
 		app, ctx, universalVals, oldKeyId := setupFundMigrationTest(t, 3, false)
 
 		// Initiate migration
-		migrationId, err := app.UtssKeeper.InitiateFundMigration(ctx, oldKeyId, testChain)
+		migrationId, err := app.UtssKeeper.InitiateFundMigration(ctx, oldKeyId, testChain, testBalance)
 		require.NoError(t, err)
 
 		txHash := "0xdeadbeef12345678deadbeef12345678deadbeef12345678deadbeef12345678"
@@ -317,7 +380,7 @@ func TestVoteFundMigration(t *testing.T) {
 	t.Run("Migration failure flow", func(t *testing.T) {
 		app, ctx, universalVals, oldKeyId := setupFundMigrationTest(t, 3, false)
 
-		migrationId, err := app.UtssKeeper.InitiateFundMigration(ctx, oldKeyId, testChain)
+		migrationId, err := app.UtssKeeper.InitiateFundMigration(ctx, oldKeyId, testChain, testBalance)
 		require.NoError(t, err)
 
 		txHash := ""
@@ -345,7 +408,7 @@ func TestVoteFundMigration(t *testing.T) {
 	t.Run("Fails to vote on already finalized migration", func(t *testing.T) {
 		app, ctx, universalVals, oldKeyId := setupFundMigrationTest(t, 3, false)
 
-		migrationId, err := app.UtssKeeper.InitiateFundMigration(ctx, oldKeyId, testChain)
+		migrationId, err := app.UtssKeeper.InitiateFundMigration(ctx, oldKeyId, testChain, testBalance)
 		require.NoError(t, err)
 
 		// Finalize it first
@@ -365,7 +428,7 @@ func TestFundMigrationQueries(t *testing.T) {
 	t.Run("GetFundMigration returns correct migration", func(t *testing.T) {
 		app, ctx, _, oldKeyId := setupFundMigrationTest(t, 3, false)
 
-		migrationId, err := app.UtssKeeper.InitiateFundMigration(ctx, oldKeyId, testChain)
+		migrationId, err := app.UtssKeeper.InitiateFundMigration(ctx, oldKeyId, testChain, testBalance)
 		require.NoError(t, err)
 
 		migration, err := app.UtssKeeper.FundMigrations.Get(ctx, migrationId)
@@ -377,7 +440,7 @@ func TestFundMigrationQueries(t *testing.T) {
 	t.Run("PendingMigrations tracks correctly", func(t *testing.T) {
 		app, ctx, universalVals, oldKeyId := setupFundMigrationTest(t, 3, false)
 
-		migrationId, err := app.UtssKeeper.InitiateFundMigration(ctx, oldKeyId, testChain)
+		migrationId, err := app.UtssKeeper.InitiateFundMigration(ctx, oldKeyId, testChain, testBalance)
 		require.NoError(t, err)
 
 		// Should be in pending
@@ -413,7 +476,7 @@ func TestFundMigrationQueries(t *testing.T) {
 func TestVoteFundMigration_EquivalentHashEncodingsConverge(t *testing.T) {
 	app, ctx, universalVals, oldKeyId := setupFundMigrationTest(t, 3, false)
 
-	migrationId, err := app.UtssKeeper.InitiateFundMigration(ctx, oldKeyId, testChain)
+	migrationId, err := app.UtssKeeper.InitiateFundMigration(ctx, oldKeyId, testChain, testBalance)
 	require.NoError(t, err)
 
 	canonical := "0xb28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd"
@@ -446,7 +509,7 @@ func TestVoteFundMigration_EquivalentHashEncodingsConverge(t *testing.T) {
 func TestVoteFundMigration_MalformedHashRejected(t *testing.T) {
 	app, ctx, universalVals, oldKeyId := setupFundMigrationTest(t, 3, false)
 
-	migrationId, err := app.UtssKeeper.InitiateFundMigration(ctx, oldKeyId, testChain)
+	migrationId, err := app.UtssKeeper.InitiateFundMigration(ctx, oldKeyId, testChain, testBalance)
 	require.NoError(t, err)
 
 	valAddr, _ := sdk.ValAddressFromBech32(universalVals[0])

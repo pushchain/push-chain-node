@@ -55,3 +55,17 @@ var UniversalTxOutboundEventSig = crypto.Keccak256Hash([]byte(
 var RescueFundsOnSourceChainEventSig = crypto.Keccak256Hash([]byte(
 	"RescueFundsOnSourceChain(bytes32,address,string,address,uint8,uint256,uint256,uint256)",
 )).Hex()
+
+// MaxUniversalPayloadBytes hard-caps the size of a universal payload, and of the
+// hex blobs that carry one on the wire, at 128 KiB — the same limit the
+// usigverifier precompile applies to a raw ed25519 message, so there is one
+// payload size limit to reason about.
+//
+// A flat size cap rather than a gas price on purpose: MsgExecutePayload and
+// MsgVoteInbound are fee exempt (app/txpolicy/gasless.go), so nothing charges
+// the submitter for the bytes it puts into a block, into consensus state and
+// into every node's memory. On a fee-exempt path the only defence that holds is
+// a hard limit. It is a flat number rather than one derived from the Solidity
+// UniversalPayload struct because that struct is variable length; a flat number
+// is auditable and stable.
+const MaxUniversalPayloadBytes = 128 * 1024

@@ -16,6 +16,15 @@ import (
 // query what happened to their cross-chain tx instead of having funds silently stuck
 // in the gateway contract.
 func (k Keeper) VoteInbound(ctx context.Context, universalValidator sdk.ValAddress, inbound types.Inbound) error {
+	// Bound the payload blobs before anything reads or writes state. The msg
+	// carrying this vote is fee exempt, so nothing charges the submitter for the
+	// bytes it puts into state. Repeated here rather than left to
+	// MsgVoteInbound.ValidateBasic so the cap holds for every caller of this
+	// keeper method, not just the one msg route.
+	if err := inbound.ValidateSize(); err != nil {
+		return err
+	}
+
 	// Canonicalize first so every derived key + the stored inbound use one
 	// representation per logical event.
 	inbound.Canonicalize()

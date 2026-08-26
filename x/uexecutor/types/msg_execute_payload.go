@@ -77,6 +77,9 @@ func (msg *MsgExecutePayload) ValidateBasic() error {
 	if len(msg.VerificationData) == 0 {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "verificationData cannot be empty")
 	}
+	if err := ValidatePayloadBlobSize("verificationData", msg.VerificationData); err != nil {
+		return err
+	}
 	if _, err := hex.DecodeString(strings.TrimPrefix(msg.VerificationData, "0x")); err != nil {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "invalid verificationData hex")
 	}

@@ -50,6 +50,9 @@ var maccPerms = map[string][]string{
 	stakingtypes.NotBondedPoolName: {authtypes.Burner, authtypes.Staking},
 	minttypes.ModuleName:           {authtypes.Minter},
 	govtypes.ModuleName:            {authtypes.Burner},
+	// The uexecutor module account is resolved by Keeper.GetUeModuleAddress, which
+	// every UniversalCore call goes through.
+	types.ModuleName: nil,
 }
 
 type testFixture struct {
@@ -117,10 +120,10 @@ func SetupTest(t *testing.T) *testFixture {
 	registerBaseSDKModules(logger, f, encCfg, keys, accountAddressCodec, validatorAddressCodec, consensusAddressCodec)
 
 	// Setup Keeper.
-	f.k = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(keys[types.ModuleName]), logger, f.govModAddr, f.mockEVMKeeper, &feemarketkeeper.Keeper{}, f.mockBankKeeper, authkeeper.AccountKeeper{}, f.mockUregistryKeeper, &uvalidatorKeeper.Keeper{})
+	f.k = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(keys[types.ModuleName]), logger, f.govModAddr, f.mockEVMKeeper, &feemarketkeeper.Keeper{}, f.mockBankKeeper, f.accountkeeper, f.mockUregistryKeeper, &uvalidatorKeeper.Keeper{})
 	f.msgServer = keeper.NewMsgServerImpl(f.k)
 	f.queryServer = keeper.NewQuerier(f.k)
-	f.appModule = module.NewAppModule(encCfg.Codec, f.k, f.mockEVMKeeper, &feemarketkeeper.Keeper{}, f.mockBankKeeper, authkeeper.AccountKeeper{}, f.mockUregistryKeeper, &uvalidatorKeeper.Keeper{})
+	f.appModule = module.NewAppModule(encCfg.Codec, f.k, f.mockEVMKeeper, &feemarketkeeper.Keeper{}, f.mockBankKeeper, f.accountkeeper, f.mockUregistryKeeper, &uvalidatorKeeper.Keeper{})
 
 	return f
 }
@@ -146,8 +149,11 @@ func registerBaseSDKModules(
 	registerModuleInterfaces(encCfg)
 
 	// Auth Keeper.
+	// NOTE: keys is built from module names, and authtypes.StoreKey ("acc") is not
+	// authtypes.ModuleName ("auth") — looking up the wrong one yields a nil store key
+	// and panics the first time the account keeper is actually touched.
 	f.accountkeeper = authkeeper.NewAccountKeeper(
-		encCfg.Codec, runtime.NewKVStoreService(keys[authtypes.StoreKey]),
+		encCfg.Codec, runtime.NewKVStoreService(keys[authtypes.ModuleName]),
 		authtypes.ProtoBaseAccount,
 		maccPerms,
 		ac, app.Bech32PrefixAccAddr,

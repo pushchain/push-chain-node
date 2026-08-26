@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -1048,6 +1049,11 @@ type mockUExecutorQueryClient struct {
 
 	// lastPendingReq records the request so tests can assert the limit sent.
 	lastPendingReq *uexecutortypes.QueryAllPendingOutboundsRequest
+
+	// pendingReqs records every page request of a walk.
+	pendingReqs []*uexecutortypes.QueryAllPendingOutboundsRequest
+	// pendingTotal, when set, makes the mock serve that many rows by offset.
+	pendingTotal int
 }
 
 func (m *mockUExecutorQueryClient) GasPrice(ctx context.Context, req *uexecutortypes.QueryGasPriceRequest, opts ...grpc.CallOption) (*uexecutortypes.QueryGasPriceResponse, error) {
@@ -1075,8 +1081,25 @@ func (m *mockUExecutorQueryClient) AllUniversalTx(ctx context.Context, req *uexe
 
 func (m *mockUExecutorQueryClient) AllPendingOutbounds(ctx context.Context, req *uexecutortypes.QueryAllPendingOutboundsRequest, opts ...grpc.CallOption) (*uexecutortypes.QueryAllPendingOutboundsResponse, error) {
 	m.lastPendingReq = req
+	m.pendingReqs = append(m.pendingReqs, req)
 	if m.err != nil {
 		return nil, m.err
+	}
+	if m.pendingTotal > 0 {
+		offset := int(req.Pagination.GetOffset())
+		end := offset + int(req.Pagination.GetLimit())
+		if end > m.pendingTotal {
+			end = m.pendingTotal
+		}
+		resp := &uexecutortypes.QueryAllPendingOutboundsResponse{
+			Pagination: &query.PageResponse{Total: uint64(m.pendingTotal)},
+		}
+		for i := offset; i < end; i++ {
+			id := fmt.Sprintf("ob-%d", i)
+			resp.Entries = append(resp.Entries, &uexecutortypes.PendingOutboundEntry{OutboundId: id})
+			resp.Outbounds = append(resp.Outbounds, &uexecutortypes.OutboundTx{Id: id})
+		}
+		return resp, nil
 	}
 	return m.allPendingOutboundsResp, nil
 }
@@ -1171,54 +1194,74 @@ func TestClient_GetKeyByID(t *testing.T) {
 	})
 }
 
-// An outbound only leaves the pending set on a quorum vote, so one that cannot
-// reach a vote sits at the head of an oldest-first list permanently and hides
-// everything newer. New outbounds always arrive at the newest end, so reading
-// that end is what cannot be starved.
-func TestClient_GetAllPendingOutbounds_ReadsNewestFirst(t *testing.T) {
+// An outbound leaves the pending set only on a quorum vote, so rows that cannot
+// reach one accumulate at the head of an oldest-first list. The walk is what
+// stops them hiding everything newer.
+func TestClient_GetAllPendingOutbounds_WalksOldestFirst(t *testing.T) {
 	ctx := context.Background()
 
-	resp := func(total uint64) *uexecutortypes.QueryAllPendingOutboundsResponse {
-		return &uexecutortypes.QueryAllPendingOutboundsResponse{
-			Entries:    []*uexecutortypes.PendingOutboundEntry{{OutboundId: "ob-1"}},
-			Outbounds:  []*uexecutortypes.OutboundTx{{Id: "ob-1"}},
-			Pagination: &query.PageResponse{Total: total},
-		}
+	newClient := func(total int) (*Client, *mockUExecutorQueryClient) {
+		m := &mockUExecutorQueryClient{pendingTotal: total}
+		return &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{m}}, m
 	}
 
-	t.Run("reads the newest end, never an offset", func(t *testing.T) {
-		mockClient := &mockUExecutorQueryClient{allPendingOutboundsResp: resp(9)}
-		client := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{mockClient}}
-
+	t.Run("oldest first, never reversed", func(t *testing.T) {
+		client, m := newClient(9)
 		_, _, err := client.GetAllPendingOutbounds(ctx)
 		require.NoError(t, err)
 
-		p := mockClient.lastPendingReq.Pagination
+		p := m.pendingReqs[0].Pagination
 		require.NotNil(t, p)
-		assert.True(t, p.Reverse, "a stuck prefix at the oldest end must not hide newer rows")
-		assert.Zero(t, p.Offset, "offset zero is the only position that cannot shift under insertion")
-		assert.Equal(t, uint64(pendingOutboundLimit), p.Limit)
+		assert.False(t, p.Reverse, "older outbounds must be read first")
+		assert.Zero(t, p.Offset)
+		assert.Equal(t, uint64(pendingOutboundPageSize), p.Limit)
 	})
 
-	// Above the limit older rows stop being read. They are already known locally,
-	// but an operator should still be told the set is that large.
-	t.Run("reports a set larger than one request", func(t *testing.T) {
-		var logBuf bytes.Buffer
-		mockClient := &mockUExecutorQueryClient{allPendingOutboundsResp: resp(pendingOutboundLimit + 500)}
-		client := &Client{logger: zerolog.New(&logBuf), uexecutorClients: []uexecutortypes.QueryClient{mockClient}}
-
-		_, _, err := client.GetAllPendingOutbounds(ctx)
+	// The ordinary case is a set that fits, and it must not cost extra requests.
+	t.Run("a set that fits costs one request", func(t *testing.T) {
+		client, m := newClient(9)
+		entries, _, err := client.GetAllPendingOutbounds(ctx)
 		require.NoError(t, err)
-		assert.Contains(t, logBuf.String(), "exceeds one request")
+		assert.Len(t, m.pendingReqs, 1)
+		assert.Len(t, entries, 9)
+	})
+
+	// A stuck prefix must not hide what is behind it.
+	t.Run("walks past a full first page", func(t *testing.T) {
+		client, m := newClient(pendingOutboundPageSize + 250)
+		entries, outbounds, err := client.GetAllPendingOutbounds(ctx)
+		require.NoError(t, err)
+
+		require.Len(t, m.pendingReqs, 2)
+		assert.Equal(t, uint64(0), m.pendingReqs[0].Pagination.GetOffset())
+		assert.Equal(t, uint64(pendingOutboundPageSize), m.pendingReqs[1].Pagination.GetOffset())
+
+		require.Len(t, entries, pendingOutboundPageSize+250)
+		require.Len(t, outbounds, pendingOutboundPageSize+250)
+		assert.Equal(t, "ob-0", entries[0].OutboundId, "oldest first")
+		assert.Equal(t, fmt.Sprintf("ob-%d", pendingOutboundPageSize+249), entries[len(entries)-1].OutboundId)
+	})
+
+	// The cap bounds one poll; the rest is read on the next tick.
+	t.Run("stops at the page cap and says so", func(t *testing.T) {
+		var logBuf bytes.Buffer
+		m := &mockUExecutorQueryClient{pendingTotal: pendingOutboundPageSize * (pendingOutboundMaxPages + 2)}
+		client := &Client{logger: zerolog.New(&logBuf), uexecutorClients: []uexecutortypes.QueryClient{m}}
+
+		entries, _, err := client.GetAllPendingOutbounds(ctx)
+		require.NoError(t, err)
+		assert.Len(t, m.pendingReqs, pendingOutboundMaxPages)
+		assert.Len(t, entries, pendingOutboundPageSize*pendingOutboundMaxPages)
+		assert.Contains(t, logBuf.String(), "page cap reached")
 	})
 
 	t.Run("quiet when the set fits", func(t *testing.T) {
 		var logBuf bytes.Buffer
-		mockClient := &mockUExecutorQueryClient{allPendingOutboundsResp: resp(9)}
-		client := &Client{logger: zerolog.New(&logBuf), uexecutorClients: []uexecutortypes.QueryClient{mockClient}}
+		m := &mockUExecutorQueryClient{pendingTotal: 9}
+		client := &Client{logger: zerolog.New(&logBuf), uexecutorClients: []uexecutortypes.QueryClient{m}}
 
 		_, _, err := client.GetAllPendingOutbounds(ctx)
 		require.NoError(t, err)
-		assert.NotContains(t, logBuf.String(), "exceeds one request")
+		assert.NotContains(t, logBuf.String(), "page cap reached")
 	})
 }

@@ -297,3 +297,42 @@ func TestRevertStuckInbound_RecomputeThenRevert_E2E(t *testing.T) {
 	require.Len(t, utx.OutboundTx, 1)
 	require.Equal(t, uexecutortypes.TxType_INBOUND_REVERT, utx.OutboundTx[0].TxType)
 }
+
+// TestRevertStuckInbound_RejectedBallot_RefusedDeliberately pins the refusal
+// documented for F-2026-18801.
+//
+// The terminal-routing hook files BOTH terminal-failure statuses into
+// ExpiredInbounds, but the admin hatch accepts only EXPIRED. That asymmetry is
+// intentional, and this test exists so a future change cannot quietly relax it:
+//
+//   - EXPIRED is uncertainty. Quorum never formed, the deposit may be real, the
+//     funds may be stuck in the source gateway. Refunding is correct.
+//   - REJECTED is a supermajority asserting the observation is invalid. A revert
+//     outbound there would pay out of the TSS vault against a deposit the
+//     validator set concluded never happened.
+//
+// Note this state is unreachable for inbounds today (VoteOnInboundBallot
+// hardcodes VOTE_RESULT_SUCCESS, so threshold-FAILURE never fires); the ballot is
+// seeded directly here precisely because no vote path can produce it. If inbound
+// negative voting is ever added, this test is the place the design decision has
+// to be re-made rather than inherited.
+func TestRevertStuckInbound_RejectedBallot_RefusedDeliberately(t *testing.T) {
+	chainApp, ctx, inbound, admin := setupRevertStuckInbound(t)
+	seedBallot(t, chainApp, ctx, inbound, uvalidatortypes.BallotStatus_BALLOT_STATUS_REJECTED)
+
+	ms := uexecutorkeeper.NewMsgServerImpl(chainApp.UexecutorKeeper)
+	_, err := ms.RevertStuckInbound(sdk.WrapSDKContext(ctx), &uexecutortypes.MsgRevertStuckInbound{
+		Signer:  admin,
+		Inbound: inbound,
+	})
+	require.Error(t, err, "admin revert must refuse a REJECTED ballot")
+	require.Contains(t, err.Error(), "admin revert requires EXPIRED",
+		"the refusal must name the required status so an operator knows why")
+
+	// The refusal must be total: no UTX, and therefore no revert outbound that
+	// could later be signed and broadcast.
+	utxKey := uexecutortypes.GetInboundUniversalTxKey(*inbound)
+	has, hErr := chainApp.UexecutorKeeper.HasUniversalTx(ctx, utxKey)
+	require.NoError(t, hErr)
+	require.False(t, has, "a refused revert must not leave a UniversalTx behind")
+}

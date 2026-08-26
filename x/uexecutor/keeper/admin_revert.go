@@ -22,6 +22,27 @@ import (
 // to EXPIRED if it isn't already (recompute auto-expires when no eligible
 // voters remain).
 //
+// REJECTED is refused deliberately, not by omission (F-2026-18801). The two
+// terminal-failure statuses mean opposite things:
+//
+//   - EXPIRED is uncertainty. Quorum never formed, so we do not know whether the
+//     deposit happened; the funds may genuinely be sitting in the source-chain
+//     gateway. Refunding is the right instinct.
+//   - REJECTED is a supermajority of universal validators affirmatively voting
+//     that the observation is invalid. Building a revert outbound for that would
+//     pay real funds out of the TSS-controlled vault against a deposit the
+//     validator set concluded never occurred.
+//
+// It is also unreachable for inbounds today: REJECTED is only produced by
+// Ballot.IsFinalizingVote's threshold-FAILURE branch, and VoteOnInboundBallot
+// hardcodes VOTE_RESULT_SUCCESS - an inbound observer either votes for what it
+// saw or stays silent, there is no "I assert this did not happen" vote. So an
+// inbound ballot terminates PASSED or EXPIRED, never REJECTED.
+//
+// If a negative-vote path for inbounds is ever added, this refusal must be
+// revisited as a design decision rather than silently inherited; see the
+// unreachable-status warning in BallotHooks.afterInboundBallotTerminal.
+//
 // Returns the new UTX ID and revert outbound ID for telemetry.
 func (k Keeper) RevertStuckInbound(ctx context.Context, inbound types.Inbound) (utxId, outboundId string, err error) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)

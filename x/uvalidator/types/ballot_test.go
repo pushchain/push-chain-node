@@ -188,3 +188,64 @@ func TestIsFinalizingVote(t *testing.T) {
 	_, done = b.IsFinalizingVote()
 	require.False(t, done)
 }
+
+// TestIsUnreachablePending pins the F-2026-18147 predicate: a PENDING ballot
+// whose every eligible voter has already voted can never receive another vote
+// (AddVote rejects repeats), so it is terminal in fact.
+func TestIsUnreachablePending(t *testing.T) {
+	voted := func(v ...VoteResult) Ballot {
+		return Ballot{
+			Id:              "b",
+			Status:          BallotStatus_BALLOT_STATUS_PENDING,
+			EligibleVoters:  []string{"addr1", "addr2", "addr3"}[:len(v)],
+			Votes:           v,
+			VotingThreshold: 2,
+		}
+	}
+
+	// Every slot filled → unreachable, regardless of the vote arithmetic.
+	require.True(t, voted(
+		VoteResult_VOTE_RESULT_SUCCESS,
+		VoteResult_VOTE_RESULT_SUCCESS,
+		VoteResult_VOTE_RESULT_SUCCESS,
+	).IsUnreachablePending(), "YES above threshold but nobody left to vote")
+	require.True(t, voted(
+		VoteResult_VOTE_RESULT_SUCCESS,
+		VoteResult_VOTE_RESULT_FAILURE,
+		VoteResult_VOTE_RESULT_FAILURE,
+	).IsUnreachablePending(), "YES below threshold and nobody left to vote")
+
+	// One slot still open → the ballot can still finalize normally.
+	require.False(t, voted(
+		VoteResult_VOTE_RESULT_SUCCESS,
+		VoteResult_VOTE_RESULT_SUCCESS,
+		VoteResult_VOTE_RESULT_NOT_YET_VOTED,
+	).IsUnreachablePending())
+
+	// Only PENDING ballots qualify; terminal ones are fully voted by
+	// construction and must not be swept in.
+	for _, st := range []BallotStatus{
+		BallotStatus_BALLOT_STATUS_PASSED,
+		BallotStatus_BALLOT_STATUS_REJECTED,
+		BallotStatus_BALLOT_STATUS_EXPIRED,
+	} {
+		b := voted(VoteResult_VOTE_RESULT_SUCCESS, VoteResult_VOTE_RESULT_SUCCESS)
+		b.Status = st
+		require.False(t, b.IsUnreachablePending(), "status %s must not be reported as unreachable-pending", st)
+	}
+
+	// Degenerate ballots are refused rather than swept in: an empty voter list
+	// is a malformed ballot, and RecomputeBallotQuorum resolves it by rebuilding
+	// the list from the live UV set (or auto-expiring at zero).
+	require.False(t, Ballot{Status: BallotStatus_BALLOT_STATUS_PENDING}.IsUnreachablePending())
+
+	// A Votes slice shorter than EligibleVoters is malformed too; the missing
+	// slots count as unvoted, which is the conservative answer.
+	short := Ballot{
+		Status:         BallotStatus_BALLOT_STATUS_PENDING,
+		EligibleVoters: []string{"addr1", "addr2"},
+		Votes:          []VoteResult{VoteResult_VOTE_RESULT_SUCCESS},
+	}
+	require.True(t, short.HasUnvotedEligibleVoter())
+	require.False(t, short.IsUnreachablePending())
+}

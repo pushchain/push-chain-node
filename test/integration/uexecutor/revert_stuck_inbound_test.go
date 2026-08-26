@@ -89,6 +89,252 @@ func seedBallot(t *testing.T, chainApp *app.ChainApp, ctx sdk.Context, inbound *
 	}))
 }
 
+// seedPendingBallotWithVotes stores a PENDING ballot carrying a real
+// eligible-voter list and per-voter vote slots, which seedBallot deliberately
+// leaves empty. The F-2026-18147 scenarios all turn on whether any eligible
+// voter still holds a NOT_YET_VOTED slot, so they need the populated shape.
+//
+// The voter strings are never resolved against the staking set on this path —
+// RevertStuckInbound only reads Status/EligibleVoters/Votes off the ballot.
+func seedPendingBallotWithVotes(
+	t *testing.T,
+	chainApp *app.ChainApp,
+	ctx sdk.Context,
+	inbound *uexecutortypes.Inbound,
+	status uvalidatortypes.BallotStatus,
+	voters []string,
+	votes []uvalidatortypes.VoteResult,
+	threshold int64,
+) {
+	t.Helper()
+	require.Len(t, votes, len(voters), "each eligible voter needs exactly one vote slot")
+	ballotKey, err := uexecutortypes.GetInboundBallotKey(*inbound)
+	require.NoError(t, err)
+	require.NoError(t, chainApp.UvalidatorKeeper.Ballots.Set(ctx, ballotKey, uvalidatortypes.Ballot{
+		Id:                 ballotKey,
+		BallotType:         uvalidatortypes.BallotObservationType_BALLOT_OBSERVATION_TYPE_INBOUND_TX,
+		EligibleVoters:     voters,
+		Votes:              votes,
+		VotingThreshold:    threshold,
+		Status:             status,
+		BlockHeightCreated: 1,
+		BlockHeightExpiry:  100_000_000,
+	}))
+	require.NoError(t, chainApp.UvalidatorKeeper.ActiveBallotIDs.Set(ctx, ballotKey))
+}
+
+// threeVoters is the eligible-voter list shared by the F-2026-18147 scenarios.
+func threeVoters() []string {
+	return []string{"cosmosvaloper1aaa", "cosmosvaloper1bbb", "cosmosvaloper1ccc"}
+}
+
+// TestRevertStuckInbound_PendingUnreachable_ThresholdMet_CreatesRevertOutbound
+// is the headline F-2026-18147 case.
+//
+// RecomputeBallotQuorum preserves the votes of still-eligible voters, lowers the
+// threshold, and returns PENDING without ever calling CheckIfFinalizingVote. The
+// shape reproduced here is what that leaves behind in the worst case: every
+// eligible voter has voted YES and the preserved YES count already clears the
+// recomputed threshold, so the ballot *should* have passed — but Ballot.AddVote
+// rejects repeat votes, so no further vote can ever be cast and nothing will
+// move it off PENDING. Natural expiry is 100M blocks away.
+//
+// Before this fix the admin hatch required EXPIRED, and recompute only expires a
+// ballot at zero eligible voters, so the deposit was stranded permanently.
+func TestRevertStuckInbound_PendingUnreachable_ThresholdMet_CreatesRevertOutbound(t *testing.T) {
+	chainApp, ctx, inbound, admin := setupRevertStuckInbound(t)
+	seedPendingBallotWithVotes(t, chainApp, ctx, inbound,
+		uvalidatortypes.BallotStatus_BALLOT_STATUS_PENDING,
+		threeVoters(),
+		[]uvalidatortypes.VoteResult{
+			uvalidatortypes.VoteResult_VOTE_RESULT_SUCCESS,
+			uvalidatortypes.VoteResult_VOTE_RESULT_SUCCESS,
+			uvalidatortypes.VoteResult_VOTE_RESULT_SUCCESS,
+		},
+		2, // YES (3) already clears the recomputed threshold
+	)
+
+	ms := uexecutorkeeper.NewMsgServerImpl(chainApp.UexecutorKeeper)
+	resp, err := ms.RevertStuckInbound(sdk.WrapSDKContext(ctx), &uexecutortypes.MsgRevertStuckInbound{
+		Signer:  admin,
+		Inbound: inbound,
+	})
+	require.NoError(t, err, "an unreachable PENDING ballot must be revertible")
+	require.NotEmpty(t, resp.UtxId)
+	require.NotEmpty(t, resp.OutboundId)
+
+	// --- UTX assertions ---
+	utx, _, err := chainApp.UexecutorKeeper.GetUniversalTx(ctx, resp.UtxId)
+	require.NoError(t, err)
+	require.Equal(t, uexecutortypes.GetInboundUniversalTxKey(*inbound), utx.Id)
+	require.NotNil(t, utx.InboundTx)
+	require.Equal(t, inbound.TxHash, utx.InboundTx.TxHash)
+
+	require.Len(t, utx.PcTx, 1)
+	require.Equal(t, "FAILED", utx.PcTx[0].Status)
+	require.Contains(t, utx.PcTx[0].ErrorMsg, "unreachable",
+		"the audit trail must record WHY the hatch opened, not the expired wording")
+
+	// --- Revert outbound assertions ---
+	require.Len(t, utx.OutboundTx, 1)
+	ob := utx.OutboundTx[0]
+	require.Equal(t, resp.OutboundId, ob.Id)
+	require.Equal(t, uexecutortypes.TxType_INBOUND_REVERT, ob.TxType)
+	require.Equal(t, uexecutortypes.Status_PENDING, ob.OutboundStatus)
+	require.Equal(t, inbound.SourceChain, ob.DestinationChain)
+	require.Equal(t, inbound.RevertInstructions.FundRecipient, ob.Recipient)
+	require.Equal(t, inbound.Amount, ob.Amount)
+	require.Equal(t, inbound.AssetAddr, ob.ExternalAssetAddr)
+
+	// --- PendingOutbounds index: the refund is actually queued for TSS signing ---
+	pending, err := chainApp.UexecutorKeeper.PendingOutbounds.Get(ctx, ob.Id)
+	require.NoError(t, err, "revert outbound must be indexed in PendingOutbounds for UV pickup")
+	require.Equal(t, ob.Id, pending.OutboundId)
+	require.Equal(t, utx.Id, pending.UniversalTxId)
+}
+
+// TestRevertStuckInbound_PendingUnreachable_BelowThreshold_Accepted covers the
+// second stuck shape: every eligible voter has voted, but the YES count never
+// reached the threshold and the NO count never reached it either, so
+// IsFinalizingVote fires for neither branch. Reachable without any recompute at
+// all — 3 voters, threshold 3, one dissenting FAILURE vote.
+//
+// Unreachability, not vote arithmetic, is the predicate; both shapes qualify.
+func TestRevertStuckInbound_PendingUnreachable_BelowThreshold_Accepted(t *testing.T) {
+	chainApp, ctx, inbound, admin := setupRevertStuckInbound(t)
+	seedPendingBallotWithVotes(t, chainApp, ctx, inbound,
+		uvalidatortypes.BallotStatus_BALLOT_STATUS_PENDING,
+		threeVoters(),
+		[]uvalidatortypes.VoteResult{
+			uvalidatortypes.VoteResult_VOTE_RESULT_SUCCESS,
+			uvalidatortypes.VoteResult_VOTE_RESULT_SUCCESS,
+			uvalidatortypes.VoteResult_VOTE_RESULT_FAILURE,
+		},
+		3, // YES (2) < 3, NO (1) < 3 → neither branch of IsFinalizingVote fires
+	)
+
+	ms := uexecutorkeeper.NewMsgServerImpl(chainApp.UexecutorKeeper)
+	resp, err := ms.RevertStuckInbound(sdk.WrapSDKContext(ctx), &uexecutortypes.MsgRevertStuckInbound{
+		Signer:  admin,
+		Inbound: inbound,
+	})
+	require.NoError(t, err, "a fully-voted PENDING ballot below threshold is equally unreachable")
+
+	utx, _, err := chainApp.UexecutorKeeper.GetUniversalTx(ctx, resp.UtxId)
+	require.NoError(t, err)
+	require.Len(t, utx.OutboundTx, 1)
+	require.Equal(t, uexecutortypes.TxType_INBOUND_REVERT, utx.OutboundTx[0].TxType)
+
+	_, err = chainApp.UexecutorKeeper.PendingOutbounds.Get(ctx, utx.OutboundTx[0].Id)
+	require.NoError(t, err, "revert outbound must be queued for UV pickup")
+}
+
+// TestRevertStuckInbound_PendingWithUnvotedVoter_Refused is the guard against
+// widening the hatch too far.
+//
+// This ballot is deliberately the most tempting possible refusal: the YES votes
+// already clear the threshold, so it *looks* exactly like the headline case. It
+// is not — one eligible voter still holds a NOT_YET_VOTED slot, so a single
+// normal VoteOnBallot finalizes it through the proper VoteInbound pipeline,
+// which mints and executes rather than refunding. Admin revert must not race
+// that. This is also the shape Hacken's no-code workaround produces: add an
+// eligible UV, recompute, and the new voter arrives NOT_YET_VOTED.
+func TestRevertStuckInbound_PendingWithUnvotedVoter_Refused(t *testing.T) {
+	chainApp, ctx, inbound, admin := setupRevertStuckInbound(t)
+	seedPendingBallotWithVotes(t, chainApp, ctx, inbound,
+		uvalidatortypes.BallotStatus_BALLOT_STATUS_PENDING,
+		threeVoters(),
+		[]uvalidatortypes.VoteResult{
+			uvalidatortypes.VoteResult_VOTE_RESULT_SUCCESS,
+			uvalidatortypes.VoteResult_VOTE_RESULT_SUCCESS,
+			uvalidatortypes.VoteResult_VOTE_RESULT_NOT_YET_VOTED,
+		},
+		2, // YES (2) already meets threshold — still refused, it can finalize normally
+	)
+
+	ms := uexecutorkeeper.NewMsgServerImpl(chainApp.UexecutorKeeper)
+	_, err := ms.RevertStuckInbound(sdk.WrapSDKContext(ctx), &uexecutortypes.MsgRevertStuckInbound{
+		Signer:  admin,
+		Inbound: inbound,
+	})
+	require.Error(t, err, "a PENDING ballot with an unvoted eligible voter can still finalize; admin revert must refuse it")
+	require.Contains(t, err.Error(), "admin revert requires EXPIRED")
+
+	// The refusal must be total: no UTX, so no revert outbound can be signed.
+	utxKey := uexecutortypes.GetInboundUniversalTxKey(*inbound)
+	has, hErr := chainApp.UexecutorKeeper.HasUniversalTx(ctx, utxKey)
+	require.NoError(t, hErr)
+	require.False(t, has, "a refused revert must not leave a UniversalTx behind")
+}
+
+// TestRevertStuckInbound_RejectedBallot_FullyVoted_StillRefused re-pins the
+// F-2026-18801 refusal against the new predicate.
+//
+// A REJECTED ballot is fully voted by construction, so the "every eligible voter
+// has voted" test on its own would let it through. It must not: REJECTED means a
+// supermajority affirmatively voted the observation invalid, and refunding would
+// pay out of the TSS vault against a deposit the validator set concluded never
+// happened. PENDING-unreachable is the opposite case — nobody can act at all.
+// The status guard in IsUnreachablePending is what keeps them apart.
+func TestRevertStuckInbound_RejectedBallot_FullyVoted_StillRefused(t *testing.T) {
+	chainApp, ctx, inbound, admin := setupRevertStuckInbound(t)
+	seedPendingBallotWithVotes(t, chainApp, ctx, inbound,
+		uvalidatortypes.BallotStatus_BALLOT_STATUS_REJECTED,
+		threeVoters(),
+		[]uvalidatortypes.VoteResult{
+			uvalidatortypes.VoteResult_VOTE_RESULT_FAILURE,
+			uvalidatortypes.VoteResult_VOTE_RESULT_FAILURE,
+			uvalidatortypes.VoteResult_VOTE_RESULT_FAILURE,
+		},
+		2,
+	)
+
+	ms := uexecutorkeeper.NewMsgServerImpl(chainApp.UexecutorKeeper)
+	_, err := ms.RevertStuckInbound(sdk.WrapSDKContext(ctx), &uexecutortypes.MsgRevertStuckInbound{
+		Signer:  admin,
+		Inbound: inbound,
+	})
+	require.Error(t, err, "REJECTED stays refused however its vote slots are filled (F-2026-18801)")
+	require.Contains(t, err.Error(), "admin revert requires EXPIRED")
+
+	utxKey := uexecutortypes.GetInboundUniversalTxKey(*inbound)
+	has, hErr := chainApp.UexecutorKeeper.HasUniversalTx(ctx, utxKey)
+	require.NoError(t, hErr)
+	require.False(t, has, "a refused revert must not leave a UniversalTx behind")
+}
+
+// TestRevertStuckInbound_ExpiredBallot_FullyVoted_StillAccepted keeps the
+// original precondition intact under the new switch: EXPIRED is accepted on its
+// status alone, and still records the expired wording rather than the
+// unreachable-pending wording.
+func TestRevertStuckInbound_ExpiredBallot_FullyVoted_StillAccepted(t *testing.T) {
+	chainApp, ctx, inbound, admin := setupRevertStuckInbound(t)
+	seedPendingBallotWithVotes(t, chainApp, ctx, inbound,
+		uvalidatortypes.BallotStatus_BALLOT_STATUS_EXPIRED,
+		threeVoters(),
+		[]uvalidatortypes.VoteResult{
+			uvalidatortypes.VoteResult_VOTE_RESULT_SUCCESS,
+			uvalidatortypes.VoteResult_VOTE_RESULT_NOT_YET_VOTED,
+			uvalidatortypes.VoteResult_VOTE_RESULT_NOT_YET_VOTED,
+		},
+		3,
+	)
+
+	ms := uexecutorkeeper.NewMsgServerImpl(chainApp.UexecutorKeeper)
+	resp, err := ms.RevertStuckInbound(sdk.WrapSDKContext(ctx), &uexecutortypes.MsgRevertStuckInbound{
+		Signer:  admin,
+		Inbound: inbound,
+	})
+	require.NoError(t, err)
+
+	utx, _, err := chainApp.UexecutorKeeper.GetUniversalTx(ctx, resp.UtxId)
+	require.NoError(t, err)
+	require.Len(t, utx.PcTx, 1)
+	require.Contains(t, utx.PcTx[0].ErrorMsg, "expired")
+	require.Len(t, utx.OutboundTx, 1)
+	require.Equal(t, uexecutortypes.TxType_INBOUND_REVERT, utx.OutboundTx[0].TxType)
+}
+
 func TestRevertStuckInbound_HappyPath_ExpiredBallot_CreatesRevertOutbound(t *testing.T) {
 	chainApp, ctx, inbound, admin := setupRevertStuckInbound(t)
 	seedBallot(t, chainApp, ctx, inbound, uvalidatortypes.BallotStatus_BALLOT_STATUS_EXPIRED)

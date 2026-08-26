@@ -226,7 +226,7 @@ func TestRescueFunds(t *testing.T) {
 			"eip155", big.NewInt(111), big.NewInt(1_000_000_000), big.NewInt(200_000))
 		err := chainApp.UexecutorKeeper.AttachRescueOutboundFromReceipt(ctx, makeRescueReceipt(t, "0xrescuetx03", log), uexecutortypes.PCTx{TxHash: "0xrescuetx03", Status: "SUCCESS"})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "no reverted inbound-revert outbound")
+		require.Contains(t, err.Error(), "no reverted or aborted inbound-revert outbound")
 	})
 
 	t.Run("rescue is rejected for non-CEA inbound when auto-revert is PENDING", func(t *testing.T) {
@@ -255,7 +255,7 @@ func TestRescueFunds(t *testing.T) {
 			"eip155", big.NewInt(111), big.NewInt(1_000_000_000), big.NewInt(200_000))
 		err = chainApp.UexecutorKeeper.AttachRescueOutboundFromReceipt(ctx, makeRescueReceipt(t, "0xrescuetx03b", log), uexecutortypes.PCTx{TxHash: "0xrescuetx03b", Status: "SUCCESS"})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "no reverted inbound-revert outbound")
+		require.Contains(t, err.Error(), "no reverted or aborted inbound-revert outbound")
 	})
 
 	t.Run("rescue succeeds for non-CEA inbound with reverted auto-revert", func(t *testing.T) {

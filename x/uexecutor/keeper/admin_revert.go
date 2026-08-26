@@ -70,9 +70,20 @@ func (k Keeper) RevertStuckInbound(ctx context.Context, inbound types.Inbound) (
 		return "", "", fmt.Errorf("failed to create utx for revert: %w", cErr)
 	}
 
-	revertOutbound := k.buildRevertOutbound(sdkCtx, &inbound)
+	revertOutbound, buildErr := k.buildRevertOutbound(sdkCtx, &inbound)
 	if revertOutbound == nil {
-		return "", "", fmt.Errorf("failed to build revert outbound for inbound %s", universalTxKey)
+		return "", "", fmt.Errorf("failed to build revert outbound for inbound %s: %w", universalTxKey, buildErr)
+	}
+	if buildErr != nil {
+		// Gas metadata was unresolvable, so the revert is recorded ABORTED instead of
+		// entering the signing queue. It is still attached: the attempt stays auditable
+		// and it makes the UTX eligible for RESCUE_FUNDS, which is the remaining route
+		// back to the user.
+		k.Logger().Error("admin revert: revert outbound recorded without gas metadata",
+			"utx_id", universalTxKey,
+			"outbound_id", revertOutbound.Id,
+			"error", buildErr.Error(),
+		)
 	}
 
 	if attachErr := k.attachOutboundsToUtx(sdkCtx, universalTxKey, []*types.OutboundTx{revertOutbound}, "admin revert: stuck ballot expired"); attachErr != nil {
@@ -82,6 +93,7 @@ func (k Keeper) RevertStuckInbound(ctx context.Context, inbound types.Inbound) (
 	k.Logger().Info("admin revert: inbound revert outbound created",
 		"utx_id", universalTxKey,
 		"outbound_id", revertOutbound.Id,
+		"status", revertOutbound.OutboundStatus.String(),
 		"source_chain", inbound.SourceChain,
 		"recipient", revertOutbound.Recipient,
 		"amount", revertOutbound.Amount,

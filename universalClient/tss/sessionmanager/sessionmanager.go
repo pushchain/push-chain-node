@@ -414,9 +414,8 @@ func (sm *SessionManager) handleSignatureBroadcast(ctx context.Context, senderPe
 	// Persist as SIGNED via the same path a local sign-completion uses, so
 	// signing_data lands on event_data in the format txbroadcaster expects.
 	rebuiltReq := &common.UnsignedSigningReq{
-		SigningHash:            msg.SignedData.SigningHash,
-		Nonce:                  msg.SignedData.Nonce,
-		TSSFundMigrationAmount: msg.SignedData.TSSFundMigrationAmount,
+		SigningHash: msg.SignedData.SigningHash,
+		Nonce:       msg.SignedData.Nonce,
 	}
 	if err := sm.handleSigningComplete(ctx, msg.EventID, event.EventData, msg.SignedData.Signature, rebuiltReq); err != nil {
 		return fmt.Errorf("persist signature from broadcast: %w", err)
@@ -502,10 +501,9 @@ func (sm *SessionManager) handleSignFinished(ctx context.Context, eventID string
 	// SIGNED and can vote on failure. Best-effort: failed sends are logged but
 	// do not abort. Recovery via sweeper retry covers any peers we miss.
 	sm.broadcastSignature(ctx, eventID, &coordinator.SignedDataPayload{
-		Signature:              result.Signature,
-		SigningHash:            signingReq.SigningHash,
-		Nonce:                  signingReq.Nonce,
-		TSSFundMigrationAmount: signingReq.TSSFundMigrationAmount,
+		Signature:   result.Signature,
+		SigningHash: signingReq.SigningHash,
+		Nonce:       signingReq.Nonce,
 	})
 
 	sm.logger.Info().Str("event_id", eventID).Msg("sign session finished successfully")
@@ -1003,6 +1001,10 @@ func (sm *SessionManager) verifyFundMigrationSigningRequest(ctx context.Context,
 	if err != nil {
 		return fmt.Errorf("failed to derive current TSS address: %w", err)
 	}
+	transferAmount, ok := new(big.Int).SetString(migrationData.TransferAmount, 10)
+	if !ok || transferAmount.Sign() <= 0 {
+		return fmt.Errorf("migration event carries no usable transfer amount: %q", migrationData.TransferAmount)
+	}
 
 	// Get chain client and tx builder
 	if sm.chains == nil {
@@ -1028,11 +1030,6 @@ func (sm *SessionManager) verifyFundMigrationSigningRequest(ctx context.Context,
 		return fmt.Errorf("coordinator assigned nonce %d is below chain finalized nonce %d for old TSS %s — nonce already used on chain",
 			req.Nonce, finalizedNonce, oldTSSAddr)
 	}
-
-	if req.TSSFundMigrationAmount == nil {
-		return fmt.Errorf("coordinator's signing request is missing TSSFundMigrationAmount")
-	}
-
 	// Rebuild fund migration signing request with coordinator's nonce.
 	// Parsing must match what the coordinator did; otherwise the reconstructed
 	// hash on OP-stack chains diverges and the verification below rejects it.
@@ -1042,23 +1039,13 @@ func (sm *SessionManager) verifyFundMigrationSigningRequest(ctx context.Context,
 	l1GasFee := new(big.Int)
 	l1GasFee.SetString(migrationData.L1GasFee, 10)
 
-	// Pin balance from the coordinator's amount (balance = amount + gas + l1)
-	// instead of re-querying the live tip, so dust sent to the old TSS EOA between
-	// the coordinator's build and this verify cannot desync the hash. The builder
-	// still checks the pinned amount is backed by the live balance.
-	pinnedBalance := new(big.Int).Set(req.TSSFundMigrationAmount)
-	pinnedBalance.Add(pinnedBalance, new(big.Int).Mul(gasPrice, new(big.Int).SetUint64(migrationData.GasLimit)))
-	if l1GasFee.Sign() > 0 {
-		pinnedBalance.Add(pinnedBalance, l1GasFee)
-	}
-
 	migrationFundData := &common.FundMigrationData{
-		From:     oldTSSAddr,
-		To:       currentTSSAddr,
-		GasPrice: gasPrice,
-		GasLimit: migrationData.GasLimit,
-		L1GasFee: l1GasFee,
-		Balance:  pinnedBalance,
+		From:           oldTSSAddr,
+		To:             currentTSSAddr,
+		GasPrice:       gasPrice,
+		GasLimit:       migrationData.GasLimit,
+		L1GasFee:       l1GasFee,
+		TransferAmount: transferAmount,
 	}
 	signingReq, err := builder.GetFundMigrationSigningRequest(ctx, migrationFundData, req.Nonce)
 	if err != nil {
@@ -1080,7 +1067,7 @@ func (sm *SessionManager) verifyFundMigrationSigningRequest(ctx context.Context,
 		Str("signing_hash", hex.EncodeToString(req.SigningHash)).
 		Str("old_tss_addr", oldTSSAddr).
 		Str("current_tss_addr", currentTSSAddr).
-		Msg("fund migration sign metadata verified - hash and amount match")
+		Msg("fund migration sign metadata verified")
 
 	return nil
 }
@@ -1095,8 +1082,6 @@ func (sm *SessionManager) getTSSAddress(ctx context.Context) (string, error) {
 }
 
 // handleSigningComplete handles post-sign steps. EVM: set status SIGNED and store payload (txlifecycle/signed runs BroadcastOutboundSigningRequest). Solana: enqueue for sequential per-chain broadcast (PDA nonce order).
-// signingReq is the cached signing request from the coordinator setup message; for FUND_MIGRATE
-// its TSSFundMigrationAmount is populated by verifyFundMigrationSigningRequest and persisted here.
 func (sm *SessionManager) handleSigningComplete(_ context.Context, eventID string, eventData []byte, signature []byte, signingReq *common.UnsignedSigningReq) error {
 	if signingReq == nil {
 		return fmt.Errorf("signing request is nil - cannot persist signing data")
@@ -1108,7 +1093,6 @@ func (sm *SessionManager) handleSigningComplete(_ context.Context, eventID strin
 		signature,
 		signingReq.SigningHash,
 		signingReq.Nonce,
-		signingReq.TSSFundMigrationAmount,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to persist signing data: %w", err)
@@ -1135,10 +1119,9 @@ func extractSignedDataFromEvent(event *store.Event) (*coordinator.SignedDataPayl
 	}
 	var raw struct {
 		SigningData *struct {
-			Signature              string   `json:"signature"`
-			SigningHash            string   `json:"signing_hash"`
-			Nonce                  uint64   `json:"nonce"`
-			TSSFundMigrationAmount *big.Int `json:"tss_fund_migration_amount,omitempty"`
+			Signature   string `json:"signature"`
+			SigningHash string `json:"signing_hash"`
+			Nonce       uint64 `json:"nonce"`
 		} `json:"signing_data,omitempty"`
 	}
 	if err := json.Unmarshal(event.EventData, &raw); err != nil {
@@ -1156,9 +1139,8 @@ func extractSignedDataFromEvent(event *store.Event) (*coordinator.SignedDataPayl
 		return nil, fmt.Errorf("decode signing_data.signing_hash hex: %w", err)
 	}
 	return &coordinator.SignedDataPayload{
-		Signature:              sigBytes,
-		SigningHash:            hashBytes,
-		Nonce:                  raw.SigningData.Nonce,
-		TSSFundMigrationAmount: raw.SigningData.TSSFundMigrationAmount,
+		Signature:   sigBytes,
+		SigningHash: hashBytes,
+		Nonce:       raw.SigningData.Nonce,
 	}, nil
 }

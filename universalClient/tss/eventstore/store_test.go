@@ -715,7 +715,7 @@ func TestPersistSignature(t *testing.T) {
 			t.Fatalf("seed event: %v", err)
 		}
 
-		persisted, err := s.PersistSignature("ev-1", baseEventData, sig, hash, 42, nil)
+		persisted, err := s.PersistSignature("ev-1", baseEventData, sig, hash, 42)
 		if err != nil {
 			t.Fatalf("PersistSignature: %v", err)
 		}
@@ -758,7 +758,7 @@ func TestPersistSignature(t *testing.T) {
 			t.Fatalf("seed event: %v", err)
 		}
 
-		persisted, err := s.PersistSignature("ev-2", baseEventData, sig, hash, 7, nil)
+		persisted, err := s.PersistSignature("ev-2", baseEventData, sig, hash, 7)
 		if err != nil {
 			t.Fatalf("PersistSignature: %v", err)
 		}
@@ -783,7 +783,7 @@ func TestPersistSignature(t *testing.T) {
 			t.Fatalf("seed event: %v", err)
 		}
 
-		persisted, err := s.PersistSignature("ev-3", baseEventData, sig, hash, 1, nil)
+		persisted, err := s.PersistSignature("ev-3", baseEventData, sig, hash, 1)
 		if err != nil {
 			t.Fatalf("PersistSignature: %v", err)
 		}
@@ -811,7 +811,7 @@ func TestPersistSignature(t *testing.T) {
 			t.Fatalf("seed event: %v", err)
 		}
 
-		persisted, err := s.PersistSignature("ev-4", baseEventData, sig, hash, 1, nil)
+		persisted, err := s.PersistSignature("ev-4", baseEventData, sig, hash, 1)
 		if err != nil {
 			t.Fatalf("PersistSignature: %v", err)
 		}
@@ -829,7 +829,7 @@ func TestPersistSignature(t *testing.T) {
 
 	t.Run("invalid event data JSON returns error", func(t *testing.T) {
 		s := setupTestStore(t)
-		_, err := s.PersistSignature("ev-5", []byte("not json"), sig, hash, 1, nil)
+		_, err := s.PersistSignature("ev-5", []byte("not json"), sig, hash, 1)
 		if err == nil {
 			t.Fatal("expected error on invalid JSON")
 		}

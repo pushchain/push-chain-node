@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"math/big"
 	"reflect"
 	"testing"
 	"time"
@@ -622,6 +621,40 @@ func TestVerifyFundMigrationSigningRequest_Validation(t *testing.T) {
 		assert.Contains(t, err.Error(), "failed to parse fund migration event data")
 	})
 
+	// Rejected before any chain call: nothing deterministic to sign.
+	t.Run("event without a pinned transfer amount is rejected", func(t *testing.T) {
+		const validPubkey = "024e3b81af9c2234cad09d679ce6035ed1392347ce64ce405f5dcd36228a25de6e"
+		for _, tc := range []struct{ name, amount string }{
+			{"missing", ""},
+			{"zero", "0"},
+			{"negative", "-1"},
+			{"not a number", "abc"},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				eventDataBytes, err := json.Marshal(utsstypes.FundMigrationInitiatedEventData{
+					OldTssPubkey:     validPubkey,
+					CurrentTssPubkey: validPubkey,
+					Chain:            "eip155:1",
+					GasPrice:         "20000000000",
+					GasLimit:         21000,
+					L1GasFee:         "0",
+					TransferAmount:   tc.amount,
+				})
+				require.NoError(t, err)
+				event := &store.Event{
+					EventID:   "fm-no-amount-" + tc.name,
+					Type:      store.EventTypeSignFundMigrate,
+					EventData: eventDataBytes,
+				}
+				err = sm.verifyFundMigrationSigningRequest(ctx, event, &common.UnsignedSigningReq{
+					SigningHash: []byte{0x01},
+				})
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "no usable transfer amount")
+			})
+		}
+	})
+
 	t.Run("invalid old TSS pubkey is rejected", func(t *testing.T) {
 		migrationData := utsstypes.FundMigrationInitiatedEventData{
 			OldTssPubkey:     "not-a-valid-pubkey",
@@ -675,6 +708,7 @@ func TestVerifyFundMigrationSigningRequest_Validation(t *testing.T) {
 			GasPrice:         "1000000000",
 			GasLimit:         21100,
 			L1GasFee:         "150",
+			TransferAmount:   "500000000000000000",
 		}
 		eventDataBytes, _ := json.Marshal(migrationData)
 		event := &store.Event{
@@ -686,7 +720,7 @@ func TestVerifyFundMigrationSigningRequest_Validation(t *testing.T) {
 		req := &common.UnsignedSigningReq{SigningHash: []byte{0x01, 0x02}}
 		err := sm.verifyFundMigrationSigningRequest(ctx, event, req)
 		assert.NoError(t, err)
-		assert.Nil(t, req.TSSFundMigrationAmount, "amount stays nil when chain/builder is skipped")
+
 	})
 }
 
@@ -892,10 +926,9 @@ func TestSendACK(t *testing.T) {
 		)
 
 		signed := &coordinator.SignedDataPayload{
-			Signature:              bytes.Repeat([]byte{0xaa}, 64),
-			SigningHash:            bytes.Repeat([]byte{0xbb}, 32),
-			Nonce:                  42,
-			TSSFundMigrationAmount: big.NewInt(123_456),
+			Signature:   bytes.Repeat([]byte{0xaa}, 64),
+			SigningHash: bytes.Repeat([]byte{0xbb}, 32),
+			Nonce:       42,
 		}
 		require.NoError(t, sm.sendACK(context.Background(), "coord-peer", "evt-signed", signed))
 
@@ -907,8 +940,6 @@ func TestSendACK(t *testing.T) {
 		assert.Equal(t, signed.Signature, msg.SignedData.Signature)
 		assert.Equal(t, signed.SigningHash, msg.SignedData.SigningHash)
 		assert.Equal(t, signed.Nonce, msg.SignedData.Nonce)
-		require.NotNil(t, msg.SignedData.TSSFundMigrationAmount)
-		assert.Equal(t, 0, signed.TSSFundMigrationAmount.Cmp(msg.SignedData.TSSFundMigrationAmount))
 	})
 }
 
@@ -1125,7 +1156,9 @@ func TestHandleSigningComplete(t *testing.T) {
 		assert.False(t, hasAmount, "tss_fund_migration_amount is omitted for outbound events")
 	})
 
-	t.Run("fund migration signing complete persists tss_fund_migration_amount", func(t *testing.T) {
+	// The amount is not carried through signing data any more: broadcast reads it
+	// from the migration event, so nothing raceable rides with the signature.
+	t.Run("fund migration signing complete does not carry the amount", func(t *testing.T) {
 		event := store.Event{
 			EventID:     "fm-complete-1",
 			BlockHeight: 250,
@@ -1136,9 +1169,8 @@ func TestHandleSigningComplete(t *testing.T) {
 		require.NoError(t, testDB.Create(&event).Error)
 
 		req := &common.UnsignedSigningReq{
-			SigningHash:            []byte{0xca, 0xfe},
-			Nonce:                  3,
-			TSSFundMigrationAmount: new(big.Int).SetUint64(123456789),
+			SigningHash: []byte{0xca, 0xfe},
+			Nonce:       3,
 		}
 		err := sm.handleSigningComplete(context.Background(), "fm-complete-1", event.EventData, []byte{0xbe, 0xef}, req)
 		require.NoError(t, err)
@@ -1147,17 +1179,12 @@ func TestHandleSigningComplete(t *testing.T) {
 		require.NoError(t, testDB.Where("event_id = ?", "fm-complete-1").First(&updated).Error)
 		assert.Equal(t, store.StatusSigned, updated.Status)
 
-		// Decode the field into *big.Int directly — unmarshalling into map[string]any
-		// would coerce the JSON number into float64 and lose precision for wei values.
-		var decoded struct {
-			SigningData struct {
-				TSSFundMigrationAmount *big.Int `json:"tss_fund_migration_amount"`
-			} `json:"signing_data"`
-		}
-		require.NoError(t, json.Unmarshal(updated.EventData, &decoded))
-		require.NotNil(t, decoded.SigningData.TSSFundMigrationAmount,
-			"tss_fund_migration_amount must survive the sign→broadcast handoff so broadcast reproduces the signed tx")
-		assert.Equal(t, "123456789", decoded.SigningData.TSSFundMigrationAmount.String())
+		var rawData map[string]any
+		require.NoError(t, json.Unmarshal(updated.EventData, &rawData))
+		signingData, ok := rawData["signing_data"].(map[string]any)
+		require.True(t, ok)
+		_, hasAmount := signingData["tss_fund_migration_amount"]
+		assert.False(t, hasAmount, "the amount is read from the event at broadcast, not carried here")
 	})
 }
 

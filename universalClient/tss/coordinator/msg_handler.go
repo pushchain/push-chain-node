@@ -199,7 +199,6 @@ func (c *Coordinator) handleSignedAck(ctx context.Context, senderPeerID, eventID
 		signedData.Signature,
 		signedData.SigningHash,
 		signedData.Nonce,
-		signedData.TSSFundMigrationAmount,
 	)
 	if err != nil {
 		return fmt.Errorf("event %s: persist verified signature: %w", eventID, err)
@@ -234,7 +233,7 @@ func (c *Coordinator) VerifySignedData(ctx context.Context, event *store.Event, 
 	if len(signedData.Signature) != 64 && len(signedData.Signature) != 65 {
 		return fmt.Errorf("signature must be 64 or 65 bytes, got %d", len(signedData.Signature))
 	}
-	expectedHash, err := c.rebuildSigningHash(ctx, event, signedData.Nonce, signedData.TSSFundMigrationAmount)
+	expectedHash, err := c.rebuildSigningHash(ctx, event, signedData.Nonce)
 	if err != nil {
 		return fmt.Errorf("rebuild signing hash: %w", err)
 	}
@@ -249,6 +248,19 @@ func (c *Coordinator) VerifySignedData(ctx context.Context, event *store.Event, 
 		return fmt.Errorf("ECDSA verification failed: %w", err)
 	}
 	return nil
+}
+
+// PinnedMigrationAmount returns the sweep amount the chain pinned on the event.
+func PinnedMigrationAmount(event *store.Event) (*big.Int, error) {
+	var data utsstypes.FundMigrationInitiatedEventData
+	if err := json.Unmarshal(event.EventData, &data); err != nil {
+		return nil, fmt.Errorf("parse fund migration event data: %w", err)
+	}
+	amount, ok := new(big.Int).SetString(data.TransferAmount, 10)
+	if !ok || amount.Sign() <= 0 {
+		return nil, fmt.Errorf("migration event carries no usable transfer amount: %q", data.TransferAmount)
+	}
+	return amount, nil
 }
 
 // verifyingPubkey returns the compressed pubkey hex that should have signed
@@ -279,7 +291,7 @@ func (c *Coordinator) verifyingPubkey(ctx context.Context, event *store.Event) (
 	}
 }
 
-func (c *Coordinator) rebuildSigningHash(ctx context.Context, event *store.Event, nonce uint64, claimedAmount *big.Int) ([]byte, error) {
+func (c *Coordinator) rebuildSigningHash(ctx context.Context, event *store.Event, nonce uint64) ([]byte, error) {
 	switch event.Type {
 	case store.EventTypeSignOutbound:
 		req, err := c.buildSignTransaction(ctx, event.EventData, &nonce)
@@ -288,10 +300,7 @@ func (c *Coordinator) rebuildSigningHash(ctx context.Context, event *store.Event
 		}
 		return req.SigningHash, nil
 	case store.EventTypeSignFundMigrate:
-		if claimedAmount == nil || claimedAmount.Sign() <= 0 {
-			return nil, fmt.Errorf("fund migration verification requires positive claimed amount")
-		}
-		req, err := c.buildFundMigrationTransaction(ctx, event.EventData, &nonce, claimedAmount)
+		req, err := c.buildFundMigrationTransaction(ctx, event.EventData, &nonce)
 		if err != nil {
 			return nil, err
 		}

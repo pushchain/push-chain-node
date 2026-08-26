@@ -141,6 +141,35 @@ func TestHandleUnsignedAck_AllACKsTriggersBEGIN(t *testing.T) {
 	assert.False(t, exists, "ack tracking should be removed after all ACKs received")
 }
 
+func TestPinnedMigrationAmount(t *testing.T) {
+	eventWith := func(amount string) *store.Event {
+		data, err := json.Marshal(utsstypes.FundMigrationInitiatedEventData{TransferAmount: amount})
+		require.NoError(t, err)
+		return &store.Event{EventID: "fm", Type: store.EventTypeSignFundMigrate, EventData: data}
+	}
+
+	t.Run("returns the pinned amount", func(t *testing.T) {
+		got, err := PinnedMigrationAmount(eventWith("1000"))
+		require.NoError(t, err)
+		assert.Equal(t, "1000", got.String())
+	})
+
+	t.Run("unusable amounts are rejected", func(t *testing.T) {
+		for _, amount := range []string{"", "0", "-1", "abc"} {
+			_, err := PinnedMigrationAmount(eventWith(amount))
+			require.Error(t, err, "amount %q", amount)
+			assert.Contains(t, err.Error(), "no usable transfer amount")
+		}
+	})
+
+	t.Run("malformed event data is rejected", func(t *testing.T) {
+		event := &store.Event{EventID: "fm", Type: store.EventTypeSignFundMigrate, EventData: []byte("not json")}
+		_, err := PinnedMigrationAmount(event)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "parse fund migration event data")
+	})
+}
+
 func TestHandleSignedAck_FailurePaths(t *testing.T) {
 	coord, _, db := setupTestCoordinator(t)
 	ctx := context.Background()
@@ -202,7 +231,7 @@ func TestHandleSignedAck_FailurePaths(t *testing.T) {
 		assert.Contains(t, err.Error(), "has no signature to verify")
 	})
 
-	t.Run("fund migration without claimed amount rejected", func(t *testing.T) {
+	t.Run("fund migration with unusable event data rejected", func(t *testing.T) {
 		require.NoError(t, db.Create(&store.Event{
 			EventID:     "fm-evt",
 			BlockHeight: 1,
@@ -216,7 +245,7 @@ func TestHandleSignedAck_FailurePaths(t *testing.T) {
 			SigningHash: make([]byte, 32),
 		})
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "requires positive claimed amount")
+		assert.Contains(t, err.Error(), "rebuild signing hash")
 	})
 
 	t.Run("verification failure does not touch ackTracking", func(t *testing.T) {

@@ -22,9 +22,8 @@ func DecodeSigningData(sd *SigningData) (*common.UnsignedSigningReq, []byte, err
 		return nil, nil, fmt.Errorf("failed to decode signature: %w", err)
 	}
 	return &common.UnsignedSigningReq{
-		SigningHash:            signingHash,
-		Nonce:                  sd.Nonce,
-		TSSFundMigrationAmount: sd.TSSFundMigrationAmount,
+		SigningHash: signingHash,
+		Nonce:       sd.Nonce,
 	}, signature, nil
 }
 

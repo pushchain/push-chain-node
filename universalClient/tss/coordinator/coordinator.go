@@ -613,7 +613,7 @@ func (c *Coordinator) createFundMigrationSignSetup(ctx context.Context, eventDat
 	}
 	keyIDBytes := deriveKeyIDBytes(migrationData.OldKeyID)
 
-	signingReq, err := c.buildFundMigrationTransaction(ctx, eventData, assignedNonce, nil /* query chain for balance */)
+	signingReq, err := c.buildFundMigrationTransaction(ctx, eventData, assignedNonce)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to build fund migration transaction: %w", err)
 	}
@@ -634,12 +634,9 @@ func (c *Coordinator) createFundMigrationSignSetup(ctx context.Context, eventDat
 	return setupData, signingReq, nil
 }
 
-// buildFundMigrationTransaction parses event data and returns the signing
-// request for sweeping old-TSS funds to the current TSS. If claimedAmount is
-// non-nil, the balance is reconstructed as amount + gas + L1 instead of
-// queried from chain — used by the ACK verify path to rebuild the hash
-// deterministically without racing a successful sweep.
-func (c *Coordinator) buildFundMigrationTransaction(ctx context.Context, eventData []byte, assignedNonce *uint64, claimedAmount *big.Int) (*common.UnsignedSigningReq, error) {
+// buildFundMigrationTransaction returns the signing request for sweeping
+// old-TSS funds to the current TSS, using the amount pinned on the event.
+func (c *Coordinator) buildFundMigrationTransaction(ctx context.Context, eventData []byte, assignedNonce *uint64) (*common.UnsignedSigningReq, error) {
 	if assignedNonce == nil {
 		return nil, fmt.Errorf("assigned nonce is required for fund migration transaction")
 	}
@@ -672,23 +669,18 @@ func (c *Coordinator) buildFundMigrationTransaction(ctx context.Context, eventDa
 	l1GasFee := new(big.Int)
 	l1GasFee.SetString(migrationData.L1GasFee, 10)
 
-	var balance *big.Int
-	if claimedAmount != nil {
-		// balance = amount + gas + L1; inverse of computeFundMigrationTransfer
-		balance = new(big.Int).Set(claimedAmount)
-		balance.Add(balance, new(big.Int).Mul(gasPrice, new(big.Int).SetUint64(migrationData.GasLimit)))
-		if l1GasFee.Sign() > 0 {
-			balance.Add(balance, l1GasFee)
-		}
+	transferAmount, ok := new(big.Int).SetString(migrationData.TransferAmount, 10)
+	if !ok || transferAmount.Sign() <= 0 {
+		return nil, fmt.Errorf("migration event carries no usable transfer amount: %q", migrationData.TransferAmount)
 	}
 
 	return builder.GetFundMigrationSigningRequest(ctx, &common.FundMigrationData{
-		From:     oldTSSAddr,
-		To:       currentTSSAddr,
-		GasPrice: gasPrice,
-		GasLimit: migrationData.GasLimit,
-		L1GasFee: l1GasFee,
-		Balance:  balance,
+		From:           oldTSSAddr,
+		To:             currentTSSAddr,
+		GasPrice:       gasPrice,
+		GasLimit:       migrationData.GasLimit,
+		L1GasFee:       l1GasFee,
+		TransferAmount: transferAmount,
 	}, *assignedNonce)
 }
 

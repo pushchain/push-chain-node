@@ -229,6 +229,29 @@ func (k Keeper) GetAdmin(ctx context.Context) (string, error) {
 // downstream UVs must re-vote on the same ballot to trigger finalize+execute
 // via the normal flow.
 //
+// Only the ballot types on the allow-list below may be recomputed. Recompute
+// rebuilds the eligible set from the live UV set and applies the 2/3+1
+// threshold, so it is only correct for ballots that were created that way —
+// INBOUND_TX, OUTBOUND_TX and FUND_MIGRATION all call GetEligibleVoters() with
+// a (2*N)/3+1 threshold at creation, so recompute reproduces creation exactly
+// for them.
+//
+// TSS_KEY ballots are not such ballots and are refused. They are created with a
+// 100% quorum over the DKLS participant set (votesNeeded = len(Participants),
+// EligibleVoters = Participants; see x/utss/keeper/voting.go), so a recompute
+// would rewrite *both* halves: dropping the threshold from N to (2*N)/3+1 and
+// replacing the participants with whoever is a live UV now. The eligible-set
+// rewrite is the worse half — it can make validators who never took part in
+// that DKLS run eligible to attest its key. A TSS ballot whose participants
+// changed is not a quorum problem: the DKLS run itself is invalid, and a
+// recomputed threshold would manufacture an attestation nobody made. The fix is
+// a fresh keygen round, not a lower bar.
+//
+// The list is default-deny on purpose. A new ballot type inherits a refusal
+// rather than silently inheriting a formula that may not apply to it — which is
+// exactly how the TSS case went unnoticed. Adding a type here must be a
+// deliberate act, after checking how that type is created.
+//
 // Returns the old/new counts and threshold for the response.
 func (k Keeper) RecomputeBallotQuorum(ctx context.Context, ballotID string) (
 	oldEligibleCount, newEligibleCount, oldThreshold, newThreshold int64,
@@ -242,6 +265,28 @@ func (k Keeper) RecomputeBallotQuorum(ctx context.Context, ballotID string) (
 
 	if ballot.Status != types.BallotStatus_BALLOT_STATUS_PENDING {
 		return 0, 0, 0, 0, 0, fmt.Errorf("ballot %s is not pending (status=%s); only pending ballots can be recomputed", ballotID, ballot.Status.String())
+	}
+
+	// Default-deny allow-list of recomputable ballot types. See the doc comment:
+	// everything not listed here — TSS_KEY, UNSPECIFIED, and any type added
+	// later — is refused rather than silently recomputed with a formula that may
+	// not describe how it was created.
+	switch ballot.BallotType {
+	case types.BallotObservationType_BALLOT_OBSERVATION_TYPE_INBOUND_TX,
+		types.BallotObservationType_BALLOT_OBSERVATION_TYPE_OUTBOUND_TX,
+		types.BallotObservationType_BALLOT_OBSERVATION_TYPE_FUND_MIGRATION:
+		// Created from GetEligibleVoters() with a (2*N)/3+1 threshold — recompute
+		// reproduces creation exactly.
+	default:
+		return 0, 0, 0, 0, 0, fmt.Errorf(
+			"ballot %s has type %s, which cannot be recomputed: recompute rebuilds the eligible-voter "+
+				"set from the live universal-validator set and applies the 2/3+1 threshold, which only "+
+				"reproduces how INBOUND_TX, OUTBOUND_TX and FUND_MIGRATION ballots are created; a %s "+
+				"ballot is created differently, so recomputing it would change what the ballot attests. "+
+				"Resolve it through its owning module instead (a TSS_KEY ballot whose participants "+
+				"changed needs a fresh keygen round, not a lower threshold)",
+			ballotID, ballot.BallotType.String(), ballot.BallotType.String(),
+		)
 	}
 
 	oldEligibleCount = int64(len(ballot.EligibleVoters))

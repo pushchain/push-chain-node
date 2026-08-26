@@ -3,7 +3,6 @@ package types
 import (
 	"encoding/json"
 	"fmt"
-	"math/big"
 	"strings"
 
 	"cosmossdk.io/errors"
@@ -128,9 +127,10 @@ func (p Inbound) ValidateForExecution() error {
 	if strings.TrimSpace(p.Amount) == "" {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "amount cannot be empty")
 	}
-	bi, ok := new(big.Int).SetString(p.Amount, 10)
-	if !ok || bi.Sign() < 0 {
-		return errors.Wrap(sdkerrors.ErrInvalidRequest, "amount must be a valid non-negative uint256")
+	// Length-capped, range-checked uint256 parse — see F-2026-18798.
+	bi, err := ValidateUint256String(p.Amount, "amount must be a valid non-negative uint256")
+	if err != nil {
+		return err
 	}
 	// Only GAS_AND_PAYLOAD and FUNDS_AND_PAYLOAD allow zero amount (skip deposit, still execute payload)
 	if bi.Sign() == 0 && p.TxType != TxType_GAS_AND_PAYLOAD && p.TxType != TxType_FUNDS_AND_PAYLOAD {

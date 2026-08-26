@@ -1692,64 +1692,6 @@ func TestNewTxBuilder_ChainConfig(t *testing.T) {
 	})
 }
 
-func TestBuildCreateATAIdempotentInstruction(t *testing.T) {
-	builder := newTestBuilder(t)
-	payer := solana.NewWallet().PublicKey()
-	owner := solana.NewWallet().PublicKey()
-	mint := solana.NewWallet().PublicKey()
-
-	ix := builder.buildCreateATAIdempotentInstruction(payer, owner, mint)
-
-	t.Run("program ID is ATA program", func(t *testing.T) {
-		expected := solana.MustPublicKeyFromBase58("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
-		assert.Equal(t, expected, ix.ProgramID())
-	})
-
-	t.Run("has 6 accounts in correct order", func(t *testing.T) {
-		accounts := ix.Accounts()
-		require.Len(t, accounts, 6)
-
-		// payer (signer, writable)
-		assert.Equal(t, payer, accounts[0].PublicKey)
-		assert.True(t, accounts[0].IsSigner)
-		assert.True(t, accounts[0].IsWritable)
-
-		// ATA (writable, derived deterministically)
-		ataProgramID := solana.MustPublicKeyFromBase58("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
-		expectedATA, _, _ := solana.FindProgramAddress(
-			[][]byte{owner.Bytes(), solana.TokenProgramID.Bytes(), mint.Bytes()},
-			ataProgramID,
-		)
-		assert.Equal(t, expectedATA, accounts[1].PublicKey)
-		assert.True(t, accounts[1].IsWritable)
-		assert.False(t, accounts[1].IsSigner)
-
-		// owner
-		assert.Equal(t, owner, accounts[2].PublicKey)
-		assert.False(t, accounts[2].IsWritable)
-
-		// mint
-		assert.Equal(t, mint, accounts[3].PublicKey)
-		assert.False(t, accounts[3].IsWritable)
-
-		// system program
-		assert.Equal(t, solana.SystemProgramID, accounts[4].PublicKey)
-
-		// token program
-		assert.Equal(t, solana.TokenProgramID, accounts[5].PublicKey)
-	})
-
-	t.Run("instruction data is [1] for CreateIdempotent", func(t *testing.T) {
-		data, err := ix.Data()
-		require.NoError(t, err)
-		assert.Equal(t, []byte{1}, data)
-	})
-}
-
-// =============================================================================
-//  Ref-Finalize Route Tests
-// =============================================================================
-
 func TestDeriveStoredIxDataPDA(t *testing.T) {
 	builder := newTestBuilder(t)
 	subTxID := makeTxID(0xAB)
@@ -2456,14 +2398,7 @@ func buildAndSimulateRescue(t *testing.T, rpcClient *RPCClient, builder *TxBuild
 	gatewayIx := solana.NewInstruction(builder.gatewayAddress, accounts, instructionData)
 	computeLimitIx := builder.buildSetComputeUnitLimitInstruction(400000)
 
-	instructions := []solana.Instruction{computeLimitIx}
-	if !isNative {
-		createATAIx := builder.buildCreateATAIdempotentInstruction(
-			relayerKeypair.PublicKey(), recipientPubkey, mintPubkey,
-		)
-		instructions = append(instructions, createATAIx)
-	}
-	instructions = append(instructions, gatewayIx)
+	instructions := []solana.Instruction{computeLimitIx, gatewayIx}
 
 	recentBlockhash, err := rpcClient.GetRecentBlockhash(ctx)
 	require.NoError(t, err)
@@ -2870,4 +2805,83 @@ func TestVerifyBroadcastedTx_NotFoundVersusRPCFailure(t *testing.T) {
 		require.NoError(t, err)
 		assert.False(t, found)
 	})
+}
+
+// The gateway creates the recipient ATA and meters the rent into gas_used.
+// A create prepended here would put that cost outside the metered path, so the
+// built transaction must carry only the compute limit and the gateway call.
+func TestBuildOutboundTransaction_NoRecipientATACreate(t *testing.T) {
+	ataProgram := solana.MustPublicKeyFromBase58("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
+
+	for _, tc := range []struct {
+		name      string
+		txType    string
+		assetAddr string
+	}{
+		{"SPL withdraw", "FUNDS", solana.NewWallet().PublicKey().String()},
+		{"SPL revert", "INBOUND_REVERT", solana.NewWallet().PublicKey().String()},
+		{"native withdraw", "FUNDS", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			builder := newBlockhashOnlyBuilder(t)
+			data := &uetypes.OutboundCreatedEvent{
+				TxID:             "0x" + strings.Repeat("11", 32),
+				UniversalTxId:    "0x" + strings.Repeat("22", 32),
+				DestinationChain: "solana:devnet",
+				Sender:           "0x" + strings.Repeat("33", 20),
+				Recipient:        solana.NewWallet().PublicKey().String(),
+				Amount:           "1000",
+				AssetAddr:        tc.assetAddr,
+				GasLimit:         "400000",
+				GasFee:           "3000000",
+				TxType:           tc.txType,
+				SigningDeadline:  time.Now().Unix() + 600,
+			}
+			req := &common.UnsignedSigningReq{SigningHash: make([]byte, 32), Nonce: 0}
+
+			tx, _, err := builder.BuildOutboundTransaction(context.Background(), req, data, make([]byte, 65))
+			require.NoError(t, err)
+			require.NotNil(t, tx)
+
+			require.Len(t, tx.Message.Instructions, 2, "expected only compute limit and the gateway call")
+			for i, ix := range tx.Message.Instructions {
+				program, err := tx.Message.Program(ix.ProgramIDIndex)
+				require.NoError(t, err)
+				assert.NotEqual(t, ataProgram, program, "instruction %d creates an ATA", i)
+			}
+		})
+	}
+}
+
+// newBlockhashOnlyBuilder answers the single RPC BuildOutboundTransaction makes.
+// No ALTs are configured, so address-table lookup short-circuits offline.
+func newBlockhashOnlyBuilder(t *testing.T) *TxBuilder {
+	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.Contains(string(body), `"getHealth"`):
+			_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":"ok"}`))
+		case strings.Contains(string(body), `"getLatestBlockhash"`):
+			_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":{"context":{"slot":1},` +
+				`"value":{"blockhash":"9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM","lastValidBlockHeight":100}}}`))
+		default:
+			_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":null}`))
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	rpcClient, err := NewRPCClient([]string{server.URL}, "", zerolog.Nop())
+	require.NoError(t, err)
+	t.Cleanup(func() { rpcClient.Close() })
+
+	tmpDir := t.TempDir()
+	relayerDir := filepath.Join(tmpDir, "relayer")
+	require.NoError(t, os.MkdirAll(relayerDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(relayerDir, "solana.json"), []byte(testSolanaKeypairJSON), 0o600))
+
+	builder, err := NewTxBuilder(rpcClient, "solana:devnet", testGatewayAddress, tmpDir, zerolog.Nop(), nil)
+	require.NoError(t, err)
+	return builder
 }

@@ -194,8 +194,17 @@ func TestUniversalPayload_ValidateBasic_RejectsHugeDecimalFast(t *testing.T) {
 			require.Less(t, elapsed, dosBudget,
 				"%s: rejecting a %d-digit value took %s — the length cap must reject before big.Int parses",
 				f.name, dosDigits, elapsed)
-			require.Contains(t, err.Error(), "exceeds the maximum of 80 characters",
-				"%s: must be rejected on length, before the parse", f.name)
+			// The payload-level size cap (F-2026-18146) rejects this input before
+			// the per-field cap gets to it — a 3M-digit field is a >128 KiB
+			// payload. Both rejections are O(1) on len(), which is the property
+			// this test exists to hold; the per-field message itself stays pinned
+			// by TestValidateUint256String_Bounds and by
+			// TestInboundAndOutbound_RejectHugeDecimalFast, neither of which is
+			// size capped.
+			require.True(t,
+				strings.Contains(err.Error(), "exceeds the maximum of 80 characters") ||
+					strings.Contains(err.Error(), "universal payload too large"),
+				"%s: must be rejected on size or length, before the parse; got: %v", f.name, err)
 		})
 	}
 }

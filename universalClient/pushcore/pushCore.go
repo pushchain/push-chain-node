@@ -405,6 +405,21 @@ const (
 
 	chainConfigPageSize = 200
 	chainConfigMaxPages = 20
+
+	// maxPushCoreRecvMsgSize bounds a single gRPC response from a Push-core
+	// endpoint. grpc-go otherwise applies an implicit 4 MiB default that nobody
+	// chose and that is not tied to anything this client asks for; pinning it
+	// here makes the bound deliberate and keeps it from drifting with the
+	// library default.
+	//
+	// Sized off the largest poll: GetAllPendingOutbounds asks for
+	// pendingOutboundPageSize entries and gets the matching outbounds back, so
+	// 2 x 1000 rows in one response. A row costs roughly a kilobyte today, so a
+	// 4 KiB per-row budget leaves 4x headroom and lands on 8 MiB — above the
+	// 4 MiB the client has been running on, so no response that works today
+	// starts failing, and low enough that a hostile or broken endpoint cannot
+	// stream an unbounded body into the validator.
+	maxPushCoreRecvMsgSize = 8 * 1024 * 1024
 )
 
 // GetAllPendingOutbounds retrieves pending outbound transactions from Push Chain,
@@ -487,7 +502,9 @@ func createGRPCConnection(endpoint string) (*grpc.ClientConn, error) {
 		}
 	}
 
-	var opts []grpc.DialOption
+	opts := []grpc.DialOption{
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(maxPushCoreRecvMsgSize)),
+	}
 	if useTLS {
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(nil)))
 	} else {

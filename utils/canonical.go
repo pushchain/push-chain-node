@@ -20,6 +20,18 @@ const (
 
 const base58Alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 
+// A base58-encoded 64-byte Solana signature is always 64..88 characters: 88 is
+// ceil(512 / log2(58)) for a full-range value, and 64 is the all-zero case
+// (each leading zero byte encodes as one '1'). Outside that band the decode can
+// never produce 64 bytes, so its result would be discarded — see
+// canonicalizeSolanaTxHash. mr-tron/base58's decoder is quadratic (for each of
+// n characters it walks ceil(n/4) limbs), so decoding attacker-supplied strings
+// only to throw the result away is an unmetered CPU sink on public query paths.
+const (
+	solanaSigBase58MinLen = 64
+	solanaSigBase58MaxLen = 88
+)
+
 // CAIP2Namespace returns the namespace component of a CAIP-2 chain id
 // ("eip155:1" → "eip155"). Returns "" when the id has no namespace.
 func CAIP2Namespace(chain string) string {
@@ -119,8 +131,13 @@ func canonicalizeSolanaTxHash(s string) (string, error) {
 	if strings.HasPrefix(canon, "0x") {
 		return canon, nil
 	}
-	if raw, decErr := base58.Decode(canon); decErr == nil && len(raw) == 64 {
-		return "0x" + hex.EncodeToString(raw), nil
+	// Only attempt the decode for lengths that can actually yield 64 bytes.
+	// This is output-equivalent for every possible input: a string outside the
+	// band already falls through to `return canon` below, decode or not.
+	if n := len(canon); n >= solanaSigBase58MinLen && n <= solanaSigBase58MaxLen {
+		if raw, decErr := base58.Decode(canon); decErr == nil && len(raw) == 64 {
+			return "0x" + hex.EncodeToString(raw), nil
+		}
 	}
 	return canon, nil
 }

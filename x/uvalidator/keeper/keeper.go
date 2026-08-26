@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -32,6 +33,14 @@ type Keeper struct {
 	ActiveBallotIDs    collections.KeySet[string]            // set of ballot IDs currently collecting votes
 	ExpiredBallotIDs   collections.KeySet[string]            // set of ballot IDs that have expired (not yet pruned)
 	FinalizedBallotIDs collections.KeySet[string]            // set of ballot IDs that are PASSED or REJECTED
+
+	// PendingByExpiry is a secondary index over ActiveBallotIDs keyed by
+	// (expiryHeight, ballotID). collections.Pair orders by the first component,
+	// so the expiry sweep can range over [0, currentHeight] and stop at the
+	// first entry beyond it — ballots that are not due are never visited, and
+	// the height being part of the key means no Ballots.Get is needed to decide
+	// whether a ballot is due. Every ActiveBallotIDs writer must mirror here.
+	PendingByExpiry collections.KeySet[collections.Pair[int64, string]]
 
 	StakingKeeper      types.StakingKeeper
 	SlashingKeeper     types.SlashingKeeper
@@ -98,6 +107,10 @@ func NewKeeper(
 			sb, types.FinalizedBallotIDsKey, types.FinalizedBallotIDsName,
 			collections.StringKey,
 		),
+		PendingByExpiry: collections.NewKeySet(
+			sb, types.PendingByExpiryKey, types.PendingByExpiryName,
+			collections.PairKeyCodec(collections.Int64Key, collections.StringKey),
+		),
 
 		authority:          authority,
 		StakingKeeper:      stakingKeeper,
@@ -144,9 +157,18 @@ func (k *Keeper) InitGenesis(ctx context.Context, data *types.GenesisState) erro
 		}
 	}
 
-	// Restore ActiveBallotIDs
+	// Restore ActiveBallotIDs, rebuilding the PendingByExpiry index from the
+	// ballots restored just above. This is why no state migration is needed for
+	// a chain that starts from (or is re-imported through) genesis.
 	for _, id := range data.ActiveBallotIds {
+		ballot, err := k.Ballots.Get(ctx, id)
+		if err != nil {
+			return fmt.Errorf("active ballot id %q has no matching ballot record in genesis: %w", id, err)
+		}
 		if err := k.ActiveBallotIDs.Set(ctx, id); err != nil {
+			return err
+		}
+		if err := k.PendingByExpiry.Set(ctx, collections.Join(ballot.BlockHeightExpiry, id)); err != nil {
 			return err
 		}
 	}

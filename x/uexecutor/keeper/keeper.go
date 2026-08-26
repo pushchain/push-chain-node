@@ -3,6 +3,7 @@ package keeper
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -348,20 +349,63 @@ func (k Keeper) GetModuleAccountNonce(ctx sdk.Context) (uint64, error) {
 	return nonce, nil
 }
 
-// IncrementModuleAccountNonce increases the nonce by 1 and stores it back.
-func (k Keeper) IncrementModuleAccountNonce(ctx sdk.Context) (uint64, error) {
+// SetModuleAccountNonce allows explicitly setting the nonce (optional, for migration or testing).
+// It keeps the module account's EVM nonce in step, so the two can never diverge —
+// see nextModuleSenderNonce for why that matters.
+func (k Keeper) SetModuleAccountNonce(ctx sdk.Context, nonce uint64) error {
+	if err := k.ModuleAccountNonce.Set(ctx, nonce); err != nil {
+		return err
+	}
+
+	acc := k.accountKeeper.GetModuleAccount(ctx, types.ModuleName)
+	if acc == nil {
+		return fmt.Errorf("module account %s not found", types.ModuleName)
+	}
+	if acc.GetSequence() == nonce {
+		return nil
+	}
+	if err := acc.SetSequence(nonce); err != nil {
+		return err
+	}
+	k.accountKeeper.SetAccount(ctx, acc)
+
+	return nil
+}
+
+// nextModuleSenderNonce picks the nonce for the module's next DerivedEVMCall.
+//
+// F-2026-18189. The module account's EVM nonce is the source of truth, but x/vm
+// will not maintain it: ApplyMessageWithConfig advances a sender's nonce only in
+// its contractCreation branch, and every call the module makes is a plain CALL.
+// So the module maintains it itself (see burnModuleSenderNonce), and reads it
+// back here so that a nonce the EVM *did* advance — a CREATE from the module, or
+// a chain upgraded from a build that left the account nonce behind — is picked up
+// instead of being re-issued.
+func (k Keeper) nextModuleSenderNonce(ctx sdk.Context, moduleAddr common.Address) (uint64, error) {
 	nonce, err := k.GetModuleAccountNonce(ctx)
 	if err != nil {
 		return 0, err
 	}
-	newNonce := nonce + 1
-	if err := k.ModuleAccountNonce.Set(ctx, newNonce); err != nil {
-		return 0, err
+	if evmNonce := k.evmKeeper.GetNonce(ctx, moduleAddr); evmNonce > nonce {
+		nonce = evmNonce
 	}
-	return newNonce, nil
+	return nonce, nil
 }
 
-// SetModuleAccountNonce allows explicitly setting the nonce (optional, for migration or testing).
-func (k Keeper) SetModuleAccountNonce(ctx sdk.Context, nonce uint64) error {
-	return k.ModuleAccountNonce.Set(ctx, nonce)
+// burnModuleSenderNonce consumes the nonce handed out by nextModuleSenderNonce.
+//
+// The advance is unconditional: it happens whether the call committed, reverted,
+// or never reached the EVM at all. That is deliberate. The derived tx hash is
+// ethtypes.NewTx(&DynamicFeeTx{Nonce, GasFeeCap, GasTipCap, Gas, To, Value,
+// Data}).Hash(), so the nonce is the only thing separating two byte-identical
+// module calls; a failed attempt that gave its nonce back would let the retry
+// reproduce a hash already emitted in this block. Because the counter and the
+// account nonce move together, advancing on failure can no longer desync them —
+// which is what F-2026-18189 reported.
+func (k Keeper) burnModuleSenderNonce(ctx sdk.Context, moduleAddr common.Address, nonce uint64) error {
+	next := nonce + 1
+	if evmNonce := k.evmKeeper.GetNonce(ctx, moduleAddr); evmNonce > next {
+		next = evmNonce
+	}
+	return k.SetModuleAccountNonce(ctx, next)
 }

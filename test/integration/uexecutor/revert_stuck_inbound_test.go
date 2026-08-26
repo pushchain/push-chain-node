@@ -180,17 +180,27 @@ func TestRevertStuckInbound_PendingUnreachable_ThresholdMet_CreatesRevertOutboun
 	ob := utx.OutboundTx[0]
 	require.Equal(t, resp.OutboundId, ob.Id)
 	require.Equal(t, uexecutortypes.TxType_INBOUND_REVERT, ob.TxType)
-	require.Equal(t, uexecutortypes.Status_PENDING, ob.OutboundStatus)
+	// The harness's UniversalCore stub cannot serve getOutboundTxGasAndFees, so the
+	// revert's gas metadata is unresolvable and F-2026-18823 records it ABORTED
+	// rather than queueing it for a signature it could never receive. What this test
+	// pins is that the unreachable-PENDING hatch BUILDS the revert at all; the
+	// resolvable (PENDING) path is covered by
+	// x/uexecutor/keeper/build_revert_outbound_test.go.
+	require.Equal(t, uexecutortypes.Status_ABORTED, ob.OutboundStatus,
+		"a revert with unresolvable gas metadata must be ABORTED, not PENDING")
+	require.NotEmpty(t, ob.AbortReason, "ABORTED revert must record why it could not be built")
 	require.Equal(t, inbound.SourceChain, ob.DestinationChain)
 	require.Equal(t, inbound.RevertInstructions.FundRecipient, ob.Recipient)
 	require.Equal(t, inbound.Amount, ob.Amount)
 	require.Equal(t, inbound.AssetAddr, ob.ExternalAssetAddr)
 
-	// --- PendingOutbounds index: the refund is actually queued for TSS signing ---
-	pending, err := chainApp.UexecutorKeeper.PendingOutbounds.Get(ctx, ob.Id)
-	require.NoError(t, err, "revert outbound must be indexed in PendingOutbounds for UV pickup")
-	require.Equal(t, ob.Id, pending.OutboundId)
-	require.Equal(t, utx.Id, pending.UniversalTxId)
+	// --- PendingOutbounds index ---
+	// An ABORTED revert must stay out of the signing queue: no ballot can form for
+	// it and there is no admin abort for outbounds, so an indexed row would be
+	// permanently stuck.
+	has, err := chainApp.UexecutorKeeper.PendingOutbounds.Has(ctx, ob.Id)
+	require.NoError(t, err)
+	require.False(t, has, "an ABORTED revert must not be indexed in PendingOutbounds")
 }
 
 // TestRevertStuckInbound_PendingUnreachable_BelowThreshold_Accepted covers the
@@ -225,8 +235,12 @@ func TestRevertStuckInbound_PendingUnreachable_BelowThreshold_Accepted(t *testin
 	require.Len(t, utx.OutboundTx, 1)
 	require.Equal(t, uexecutortypes.TxType_INBOUND_REVERT, utx.OutboundTx[0].TxType)
 
-	_, err = chainApp.UexecutorKeeper.PendingOutbounds.Get(ctx, utx.OutboundTx[0].Id)
-	require.NoError(t, err, "revert outbound must be queued for UV pickup")
+	// Unresolvable gas metadata in this harness means the revert is ABORTED and so
+	// deliberately not queued (F-2026-18823); the hatch opening is what matters here.
+	require.Equal(t, uexecutortypes.Status_ABORTED, utx.OutboundTx[0].OutboundStatus)
+	has, err := chainApp.UexecutorKeeper.PendingOutbounds.Has(ctx, utx.OutboundTx[0].Id)
+	require.NoError(t, err)
+	require.False(t, has, "an ABORTED revert must not be indexed in PendingOutbounds")
 }
 
 // TestRevertStuckInbound_PendingWithUnvotedVoter_Refused is the guard against

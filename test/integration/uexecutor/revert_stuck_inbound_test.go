@@ -125,7 +125,15 @@ func TestRevertStuckInbound_HappyPath_ExpiredBallot_CreatesRevertOutbound(t *tes
 	require.Equal(t, uexecutortypes.GetOutboundRevertId(inbound.SourceChain, inbound.TxHash, inbound.LogIndex), ob.Id,
 		"outbound id must follow the canonical revert-id format")
 	require.Equal(t, uexecutortypes.TxType_INBOUND_REVERT, ob.TxType, "outbound type must be INBOUND_REVERT")
-	require.Equal(t, uexecutortypes.Status_PENDING, ob.OutboundStatus, "outbound must start PENDING so UVs sign it")
+	// The harness's UniversalCore stub cannot serve getOutboundTxGasAndFees, so the
+	// revert's gas metadata is unresolvable and it is recorded ABORTED rather than
+	// queued for a signature it could never receive. The admin message still reports
+	// the outbound it created, and the UTX becomes eligible for RESCUE_FUNDS. The
+	// resolvable (PENDING) path is covered by
+	// x/uexecutor/keeper/build_revert_outbound_test.go.
+	require.Equal(t, uexecutortypes.Status_ABORTED, ob.OutboundStatus,
+		"a revert with unresolvable gas metadata must be ABORTED, not PENDING")
+	require.NotEmpty(t, ob.AbortReason, "ABORTED revert must record why it could not be built")
 	require.Equal(t, inbound.SourceChain, ob.DestinationChain, "revert goes back to the source chain")
 	require.Equal(t, inbound.RevertInstructions.FundRecipient, ob.Recipient,
 		"recipient must use RevertInstructions.FundRecipient when set")
@@ -134,10 +142,12 @@ func TestRevertStuckInbound_HappyPath_ExpiredBallot_CreatesRevertOutbound(t *tes
 	require.Equal(t, chainutils.LenientCanonicalizeEVMAddress(inbound.Sender), ob.Sender, "sender field carries original depositor")
 
 	// --- PendingOutbounds index assertions ---
-	pending, err := chainApp.UexecutorKeeper.PendingOutbounds.Get(ctx, ob.Id)
-	require.NoError(t, err, "revert outbound must be indexed in PendingOutbounds for UV pickup")
-	require.Equal(t, ob.Id, pending.OutboundId)
-	require.Equal(t, utx.Id, pending.UniversalTxId)
+	// An ABORTED revert must stay out of the signing queue: no ballot can ever form
+	// for it and there is no admin abort for outbounds, so an indexed row would be
+	// permanently stuck.
+	has, err := chainApp.UexecutorKeeper.PendingOutbounds.Has(ctx, ob.Id)
+	require.NoError(t, err)
+	require.False(t, has, "an ABORTED revert must not be indexed in PendingOutbounds")
 }
 
 // TestRevertStuckInbound_RecipientFallback_UsesSender covers the case where

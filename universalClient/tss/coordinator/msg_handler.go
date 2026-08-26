@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/big"
 
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
@@ -248,19 +247,6 @@ func (c *Coordinator) VerifySignedData(ctx context.Context, event *store.Event, 
 		return fmt.Errorf("ECDSA verification failed: %w", err)
 	}
 	return nil
-}
-
-// PinnedMigrationAmount returns the sweep amount the chain pinned on the event.
-func PinnedMigrationAmount(event *store.Event) (*big.Int, error) {
-	var data utsstypes.FundMigrationInitiatedEventData
-	if err := json.Unmarshal(event.EventData, &data); err != nil {
-		return nil, fmt.Errorf("parse fund migration event data: %w", err)
-	}
-	amount, ok := new(big.Int).SetString(data.TransferAmount, 10)
-	if !ok || amount.Sign() <= 0 {
-		return nil, fmt.Errorf("migration event carries no usable transfer amount: %q", data.TransferAmount)
-	}
-	return amount, nil
 }
 
 // verifyingPubkey returns the compressed pubkey hex that should have signed

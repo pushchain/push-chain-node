@@ -141,35 +141,6 @@ func TestHandleUnsignedAck_AllACKsTriggersBEGIN(t *testing.T) {
 	assert.False(t, exists, "ack tracking should be removed after all ACKs received")
 }
 
-func TestPinnedMigrationAmount(t *testing.T) {
-	eventWith := func(amount string) *store.Event {
-		data, err := json.Marshal(utsstypes.FundMigrationInitiatedEventData{TransferAmount: amount})
-		require.NoError(t, err)
-		return &store.Event{EventID: "fm", Type: store.EventTypeSignFundMigrate, EventData: data}
-	}
-
-	t.Run("returns the pinned amount", func(t *testing.T) {
-		got, err := PinnedMigrationAmount(eventWith("1000"))
-		require.NoError(t, err)
-		assert.Equal(t, "1000", got.String())
-	})
-
-	t.Run("unusable amounts are rejected", func(t *testing.T) {
-		for _, amount := range []string{"", "0", "-1", "abc"} {
-			_, err := PinnedMigrationAmount(eventWith(amount))
-			require.Error(t, err, "amount %q", amount)
-			assert.Contains(t, err.Error(), "no usable transfer amount")
-		}
-	})
-
-	t.Run("malformed event data is rejected", func(t *testing.T) {
-		event := &store.Event{EventID: "fm", Type: store.EventTypeSignFundMigrate, EventData: []byte("not json")}
-		_, err := PinnedMigrationAmount(event)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "parse fund migration event data")
-	})
-}
-
 func TestHandleSignedAck_FailurePaths(t *testing.T) {
 	coord, _, db := setupTestCoordinator(t)
 	ctx := context.Background()

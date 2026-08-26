@@ -1,6 +1,9 @@
 package config
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // KeyringBackend represents the type of keyring backend to use.
 type KeyringBackend string
@@ -9,6 +12,24 @@ const (
 	KeyringBackendTest KeyringBackend = "test"
 	KeyringBackendFile KeyringBackend = "file"
 )
+
+const NetworkTestnet = "testnet"
+
+// IsTestnet reports whether this node is on testnet. Any other value, including
+// unset, is treated as mainnet.
+func (c *Config) IsTestnet() bool {
+	return strings.EqualFold(strings.TrimSpace(c.PushNetwork), NetworkTestnet)
+}
+
+// AllowsZeroConfirmations reports whether a registry confirmation depth of 0 is
+// honored instead of falling back to a safe depth.
+//
+// A registry 0 is ambiguous: proto3 encodes a deliberate 0 and an unset field
+// identically, so it cannot be read as "instant finality" on its own. Honoring
+// it therefore needs an out-of-band signal, which today is a testnet deployment.
+func (c *Config) AllowsZeroConfirmations() bool {
+	return c.IsTestnet()
+}
 
 // Config holds all configuration for the Universal Validator.
 type Config struct {
@@ -26,6 +47,9 @@ type Config struct {
 	PushValoperAddress           string   `json:"push_valoper_address"`
 	ConfigRefreshIntervalSeconds int      `json:"config_refresh_interval_seconds"`
 	MaxRetries                   int      `json:"max_retries"`
+
+	// PushNetwork is "mainnet" or "testnet"; unset/unknown is treated as mainnet.
+	PushNetwork string `json:"push_network"`
 
 	// Query Server
 	QueryServerPort int `json:"query_server_port"`
@@ -52,9 +76,9 @@ type ChainSpecificConfig struct {
 	EventPollingIntervalSeconds *int              `json:"event_polling_interval_seconds,omitempty"`
 	EventStartFrom              *int64            `json:"event_start_from,omitempty"`
 	GasPriceIntervalSeconds     *int              `json:"gas_price_interval_seconds,omitempty"`
-	GasPriceMarkupPercent       *int              `json:"gas_price_markup_percent,omitempty"`    // % markup on fetched gas price to handle spikes
-	ProtocolALT                 string            `json:"protocol_alt,omitempty"`            // Protocol ALT address (base58) for V0 transactions
-	TokenALTs                   map[string]string `json:"token_alts,omitempty"`              // mint address → token ALT address (base58)
+	GasPriceMarkupPercent       *int              `json:"gas_price_markup_percent,omitempty"` // % markup on fetched gas price to handle spikes
+	ProtocolALT                 string            `json:"protocol_alt,omitempty"`             // Protocol ALT address (base58) for V0 transactions
+	TokenALTs                   map[string]string `json:"token_alts,omitempty"`               // mint address → token ALT address (base58)
 
 	// SVM rent reclaimer (orphaned StoredIxData PDA cleanup). Both default if unset.
 	RentReclaimSweepIntervalSeconds *int `json:"rent_reclaim_sweep_interval_seconds,omitempty"` // how often to sweep

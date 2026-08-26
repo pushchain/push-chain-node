@@ -25,6 +25,7 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
+	uvalidatortypes "github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
 // SendFunc is a function type for sending messages to participants.
@@ -179,7 +180,7 @@ func (sm *SessionManager) handleSetupMessage(ctx context.Context, senderPeerID s
 	}
 
 	// 5. Validate participants list matches event protocol requirements
-	if err := sm.validateParticipants(msg.Participants, event); err != nil {
+	if err := sm.validateParticipants(ctx, msg.Participants, event); err != nil {
 		return fmt.Errorf("participants validation failed: %w", err)
 	}
 
@@ -427,9 +428,8 @@ func (sm *SessionManager) handleSignatureBroadcast(ctx context.Context, senderPe
 	// Persist as SIGNED via the same path a local sign-completion uses, so
 	// signing_data lands on event_data in the format txbroadcaster expects.
 	rebuiltReq := &common.UnsignedSigningReq{
-		SigningHash:            msg.SignedData.SigningHash,
-		Nonce:                  msg.SignedData.Nonce,
-		TSSFundMigrationAmount: msg.SignedData.TSSFundMigrationAmount,
+		SigningHash: msg.SignedData.SigningHash,
+		Nonce:       msg.SignedData.Nonce,
 	}
 	if err := sm.handleSigningComplete(ctx, msg.EventID, event.EventData, msg.SignedData.Signature, rebuiltReq); err != nil {
 		return fmt.Errorf("persist signature from broadcast: %w", err)
@@ -515,10 +515,9 @@ func (sm *SessionManager) handleSignFinished(ctx context.Context, eventID string
 	// SIGNED and can vote on failure. Best-effort: failed sends are logged but
 	// do not abort. Recovery via sweeper retry covers any peers we miss.
 	sm.broadcastSignature(ctx, eventID, &coordinator.SignedDataPayload{
-		Signature:              result.Signature,
-		SigningHash:            signingReq.SigningHash,
-		Nonce:                  signingReq.Nonce,
-		TSSFundMigrationAmount: signingReq.TSSFundMigrationAmount,
+		Signature:   result.Signature,
+		SigningHash: signingReq.SigningHash,
+		Nonce:       signingReq.Nonce,
 	})
 
 	sm.logger.Info().Str("event_id", eventID).Msg("sign session finished successfully")
@@ -752,9 +751,24 @@ func (sm *SessionManager) createSession(ctx context.Context, event *store.Event,
 // validateParticipants validates that participants match protocol requirements.
 // For keygen/keyrefresh: participants must match exactly with eligible participants (same elements).
 // For sign: participants must be a valid >2/3 subset of eligible participants.
-func (sm *SessionManager) validateParticipants(participants []string, event *store.Event) error {
-	// Get eligible validators for this protocol
-	eligible := sm.coordinator.GetEligibleUV(string(event.Type))
+func (sm *SessionManager) validateParticipants(ctx context.Context, participants []string, event *store.Event) error {
+	// Get eligible validators for this protocol.
+	//
+	// Fund migration is signed with the old key's shares, so both who may take
+	// part and how many are required come from that key rather than from the
+	// current validator set. Resolved through the coordinator so the check here
+	// mirrors the selection exactly.
+	var eligible []*uvalidatortypes.UniversalValidator
+	var fundMigrateRequired int
+	if event.Type == store.EventTypeSignFundMigrate {
+		var err error
+		eligible, fundMigrateRequired, err = sm.coordinator.FundMigrateEligible(ctx, *event)
+		if err != nil {
+			return fmt.Errorf("resolve fund migration signers: %w", err)
+		}
+	} else {
+		eligible = sm.coordinator.GetEligibleUV(string(event.Type))
+	}
 	if len(eligible) == 0 {
 		return fmt.Errorf("no eligible validators for protocol")
 	}
@@ -793,14 +807,23 @@ func (sm *SessionManager) validateParticipants(participants []string, event *sto
 			}
 		}
 
-	case store.EventTypeSignOutbound, store.EventTypeSignFundMigrate:
-		// For SIGN and FUND_MIGRATE the coordinator picks a random threshold subset (>2/3 of eligible)
+	case store.EventTypeSignOutbound:
+		// For SIGN the coordinator picks a random threshold subset (>2/3 of eligible)
 		// rather than all eligible validators. Accept any subset as long as it meets the threshold
 		// minimum; all participants are already verified eligible by the eligibleSet check above.
 		threshold := coordinator.CalculateThreshold(len(eligibleList))
 		if len(participants) < threshold {
 			return fmt.Errorf("%s participants count %d is below required threshold %d (eligible: %d)",
 				event.Type, len(participants), threshold, len(eligibleList))
+		}
+
+	case store.EventTypeSignFundMigrate:
+		// The old key's threshold, not the current set's. Sizing this from the
+		// live validator set would reject a legitimate selection whenever the
+		// set has grown since that key was created.
+		if len(participants) < fundMigrateRequired {
+			return fmt.Errorf("%s participants count %d is below required threshold %d (shareholders still eligible: %d)",
+				event.Type, len(participants), fundMigrateRequired, len(eligibleList))
 		}
 
 	default:
@@ -1133,6 +1156,10 @@ func (sm *SessionManager) verifyFundMigrationSigningRequest(ctx context.Context,
 	if err != nil {
 		return fmt.Errorf("failed to derive current TSS address: %w", err)
 	}
+	transferAmount, ok := new(big.Int).SetString(migrationData.TransferAmount, 10)
+	if !ok || transferAmount.Sign() <= 0 {
+		return fmt.Errorf("migration event carries no usable transfer amount: %q", migrationData.TransferAmount)
+	}
 
 	// Get chain client and tx builder
 	if sm.chains == nil {
@@ -1156,7 +1183,6 @@ func (sm *SessionManager) verifyFundMigrationSigningRequest(ctx context.Context,
 	} else if err := checkNonceInRange(req.Nonce, finalizedNonce, ceilingBase, oldTSSAddr); err != nil {
 		return err
 	}
-
 	// Rebuild fund migration signing request with coordinator's nonce.
 	// Parsing must match what the coordinator did; otherwise the reconstructed
 	// hash on OP-stack chains diverges and the verification below rejects it.
@@ -1167,11 +1193,12 @@ func (sm *SessionManager) verifyFundMigrationSigningRequest(ctx context.Context,
 	l1GasFee.SetString(migrationData.L1GasFee, 10)
 
 	migrationFundData := &common.FundMigrationData{
-		From:     oldTSSAddr,
-		To:       currentTSSAddr,
-		GasPrice: gasPrice,
-		GasLimit: migrationData.GasLimit,
-		L1GasFee: l1GasFee,
+		From:           oldTSSAddr,
+		To:             currentTSSAddr,
+		GasPrice:       gasPrice,
+		GasLimit:       migrationData.GasLimit,
+		L1GasFee:       l1GasFee,
+		TransferAmount: transferAmount,
 	}
 	signingReq, err := builder.GetFundMigrationSigningRequest(ctx, migrationFundData, req.Nonce)
 	if err != nil {
@@ -1188,23 +1215,12 @@ func (sm *SessionManager) verifyFundMigrationSigningRequest(ctx context.Context,
 		return fmt.Errorf("fund migration signing hash mismatch: our computed hash does not match coordinator's hash")
 	}
 
-	// Defense-in-depth: hash match implies amount match, but cross-check explicitly so
-	// a wire-format bug, coordinator bug, or missing amount surfaces here rather than
-	// as a nil-deref / insufficient-balance error later in broadcast.
-	if req.TSSFundMigrationAmount == nil {
-		return fmt.Errorf("coordinator's signing request is missing TSSFundMigrationAmount")
-	}
-	if req.TSSFundMigrationAmount.Cmp(signingReq.TSSFundMigrationAmount) != 0 {
-		return fmt.Errorf("TSSFundMigrationAmount mismatch: coordinator=%s ours=%s",
-			req.TSSFundMigrationAmount.String(), signingReq.TSSFundMigrationAmount.String())
-	}
-
 	sm.logger.Debug().
 		Str("event_id", event.EventID).
 		Str("signing_hash", hex.EncodeToString(req.SigningHash)).
 		Str("old_tss_addr", oldTSSAddr).
 		Str("current_tss_addr", currentTSSAddr).
-		Msg("fund migration sign metadata verified - hash and amount match")
+		Msg("fund migration sign metadata verified")
 
 	return nil
 }
@@ -1219,8 +1235,6 @@ func (sm *SessionManager) getTSSAddress(ctx context.Context) (string, error) {
 }
 
 // handleSigningComplete handles post-sign steps. EVM: set status SIGNED and store payload (txlifecycle/signed runs BroadcastOutboundSigningRequest). Solana: enqueue for sequential per-chain broadcast (PDA nonce order).
-// signingReq is the cached signing request from the coordinator setup message; for FUND_MIGRATE
-// its TSSFundMigrationAmount is populated by verifyFundMigrationSigningRequest and persisted here.
 func (sm *SessionManager) handleSigningComplete(_ context.Context, eventID string, eventData []byte, signature []byte, signingReq *common.UnsignedSigningReq) error {
 	if signingReq == nil {
 		return fmt.Errorf("signing request is nil - cannot persist signing data")
@@ -1232,7 +1246,6 @@ func (sm *SessionManager) handleSigningComplete(_ context.Context, eventID strin
 		signature,
 		signingReq.SigningHash,
 		signingReq.Nonce,
-		signingReq.TSSFundMigrationAmount,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to persist signing data: %w", err)
@@ -1259,10 +1272,9 @@ func extractSignedDataFromEvent(event *store.Event) (*coordinator.SignedDataPayl
 	}
 	var raw struct {
 		SigningData *struct {
-			Signature              string   `json:"signature"`
-			SigningHash            string   `json:"signing_hash"`
-			Nonce                  uint64   `json:"nonce"`
-			TSSFundMigrationAmount *big.Int `json:"tss_fund_migration_amount,omitempty"`
+			Signature   string `json:"signature"`
+			SigningHash string `json:"signing_hash"`
+			Nonce       uint64 `json:"nonce"`
 		} `json:"signing_data,omitempty"`
 	}
 	if err := json.Unmarshal(event.EventData, &raw); err != nil {
@@ -1280,9 +1292,8 @@ func extractSignedDataFromEvent(event *store.Event) (*coordinator.SignedDataPayl
 		return nil, fmt.Errorf("decode signing_data.signing_hash hex: %w", err)
 	}
 	return &coordinator.SignedDataPayload{
-		Signature:              sigBytes,
-		SigningHash:            hashBytes,
-		Nonce:                  raw.SigningData.Nonce,
-		TSSFundMigrationAmount: raw.SigningData.TSSFundMigrationAmount,
+		Signature:   sigBytes,
+		SigningHash: hashBytes,
+		Nonce:       raw.SigningData.Nonce,
 	}, nil
 }

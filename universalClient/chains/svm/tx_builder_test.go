@@ -2394,7 +2394,7 @@ func buildAndSimulateRescue(t *testing.T, rpcClient *RPCClient, builder *TxBuild
 	require.NoError(t, err)
 	copy(sender[:], senderBytes)
 
-	isNative := assetAddr == ""
+	isNative := isNativeAsset(assetAddr)
 	var token [32]byte
 	var mintPubkey solana.PublicKey
 	if !isNative {
@@ -2720,6 +2720,86 @@ func TestSimulate_RefRoute_Execute(t *testing.T) {
 	storeSim, _, err := buildAndSimulateRefRoute(t, rpcClient, builder, data, evmKey)
 	require.NoError(t, err)
 	requireSimulationSuccess(t, storeSim)
+}
+
+// Both encodings of native SOL reach the builder, verified against donut:
+// withdrawals carry the EVM zero hex from the registry token address, reverts
+// carry the base58 SystemProgram marker copied from the inbound. Missing either
+// builds an SPL transfer whose ATA-create reverts, since neither is a mint.
+func TestIsNativeAsset(t *testing.T) {
+	t.Run("core withdrawal form is native", func(t *testing.T) {
+		// create_outbound.go copies the registry token address verbatim.
+		assert.True(t, isNativeAsset("0x0000000000000000000000000000000000000000"))
+	})
+
+	t.Run("core revert form is native", func(t *testing.T) {
+		// build_revert_outbound.go copies inbound.AssetAddr, which the SVM parser
+		// sets from the pubkey, so native SOL arrives base58 encoded.
+		assert.True(t, isNativeAsset("11111111111111111111111111111111"))
+		assert.True(t, isNativeAsset(solana.SystemProgramID.String()))
+		assert.True(t, isNativeAsset(solana.PublicKey{}.String()))
+	})
+
+	t.Run("other zero spellings are native", func(t *testing.T) {
+		assert.True(t, isNativeAsset(""))
+		assert.True(t, isNativeAsset("0x0"))
+		assert.True(t, isNativeAsset("0x"+strings.Repeat("0", 64)), "hex-encoded zero pubkey")
+	})
+
+	// SPL mints are base58 in both directions, so they parse normally and must
+	// keep taking the token path.
+	t.Run("real SPL mints are not native", func(t *testing.T) {
+		assert.False(t, isNativeAsset("EiXDnrAg9ea2Q6vEPV7E5TpTU1vh41jcuZqKjU5Dc4ZF"), "USDT.sol")
+		assert.False(t, isNativeAsset("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"), "USDC.sol")
+		assert.False(t, isNativeAsset(solana.TokenProgramID.String()))
+	})
+
+	t.Run("malformed addresses are not native", func(t *testing.T) {
+		assert.False(t, isNativeAsset("not-base58-0OlI"))
+		assert.False(t, isNativeAsset("0x1234"))
+	})
+}
+
+// Core sent the base58 marker before switching to the EVM zero, so both forms
+// are live: withdrawals carry the zero hex and reverts still carry base58. Both
+// must build the identical native account layout, with no recipient ATA.
+func TestNativeMarkerFormsBuildIdenticalAccounts(t *testing.T) {
+	builder := newTestBuilder(t)
+
+	caller := solana.NewWallet().PublicKey()
+	config := solana.NewWallet().PublicKey()
+	vault := solana.NewWallet().PublicKey()
+	cea := solana.NewWallet().PublicKey()
+	tss := solana.NewWallet().PublicKey()
+	executed := solana.NewWallet().PublicKey()
+	recipient := solana.NewWallet().PublicKey()
+
+	build := func(t *testing.T, assetAddr string) []*solana.AccountMeta {
+		t.Helper()
+		isNative := isNativeAsset(assetAddr)
+		require.True(t, isNative, "asset %q must classify as native", assetAddr)
+		return builder.buildWithdrawAndExecuteAccounts(
+			caller, config, vault, cea, tss, executed,
+			solana.SystemProgramID,
+			isNative, 1,
+			recipient, solana.PublicKey{},
+			nil,
+			solana.PublicKey{}, solana.PublicKey{},
+		)
+	}
+
+	withdrawForm := build(t, "0x0000000000000000000000000000000000000000")
+	revertForm := build(t, "11111111111111111111111111111111")
+
+	assert.Equal(t, withdrawForm, revertForm,
+		"revert-form native SOL must build the same accounts as withdraw-form")
+
+	// The old bug took the SPL path and derived an ATA for a non-mint.
+	ata, _, err := solana.FindAssociatedTokenAddress(recipient, solana.SystemProgramID)
+	require.NoError(t, err)
+	for _, acc := range revertForm {
+		assert.NotEqual(t, ata, acc.PublicKey, "native layout must not include a recipient ATA")
+	}
 }
 
 // ---------------------------------------------------------------------------

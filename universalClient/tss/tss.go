@@ -239,20 +239,12 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 		registeredPeers:            make(map[string]bool),
 	}
 
-	getTSSAddress := func(ctx context.Context) (string, error) {
-		if node.coordinator == nil {
-			return "", fmt.Errorf("coordinator not initialized")
-		}
-		return node.coordinator.GetTSSAddress(ctx)
-	}
-
 	node.txResolver = txresolver.NewResolver(txresolver.Config{
 		EventStore:    evtStore,
 		Chains:        cfg.Chains,
 		PushSigner:    cfg.PushSigner,
 		CheckInterval: sessionExpiryCheckInterval,
 		Logger:        logger,
-		GetTSSAddress: getTSSAddress,
 	})
 
 	node.txBroadcaster = txbroadcaster.NewBroadcaster(txbroadcaster.Config{
@@ -260,7 +252,6 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 		Chains:        cfg.Chains,
 		CheckInterval: sessionExpiryCheckInterval,
 		Logger:        logger,
-		GetTSSAddress: getTSSAddress,
 	})
 
 	node.expirySweeper = expirysweeper.NewSweeper(expirysweeper.Config{

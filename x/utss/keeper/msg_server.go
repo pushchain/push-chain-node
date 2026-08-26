@@ -103,7 +103,7 @@ func (ms msgServer) InitiateFundMigration(ctx context.Context, msg *types.MsgIni
 		return nil, errors.Wrapf(sdkErrors.ErrUnauthorized, "invalid authority; expected %s, got %s", params.Admin, msg.Signer)
 	}
 
-	migrationId, err := ms.k.InitiateFundMigration(ctx, msg.OldKeyId, msg.Chain)
+	migrationId, err := ms.k.InitiateFundMigration(ctx, msg.OldKeyId, msg.Chain, msg.Balance)
 	if err != nil {
 		return nil, err
 	}

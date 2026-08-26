@@ -215,9 +215,8 @@ func (tb *TxBuilder) GetOutboundSigningRequest(
 	}
 
 	// Determine if this is native SOL or an SPL token transfer.
-	// Empty or zero address = native SOL. Otherwise it's the SPL token mint address.
 	assetAddr := data.AssetAddr
-	isNative := assetAddr == "" || assetAddr == "0x0" || assetAddr == "0x0000000000000000000000000000000000000000"
+	isNative := isNativeAsset(assetAddr)
 
 	txType, err := parseTxType(data.TxType)
 	if err != nil {
@@ -713,7 +712,7 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 	}
 
 	assetAddr := data.AssetAddr
-	isNative := assetAddr == "" || assetAddr == "0x0" || assetAddr == "0x0000000000000000000000000000000000000000"
+	isNative := isNativeAsset(assetAddr)
 
 	txType, err := parseTxType(data.TxType)
 	if err != nil {
@@ -1058,7 +1057,7 @@ func (tb *TxBuilder) BuildRefRouteTransactions(
 	}
 
 	assetAddr := data.AssetAddr
-	isNative := assetAddr == "" || assetAddr == "0x0" || assetAddr == "0x0000000000000000000000000000000000000000"
+	isNative := isNativeAsset(assetAddr)
 
 	var txID [32]byte
 	txIDBytes, err := hex.DecodeString(removeHexPrefix(data.TxID))
@@ -1286,6 +1285,28 @@ func removeHexPrefix(s string) string {
 		return s[2:]
 	}
 	return s
+}
+
+// isNativeAsset reports whether addr denotes native SOL rather than an SPL mint.
+// Both encodings of the zero address reach us. Core sends the EVM zero hex on
+// withdrawals (registry token address), while reverts carry the base58 zero
+// pubkey, SystemProgram 11111111111111111111111111111111, copied from the
+// inbound. SPL mints are always base58 and parse as an ordinary non-zero pubkey.
+func isNativeAsset(addr string) bool {
+	switch addr {
+	case "", "0x0", "0x0000000000000000000000000000000000000000":
+		return true
+	}
+	if pubkey, err := solana.PublicKeyFromBase58(addr); err == nil {
+		return pubkey.IsZero()
+	}
+	// The builder also accepts hex mints, so cover a hex-encoded zero pubkey.
+	// The length check is load bearing: PublicKeyFromBytes panics on anything
+	// other than 32 bytes, and a short hex string such as 0x1234 reaches here.
+	if raw, err := hex.DecodeString(removeHexPrefix(addr)); err == nil && len(raw) == 32 {
+		return solana.PublicKeyFromBytes(raw).IsZero()
+	}
+	return false
 }
 
 // =============================================================================

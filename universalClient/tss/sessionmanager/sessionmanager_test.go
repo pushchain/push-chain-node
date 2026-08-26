@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/big"
 	"reflect"
 	"strings"
 	"testing"
@@ -53,6 +52,9 @@ func containsAny(s string, substrings []string) bool {
 // block height (0 by default) so coordinator-at-block math is deterministic.
 type mockPushCore struct {
 	block uint64
+
+	// Old key history, consulted when validating fund migration signers.
+	keysByID map[string]*utsstypes.TssKey
 }
 
 func (m *mockPushCore) GetLatestBlock(_ context.Context) (uint64, error) {
@@ -61,6 +63,13 @@ func (m *mockPushCore) GetLatestBlock(_ context.Context) (uint64, error) {
 
 func (m *mockPushCore) GetCurrentKey(_ context.Context) (*utsstypes.TssKey, error) {
 	return &utsstypes.TssKey{KeyId: "test-key"}, nil
+}
+
+func (m *mockPushCore) GetKeyByID(_ context.Context, keyID string) (*utsstypes.TssKey, error) {
+	if key, ok := m.keysByID[keyID]; ok {
+		return key, nil
+	}
+	return &utsstypes.TssKey{KeyId: keyID}, nil
 }
 
 func (m *mockPushCore) GetAllUniversalValidators(_ context.Context) ([]*types.UniversalValidator, error) {
@@ -367,6 +376,11 @@ func setCoordinatorValidators(coord *coordinator.Coordinator, validators []*type
 	if field.IsValid() {
 		*(*[]*types.UniversalValidator)(unsafe.Pointer(field.UnsafeAddr())) = validators
 	}
+	// Keep the cache fresh, otherwise a slow test trips the staleness halt and
+	// the snapshot comes back empty.
+	if refresh := coordValue.FieldByName("lastValidatorsRefreshAt"); refresh.IsValid() {
+		*(*time.Time)(unsafe.Pointer(refresh.UnsafeAddr())) = time.Now()
+	}
 }
 
 func makeActiveValidator(addr string) *types.UniversalValidator {
@@ -398,54 +412,69 @@ func TestValidateParticipants(t *testing.T) {
 
 	t.Run("SIGN: threshold subset is valid", func(t *testing.T) {
 		// 3 of 4 eligible satisfies threshold(4)=3
-		assert.NoError(t, sm.validateParticipants([]string{"v1", "v2", "v3"}, signEvent))
+		assert.NoError(t, sm.validateParticipants(context.Background(), []string{"v1", "v2", "v3"}, signEvent))
 	})
 
 	t.Run("SIGN: all eligible is also valid (threshold is a minimum)", func(t *testing.T) {
-		assert.NoError(t, sm.validateParticipants([]string{"v1", "v2", "v3", "v4"}, signEvent))
+		assert.NoError(t, sm.validateParticipants(context.Background(), []string{"v1", "v2", "v3", "v4"}, signEvent))
 	})
 
 	t.Run("SIGN: below threshold is rejected", func(t *testing.T) {
 		// 2 < threshold(4)=3
-		err := sm.validateParticipants([]string{"v1", "v2"}, signEvent)
+		err := sm.validateParticipants(context.Background(), []string{"v1", "v2"}, signEvent)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "threshold")
 	})
 
 	t.Run("SIGN: non-eligible participant is rejected", func(t *testing.T) {
-		err := sm.validateParticipants([]string{"v1", "v2", "unknown"}, signEvent)
+		err := sm.validateParticipants(context.Background(), []string{"v1", "v2", "unknown"}, signEvent)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "not eligible")
 	})
 
-	// --- SIGN_FUND_MIGRATE: same threshold rules as SIGN_OUTBOUND ---
+	// --- SIGN_FUND_MIGRATE: rules come from the old key, not the current set ---
 
-	fmEvent := &store.Event{EventID: "fm-1", Type: store.EventTypeSignFundMigrate}
+	// The old key's shareholders are v1..v4, matching the current set here, so
+	// the threshold is the same 3 as for SIGN_OUTBOUND above. The two diverge
+	// once the sets differ, covered in fund_migrate_e2e_test.go.
+	setCoordinatorPushCore(coord, &mockPushCore{
+		keysByID: map[string]*utsstypes.TssKey{
+			"old-key": {KeyId: "old-key", Participants: []string{"v1", "v2", "v3", "v4"}},
+		},
+	})
+	fmEvent := fundMigrateStoreEvent(t, "old-key")
 
 	t.Run("SIGN_FUND_MIGRATE: threshold subset is valid", func(t *testing.T) {
-		assert.NoError(t, sm.validateParticipants([]string{"v1", "v2", "v3"}, fmEvent))
+		assert.NoError(t, sm.validateParticipants(context.Background(), []string{"v1", "v2", "v3"}, fmEvent))
 	})
 
 	t.Run("SIGN_FUND_MIGRATE: below threshold is rejected", func(t *testing.T) {
-		err := sm.validateParticipants([]string{"v1", "v2"}, fmEvent)
+		err := sm.validateParticipants(context.Background(), []string{"v1", "v2"}, fmEvent)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "threshold")
+	})
+
+	t.Run("SIGN_FUND_MIGRATE: event without an old key id is rejected", func(t *testing.T) {
+		bare := &store.Event{EventID: "fm-bare", Type: store.EventTypeSignFundMigrate}
+		err := sm.validateParticipants(context.Background(), []string{"v1", "v2", "v3"}, bare)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "resolve fund migration signers")
 	})
 
 	// --- KEYGEN: exact-match rules (all eligible must participate) ---
 
 	t.Run("KEYGEN: all eligible is valid", func(t *testing.T) {
-		assert.NoError(t, sm.validateParticipants([]string{"v1", "v2", "v3", "v4"}, keygenEvent))
+		assert.NoError(t, sm.validateParticipants(context.Background(), []string{"v1", "v2", "v3", "v4"}, keygenEvent))
 	})
 
 	t.Run("KEYGEN: missing participant is rejected", func(t *testing.T) {
-		err := sm.validateParticipants([]string{"v1", "v2", "v3"}, keygenEvent) // v4 missing
+		err := sm.validateParticipants(context.Background(), []string{"v1", "v2", "v3"}, keygenEvent) // v4 missing
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "does not match eligible count")
 	})
 
 	t.Run("KEYGEN: non-eligible participant is rejected", func(t *testing.T) {
-		err := sm.validateParticipants([]string{"v1", "v2", "v3", "v4", "unknown"}, keygenEvent)
+		err := sm.validateParticipants(context.Background(), []string{"v1", "v2", "v3", "v4", "unknown"}, keygenEvent)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "not eligible")
 	})
@@ -625,6 +654,40 @@ func TestVerifyFundMigrationSigningRequest_Validation(t *testing.T) {
 		assert.Contains(t, err.Error(), "failed to parse fund migration event data")
 	})
 
+	// Rejected before any chain call: nothing deterministic to sign.
+	t.Run("event without a pinned transfer amount is rejected", func(t *testing.T) {
+		const validPubkey = "024e3b81af9c2234cad09d679ce6035ed1392347ce64ce405f5dcd36228a25de6e"
+		for _, tc := range []struct{ name, amount string }{
+			{"missing", ""},
+			{"zero", "0"},
+			{"negative", "-1"},
+			{"not a number", "abc"},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				eventDataBytes, err := json.Marshal(utsstypes.FundMigrationInitiatedEventData{
+					OldTssPubkey:     validPubkey,
+					CurrentTssPubkey: validPubkey,
+					Chain:            "eip155:1",
+					GasPrice:         "20000000000",
+					GasLimit:         21000,
+					L1GasFee:         "0",
+					TransferAmount:   tc.amount,
+				})
+				require.NoError(t, err)
+				event := &store.Event{
+					EventID:   "fm-no-amount-" + tc.name,
+					Type:      store.EventTypeSignFundMigrate,
+					EventData: eventDataBytes,
+				}
+				err = sm.verifyFundMigrationSigningRequest(ctx, event, &common.UnsignedSigningReq{
+					SigningHash: []byte{0x01},
+				})
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "no usable transfer amount")
+			})
+		}
+	})
+
 	t.Run("invalid old TSS pubkey is rejected", func(t *testing.T) {
 		migrationData := utsstypes.FundMigrationInitiatedEventData{
 			OldTssPubkey:     "not-a-valid-pubkey",
@@ -678,6 +741,7 @@ func TestVerifyFundMigrationSigningRequest_Validation(t *testing.T) {
 			GasPrice:         "1000000000",
 			GasLimit:         21100,
 			L1GasFee:         "150",
+			TransferAmount:   "500000000000000000",
 		}
 		eventDataBytes, _ := json.Marshal(migrationData)
 		event := &store.Event{
@@ -689,7 +753,7 @@ func TestVerifyFundMigrationSigningRequest_Validation(t *testing.T) {
 		req := &common.UnsignedSigningReq{SigningHash: []byte{0x01, 0x02}}
 		err := sm.verifyFundMigrationSigningRequest(ctx, event, req)
 		assert.NoError(t, err)
-		assert.Nil(t, req.TSSFundMigrationAmount, "amount stays nil when chain/builder is skipped")
+
 	})
 }
 
@@ -895,10 +959,9 @@ func TestSendACK(t *testing.T) {
 		)
 
 		signed := &coordinator.SignedDataPayload{
-			Signature:              bytes.Repeat([]byte{0xaa}, 64),
-			SigningHash:            bytes.Repeat([]byte{0xbb}, 32),
-			Nonce:                  42,
-			TSSFundMigrationAmount: big.NewInt(123_456),
+			Signature:   bytes.Repeat([]byte{0xaa}, 64),
+			SigningHash: bytes.Repeat([]byte{0xbb}, 32),
+			Nonce:       42,
 		}
 		require.NoError(t, sm.sendACK(context.Background(), "coord-peer", "evt-signed", signed))
 
@@ -910,8 +973,6 @@ func TestSendACK(t *testing.T) {
 		assert.Equal(t, signed.Signature, msg.SignedData.Signature)
 		assert.Equal(t, signed.SigningHash, msg.SignedData.SigningHash)
 		assert.Equal(t, signed.Nonce, msg.SignedData.Nonce)
-		require.NotNil(t, msg.SignedData.TSSFundMigrationAmount)
-		assert.Equal(t, 0, signed.TSSFundMigrationAmount.Cmp(msg.SignedData.TSSFundMigrationAmount))
 	})
 }
 
@@ -1128,7 +1189,9 @@ func TestHandleSigningComplete(t *testing.T) {
 		assert.False(t, hasAmount, "tss_fund_migration_amount is omitted for outbound events")
 	})
 
-	t.Run("fund migration signing complete persists tss_fund_migration_amount", func(t *testing.T) {
+	// The amount is not carried through signing data any more: broadcast reads it
+	// from the migration event, so nothing raceable rides with the signature.
+	t.Run("fund migration signing complete does not carry the amount", func(t *testing.T) {
 		event := store.Event{
 			EventID:     "fm-complete-1",
 			BlockHeight: 250,
@@ -1139,9 +1202,8 @@ func TestHandleSigningComplete(t *testing.T) {
 		require.NoError(t, testDB.Create(&event).Error)
 
 		req := &common.UnsignedSigningReq{
-			SigningHash:            []byte{0xca, 0xfe},
-			Nonce:                  3,
-			TSSFundMigrationAmount: new(big.Int).SetUint64(123456789),
+			SigningHash: []byte{0xca, 0xfe},
+			Nonce:       3,
 		}
 		err := sm.handleSigningComplete(context.Background(), "fm-complete-1", event.EventData, []byte{0xbe, 0xef}, req)
 		require.NoError(t, err)
@@ -1150,17 +1212,12 @@ func TestHandleSigningComplete(t *testing.T) {
 		require.NoError(t, testDB.Where("event_id = ?", "fm-complete-1").First(&updated).Error)
 		assert.Equal(t, store.StatusSigned, updated.Status)
 
-		// Decode the field into *big.Int directly — unmarshalling into map[string]any
-		// would coerce the JSON number into float64 and lose precision for wei values.
-		var decoded struct {
-			SigningData struct {
-				TSSFundMigrationAmount *big.Int `json:"tss_fund_migration_amount"`
-			} `json:"signing_data"`
-		}
-		require.NoError(t, json.Unmarshal(updated.EventData, &decoded))
-		require.NotNil(t, decoded.SigningData.TSSFundMigrationAmount,
-			"tss_fund_migration_amount must survive the sign→broadcast handoff so broadcast reproduces the signed tx")
-		assert.Equal(t, "123456789", decoded.SigningData.TSSFundMigrationAmount.String())
+		var rawData map[string]any
+		require.NoError(t, json.Unmarshal(updated.EventData, &rawData))
+		signingData, ok := rawData["signing_data"].(map[string]any)
+		require.True(t, ok)
+		_, hasAmount := signingData["tss_fund_migration_amount"]
+		assert.False(t, hasAmount, "the amount is read from the event at broadcast, not carried here")
 	})
 }
 

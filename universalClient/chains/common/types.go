@@ -26,13 +26,12 @@ type ChainClient interface {
 // FundMigrationData contains the data needed to build a fund migration transaction.
 // Populated by the coordinator from the migration event + derived addresses.
 type FundMigrationData struct {
-	From     string   // Old TSS address (derived from old pubkey)
-	To       string   // New TSS address (derived from current pubkey)
-	GasPrice *big.Int // Gas price from the migration event
-	GasLimit uint64   // Gas limit from the migration event
-	L1GasFee *big.Int // Extra L1 data-availability fee (wei); 0 for non-L2 chains
-
-	Balance *big.Int // if nil, builder queries chain
+	From           string   // Old TSS address (derived from old pubkey)
+	To             string   // New TSS address (derived from current pubkey)
+	GasPrice       *big.Int // Gas price from the migration event
+	GasLimit       uint64   // Gas limit from the migration event
+	L1GasFee       *big.Int // Extra L1 data-availability fee (wei); 0 for non-L2 chains
+	TransferAmount *big.Int // sweep amount pinned on chain; never derived from a live balance
 }
 
 // UnsignedSigningReq contains the request for signing an outbound or fund-migration transaction.
@@ -40,10 +39,6 @@ type UnsignedSigningReq struct {
 	SigningHash []byte // Hash to be signed by TSS
 	Nonce       uint64 // evm - TSS Address nonce | svm - PDA nonce
 
-	// TSSFundMigrationAmount is the native value swept for a fund-migration tx, fixed at
-	// signing time. Nil for outbound. Must be reused verbatim at broadcast — re-querying
-	// balance there races with a successful sweep from another validator.
-	TSSFundMigrationAmount *big.Int `json:"TSSFundMigrationAmount,omitempty"`
 }
 
 // TxBuilder builds and broadcasts transactions for outbound transfers
@@ -96,17 +91,17 @@ type TxBuilder interface {
 
 // UniversalTx Payload
 type UniversalTx struct {
-	SourceChain         string                   `json:"sourceChain"`
-	LogIndex            uint                     `json:"logIndex"`
-	Sender              string                   `json:"sender"`
-	Recipient           string                   `json:"recipient"`
-	Token               string                   `json:"bridgeToken"`
-	Amount              string `json:"bridgeAmount"` // uint256 as decimal string
+	SourceChain         string `json:"sourceChain"`
+	LogIndex            uint   `json:"logIndex"`
+	Sender              string `json:"sender"`
+	Recipient           string `json:"recipient"`
+	Token               string `json:"bridgeToken"`
+	Amount              string `json:"bridgeAmount"`         // uint256 as decimal string
 	RawPayload          string `json:"rawPayload,omitempty"` // hex-encoded raw payload bytes from source chain
 	VerificationData    string `json:"verificationData"`
-	RevertFundRecipient string                   `json:"revertFundRecipient,omitempty"`
-	TxType              uint                     `json:"txType"`              // enum backing uint as decimal string
-	FromCEA             bool                     `json:"fromCEA"`             // true if inbound is initiated by a CEA
+	RevertFundRecipient string `json:"revertFundRecipient,omitempty"`
+	TxType              uint   `json:"txType"`  // enum backing uint as decimal string
+	FromCEA             bool   `json:"fromCEA"` // true if inbound is initiated by a CEA
 }
 
 // OutboundEvent represents an outbound observation event from the gateway contract
@@ -114,8 +109,7 @@ type UniversalTx struct {
 // - txID at 1st indexed position (bytes32)
 // - universalTxID at 2nd indexed position (bytes32)
 type OutboundEvent struct {
-	TxID          string `json:"tx_id"`                      // bytes32 hex-encoded (0x...)
-	UniversalTxID string `json:"universal_tx_id"`            // bytes32 hex-encoded (0x...)
-	GasFeeUsed    string `json:"gas_fee_used,omitempty"`     // gas fee used in wei (decimal string)
+	TxID          string `json:"tx_id"`                  // bytes32 hex-encoded (0x...)
+	UniversalTxID string `json:"universal_tx_id"`        // bytes32 hex-encoded (0x...)
+	GasFeeUsed    string `json:"gas_fee_used,omitempty"` // gas fee used in wei (decimal string)
 }
-

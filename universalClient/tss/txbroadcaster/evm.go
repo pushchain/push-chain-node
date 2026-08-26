@@ -68,17 +68,15 @@ func (b *Broadcaster) broadcastOutboundEVM(ctx context.Context, event *store.Eve
 		return
 	}
 
-	tssAddress := ""
-	if b.getTSSAddress != nil {
-		var addrErr error
-		tssAddress, addrErr = b.getTSSAddress(ctx)
-		if addrErr != nil {
-			log.Warn().Err(addrErr).Msg("failed to get TSS address for nonce check, will retry next tick")
-			return
-		}
+	// Nonce check must use the key that signed this tx, not the live TSS: after a
+	// rotation they are different EOAs with unrelated nonce sequences.
+	signer, signedNonce, ok := txflow.RecoverOutboundSigner(event)
+	if !ok {
+		log.Warn().Msg("could not recover signing key for nonce check, will retry next tick")
+		return
 	}
 
-	b.checkNonceAndMarkBroadcasted(ctx, event, builder, chainID, txHash, tssAddress, data.SigningData.Nonce, broadcastErr)
+	b.checkNonceAndMarkBroadcasted(ctx, event, builder, chainID, txHash, signer, signedNonce, broadcastErr)
 }
 
 // broadcastFundMigrationEVM broadcasts a signed EVM fund migration transaction.
@@ -120,12 +118,19 @@ func (b *Broadcaster) broadcastFundMigrationEVM(ctx context.Context, event *stor
 	l1GasFee := new(big.Int)
 	l1GasFee.SetString(data.L1GasFee, 10)
 
+	transferAmount, ok := new(big.Int).SetString(data.TransferAmount, 10)
+	if !ok || transferAmount.Sign() <= 0 {
+		log.Warn().Str("transfer_amount", data.TransferAmount).Msg("event carries no usable transfer amount")
+		return
+	}
+
 	migrationData := &common.FundMigrationData{
-		From:     oldTSSAddr,
-		To:       currentTSSAddr,
-		GasPrice: gasPrice,
-		GasLimit: data.GasLimit,
-		L1GasFee: l1GasFee,
+		From:           oldTSSAddr,
+		To:             currentTSSAddr,
+		GasPrice:       gasPrice,
+		GasLimit:       data.GasLimit,
+		L1GasFee:       l1GasFee,
+		TransferAmount: transferAmount,
 	}
 
 	txHash, broadcastErr := builder.BroadcastFundMigrationTx(ctx, signingReq, migrationData, signature)

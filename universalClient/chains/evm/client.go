@@ -20,10 +20,11 @@ import (
 // Client implements the ChainClient interface for EVM chains
 type Client struct {
 	// Core configuration
-	logger         zerolog.Logger
-	chainIDStr     string
-	registryConfig *uregistrytypes.ChainConfig
-	chainConfig    *config.ChainSpecificConfig
+	logger                 zerolog.Logger
+	chainIDStr             string
+	registryConfig         *uregistrytypes.ChainConfig
+	chainConfig            *config.ChainSpecificConfig
+	allowZeroConfirmations bool
 
 	// Infrastructure
 	rpcClient *RPCClient
@@ -49,6 +50,7 @@ func NewClient(
 	database *db.DB,
 	chainConfig *config.ChainSpecificConfig,
 	pushSigner *pushsigner.Signer,
+	allowZeroConfirmations bool,
 	logger zerolog.Logger,
 ) (*Client, error) {
 	if config == nil {
@@ -68,12 +70,13 @@ func NewClient(
 	}
 
 	client := &Client{
-		logger:         log,
-		chainIDStr:     chainIDStr,
-		registryConfig: config,
-		chainConfig:    chainConfig,
-		database:       database,
-		pushSigner:     pushSigner,
+		logger:                 log,
+		chainIDStr:             chainIDStr,
+		registryConfig:         config,
+		chainConfig:            chainConfig,
+		allowZeroConfirmations: allowZeroConfirmations,
+		database:               database,
+		pushSigner:             pushSigner,
 	}
 
 	client.eventCleaner = common.NewEventCleaner(
@@ -356,8 +359,8 @@ func (c *Client) applyDefaults() componentConfig {
 	config := componentConfig{
 		eventPollingInterval:  5,  // default
 		gasPriceInterval:      30, // default
-		fastConfirmations:     2,
-		standardConfirmations: 12,
+		fastConfirmations:     common.DefaultFastConfirmations,
+		standardConfirmations: common.DefaultStandardConfirmations,
 	}
 
 	// Apply event polling interval
@@ -379,6 +382,17 @@ func (c *Client) applyDefaults() componentConfig {
 	if c.registryConfig != nil && c.registryConfig.BlockConfirmation != nil {
 		config.fastConfirmations = uint64(c.registryConfig.BlockConfirmation.FastInbound)
 		config.standardConfirmations = uint64(c.registryConfig.BlockConfirmation.StandardInbound)
+	}
+
+	// A registry-configured 0 disables the reorg-safety depth. Honor it only
+	// when instant routes are enabled; otherwise fall back to a safe default.
+	if !c.allowZeroConfirmations {
+		if config.fastConfirmations == 0 {
+			config.fastConfirmations = common.DefaultFastConfirmations
+		}
+		if config.standardConfirmations == 0 {
+			config.standardConfirmations = common.DefaultStandardConfirmations
+		}
 	}
 
 	return config

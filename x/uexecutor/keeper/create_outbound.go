@@ -284,15 +284,37 @@ func (k Keeper) AttachRescueOutboundFromReceipt(
 			}
 		}
 
-		// Resolve external asset address from PRC20 → token config for the source chain.
-		tokenCfg, err := k.uregistryKeeper.GetTokenConfigByPRC20(
+		// The asset is DERIVED from the original stuck inbound, never taken from the
+		// rescue event. The rescued Amount below is always originalUtx.InboundTx.Amount,
+		// so accepting the caller's event.PRC20 as the asset identity would pair one
+		// asset's raw amount with another asset's identity. Amounts are raw base units,
+		// so differing decimals amplify that: a stuck 1e18 of an 18-decimal token pointed
+		// at a 6-decimal token becomes a claim on 10^12 whole tokens.
+		tokenCfg, err := k.uregistryKeeper.GetTokenConfig(
 			ctx,
 			originalUtx.InboundTx.SourceChain,
-			event.PRC20,
+			originalUtx.InboundTx.AssetAddr,
 		)
 		if err != nil {
-			return fmt.Errorf("rescue: token config not found for PRC20 %s on %s: %w",
-				event.PRC20, originalUtx.InboundTx.SourceChain, err)
+			return fmt.Errorf("rescue: no token config registered for original asset %s on %s: %w",
+				originalUtx.InboundTx.AssetAddr, originalUtx.InboundTx.SourceChain, err)
+		}
+		if tokenCfg.NativeRepresentation == nil || tokenCfg.NativeRepresentation.ContractAddress == "" {
+			return fmt.Errorf("rescue: token config for original asset %s on %s has no PRC20 representation",
+				originalUtx.InboundTx.AssetAddr, originalUtx.InboundTx.SourceChain)
+		}
+		derivedPRC20 := tokenCfg.NativeRepresentation.ContractAddress
+
+		// Defence in depth: the event still names a PRC20, and it must agree with the one
+		// derived above. Reject on disagreement instead of silently overriding, so a
+		// mismatched caller surfaces as an error rather than a wrong-asset outbound.
+		// Lenient canonicalization mirrors uregistry's own PRC20 identity function
+		// (canonicalPRC20), so exactly the pairs the registry considers equal are accepted;
+		// a missing representation is already rejected above, so it can never read as a match.
+		if utils.LenientCanonicalizeEVMAddress(event.PRC20) != utils.LenientCanonicalizeEVMAddress(derivedPRC20) {
+			return fmt.Errorf(
+				"rescue: event PRC20 %s does not match PRC20 %s registered for original asset %s on %s",
+				event.PRC20, derivedPRC20, originalUtx.InboundTx.AssetAddr, originalUtx.InboundTx.SourceChain)
 		}
 
 		// Rescued funds go to the original revert recipient (or the sender as fallback).
@@ -309,7 +331,7 @@ func (k Keeper) AttachRescueOutboundFromReceipt(
 			Recipient:         recipient,
 			Amount:            originalUtx.InboundTx.Amount,
 			ExternalAssetAddr: tokenCfg.Address,
-			Prc20AssetAddr:    event.PRC20,
+			Prc20AssetAddr:    derivedPRC20,
 			Sender:            event.Sender,
 			GasFee:            event.GasFee.String(),
 			GasPrice:          event.GasPrice.String(),

@@ -70,9 +70,12 @@ func expectGasFeeCall(t *testing.T, f *testFixture, gasFee, gasPrice, gasLimit *
 	)
 	require.NoError(t, err)
 
+	// cosmos/evm v0.6.0: GetGasFeeInfoForRevertOutbound builds the StateDB itself
+	// and passes it into CallEVM, so the mock must expect that call too.
+	f.mockEVMKeeper.EXPECT().NewStateDB(gomock.Any()).Return(nil).AnyTimes()
 	f.mockEVMKeeper.EXPECT().
 		CallEVM(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
-			gomock.Eq("getOutboundTxGasAndFees"), gomock.Any(), gomock.Any()).
+			gomock.Any(), gomock.Any(), gomock.Eq("getOutboundTxGasAndFees"), gomock.Any(), gomock.Any()).
 		Return(&evmtypes.MsgEthereumTxResponse{Ret: packed}, nil).
 		AnyTimes()
 }
@@ -151,9 +154,12 @@ func TestBuildRevertOutbound_GasFeeLookupFails(t *testing.T) {
 		GetTokenConfig(gomock.Any(), revertSourceChain, revertAssetAddr).
 		Return(revertTestTokenConfig(), nil).
 		AnyTimes()
+	// cosmos/evm v0.6.0: GetGasFeeInfoForRevertOutbound builds the StateDB itself
+	// and passes it into CallEVM, so the mock must expect that call too.
+	f.mockEVMKeeper.EXPECT().NewStateDB(gomock.Any()).Return(nil).AnyTimes()
 	f.mockEVMKeeper.EXPECT().
 		CallEVM(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
-			gomock.Eq("getOutboundTxGasAndFees"), gomock.Any(), gomock.Any()).
+			gomock.Any(), gomock.Any(), gomock.Eq("getOutboundTxGasAndFees"), gomock.Any(), gomock.Any()).
 		Return(nil, errors.New("execution reverted: ZeroGasPrice")).
 		AnyTimes()
 

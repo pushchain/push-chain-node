@@ -451,9 +451,11 @@ func prc20BalanceOf(t *testing.T, chainApp *app.ChainApp, ctx sdk.Context, holde
 	ueModuleAccAddress, _ := chainApp.UexecutorKeeper.GetUeModuleAddress(ctx)
 	res, err := chainApp.EVMKeeper.CallEVM(
 		ctx,
+		chainApp.EVMKeeper.NewStateDB(ctx),
 		prc20ABI,
 		ueModuleAccAddress,
 		utils.GetDefaultAddresses().PRC20USDCAddr,
+		false,
 		false,
 		nil,
 		"balanceOf",

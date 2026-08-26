@@ -3,7 +3,6 @@ package types
 import (
 	"encoding/hex"
 	"encoding/json"
-	"math/big"
 	"strings"
 
 	"cosmossdk.io/errors"
@@ -50,9 +49,9 @@ func (p UniversalPayload) ValidateBasic() error {
 
 	for fieldName, value := range uintFields {
 		if value != "" {
-			bi, ok := new(big.Int).SetString(value, 10)
-			if !ok || bi.Sign() < 0 {
-				return errors.Wrapf(sdkerrors.ErrInvalidRequest, "%s must be a valid unsigned integer", fieldName)
+			// Length-capped, range-checked uint256 parse — see F-2026-18798.
+			if _, err := ValidateUint256String(value, fieldName+" must be a valid unsigned integer"); err != nil {
+				return err
 			}
 		}
 	}

@@ -4,12 +4,15 @@ import (
 	"fmt"
 	"testing"
 
+	"cosmossdk.io/core/appmodule"
+	storetypes "cosmossdk.io/store/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/pushchain/push-chain-node/app"
 	utils "github.com/pushchain/push-chain-node/test/utils"
+	uvalidatorkeeper "github.com/pushchain/push-chain-node/x/uvalidator/keeper"
 	uvalidatortypes "github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
@@ -102,7 +105,7 @@ func TestIntegration_CreateBallot(t *testing.T) {
 		require.Equal(t, int64(60), ballot.BlockHeightExpiry)
 	})
 
-	t.Run("creating a new ballot expires stale active ballots", func(t *testing.T) {
+	t.Run("creating a new ballot does NOT expire stale active ballots", func(t *testing.T) {
 		chainApp, ctx, validators := setupBallotTest(t, 2)
 		k := chainApp.UvalidatorKeeper
 		voters := voterAddrs(t, validators)
@@ -114,15 +117,23 @@ func TestIntegration_CreateBallot(t *testing.T) {
 			voters, 1, 1)
 		require.NoError(t, err)
 
-		// Advance height past the expiry so the next CreateBallot triggers cleanup
+		// Advance past the old ballot's expiry and create another one. Creation
+		// no longer scans the active set — that walked every active ballot and
+		// paid an IAVL read each time. Expiry is the EndBlocker's job now.
 		ctx = ctx.WithBlockHeight(10)
 		_, err = k.CreateBallot(ctx, "new-ballot",
 			uvalidatortypes.BallotObservationType_BALLOT_OBSERVATION_TYPE_INBOUND_TX,
 			voters, 1, 100)
 		require.NoError(t, err)
 
-		// Old ballot should now be expired
 		old, err := k.GetBallot(ctx, "old-ballot")
+		require.NoError(t, err)
+		require.Equal(t, uvalidatortypes.BallotStatus_BALLOT_STATUS_PENDING, old.Status,
+			"CreateBallot must not sweep; the EndBlocker owns expiry")
+
+		// The sweep is what expires it.
+		require.NoError(t, k.ExpireBallotsBeforeHeight(ctx, ctx.BlockHeight()))
+		old, err = k.GetBallot(ctx, "old-ballot")
 		require.NoError(t, err)
 		require.Equal(t, uvalidatortypes.BallotStatus_BALLOT_STATUS_EXPIRED, old.Status)
 	})
@@ -961,5 +972,107 @@ func TestIntegration_IsTombstonedUniversalValidator(t *testing.T) {
 		_, err := k.IsTombstonedUniversalValidator(ctx, "bad-address!!!")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid signer address")
+	})
+}
+
+// ─── EndBlocker expiry sweep ─────────────────────────────────────────────────
+
+// endBlockCtx moves ctx to the given height and attaches a block gas meter.
+// The test fixture's context has none, and x/feemarket's EndBlocker — which the
+// module manager runs before x/uvalidator's — errors out without one.
+func endBlockCtx(ctx sdk.Context, height int64) sdk.Context {
+	return ctx.WithBlockHeight(height).WithBlockGasMeter(storetypes.NewInfiniteGasMeter())
+}
+
+// TestIntegration_UvalidatorEndBlockerRuns is the guard against a
+// silently-never-called EndBlock. The sweep only fires if x/uvalidator is BOTH
+// listed in SetOrderEndBlockers AND satisfies appmodule.HasEndBlocker — listing
+// alone is not enough, the module manager skips modules that do not implement
+// the interface. This drives the app's real EndBlocker and observes the effect.
+func TestIntegration_UvalidatorEndBlockerRuns(t *testing.T) {
+	t.Run("expires due ballots and leaves the rest alone", func(t *testing.T) {
+		chainApp, ctx, validators := setupBallotTest(t, 3)
+		k := chainApp.UvalidatorKeeper
+		voters := voterAddrs(t, validators)
+
+		// ctx starts at height 1 → expiry heights 2 and 1001.
+		_, err := k.CreateBallot(ctx, "eb-due",
+			uvalidatortypes.BallotObservationType_BALLOT_OBSERVATION_TYPE_INBOUND_TX,
+			voters, 2, 1)
+		require.NoError(t, err)
+
+		_, err = k.CreateBallot(ctx, "eb-future",
+			uvalidatortypes.BallotObservationType_BALLOT_OBSERVATION_TYPE_INBOUND_TX,
+			voters, 2, 1000)
+		require.NoError(t, err)
+
+		// Creation must not have swept anything.
+		due, err := k.GetBallot(ctx, "eb-due")
+		require.NoError(t, err)
+		require.Equal(t, uvalidatortypes.BallotStatus_BALLOT_STATUS_PENDING, due.Status)
+
+		// Advance the block and run the app's real EndBlocker chain.
+		ctx = endBlockCtx(ctx, 5)
+		_, err = chainApp.EndBlocker(ctx)
+		require.NoError(t, err)
+
+		// THE assertion: if x/uvalidator's EndBlock never fires, this fails.
+		due, err = k.GetBallot(ctx, "eb-due")
+		require.NoError(t, err)
+		require.Equal(t, uvalidatortypes.BallotStatus_BALLOT_STATUS_EXPIRED, due.Status,
+			"the x/uvalidator EndBlocker did not run the ballot expiry sweep")
+
+		future, err := k.GetBallot(ctx, "eb-future")
+		require.NoError(t, err)
+		require.Equal(t, uvalidatortypes.BallotStatus_BALLOT_STATUS_PENDING, future.Status,
+			"a not-yet-due ballot must survive the sweep")
+	})
+
+	t.Run("caps a large backlog at MaxExpiriesPerBlock per block", func(t *testing.T) {
+		chainApp, ctx, validators := setupBallotTest(t, 3)
+		k := chainApp.UvalidatorKeeper
+		voters := voterAddrs(t, validators)
+
+		const extra = 3
+		total := uvalidatorkeeper.MaxExpiriesPerBlock + extra
+		for i := 0; i < total; i++ {
+			_, err := k.CreateBallot(ctx, fmt.Sprintf("eb-cap-%03d", i),
+				uvalidatortypes.BallotObservationType_BALLOT_OBSERVATION_TYPE_INBOUND_TX,
+				voters, 2, 1)
+			require.NoError(t, err)
+		}
+
+		countExpired := func(ctx sdk.Context) int {
+			n := 0
+			require.NoError(t, k.ExpiredBallotIDs.Walk(ctx, nil, func(string) (bool, error) {
+				n++
+				return false, nil
+			}))
+			return n
+		}
+
+		ctx = endBlockCtx(ctx, 5)
+		_, err := chainApp.EndBlocker(ctx)
+		require.NoError(t, err)
+		require.Equal(t, uvalidatorkeeper.MaxExpiriesPerBlock, countExpired(ctx),
+			"one block must expire at most MaxExpiriesPerBlock ballots")
+
+		// The leftovers are carried to the next block, not lost.
+		ctx = endBlockCtx(ctx, 6)
+		_, err = chainApp.EndBlocker(ctx)
+		require.NoError(t, err)
+		require.Equal(t, total, countExpired(ctx),
+			"the backlog remainder must be swept by the following block")
+	})
+
+	t.Run("module is wired into the EndBlocker ordering", func(t *testing.T) {
+		chainApp, _, _ := setupBallotTest(t, 1)
+
+		require.Contains(t, chainApp.ModuleManager.OrderEndBlockers, uvalidatortypes.ModuleName,
+			"x/uvalidator must be listed in SetOrderEndBlockers or its EndBlock never runs")
+
+		_, ok := chainApp.ModuleManager.Modules[uvalidatortypes.ModuleName].(appmodule.HasEndBlocker)
+		require.True(t, ok,
+			"x/uvalidator must implement appmodule.HasEndBlocker; the module manager skips modules that do not")
 	})
 }

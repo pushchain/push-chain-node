@@ -46,6 +46,8 @@ func (k Keeper) SetChainMeta(ctx context.Context, chainID string, chainMeta type
 // VoteChainMeta processes a universal validator's vote on chain metadata (gas price + chain height).
 //
 // Rules:
+//  0. The observed chain must be registered in x/uregistry. Unregistered chains are
+//     rejected before any state is touched (F-2026-18803).
 //  1. Each vote is stamped with the current block time (storedAt) when it is recorded
 //     and either inserted (new validator) or updated in place (existing validator).
 //  2. The oracle is bootstrapped on the first EVM write only after at least
@@ -60,6 +62,21 @@ func (k Keeper) SetChainMeta(ctx context.Context, chainID string, chainMeta type
 //  5. Price median and chain-height median are computed independently (upper median = len/2).
 //  6. After a successful EVM call, LastAppliedChainHeight is updated.
 func (k Keeper) VoteChainMeta(ctx context.Context, universalValidator sdk.ValAddress, observedChainId string, price, blockNumber uint64) error {
+	// F-2026-18803: check the chain is registered before any state read/write.
+	// A GetChainMeta miss below *creates* the row on the cold-start path, so a
+	// vote for an arbitrary chain id would otherwise mint an unbounded number of
+	// ChainMetas keys (the raw id is the IAVL key) that every node then walks in
+	// AfterValidatorRemoved. Gate on *registered*, not IsChainInboundEnabled:
+	// chain meta also feeds gas-price quoting for outbounds, so an inbound-only
+	// check would starve outbound-enabled chains.
+	if _, err := k.uregistryKeeper.GetChainConfig(ctx, observedChainId); err != nil {
+		k.Logger().Warn("chain meta vote rejected: chain not registered",
+			"chain_id", observedChainId,
+			"validator", universalValidator.String(),
+		)
+		return sdkerrors.Wrapf(err, "chain %s is not registered", observedChainId)
+	}
+
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	now := uint64(sdkCtx.BlockTime().Unix())
 

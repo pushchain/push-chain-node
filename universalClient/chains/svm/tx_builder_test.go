@@ -1,6 +1,7 @@
 package svm
 
 import (
+	"encoding/base64"
 	"context"
 	"crypto/ecdsa"
 	crand "crypto/rand"
@@ -1692,64 +1693,6 @@ func TestNewTxBuilder_ChainConfig(t *testing.T) {
 	})
 }
 
-func TestBuildCreateATAIdempotentInstruction(t *testing.T) {
-	builder := newTestBuilder(t)
-	payer := solana.NewWallet().PublicKey()
-	owner := solana.NewWallet().PublicKey()
-	mint := solana.NewWallet().PublicKey()
-
-	ix := builder.buildCreateATAIdempotentInstruction(payer, owner, mint)
-
-	t.Run("program ID is ATA program", func(t *testing.T) {
-		expected := solana.MustPublicKeyFromBase58("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
-		assert.Equal(t, expected, ix.ProgramID())
-	})
-
-	t.Run("has 6 accounts in correct order", func(t *testing.T) {
-		accounts := ix.Accounts()
-		require.Len(t, accounts, 6)
-
-		// payer (signer, writable)
-		assert.Equal(t, payer, accounts[0].PublicKey)
-		assert.True(t, accounts[0].IsSigner)
-		assert.True(t, accounts[0].IsWritable)
-
-		// ATA (writable, derived deterministically)
-		ataProgramID := solana.MustPublicKeyFromBase58("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
-		expectedATA, _, _ := solana.FindProgramAddress(
-			[][]byte{owner.Bytes(), solana.TokenProgramID.Bytes(), mint.Bytes()},
-			ataProgramID,
-		)
-		assert.Equal(t, expectedATA, accounts[1].PublicKey)
-		assert.True(t, accounts[1].IsWritable)
-		assert.False(t, accounts[1].IsSigner)
-
-		// owner
-		assert.Equal(t, owner, accounts[2].PublicKey)
-		assert.False(t, accounts[2].IsWritable)
-
-		// mint
-		assert.Equal(t, mint, accounts[3].PublicKey)
-		assert.False(t, accounts[3].IsWritable)
-
-		// system program
-		assert.Equal(t, solana.SystemProgramID, accounts[4].PublicKey)
-
-		// token program
-		assert.Equal(t, solana.TokenProgramID, accounts[5].PublicKey)
-	})
-
-	t.Run("instruction data is [1] for CreateIdempotent", func(t *testing.T) {
-		data, err := ix.Data()
-		require.NoError(t, err)
-		assert.Equal(t, []byte{1}, data)
-	})
-}
-
-// =============================================================================
-//  Ref-Finalize Route Tests
-// =============================================================================
-
 func TestDeriveStoredIxDataPDA(t *testing.T) {
 	builder := newTestBuilder(t)
 	subTxID := makeTxID(0xAB)
@@ -2158,7 +2101,9 @@ const (
 // Uses the hardcoded Solana relayer keypair (AdWDRaQfvWJqW4TaxTrXP5WogCWJMJBrtBfGjjHUDADM).
 func setupDevnetSimulation(t *testing.T) (*RPCClient, *TxBuilder) {
 
-	t.Skip("skipping simulation tests") // DELIBERATELY SKIPPING SIMULATION TESTS
+	if os.Getenv("RUN_SVM_SIM") != "1" {
+		t.Skip("skipping simulation tests; set RUN_SVM_SIM=1 to run against devnet")
+	}
 	t.Helper()
 	if testing.Short() {
 		t.Skip("skipping simulation test in short mode")
@@ -2456,14 +2401,7 @@ func buildAndSimulateRescue(t *testing.T, rpcClient *RPCClient, builder *TxBuild
 	gatewayIx := solana.NewInstruction(builder.gatewayAddress, accounts, instructionData)
 	computeLimitIx := builder.buildSetComputeUnitLimitInstruction(400000)
 
-	instructions := []solana.Instruction{computeLimitIx}
-	if !isNative {
-		createATAIx := builder.buildCreateATAIdempotentInstruction(
-			relayerKeypair.PublicKey(), recipientPubkey, mintPubkey,
-		)
-		instructions = append(instructions, createATAIx)
-	}
-	instructions = append(instructions, gatewayIx)
+	instructions := []solana.Instruction{computeLimitIx, gatewayIx}
 
 	recentBlockhash, err := rpcClient.GetRecentBlockhash(ctx)
 	require.NoError(t, err)
@@ -2870,4 +2808,531 @@ func TestVerifyBroadcastedTx_NotFoundVersusRPCFailure(t *testing.T) {
 		require.NoError(t, err)
 		assert.False(t, found)
 	})
+}
+
+// The gateway creates the recipient ATA and meters the rent into gas_used.
+// A create prepended here would put that cost outside the metered path, so the
+// built transaction must carry only the compute limit and the gateway call.
+func TestBuildOutboundTransaction_NoRecipientATACreate(t *testing.T) {
+	ataProgram := solana.MustPublicKeyFromBase58("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
+
+	for _, tc := range []struct {
+		name      string
+		txType    string
+		assetAddr string
+	}{
+		{"SPL withdraw", "FUNDS", solana.NewWallet().PublicKey().String()},
+		{"SPL revert", "INBOUND_REVERT", solana.NewWallet().PublicKey().String()},
+		{"native withdraw", "FUNDS", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			builder := newBlockhashOnlyBuilder(t)
+			data := &uetypes.OutboundCreatedEvent{
+				TxID:             "0x" + strings.Repeat("11", 32),
+				UniversalTxId:    "0x" + strings.Repeat("22", 32),
+				DestinationChain: "solana:devnet",
+				Sender:           "0x" + strings.Repeat("33", 20),
+				Recipient:        solana.NewWallet().PublicKey().String(),
+				Amount:           "1000",
+				AssetAddr:        tc.assetAddr,
+				GasLimit:         "400000",
+				GasFee:           "3000000",
+				TxType:           tc.txType,
+				SigningDeadline:  time.Now().Unix() + 600,
+			}
+			req := &common.UnsignedSigningReq{SigningHash: make([]byte, 32), Nonce: 0}
+
+			tx, _, err := builder.BuildOutboundTransaction(context.Background(), req, data, make([]byte, 65))
+			require.NoError(t, err)
+			require.NotNil(t, tx)
+
+			require.Len(t, tx.Message.Instructions, 2, "expected only compute limit and the gateway call")
+			for i, ix := range tx.Message.Instructions {
+				program, err := tx.Message.Program(ix.ProgramIDIndex)
+				require.NoError(t, err)
+				assert.NotEqual(t, ataProgram, program, "instruction %d creates an ATA", i)
+			}
+		})
+	}
+}
+
+// newBlockhashOnlyBuilder answers the single RPC BuildOutboundTransaction makes.
+// No ALTs are configured, so address-table lookup short-circuits offline.
+func newBlockhashOnlyBuilder(t *testing.T) *TxBuilder {
+	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.Contains(string(body), `"getHealth"`):
+			_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":"ok"}`))
+		case strings.Contains(string(body), `"getLatestBlockhash"`):
+			_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":{"context":{"slot":1},` +
+				`"value":{"blockhash":"9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM","lastValidBlockHeight":100}}}`))
+		default:
+			_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":null}`))
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	rpcClient, err := NewRPCClient([]string{server.URL}, "", zerolog.Nop())
+	require.NoError(t, err)
+	t.Cleanup(func() { rpcClient.Close() })
+
+	tmpDir := t.TempDir()
+	relayerDir := filepath.Join(tmpDir, "relayer")
+	require.NoError(t, os.MkdirAll(relayerDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(relayerDir, "solana.json"), []byte(testSolanaKeypairJSON), 0o600))
+
+	builder, err := NewTxBuilder(rpcClient, "solana:devnet", testGatewayAddress, tmpDir, zerolog.Nop(), nil)
+	require.NoError(t, err)
+	return builder
+}
+
+
+
+// ---------------------------------------------------------------------------
+// Empty-recipient parking sentinel (F-2026-18184)
+//
+// The PC gateway documents bytes("") as "park funds in the caller's CEA".
+// Core hex-encodes the raw event bytes unconditionally, so that reaches the
+// builder as the string "0x". The builder used to reject it pre-sign, which
+// stranded the outbound PENDING forever with the PRC20 already burned.
+// ---------------------------------------------------------------------------
+
+// parkedCEA returns the CEA PDA the gateway derives for sender — the address a
+// parked recipient must resolve to. Derived independently of resolveRecipient
+// so the test pins the seed rather than the implementation.
+func parkedCEA(t *testing.T, gateway solana.PublicKey, sender [20]byte) solana.PublicKey {
+	t.Helper()
+	pda, _, err := solana.FindProgramAddress([][]byte{[]byte("push_identity"), sender[:]}, gateway)
+	require.NoError(t, err)
+	return pda
+}
+
+func TestIsParkedRecipient(t *testing.T) {
+	tests := []struct {
+		name      string
+		recipient string
+		want      bool
+	}{
+		{"core's encoding of bytes(\"\")", "0x", true},
+		{"bare empty string", "", true},
+		{"uppercase prefix", "0X", true},
+		{"surrounding whitespace", "  0x  ", true},
+		{"one zero byte is a real value, not the sentinel", "0x00", false},
+		{"32 zero bytes is a real pubkey, not the sentinel", "0x" + strings.Repeat("00", 32), false},
+		{"base58 pubkey", testGatewayAddress, false},
+		{"32-byte hex pubkey", "0x" + strings.Repeat("ab", 32), false},
+		{"garbage", "not-an-address", false},
+		{"lone 0", "0", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, isParkedRecipient(tt.recipient))
+		})
+	}
+}
+
+func TestResolveRecipient(t *testing.T) {
+	builder := newTestBuilder(t)
+	sender := makeSender(0xCC)
+	expectedCEA := parkedCEA(t, builder.gatewayAddress, sender)
+
+	t.Run("sentinel resolves to the sender's CEA PDA", func(t *testing.T) {
+		pubkey, parked, err := builder.resolveRecipient("0x", sender)
+		require.NoError(t, err)
+		assert.True(t, parked)
+		assert.Equal(t, expectedCEA, pubkey)
+	})
+
+	t.Run("CEA is per-sender", func(t *testing.T) {
+		other, _, err := builder.resolveRecipient("0x", makeSender(0xDD))
+		require.NoError(t, err)
+		assert.NotEqual(t, expectedCEA, other)
+	})
+
+	t.Run("base58 recipient parses unchanged", func(t *testing.T) {
+		wallet := solana.NewWallet().PublicKey()
+		pubkey, parked, err := builder.resolveRecipient(wallet.String(), sender)
+		require.NoError(t, err)
+		assert.False(t, parked)
+		assert.Equal(t, wallet, pubkey)
+	})
+
+	t.Run("32-byte hex recipient parses unchanged", func(t *testing.T) {
+		wallet := solana.NewWallet().PublicKey()
+		pubkey, parked, err := builder.resolveRecipient("0x"+hex.EncodeToString(wallet.Bytes()), sender)
+		require.NoError(t, err)
+		assert.False(t, parked)
+		assert.Equal(t, wallet, pubkey)
+	})
+
+	t.Run("malformed recipient still errors", func(t *testing.T) {
+		_, parked, err := builder.resolveRecipient("not-an-address", sender)
+		assert.False(t, parked, "a real parse failure must not be mistaken for parking")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid recipient address format")
+	})
+
+	t.Run("short hex is not 32 bytes and still errors", func(t *testing.T) {
+		_, _, err := builder.resolveRecipient("0xdeadbeef", sender)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid recipient address format")
+	})
+}
+
+func TestCheckParkedRecipientScope(t *testing.T) {
+	t.Run("parking is accepted on withdraw only", func(t *testing.T) {
+		require.NoError(t, checkParkedRecipientScope(true, 1))
+		for _, id := range []uint8{0, 2, 3, 4} {
+			err := checkParkedRecipientScope(true, id)
+			require.Error(t, err, "instruction_id=%d", id)
+			assert.Contains(t, err.Error(), "only valid for withdraw")
+		}
+	})
+
+	t.Run("a real recipient is never scoped", func(t *testing.T) {
+		for _, id := range []uint8{0, 1, 2, 3, 4} {
+			require.NoError(t, checkParkedRecipientScope(false, id), "instruction_id=%d", id)
+		}
+	})
+}
+
+// newParkingRPCBuilder drives the real RPCClient against a local JSON-RPC
+// server answering the two calls the outbound path makes: getAccountInfo (the
+// TSS PDA, for the chain id bound into the signed message) and
+// getLatestBlockhash (transaction assembly). The relayer keypair is written to
+// disk so BuildOutboundTransaction can sign.
+func newParkingRPCBuilder(t *testing.T, tssChainID string) *TxBuilder {
+	t.Helper()
+
+	tssData := buildMockTSSPDAData([20]byte{}, tssChainID, 255)
+	accountInfoResp := fmt.Sprintf(
+		`{"jsonrpc":"2.0","id":1,"result":{"context":{"slot":1},"value":{"data":["%s","base64"],"executable":false,"lamports":1,"owner":"11111111111111111111111111111111","rentEpoch":0,"space":%d}}}`,
+		base64.StdEncoding.EncodeToString(tssData), len(tssData),
+	)
+	blockhash := makeTxID(0x42)
+	blockhashResp := fmt.Sprintf(
+		`{"jsonrpc":"2.0","id":1,"result":{"context":{"slot":1},"value":{"blockhash":"%s","lastValidBlockHeight":100}}}`,
+		solana.Hash(blockhash).String(),
+	)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.Contains(string(body), `"getHealth"`):
+			_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":"ok"}`))
+		case strings.Contains(string(body), `"getAccountInfo"`):
+			_, _ = w.Write([]byte(accountInfoResp))
+		case strings.Contains(string(body), `"getLatestBlockhash"`):
+			_, _ = w.Write([]byte(blockhashResp))
+		default:
+			_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":null}`))
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	rpcClient, err := NewRPCClient([]string{server.URL}, "", zerolog.Nop())
+	require.NoError(t, err)
+
+	tmpDir := t.TempDir()
+	relayerDir := filepath.Join(tmpDir, "relayer")
+	require.NoError(t, os.MkdirAll(relayerDir, 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(relayerDir, "solana.json"),
+		[]byte(testSolanaKeypairJSON),
+		0o600,
+	))
+
+	builder, err := NewTxBuilder(rpcClient, "solana:devnet", testGatewayAddress, tmpDir, zerolog.Nop(), nil)
+	require.NoError(t, err)
+	return builder
+}
+
+// parkingTestSender is the 20-byte EVM sender used by the outbound fixtures.
+var parkingTestSender = makeSender(0x7E)
+
+// newWithdrawEvent is the happy withdraw template: native SOL, positive amount,
+// empty payload — the exact shape a PRC20 withdraw to Solana produces
+// (_fetchTxType: no payload + funds => TX_TYPE.FUNDS => instruction_id 1).
+func newWithdrawEvent(recipient string) *uetypes.OutboundCreatedEvent {
+	txID := makeTxID(0xA1)
+	utxID := makeTxID(0xB2)
+	return &uetypes.OutboundCreatedEvent{
+		TxID:             "0x" + hex.EncodeToString(txID[:]),
+		UniversalTxId:    "0x" + hex.EncodeToString(utxID[:]),
+		DestinationChain: "solana:devnet",
+		Sender:           "0x" + hex.EncodeToString(parkingTestSender[:]),
+		Recipient:        recipient,
+		Amount:           "1000000",
+		AssetAddr:        "0x0000000000000000000000000000000000000000",
+		GasFee:           "5000",
+		SigningDeadline:  1735689600,
+		TxType:           "FUNDS",
+	}
+}
+
+// expectedWithdrawHash is the TSS message hash for the withdraw template with
+// target as the bound target_program. For withdraw with an empty payload the
+// builder copies the recipient into target_program, so this pins which pubkey
+// the signature commits to.
+func expectedWithdrawHash(t *testing.T, tb *TxBuilder, tssChainID string, target solana.PublicKey) []byte {
+	t.Helper()
+	txID := makeTxID(0xA1)
+	utxID := makeTxID(0xB2)
+	var targetProgram [32]byte
+	copy(targetProgram[:], target.Bytes())
+
+	hash, err := tb.constructTSSMessage(
+		1, tssChainID, 1735689600, 1000000,
+		txID, utxID, parkingTestSender, [32]byte{}, 5000,
+		targetProgram, nil, nil,
+		[32]byte{}, [32]byte{}, nil,
+	)
+	require.NoError(t, err)
+	return hash
+}
+
+func TestGetOutboundSigningRequest_ParkedRecipient(t *testing.T) {
+	const tssChainID = "devnet"
+	builder := newParkingRPCBuilder(t, tssChainID)
+	ctx := context.Background()
+	cea := parkedCEA(t, builder.gatewayAddress, parkingTestSender)
+
+	t.Run("sentinel signs against the sender's CEA", func(t *testing.T) {
+		req, err := builder.GetOutboundSigningRequest(ctx, newWithdrawEvent("0x"), 0)
+		require.NoError(t, err, "a parked recipient must produce a signing request, not strand the outbound")
+		require.NotNil(t, req)
+		assert.Equal(t,
+			expectedWithdrawHash(t, builder, tssChainID, cea),
+			req.SigningHash,
+			"signed target_program must be the CEA PDA for [\"push_identity\", sender]",
+		)
+	})
+
+	t.Run("base58 recipient is unaffected", func(t *testing.T) {
+		wallet := solana.NewWallet().PublicKey()
+		req, err := builder.GetOutboundSigningRequest(ctx, newWithdrawEvent(wallet.String()), 0)
+		require.NoError(t, err)
+		assert.Equal(t, expectedWithdrawHash(t, builder, tssChainID, wallet), req.SigningHash)
+		assert.NotEqual(t, expectedWithdrawHash(t, builder, tssChainID, cea), req.SigningHash)
+	})
+
+	t.Run("32-byte hex recipient is unaffected", func(t *testing.T) {
+		wallet := solana.NewWallet().PublicKey()
+		ev := newWithdrawEvent("0x" + hex.EncodeToString(wallet.Bytes()))
+		req, err := builder.GetOutboundSigningRequest(ctx, ev, 0)
+		require.NoError(t, err)
+		assert.Equal(t, expectedWithdrawHash(t, builder, tssChainID, wallet), req.SigningHash)
+	})
+
+	t.Run("malformed recipient still errors", func(t *testing.T) {
+		_, err := builder.GetOutboundSigningRequest(ctx, newWithdrawEvent("not-an-address"), 0)
+		require.Error(t, err, "the sentinel must not become a catch-all that swallows real parse failures")
+		assert.Contains(t, err.Error(), "invalid recipient address format")
+	})
+}
+
+// Parking is a withdraw-only convention. On execute the recipient is the
+// program to CPI into, and on revert/rescue it is an observed source-chain
+// address that can never be the sentinel — so an empty recipient there is a
+// malformed outbound and must stay an error.
+func TestGetOutboundSigningRequest_ParkedRecipientScopedToWithdraw(t *testing.T) {
+	const tssChainID = "devnet"
+	builder := newParkingRPCBuilder(t, tssChainID)
+	ctx := context.Background()
+
+	t.Run("execute (id=2) rejects the sentinel", func(t *testing.T) {
+		ev := newWithdrawEvent("0x")
+		ev.TxType = "FUNDS_AND_PAYLOAD"
+		ev.Payload = buildExecutePayloadForTest(t, []GatewayAccountMeta{}, []byte{0xDE, 0xAD}, 2, makeTxID(0x99))
+		_, err := builder.GetOutboundSigningRequest(ctx, ev, 0)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "only valid for withdraw")
+	})
+
+	t.Run("revert (id=3) rejects the sentinel", func(t *testing.T) {
+		ev := newWithdrawEvent("0x")
+		ev.TxType = "INBOUND_REVERT"
+		_, err := builder.GetOutboundSigningRequest(ctx, ev, 0)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "only valid for withdraw")
+	})
+
+	t.Run("rescue (id=4) rejects the sentinel", func(t *testing.T) {
+		ev := newWithdrawEvent("0x")
+		ev.TxType = "RESCUE_FUNDS"
+		_, err := builder.GetOutboundSigningRequest(ctx, ev, 0)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "only valid for withdraw")
+	})
+
+	t.Run("withdraw payload (id=1) accepts the sentinel", func(t *testing.T) {
+		ev := newWithdrawEvent("0x")
+		ev.Payload = buildExecutePayloadForTest(t, []GatewayAccountMeta{}, nil, 1, [32]byte{})
+		_, err := builder.GetOutboundSigningRequest(ctx, ev, 0)
+		require.NoError(t, err)
+	})
+
+	t.Run("ref route rejects the sentinel — execute-only", func(t *testing.T) {
+		ev := newWithdrawEvent("0x")
+		ev.TxType = "FUNDS_AND_PAYLOAD"
+		ev.Payload = buildExecutePayloadForTest(t, []GatewayAccountMeta{}, []byte{0xDE, 0xAD}, 2, makeTxID(0x99))
+		_, _, _, err := builder.BuildRefRouteTransactions(
+			ctx,
+			&common.UnsignedSigningReq{SigningHash: make([]byte, 32)},
+			ev,
+			make([]byte, 65),
+		)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "only valid for withdraw")
+	})
+}
+
+// BuildOutboundTransaction re-parses the event independently of
+// GetOutboundSigningRequest. If the two disagreed the accounts list would not
+// match the pubkey already bound into the TSS signature, so the built tx must
+// carry the same CEA.
+func TestBuildOutboundTransaction_ParkedRecipient(t *testing.T) {
+	const tssChainID = "devnet"
+	builder := newParkingRPCBuilder(t, tssChainID)
+	ctx := context.Background()
+	cea := parkedCEA(t, builder.gatewayAddress, parkingTestSender)
+
+	req, err := builder.GetOutboundSigningRequest(ctx, newWithdrawEvent("0x"), 0)
+	require.NoError(t, err)
+
+	tx, instructionID, err := builder.BuildOutboundTransaction(ctx, req, newWithdrawEvent("0x"), make([]byte, 65))
+	require.NoError(t, err, "a parked recipient must build a broadcastable tx")
+	require.NotNil(t, tx)
+	assert.Equal(t, uint8(1), instructionID)
+
+	// Account #4 is cea_authority and #9 is the withdraw recipient (native SOL
+	// layout). Parking makes them the same PDA — that is what tells the gateway
+	// to leave the funds where finalize already staged them.
+	gatewayIx := tx.Message.Instructions[len(tx.Message.Instructions)-1]
+	metas, err := gatewayIx.ResolveInstructionAccounts(&tx.Message)
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(metas), 9)
+	assert.Equal(t, cea, metas[3].PublicKey, "cea_authority slot")
+	assert.Equal(t, cea, metas[8].PublicKey, "recipient slot must be the CEA when parked")
+}
+
+// The parked path must be structurally valid against the deployed gateway, not
+// just against our own mocks. The devnet TSS PDA holds a real signer, so a test
+// signature can never pass tss.rs. That still pins what we need: Anchor
+// validates every account constraint before the handler runs, so reaching
+// TssAuthFailed proves the program accepted our cea_authority derivation
+// against its own `seeds = [CEA_SEED, push_account]`. A wrong PDA would fail
+// earlier, with ConstraintSeeds, and never reach the signature check.
+func TestSimulate_Withdraw_ParkedRecipient(t *testing.T) {
+	rpcClient, builder := setupDevnetSimulation(t)
+	defer rpcClient.Close()
+
+	withdrawPayload := "0x" + hex.EncodeToString(buildMockWithdrawPayload())
+
+	stageOf := func(recipient string) string {
+		data, evmKey := newDevnetOutbound(t, "1000000", "", withdrawPayload, "", "FUNDS")
+		if recipient != "" {
+			data.Recipient = recipient
+		}
+		result, err := buildAndSimulate(t, rpcClient, builder, data, evmKey)
+		require.NoError(t, err, "the parked recipient must build and reach the cluster")
+		require.NotNil(t, result)
+		return fmt.Sprintf("%v", result.Err)
+	}
+
+	parked := stageOf("0x")
+	normal := stageOf("")
+	t.Logf("parked on-chain result: %s", parked)
+	t.Logf("normal on-chain result: %s", normal)
+
+	assert.Equal(t, normal, parked,
+		"a parked withdraw must reach the same on-chain stage as an ordinary one")
+	assert.NotContains(t, parked, "2006", "ConstraintSeeds means the CEA derivation disagrees with the gateway")
+}
+
+// legacyResolveRecipient is the parsing that ran at both call sites before the
+// sentinel was introduced, kept verbatim as an oracle. Every recipient that
+// works today must resolve through the new path to the same pubkey.
+func legacyResolveRecipient(recipient string) (solana.PublicKey, error) {
+	pk, err := solana.PublicKeyFromBase58(recipient)
+	if err != nil {
+		hexBytes, hexErr := hex.DecodeString(removeHexPrefix(recipient))
+		if hexErr != nil || len(hexBytes) != 32 {
+			return solana.PublicKey{}, fmt.Errorf("invalid recipient address format (expected Solana Pubkey): %s", recipient)
+		}
+		pk = solana.PublicKeyFromBytes(hexBytes)
+	}
+	return pk, nil
+}
+
+func TestResolveRecipient_MatchesPreSentinelBehaviour(t *testing.T) {
+	builder := newParkingRPCBuilder(t, "devnet")
+	wallet := solana.NewWallet().PublicKey()
+
+	cases := []string{
+		wallet.String(),
+		"AdWDRaQfvWJqW4TaxTrXP5WogCWJMJBrtBfGjjHUDADM",
+		"11111111111111111111111111111111",
+		solana.SystemProgramID.String(),
+		"0x" + hex.EncodeToString(wallet.Bytes()),
+		hex.EncodeToString(wallet.Bytes()),
+		"0x" + hex.EncodeToString(make([]byte, 32)),
+		"not-an-address",
+		"0xdeadbeef",
+		"0x" + hex.EncodeToString(make([]byte, 20)),
+	}
+
+	for _, recipient := range cases {
+		t.Run(recipient, func(t *testing.T) {
+			want, wantErr := legacyResolveRecipient(recipient)
+			got, parked, gotErr := builder.resolveRecipient(recipient, parkingTestSender)
+
+			assert.False(t, parked, "a non-empty recipient must never be treated as the sentinel")
+			if wantErr != nil {
+				require.Error(t, gotErr, "an input rejected before must still be rejected")
+				assert.Equal(t, wantErr.Error(), gotErr.Error())
+				return
+			}
+			require.NoError(t, gotErr, "an input accepted before must still be accepted")
+			assert.Equal(t, want, got, "resolved pubkey drifted from pre-sentinel behaviour")
+		})
+	}
+}
+
+// Frozen hashes. The signing hash is what the TSS signs and what the gateway
+// re-derives, so a change here is a consensus break, not a test update.
+func TestGetOutboundSigningRequest_GoldenHashes(t *testing.T) {
+	builder := newParkingRPCBuilder(t, "devnet")
+	ctx := context.Background()
+
+	t.Run("ordinary base58 recipient", func(t *testing.T) {
+		req, err := builder.GetOutboundSigningRequest(ctx, newWithdrawEvent("AdWDRaQfvWJqW4TaxTrXP5WogCWJMJBrtBfGjjHUDADM"), 0)
+		require.NoError(t, err)
+		assert.Equal(t,
+			"ba5378d8db7d82a64e3b5770845cc06356974cc020618ae2ab65cd2d027b5f5c",
+			hex.EncodeToString(req.SigningHash),
+		)
+	})
+
+	t.Run("parked recipient", func(t *testing.T) {
+		req, err := builder.GetOutboundSigningRequest(ctx, newWithdrawEvent("0x"), 0)
+		require.NoError(t, err)
+		assert.Equal(t,
+			"c2ef605c5e3ce32a8c6b7f3db4898741c0fbeef464660970a2487191f55e4403",
+			hex.EncodeToString(req.SigningHash),
+		)
+	})
+}
+
+// The scope check runs on every instruction id, so it has to be invisible to
+// outbounds carrying a real recipient.
+func TestCheckParkedRecipientScope_AllowsEveryInstructionWhenNotParked(t *testing.T) {
+	for id := uint8(0); id <= 5; id++ {
+		require.NoError(t, checkParkedRecipientScope(false, id), "instruction_id=%d", id)
+	}
 }

@@ -53,6 +53,8 @@ type EVMKeeper interface {
 		args ...interface{},
 	) (*types.MsgEthereumTxResponse, error)
 	GetCodeHash(ctx sdk.Context, addr common.Address) common.Hash
+	// GetNonce returns the account nonce (auth sequence) the EVM sees for addr.
+	GetNonce(ctx sdk.Context, addr common.Address) uint64
 }
 
 // FeeMarketKeeper defines the expected interface for the fee market module.
@@ -94,6 +96,9 @@ type BankKeeper interface {
 // AccountKeeper defines the expected interface for the auth module
 type AccountKeeper interface {
 	GetModuleAccount(ctx context.Context, moduleName string) sdk.ModuleAccountI
+	// SetAccount persists an account. Used to keep the uexecutor module
+	// account's EVM nonce in step with the nonce handed to DerivedEVMCall.
+	SetAccount(ctx context.Context, acc sdk.AccountI)
 }
 
 type UValidatorKeeper interface {

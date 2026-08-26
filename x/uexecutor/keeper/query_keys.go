@@ -12,12 +12,28 @@ import (
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
+// maxQueryTxHashLen bounds the tx_hash accepted by the unauthenticated key
+// derivation queries. Longest real value is an 88-char base58 Solana signature.
+const maxQueryTxHashLen = 128
+
 // InboundKeys derives the canonical UTX id and inbound ballot id for the given
 // inbound, applying the same canonicalization the vote path uses. Lets off-chain
 // validators read the keys from the chain instead of re-implementing the rules.
 func (k Querier) InboundKeys(goCtx context.Context, req *types.QueryInboundKeysRequest) (*types.QueryInboundKeysResponse, error) {
 	if req == nil || req.Inbound == nil {
 		return nil, status.Error(codes.InvalidArgument, "inbound is required")
+	}
+	// This endpoint is unauthenticated, reads no state and so consumes no gas.
+	// Bound the one field that drives a decode (tx_hash) rather than trusting
+	// the caller. The limit is far above any real hash — 88 chars for a base58
+	// Solana signature, 66 for 0x-prefixed EVM — so it rejects only garbage.
+	// Deliberately not applied to raw_payload / verification_data, which are
+	// legitimately long, nor pushed down into utils.Canonicalize*: the vote
+	// path must stay lenient (a malformed inbound still has to produce a UTX),
+	// and changing shared canonicalization would alter ballot keys.
+	if n := len(req.Inbound.TxHash); n > maxQueryTxHashLen {
+		return nil, status.Errorf(codes.InvalidArgument,
+			"tx_hash too long: %d chars (max %d)", n, maxQueryTxHashLen)
 	}
 
 	inbound := *req.Inbound

@@ -2159,7 +2159,9 @@ const (
 // Uses the hardcoded Solana relayer keypair (AdWDRaQfvWJqW4TaxTrXP5WogCWJMJBrtBfGjjHUDADM).
 func setupDevnetSimulation(t *testing.T) (*RPCClient, *TxBuilder) {
 
-	t.Skip("skipping simulation tests") // DELIBERATELY SKIPPING SIMULATION TESTS
+	if os.Getenv("RUN_SVM_SIM") != "1" {
+		t.Skip("skipping simulation tests; set RUN_SVM_SIM=1 to run against devnet")
+	}
 	t.Helper()
 	if testing.Short() {
 		t.Skip("skipping simulation test in short mode")
@@ -3201,4 +3203,120 @@ func TestBuildOutboundTransaction_ParkedRecipient(t *testing.T) {
 	require.GreaterOrEqual(t, len(metas), 9)
 	assert.Equal(t, cea, metas[3].PublicKey, "cea_authority slot")
 	assert.Equal(t, cea, metas[8].PublicKey, "recipient slot must be the CEA when parked")
+}
+
+// The parked path must be structurally valid against the deployed gateway, not
+// just against our own mocks. The devnet TSS PDA holds a real signer, so a test
+// signature can never pass tss.rs. That still pins what we need: Anchor
+// validates every account constraint before the handler runs, so reaching
+// TssAuthFailed proves the program accepted our cea_authority derivation
+// against its own `seeds = [CEA_SEED, push_account]`. A wrong PDA would fail
+// earlier, with ConstraintSeeds, and never reach the signature check.
+func TestSimulate_Withdraw_ParkedRecipient(t *testing.T) {
+	rpcClient, builder := setupDevnetSimulation(t)
+	defer rpcClient.Close()
+
+	withdrawPayload := "0x" + hex.EncodeToString(buildMockWithdrawPayload())
+
+	stageOf := func(recipient string) string {
+		data, evmKey := newDevnetOutbound(t, "1000000", "", withdrawPayload, "", "FUNDS")
+		if recipient != "" {
+			data.Recipient = recipient
+		}
+		result, err := buildAndSimulate(t, rpcClient, builder, data, evmKey)
+		require.NoError(t, err, "the parked recipient must build and reach the cluster")
+		require.NotNil(t, result)
+		return fmt.Sprintf("%v", result.Err)
+	}
+
+	parked := stageOf("0x")
+	normal := stageOf("")
+	t.Logf("parked on-chain result: %s", parked)
+	t.Logf("normal on-chain result: %s", normal)
+
+	assert.Equal(t, normal, parked,
+		"a parked withdraw must reach the same on-chain stage as an ordinary one")
+	assert.NotContains(t, parked, "2006", "ConstraintSeeds means the CEA derivation disagrees with the gateway")
+}
+
+// legacyResolveRecipient is the parsing that ran at both call sites before the
+// sentinel was introduced, kept verbatim as an oracle. Every recipient that
+// works today must resolve through the new path to the same pubkey.
+func legacyResolveRecipient(recipient string) (solana.PublicKey, error) {
+	pk, err := solana.PublicKeyFromBase58(recipient)
+	if err != nil {
+		hexBytes, hexErr := hex.DecodeString(removeHexPrefix(recipient))
+		if hexErr != nil || len(hexBytes) != 32 {
+			return solana.PublicKey{}, fmt.Errorf("invalid recipient address format (expected Solana Pubkey): %s", recipient)
+		}
+		pk = solana.PublicKeyFromBytes(hexBytes)
+	}
+	return pk, nil
+}
+
+func TestResolveRecipient_MatchesPreSentinelBehaviour(t *testing.T) {
+	builder := newParkingRPCBuilder(t, "devnet")
+	wallet := solana.NewWallet().PublicKey()
+
+	cases := []string{
+		wallet.String(),
+		"AdWDRaQfvWJqW4TaxTrXP5WogCWJMJBrtBfGjjHUDADM",
+		"11111111111111111111111111111111",
+		solana.SystemProgramID.String(),
+		"0x" + hex.EncodeToString(wallet.Bytes()),
+		hex.EncodeToString(wallet.Bytes()),
+		"0x" + hex.EncodeToString(make([]byte, 32)),
+		"not-an-address",
+		"0xdeadbeef",
+		"0x" + hex.EncodeToString(make([]byte, 20)),
+	}
+
+	for _, recipient := range cases {
+		t.Run(recipient, func(t *testing.T) {
+			want, wantErr := legacyResolveRecipient(recipient)
+			got, parked, gotErr := builder.resolveRecipient(recipient, parkingTestSender)
+
+			assert.False(t, parked, "a non-empty recipient must never be treated as the sentinel")
+			if wantErr != nil {
+				require.Error(t, gotErr, "an input rejected before must still be rejected")
+				assert.Equal(t, wantErr.Error(), gotErr.Error())
+				return
+			}
+			require.NoError(t, gotErr, "an input accepted before must still be accepted")
+			assert.Equal(t, want, got, "resolved pubkey drifted from pre-sentinel behaviour")
+		})
+	}
+}
+
+// Frozen hashes. The signing hash is what the TSS signs and what the gateway
+// re-derives, so a change here is a consensus break, not a test update.
+func TestGetOutboundSigningRequest_GoldenHashes(t *testing.T) {
+	builder := newParkingRPCBuilder(t, "devnet")
+	ctx := context.Background()
+
+	t.Run("ordinary base58 recipient", func(t *testing.T) {
+		req, err := builder.GetOutboundSigningRequest(ctx, newWithdrawEvent("AdWDRaQfvWJqW4TaxTrXP5WogCWJMJBrtBfGjjHUDADM"), 0)
+		require.NoError(t, err)
+		assert.Equal(t,
+			"ba5378d8db7d82a64e3b5770845cc06356974cc020618ae2ab65cd2d027b5f5c",
+			hex.EncodeToString(req.SigningHash),
+		)
+	})
+
+	t.Run("parked recipient", func(t *testing.T) {
+		req, err := builder.GetOutboundSigningRequest(ctx, newWithdrawEvent("0x"), 0)
+		require.NoError(t, err)
+		assert.Equal(t,
+			"c2ef605c5e3ce32a8c6b7f3db4898741c0fbeef464660970a2487191f55e4403",
+			hex.EncodeToString(req.SigningHash),
+		)
+	})
+}
+
+// The scope check runs on every instruction id, so it has to be invisible to
+// outbounds carrying a real recipient.
+func TestCheckParkedRecipientScope_AllowsEveryInstructionWhenNotParked(t *testing.T) {
+	for id := uint8(0); id <= 5; id++ {
+		require.NoError(t, checkParkedRecipientScope(false, id), "instruction_id=%d", id)
+	}
 }

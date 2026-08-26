@@ -37,6 +37,10 @@ func NewCosmosAnteHandler(ctx sdk.Context, options HandlerOptions) sdk.AnteHandl
 		),
 
 		ante.NewSetUpContextDecorator(),
+		// Gasless txs pay no fee, so the fee is not a bound on the gas they
+		// declare. Cap it explicitly, before NewGasWantedDecorator adds the
+		// declared gas to the block's cumulative gas wanted.
+		NewGaslessGasLimitDecorator(options.UexecutorKeeper),
 		wasmkeeper.NewLimitSimulationGasDecorator(options.WasmConfig.SimulationGasLimit), // after setup context to enforce limits early
 		wasmkeeper.NewCountTXDecorator(options.TXCounterStoreService),
 		wasmkeeper.NewGasRegisterDecorator(options.WasmKeeper.GetGasRegister()),

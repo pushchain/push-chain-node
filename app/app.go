@@ -1220,6 +1220,7 @@ func NewChainApp(
 		CircuitKeeper:         &app.CircuitKeeper,
 
 		EvmKeeper:              app.EVMKeeper,
+		UexecutorKeeper:        app.UexecutorKeeper,
 		ExtensionOptionChecker: antetypes.HasDynamicFeeExtensionOption,
 		SigGasConsumer:         cosmosevmante.SigVerificationGasConsumer,
 		MaxTxGasWanted:         cast.ToUint64(appOpts.Get(srvflags.EVMMaxTxGasWanted)),

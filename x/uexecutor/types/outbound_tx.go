@@ -57,7 +57,12 @@ func (p OutboundTx) ValidateBasic() error {
 		if strings.TrimSpace(p.Amount) == "" {
 			return errors.Wrap(sdkerrors.ErrInvalidRequest, "amount cannot be empty for funds tx")
 		}
-		if bi, ok := new(big.Int).SetString(p.Amount, 10); !ok || bi.Sign() <= 0 {
+		// Length-capped, range-checked uint256 parse — see F-2026-18798.
+		bi, err := ValidateUint256String(p.Amount, "amount must be a valid positive uint256")
+		if err != nil {
+			return err
+		}
+		if bi.Sign() <= 0 {
 			return errors.Wrap(sdkerrors.ErrInvalidRequest, "amount must be a valid positive uint256")
 		}
 	}

@@ -292,12 +292,16 @@ func TestInboundGas(t *testing.T) {
 					"revert outbound amount must match inbound amount")
 				require.Equal(t, inbound.AssetAddr, ob.ExternalAssetAddr,
 					"revert outbound asset must match inbound asset")
-				require.Equal(t, uexecutortypes.Status_PENDING, ob.OutboundStatus,
-					"revert outbound should start in PENDING status")
-
-				// Gas fields are populated from UniversalCore if chain meta is set.
-				// In test env without VoteChainMeta, they may be zero/empty — that's OK,
-				// the outbound is still created (graceful degradation).
+				// The UniversalCore stub deployed by the integration harness cannot
+				// serve getOutboundTxGasAndFees, so the revert's gas metadata is
+				// unresolvable here and the outbound is recorded ABORTED rather than
+				// queued for a signature it could never receive. The resolvable
+				// (PENDING) path is covered by
+				// x/uexecutor/keeper/build_revert_outbound_test.go.
+				require.Equal(t, uexecutortypes.Status_ABORTED, ob.OutboundStatus,
+					"a revert with unresolvable gas metadata must be ABORTED, not PENDING")
+				require.NotEmpty(t, ob.AbortReason, "ABORTED revert must carry a reason")
+				requireNotQueuedForSigning(t, chainApp, ctx, ob.Id)
 				// When chain meta IS set, these will be populated.
 				break
 			}
@@ -464,7 +468,10 @@ func TestInboundGas(t *testing.T) {
 			if ob.TxType == uexecutortypes.TxType_INBOUND_REVERT {
 				foundRevert = true
 				require.Equal(t, inbound.SourceChain, ob.DestinationChain)
-				require.Equal(t, uexecutortypes.Status_PENDING, ob.OutboundStatus)
+				// Gas metadata is unresolvable against the harness's UniversalCore stub,
+				// so the revert is recorded ABORTED instead of entering the signing queue.
+				require.Equal(t, uexecutortypes.Status_ABORTED, ob.OutboundStatus)
+				requireNotQueuedForSigning(t, chainApp, ctx, ob.Id)
 				break
 			}
 		}

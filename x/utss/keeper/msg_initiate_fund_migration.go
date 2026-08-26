@@ -91,11 +91,19 @@ func (k Keeper) InitiateFundMigration(ctx context.Context, oldKeyId, chain, bala
 		return 0, fmt.Errorf("failed to get l1 gas fee for chain %s: %w", chain, err)
 	}
 
-	// 8. Create migration record
-	migrationId, err := k.NextMigrationId.Next(ctx)
+	// 8. Create migration record.
+	//
+	// Ids are allocated as sequence + 1, so the first migration on a chain is 1
+	// and never 0. MsgVoteFundMigration.ValidateBasic treats migration_id == 0
+	// as "unset" and rejects the message, so a migration stored under id 0
+	// could never be voted on: it would stay in PendingMigrations forever and
+	// block every later migration for that chain (F-2026-18789). Keeping 0
+	// reserved for "unset" also keeps that ValidateBasic guard meaningful.
+	seq, err := k.NextMigrationId.Next(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get next migration id: %w", err)
 	}
+	migrationId := seq + 1
 
 	// Derive the sweep amount from the observed balance and the fees just
 	// fetched. Rejecting here turns a balance that cannot cover its own transfer

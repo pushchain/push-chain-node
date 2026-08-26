@@ -189,7 +189,18 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 
 	// --- create revert ONLY for pre-deposit / deposit failures (non-isCEA path)
 	if execErr != nil && shouldRevert {
-		revertOutbound := k.buildRevertOutbound(sdkCtx, utx.InboundTx)
+		revertOutbound, buildErr := k.buildRevertOutbound(sdkCtx, utx.InboundTx)
+		if buildErr != nil {
+			// The revert is still attached (recorded ABORTED) so the attempt stays
+			// auditable and the UTX becomes eligible for rescue.
+			k.Logger().Error("revert outbound could not be fully built",
+				"utx_id", universalTxKey,
+				"error", buildErr.Error(),
+			)
+		}
+		if revertOutbound == nil {
+			return nil
+		}
 
 		if attachErr := k.attachOutboundsToUtx(
 			sdkCtx,

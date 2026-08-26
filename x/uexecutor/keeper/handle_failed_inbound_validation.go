@@ -44,7 +44,18 @@ func (k Keeper) handleFailedInboundValidation(sdkCtx sdk.Context, utx types.Univ
 			"source_chain", inbound.SourceChain,
 			"amount", inbound.Amount,
 		)
-		revertOutbound := k.buildRevertOutbound(sdkCtx, inbound)
+		revertOutbound, buildErr := k.buildRevertOutbound(sdkCtx, inbound)
+		if buildErr != nil {
+			// The revert is still attached (recorded ABORTED) so the attempt stays
+			// auditable and the UTX becomes eligible for rescue.
+			k.Logger().Error("revert outbound could not be fully built",
+				"utx_key", universalTxKey,
+				"error", buildErr.Error(),
+			)
+		}
+		if revertOutbound == nil {
+			return nil
+		}
 
 		if attachErr := k.attachOutboundsToUtx(
 			sdkCtx,

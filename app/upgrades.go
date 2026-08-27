@@ -23,6 +23,7 @@ import (
 	evmv040 "github.com/pushchain/push-chain-node/app/upgrades/evm-v0-4-0"
 	evmv050 "github.com/pushchain/push-chain-node/app/upgrades/evm-v0-5-0"
 	evmv060 "github.com/pushchain/push-chain-node/app/upgrades/evm-v0-6-0"
+	evmv062 "github.com/pushchain/push-chain-node/app/upgrades/evm-v0-6-2"
 	feeabs "github.com/pushchain/push-chain-node/app/upgrades/fee-abs"
 	gasoracle "github.com/pushchain/push-chain-node/app/upgrades/gas-oracle"
 	"github.com/pushchain/push-chain-node/app/upgrades/noop"
@@ -88,6 +89,7 @@ var Upgrades = []upgrades.Upgrade{
 	securityauditfixes.NewUpgrade(),
 	// cosmos/evm v0.6.0 — runs the standard transfer module v5->v6 migration
 	evmv060.NewUpgrade(),
+	evmv062.NewUpgrade(),
 	// pc20 — no-op binary swap; VAULT_PC/VAULT_PC20 deployed separately from EVM side
 	pc20.NewUpgrade(),
 	// sdk-v0.53 — Cosmos SDK v0.50.10 -> v0.53.7; no-op (no module ConsensusVersion changes)

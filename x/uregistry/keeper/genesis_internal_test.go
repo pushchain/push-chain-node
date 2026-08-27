@@ -27,6 +27,16 @@ func (s stubEVMKeeper) GetAccount(_ sdk.Context, addr common.Address) *statedb.A
 	return s.accounts[addr]
 }
 
+// GetCodeHash mirrors the real keeper: absent or code-less accounts report the
+// empty-code-hash sentinel rather than a zero hash.
+func (s stubEVMKeeper) GetCodeHash(_ sdk.Context, addr common.Address) common.Hash {
+	acc := s.accounts[addr]
+	if acc == nil || len(acc.CodeHash) == 0 {
+		return common.BytesToHash(evmtypes.EmptyCodeHash)
+	}
+	return common.BytesToHash(acc.CodeHash)
+}
+
 func (stubEVMKeeper) SetAccount(_ sdk.Context, _ common.Address, _ statedb.Account) error {
 	panic("not used in test")
 }
@@ -66,19 +76,19 @@ func TestIsContractDeployed_RejectsEOAsAndAcceptsRealContracts(t *testing.T) {
 		// Untouched-style account with explicit nil CodeHash. Not a contract.
 		addrB: {
 			Nonce:    0,
-			Balance:  new(uint256.Int),
+			Balance:  uint256.NewInt(0),
 			CodeHash: nil,
 		},
 		// Account with empty (zero-length) CodeHash. Not a contract.
 		addrC: {
 			Nonce:    0,
-			Balance:  new(uint256.Int),
+			Balance:  uint256.NewInt(0),
 			CodeHash: []byte{},
 		},
 		// Real contract: CodeHash points to actual code.
 		addrD: {
 			Nonce:    1,
-			Balance:  new(uint256.Int),
+			Balance:  uint256.NewInt(0),
 			CodeHash: realCodeHash.Bytes(),
 		},
 		// addrMissing intentionally omitted from the map → GetAccount returns nil
@@ -102,7 +112,7 @@ func TestIsContractDeployed_RejectsEOAsAndAcceptsRealContracts(t *testing.T) {
 // test can assert which addresses got the triple.
 type trackerEVMKeeper struct {
 	accounts map[common.Address]statedb.Account
-	code     map[string][]byte // hex(codeHash) -> bytecode
+	code     map[string][]byte                       // hex(codeHash) -> bytecode
 	state    map[common.Address]map[common.Hash]common.Hash
 }
 
@@ -119,6 +129,14 @@ func (t *trackerEVMKeeper) GetAccount(_ sdk.Context, addr common.Address) *state
 		return &acc
 	}
 	return nil
+}
+
+func (t *trackerEVMKeeper) GetCodeHash(_ sdk.Context, addr common.Address) common.Hash {
+	acc, ok := t.accounts[addr]
+	if !ok || len(acc.CodeHash) == 0 {
+		return common.BytesToHash(evmtypes.EmptyCodeHash)
+	}
+	return common.BytesToHash(acc.CodeHash)
 }
 
 func (t *trackerEVMKeeper) SetAccount(_ sdk.Context, addr common.Address, account statedb.Account) error {
@@ -151,7 +169,7 @@ func (t *trackerEVMKeeper) SetCode(_ sdk.Context, codeHash, code []byte) {
 //  3. The implementation address has non-empty CodeHash.
 //  4. The ProxyAdmin's storage slot 0 (Ownable.owner) is set to
 //     PROXY_ADMIN_OWNER_ADDRESS_HEX (the F-2026-16998 EOA owner — same for all
-//     47 ProxyAdmins). This is the load-bearing assertion for the
+//     46 ProxyAdmins). This is the load-bearing assertion for the
 //     "single owner controls every system-contract upgrade" trust assumption.
 //  5. The proxy's EIP-1967 admin slot points to the right ProxyAdmin
 //     (PROXY_ADMIN_SLOT) and impl slot points to the right implementation
@@ -265,7 +283,8 @@ func TestDeploySystemContracts_AllReservedSlotsInABCRangeAreCovered(t *testing.T
 
 	// Slots in A/B/C that uregistry does NOT own:
 	//   0xAA — uexecutor PROXY_ADMIN (deployed by uexecutor's own genesis)
-	uregistryDoesNotOwn := map[byte]bool{0xAA: true}
+	//   0xCA — USigVerifier legacy precompile (precompile dispatch beats EVM state)
+	uregistryDoesNotOwn := map[byte]bool{0xAA: true, 0xCA: true}
 
 	for _, hi := range []byte{0xA, 0xB, 0xC} {
 		for lo := byte(0); lo < 0x10; lo++ {

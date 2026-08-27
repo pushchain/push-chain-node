@@ -186,8 +186,8 @@ const (
 	NodeDir      = ".pchain"
 	Bech32Prefix = "push"
 
-	ChainID    = "localchain_9000-1"
-	EVMChainID = uint64(9000)
+	ChainID    = "push_42101-1"
+	EVMChainID = uint64(42101)
 )
 
 var (
@@ -837,8 +837,17 @@ func NewChainApp(
 		appCodec,
 	)
 
-	// usigverifier precompile (0xEC..01) — core precompile range
-	usigverifierPrecompileV2, err := usigverifierprecompile.NewPrecompile()
+	// Add the usigverifier precompile for Ed25519 verification (old address: 0xCA)
+	usigverifierPrecompile, err := usigverifierprecompile.NewPrecompile()
+	if err != nil {
+		panic(fmt.Errorf("failed to instantiate usigverifier precompile: %w", err))
+	}
+	corePrecompiles[usigverifierPrecompile.Address()] = usigverifierPrecompile
+
+	// New address (0xEC..01) — reserved Push precompile range.
+	// Both old and new addresses are registered simultaneously for backward compatibility
+	// with deployed contracts that have old addresses hardcoded in their bytecode.
+	usigverifierPrecompileV2, err := usigverifierprecompile.NewPrecompileV2()
 	if err != nil {
 		panic(fmt.Errorf("failed to instantiate usigverifier v2 precompile: %w", err))
 	}
@@ -1490,24 +1499,6 @@ func (a *ChainApp) DefaultGenesis() map[string]json.RawMessage {
 	mintGenState.Params.MintDenom = BaseDenom
 	genesis[minttypes.ModuleName] = a.appCodec.MustMarshalJSON(mintGenState)
 
-	// Register bank denom metadata for the EVM base denom. In cosmos/evm v0.5
-	// the EVM module's InitGenesis derives coin info (decimals/display) from this
-	// metadata via LoadEvmCoinInfo, so a fresh chain must carry it in genesis.
-	var bankGenState banktypes.GenesisState
-	a.appCodec.MustUnmarshalJSON(genesis[banktypes.ModuleName], &bankGenState)
-	bankGenState.DenomMetadata = append(bankGenState.DenomMetadata, banktypes.Metadata{
-		Description: "Native token of Push Chain",
-		DenomUnits: []*banktypes.DenomUnit{
-			{Denom: BaseDenom, Exponent: 0},
-			{Denom: DisplayDenom, Exponent: 18},
-		},
-		Base:    BaseDenom,
-		Display: DisplayDenom,
-		Name:    "Push Chain",
-		Symbol:  "PC",
-	})
-	genesis[banktypes.ModuleName] = a.appCodec.MustMarshalJSON(&bankGenState)
-
 	evmGenState := evmtypes.DefaultGenesisState()
 	evmGenState.Params.ActiveStaticPrecompiles = evmtypes.AvailableStaticPrecompiles
 	evmGenState.Params.EvmDenom = BaseDenom
@@ -1659,7 +1650,7 @@ func BlockedAddresses() map[string]bool {
 	}
 
 	for _, precompile := range blockedPrecompilesHex {
-		blockedAddrs[cosmosevmutils.EthHexToCosmosAddr(precompile).String()] = true
+		blockedAddrs[cosmosevmutils.Bech32StringFromHexAddress(precompile)] = true
 	}
 
 	return blockedAddrs

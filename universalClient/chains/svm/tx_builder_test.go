@@ -1,11 +1,11 @@
 package svm
 
 import (
-	"encoding/base64"
 	"context"
 	"crypto/ecdsa"
 	crand "crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
@@ -1224,6 +1224,74 @@ func TestBuildWithdrawAndExecuteAccounts(t *testing.T) {
 		acc2 := accounts[totalRequired+1]
 		assert.Equal(t, solana.PublicKeyFromBytes(expectedPk2[:]), acc2.PublicKey)
 		assert.False(t, acc2.IsWritable)
+	})
+}
+
+// The gateway creates the recipient ATA itself now, but it can only do that if
+// we hand it recipient_ata, rent and the ATA program in the slots its Accounts
+// struct declares. Dropping any of them breaks an SPL withdraw to a fresh
+// recipient on chain, which no amount of local building would reveal.
+func TestBuildWithdrawAndExecuteAccounts_SPLSlots(t *testing.T) {
+	builder := newTestBuilder(t)
+
+	caller := solana.NewWallet().PublicKey()
+	config := solana.NewWallet().PublicKey()
+	vault := solana.NewWallet().PublicKey()
+	cea := solana.NewWallet().PublicKey()
+	tss := solana.NewWallet().PublicKey()
+	executed := solana.NewWallet().PublicKey()
+	recipient := solana.NewWallet().PublicKey()
+	mint := solana.NewWallet().PublicKey()
+
+	accounts := builder.buildWithdrawAndExecuteAccounts(
+		caller, config, vault, cea, tss, executed,
+		solana.SystemProgramID,
+		false, 1,
+		recipient, mint,
+		nil,
+		solana.PublicKey{}, solana.PublicKey{},
+	)
+	require.Len(t, accounts, 20)
+
+	wantVaultATA, _, err := solana.FindAssociatedTokenAddress(vault, mint)
+	require.NoError(t, err)
+	wantCeaATA, _, err := solana.FindAssociatedTokenAddress(cea, mint)
+	require.NoError(t, err)
+	wantRecipientATA, _, err := solana.FindAssociatedTokenAddress(recipient, mint)
+	require.NoError(t, err)
+
+	for _, tc := range []struct {
+		slot     int
+		name     string
+		want     solana.PublicKey
+		writable bool
+	}{
+		{8, "recipient", recipient, true},
+		{9, "vault_ata", wantVaultATA, true},
+		{10, "cea_ata", wantCeaATA, true},
+		{11, "mint", mint, false},
+		{12, "token_program", solana.TokenProgramID, false},
+		{13, "rent", solana.SysVarRentPubkey, false},
+		{14, "associated_token_program", solana.SPLAssociatedTokenAccountProgramID, false},
+		{15, "recipient_ata", wantRecipientATA, true},
+	} {
+		assert.Equal(t, tc.want, accounts[tc.slot].PublicKey, "slot %d is %s", tc.slot, tc.name)
+		assert.Equal(t, tc.writable, accounts[tc.slot].IsWritable, "slot %d (%s) writability", tc.slot, tc.name)
+		assert.False(t, accounts[tc.slot].IsSigner, "slot %d (%s) must not sign", tc.slot, tc.name)
+	}
+
+	t.Run("execute leaves recipient and recipient_ata unset", func(t *testing.T) {
+		exec := builder.buildWithdrawAndExecuteAccounts(
+			caller, config, vault, cea, tss, executed,
+			solana.NewWallet().PublicKey(),
+			false, 2,
+			recipient, mint,
+			nil,
+			solana.PublicKey{}, solana.PublicKey{},
+		)
+		assert.Equal(t, builder.gatewayAddress, exec[8].PublicKey, "recipient is None for execute")
+		assert.Equal(t, builder.gatewayAddress, exec[15].PublicKey, "recipient_ata is None for execute")
+		assert.Equal(t, wantCeaATA, exec[10].PublicKey, "cea_ata is still real for execute")
 	})
 }
 
@@ -2888,8 +2956,6 @@ func newBlockhashOnlyBuilder(t *testing.T) *TxBuilder {
 	require.NoError(t, err)
 	return builder
 }
-
-
 
 // ---------------------------------------------------------------------------
 // Empty-recipient parking sentinel (F-2026-18184)

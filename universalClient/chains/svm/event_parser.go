@@ -138,8 +138,7 @@ func parseOutboundObservationEvent(log string, signature string, slot uint64, lo
 		return nil
 	}
 
-	// gas_used is the last fixed field this parser reads, so one check covers
-	// every earlier read too.
+	// gas_used is the last field read, so one check covers the earlier ones.
 	if len(decoded) < gasUsedOffset+8 {
 		logger.Warn().
 			Int("data_len", len(decoded)).
@@ -159,7 +158,7 @@ func parseOutboundObservationEvent(log string, signature string, slot uint64, lo
 		Uint64("slot", slot).
 		Msg("processing outboundObservation event")
 
-	// All three events share the first two fields: disc(8) sub_tx_id(32) universal_tx_id(32).
+	// Shared prefix: disc(8) sub_tx_id(32) universal_tx_id(32).
 	txID := "0x" + hex.EncodeToString(decoded[8:40])
 	universalTxID := "0x" + hex.EncodeToString(decoded[40:72])
 	gasUsed := binary.LittleEndian.Uint64(decoded[gasUsedOffset : gasUsedOffset+8])

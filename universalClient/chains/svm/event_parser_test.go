@@ -205,7 +205,7 @@ func TestParseEvent_Routing(t *testing.T) {
 	})
 
 	t.Run("revert_universal_tx routes to outbound parser", func(t *testing.T) {
-		// Its own layout: gas_used sits further in than the finalize event's.
+		// Revert puts gas_used further in than finalize does.
 		revertLog := wrapAsLog(buildRevertPayload(txID, utxID, 5000))
 		event := ParseEvent(revertLog, sig, 100, 0, EventTypeRevertUniversalTx, chainID, logger)
 		require.NotNil(t, event)
@@ -232,9 +232,8 @@ func TestParseEvent_Routing(t *testing.T) {
 	})
 }
 
-// Each outbound event has its own gas_used offset, so "long enough" differs by
-// type. A revert-length check applied to a revert payload is the case that
-// would silently read the wrong field if the offsets were shared.
+// Each outbound event has its own gas_used offset, so "long enough" differs
+// by type.
 func TestParseOutboundObservationEvent_LengthIsPerEventType(t *testing.T) {
 	logger := nopLogger()
 	chainID := "solana:devnet"
@@ -263,8 +262,7 @@ func TestParseOutboundObservationEvent_LengthIsPerEventType(t *testing.T) {
 	})
 }
 
-// The three offsets are what the deployed program's layout dictates, so pin
-// them against a payload where every field is distinguishable.
+// Each event type must read gas_used from its own offset.
 func TestParseOutboundObservationEvent_ReadsItsOwnOffset(t *testing.T) {
 	logger := nopLogger()
 	var txID, utxID [32]byte

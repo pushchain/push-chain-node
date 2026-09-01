@@ -296,15 +296,10 @@ func (el *EventListener) processSignatureBatch(
 			continue
 		}
 
-		// The gateway emits through emit_cpi, so events arrive as self-CPI inner
-		// instructions rather than "Program data:" logs. That puts them outside
-		// the log buffer, so a chatty destination CPI can no longer truncate a
-		// terminal event away, and the emitter is the inner instruction's own
-		// program id rather than something inferred from the log nesting.
-		// A failed transaction still records the logs and inner instructions that
-		// ran before it aborted, while every state change is rolled back. Reading
-		// an event out of one would vote success for a transfer that never
-		// happened.
+		// Events come from emit_cpi inner instructions, not logs, so log
+		// truncation cannot drop one.
+		// A failed tx still records what ran before it aborted, and all of it was
+		// rolled back.
 		if tx != nil && tx.Meta != nil && tx.Meta.Err != nil {
 			el.logger.Debug().
 				Str("signature", sig.Signature.String()).
@@ -411,14 +406,12 @@ func (el *EventListener) getPollingInterval() time.Duration {
 // eventIxTag prefixes the data of every Anchor emit_cpi instruction.
 var eventIxTag = []byte{0xe4, 0x45, 0xa5, 0x2e, 0x51, 0xcb, 0x9a, 0x1d}
 
-// gatewayEventPayloads returns the gateway's emit_cpi events, rendered in the
-// same "Program data:" form the parsers take. The data of such an instruction
-// is eventIxTag || discriminator || borsh, so dropping the tag leaves exactly
-// the bytes a "Program data:" line used to carry.
+// gatewayEventPayloads returns the gateway's emit_cpi events in the
+// "Program data:" form the parsers take. Event data is eventIxTag ||
+// discriminator || borsh, so dropping the tag leaves the old payload.
 //
-// Only inner instructions whose own program id is the gateway are read, which
-// is what makes the emitter unforgeable: a discriminator is a schema tag, so
-// any program could previously log a lookalike gateway event.
+// Only instructions the gateway itself ran are read. A discriminator is a
+// schema tag, not proof of who emitted it.
 func gatewayEventPayloads(tx *solanarpc.GetTransactionResult, gatewayAddress string) []string {
 	if tx == nil || tx.Meta == nil || len(tx.Meta.InnerInstructions) == 0 {
 		return nil
@@ -432,8 +425,7 @@ func gatewayEventPayloads(tx *solanarpc.GetTransactionResult, gatewayAddress str
 		return nil
 	}
 
-	// Account indexes span the static keys followed by anything the tx pulled in
-	// through an address lookup table, in that order.
+	// Index order: static keys, then ALT writable, then ALT readonly.
 	keys := append(solana.PublicKeySlice{}, parsed.Message.AccountKeys...)
 	keys = append(keys, tx.Meta.LoadedAddresses.Writable...)
 	keys = append(keys, tx.Meta.LoadedAddresses.ReadOnly...)

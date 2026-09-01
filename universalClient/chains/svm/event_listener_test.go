@@ -691,13 +691,12 @@ type forgeryRPC struct {
 	slot   uint64
 	sig    solana.Signature
 	txJSON string
-	sigErr interface{}
 }
 
 func (m *forgeryRPC) GetLatestSlot(context.Context) (uint64, error) { return m.slot, nil }
 
 func (m *forgeryRPC) GetSignaturesForAddress(context.Context, solana.PublicKey, solana.Signature) ([]*solanarpc.TransactionSignature, error) {
-	return []*solanarpc.TransactionSignature{{Signature: m.sig, Slot: m.slot, Err: m.sigErr}}, nil
+	return []*solanarpc.TransactionSignature{{Signature: m.sig, Slot: m.slot}}, nil
 }
 
 func (m *forgeryRPC) GetTransaction(context.Context, solana.Signature) (*solanarpc.GetTransactionResult, error) {
@@ -792,18 +791,18 @@ func TestProcessSignatureBatch_SkipsFailedTransactions(t *testing.T) {
 		{Name: EventTypeSendFunds, EventIdentifier: "0000000000000000"},
 	}
 
-	run := func(t *testing.T, sigErr interface{}, txJSON string) int {
+	run := func(t *testing.T, txJSON string) int {
 		t.Helper()
 		database, err := db.OpenInMemoryDB(true)
 		require.NoError(t, err)
 		t.Cleanup(func() { database.Close() })
 
-		rpc := &forgeryRPC{slot: 100, sig: mkSig(7), txJSON: txJSON, sigErr: sigErr}
+		rpc := &forgeryRPC{slot: 100, sig: mkSig(7), txJSON: txJSON}
 		el, err := NewEventListener(rpc, testGatewayProgram, "solana:test", methods, database, 10, nil, zerolog.Nop())
 		require.NoError(t, err)
 
 		_, err = el.processSignatureBatch(context.Background(), []*solanarpc.TransactionSignature{
-			{Signature: mkSig(7), Slot: 100, Err: sigErr},
+			{Signature: mkSig(7), Slot: 100},
 		}, 0, 200)
 		require.NoError(t, err)
 
@@ -815,19 +814,14 @@ func TestProcessSignatureBatch_SkipsFailedTransactions(t *testing.T) {
 	ok := txWithEmittedEvent(t, testGatewayProgram, payload, nil)
 
 	t.Run("succeeded transaction is stored", func(t *testing.T) {
-		assert.Equal(t, 1, run(t, nil, ok))
+		assert.Equal(t, 1, run(t, ok))
 	})
 
-	t.Run("signature reported as failed is skipped", func(t *testing.T) {
-		assert.Zero(t, run(t, map[string]interface{}{"InstructionError": []interface{}{0.0}}, ok),
-			"an event emitted before the abort must not be observed")
-	})
-
-	t.Run("meta reporting failure is skipped", func(t *testing.T) {
+	t.Run("failed transaction is skipped", func(t *testing.T) {
 		failed := strings.Replace(ok, `"err": null`, `"err": {"InstructionError":[0,{"Custom":6020}]}`, 1)
-		require.NotEqual(t, ok, failed)
-		assert.Zero(t, run(t, nil, failed),
-			"the tx-level error must be honoured even if the signature listing looked clean")
+		require.NotEqual(t, ok, failed, "the fixture must actually carry a failure")
+		assert.Zero(t, run(t, failed),
+			"an event emitted before the abort must not be observed")
 	})
 }
 

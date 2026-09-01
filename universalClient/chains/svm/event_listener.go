@@ -286,17 +286,6 @@ func (el *EventListener) processSignatureBatch(
 		}
 		processed++
 
-		// A failed transaction still records the logs and inner instructions that
-		// ran before it aborted, while every state change is rolled back. Reading
-		// an event out of one would vote success for a transfer that never
-		// happened, so drop it before it is ever fetched.
-		if sig.Err != nil {
-			el.logger.Debug().
-				Str("signature", sig.Signature.String()).
-				Msg("skipping failed transaction")
-			continue
-		}
-
 		// Get transaction details
 		tx, err := el.rpcClient.GetTransaction(ctx, sig.Signature)
 		if err != nil {
@@ -312,6 +301,10 @@ func (el *EventListener) processSignatureBatch(
 		// the log buffer, so a chatty destination CPI can no longer truncate a
 		// terminal event away, and the emitter is the inner instruction's own
 		// program id rather than something inferred from the log nesting.
+		// A failed transaction still records the logs and inner instructions that
+		// ran before it aborted, while every state change is rolled back. Reading
+		// an event out of one would vote success for a transfer that never
+		// happened.
 		if tx != nil && tx.Meta != nil && tx.Meta.Err != nil {
 			el.logger.Debug().
 				Str("signature", sig.Signature.String()).

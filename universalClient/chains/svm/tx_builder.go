@@ -925,7 +925,8 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 	// --- Assemble the Solana transaction ---
 	// Instructions in order:
 	//   1. SetComputeUnitLimit — tells the runtime how many compute units to allocate
-	//   2. The actual gateway instruction (withdraw/execute/revert)
+	//   2. (revert/rescue SPL only) CreateAssociatedTokenAccountIdempotent
+	//   3. The actual gateway instruction (withdraw/execute/revert)
 
 	gatewayInstruction := solana.NewInstruction(
 		tb.gatewayAddress,
@@ -938,9 +939,16 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 	computeLimitIx := tb.buildSetComputeUnitLimitInstruction(defaultComputeUnitLimit)
 
 	// Build the instruction list.
-	// The recipient ATA is created by the gateway, which meters the rent into
-	// gas_used. Creating it here left that cost outside the metered path.
-	instructions := []solana.Instruction{computeLimitIx, gatewayInstruction}
+	// Withdraw (1) is created and metered by the gateway. Revert (3) and rescue
+	// (4) take the gateway's legacy SPL branch, which transfers into the
+	// recipient token account without creating it, so we still create it here.
+	instructions := []solana.Instruction{computeLimitIx}
+	if !isNative && (instructionID == 3 || instructionID == 4) {
+		instructions = append(instructions, tb.buildCreateATAIdempotentInstruction(
+			relayerKeypair.PublicKey(), recipientPubkey, mintPubkey,
+		))
+	}
+	instructions = append(instructions, gatewayInstruction)
 
 	// Get a recent blockhash — Solana uses this instead of nonces for transaction expiry.
 	// Transactions expire after ~60-90 seconds if not confirmed.
@@ -2372,6 +2380,32 @@ func (tb *TxBuilder) buildCloseStoredIxDataAccounts(caller, storedIxDataPDA, exe
 		{PublicKey: caller, IsWritable: true, IsSigner: false},
 		{PublicKey: executedSubTxPDA, IsWritable: false, IsSigner: false},
 	}
+}
+
+// buildCreateATAIdempotentInstruction creates the recipient's ATA if absent
+// (no-op if present). Needed on the revert and rescue paths only: the gateway
+// creates the recipient ATA for withdraw but not on its legacy SPL branch.
+func (tb *TxBuilder) buildCreateATAIdempotentInstruction(
+	payer solana.PublicKey,
+	owner solana.PublicKey,
+	mint solana.PublicKey,
+) solana.Instruction {
+	ata, _, _ := solana.FindProgramAddress(
+		[][]byte{owner.Bytes(), solana.TokenProgramID.Bytes(), mint.Bytes()},
+		solana.SPLAssociatedTokenAccountProgramID,
+	)
+
+	accounts := []*solana.AccountMeta{
+		{PublicKey: payer, IsWritable: true, IsSigner: true},
+		{PublicKey: ata, IsWritable: true, IsSigner: false},
+		{PublicKey: owner, IsWritable: false, IsSigner: false},
+		{PublicKey: mint, IsWritable: false, IsSigner: false},
+		{PublicKey: solana.SystemProgramID, IsWritable: false, IsSigner: false},
+		{PublicKey: solana.TokenProgramID, IsWritable: false, IsSigner: false},
+	}
+
+	// 0 = Create (fails if exists), 1 = CreateIdempotent.
+	return solana.NewInstruction(solana.SPLAssociatedTokenAccountProgramID, accounts, []byte{1})
 }
 
 // =============================================================================

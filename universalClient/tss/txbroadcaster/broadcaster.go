@@ -7,7 +7,7 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/pushchain/push-chain-node/universalClient/chains"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
 	"github.com/pushchain/push-chain-node/universalClient/tss/txflow"
@@ -15,14 +15,14 @@ import (
 
 type Config struct {
 	EventStore    *eventstore.Store
-	Chains        *chains.Chains
+	Chains        *externalchains.Chains
 	CheckInterval time.Duration
 	Logger        zerolog.Logger
 }
 
 type Broadcaster struct {
 	eventStore    *eventstore.Store
-	chains        *chains.Chains
+	chains        *externalchains.Chains
 	checkInterval time.Duration
 	logger        zerolog.Logger
 }

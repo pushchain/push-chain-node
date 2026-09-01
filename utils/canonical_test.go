@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	ethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/require"
 
@@ -207,4 +208,55 @@ func TestCanonicalizeTxHashByNamespace_Solana_OversizedInputDoesNotDecode(t *tes
 	require.Equal(t, huge, got, "out-of-band input must pass through unchanged")
 	require.Less(t, elapsed, time.Second,
 		"oversized base58 tx_hash must not be decoded (took %s)", elapsed)
+}
+
+// AddressToBytes32: an EVM address goes into the low 20 bytes (bytes32(uint160(addr))).
+func TestAddressToBytes32_EVM_LowAligned(t *testing.T) {
+	addr := "0x000000000000000000000000000000000000dEaD"
+	h, err := utils.AddressToBytes32("eip155:11155111", addr)
+	require.NoError(t, err)
+	require.Equal(t, ethcommon.HexToAddress(addr).Bytes(), h.Bytes()[12:], "address occupies the low 20 bytes")
+	require.Equal(t, make([]byte, 12), h.Bytes()[:12], "high 12 bytes are zero")
+
+	// Case-insensitive input converges to the same key.
+	h2, err := utils.AddressToBytes32("eip155:11155111", "0x000000000000000000000000000000000000dead")
+	require.NoError(t, err)
+	require.Equal(t, h, h2)
+}
+
+// AddressToBytes32: a Solana pubkey is the raw 32 bytes, and base58 vs 0x-hex of
+// the same pubkey converge to the same key.
+func TestAddressToBytes32_Solana(t *testing.T) {
+	raw := make([]byte, 32)
+	for i := range raw {
+		raw[i] = byte(i + 1)
+	}
+	const solChain = "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"
+
+	hB58, err := utils.AddressToBytes32(solChain, base58.Encode(raw))
+	require.NoError(t, err)
+	require.Equal(t, raw, hB58.Bytes(), "solana pubkey is the raw 32 bytes")
+
+	hHex, err := utils.AddressToBytes32(solChain, "0x"+hex.EncodeToString(raw))
+	require.NoError(t, err)
+	require.Equal(t, hB58, hHex, "base58 and 0x-hex of the same pubkey converge")
+}
+
+// AddressToBytes32 validates the address against the chain and rejects mismatches.
+func TestAddressToBytes32_Rejects(t *testing.T) {
+	cases := []struct {
+		name, chain, addr string
+	}{
+		{"base58 on an EVM chain", "eip155:1", "So11111111111111111111111111111111111111112"},
+		{"20-byte EVM addr on a Solana chain", "solana:x", "0x000000000000000000000000000000000000dEaD"},
+		{"malformed EVM (wrong length)", "eip155:1", "0x1234"},
+		{"empty", "eip155:1", ""},
+		{"unsupported namespace", "cosmos:1", "0x000000000000000000000000000000000000dEaD"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := utils.AddressToBytes32(tc.chain, tc.addr)
+			require.Error(t, err)
+		})
+	}
 }

@@ -69,3 +69,19 @@ var RescueFundsOnSourceChainEventSig = crypto.Keccak256Hash([]byte(
 // UniversalPayload struct because that struct is variable length; a flat number
 // is auditable and stable.
 const MaxUniversalPayloadBytes = 128 * 1024
+
+// PC20Selector and PRC20Selector are the 4-byte magic selectors the gateway
+// prepends to a payload so the chain can route PC20 vs PRC20 without a new event
+// or TxType. Values are the 0x-stripped, lower-hex ASCII encodings and MUST stay
+// in sync with the gateway's PC_20_SELECTOR / PRC_20_SELECTOR
+// (push-chain-gateway-contracts/contracts/evm-gateway/src/libraries/Types.sol).
+const (
+	// PC20Selector = ASCII "PC20" (0x50433230): a PC20 flow (lock native -> mint
+	// wrapper on export; burn wrapper -> unlock native on return).
+	PC20Selector = "50433230"
+	// PRC20Selector = ASCII "PRC2" (0x50524332): a PRC20 flow.
+	PRC20Selector = "50524332"
+	// selectorHexLen is the hex length of a 4-byte selector (8 chars). Both
+	// selectors are 4 bytes, so selector stripping uses this shared length.
+	selectorHexLen = len(PC20Selector)
+)

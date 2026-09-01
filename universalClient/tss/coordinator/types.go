@@ -3,7 +3,7 @@ package coordinator
 import (
 	"context"
 
-	"github.com/pushchain/push-chain-node/universalClient/chains/common"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
 )
 
 // SendFunc sends `data` to `peerID` over the p2p network.

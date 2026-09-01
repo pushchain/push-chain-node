@@ -1,0 +1,90 @@
+syntax = "proto3";
+package ucallback.v1;
+
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+import "cosmos/base/query/v1beta1/pagination.proto";
+import "ucallback/v1/genesis.proto";
+import "ucallback/v1/types.proto";
+
+option go_package = "github.com/pushchain/push-chain-node/x/ucallback/types";
+
+// Query provides defines the gRPC querier service.
+service Query {
+  // Params queries all parameters of the module.
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/ucallback/v1/params";
+  }
+
+  // AllPendingReadRequests lists read requests still awaiting an observation.
+  // This is the endpoint universal validators poll.
+  rpc AllPendingReadRequests(QueryAllPendingReadRequestsRequest) returns (QueryAllPendingReadRequestsResponse) {
+    option (google.api.http).get = "/ucallback/v1/pending_read_requests";
+  }
+
+  // UniversalRead returns one read by request id, at any point in its lifecycle.
+  rpc UniversalRead(QueryUniversalReadRequest) returns (QueryUniversalReadResponse) {
+    option (google.api.http).get = "/ucallback/v1/universal_reads/{request_id}";
+  }
+
+  // AllAbortedReadRequests lists reads the chain gave up on. These need manual
+  // intervention: the contract may still hold them as pending and the funder's
+  // refund is unsettled.
+  rpc AllAbortedReadRequests(QueryAllAbortedReadRequestsRequest) returns (QueryAllAbortedReadRequestsResponse) {
+    option (google.api.http).get = "/ucallback/v1/aborted_read_requests";
+  }
+
+  // ReadsByTxHash returns every read requested by one Push transaction. A single
+  // transaction can emit several ReadRequested logs; this reassembles that batch.
+  rpc ReadsByTx(QueryReadsByTxRequest) returns (QueryReadsByTxResponse) {
+    option (google.api.http).get = "/ucallback/v1/reads_by_tx/{tx_hash}";
+  }
+}
+
+// QueryParamsRequest is the request type for the Query/Params RPC method.
+message QueryParamsRequest {}
+
+// QueryParamsResponse is the response type for the Query/Params RPC method.
+message QueryParamsResponse {
+  // params defines the parameters of the module.
+  Params params = 1;
+}
+
+message QueryAllPendingReadRequestsRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+message QueryAllPendingReadRequestsResponse {
+  // Reads that are unsettled AND not yet past their expiry height. Requests past
+  // expiry are withheld here even before the sweeper retires them, so validators
+  // never take on work that can no longer be fulfilled in time.
+  repeated UniversalRead reads = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+message QueryUniversalReadRequest {
+  string request_id = 1;
+}
+
+message QueryUniversalReadResponse {
+  UniversalRead read = 1 [(gogoproto.nullable) = false];
+}
+
+message QueryReadsByTxRequest {
+  string tx_hash = 1;
+}
+
+message QueryReadsByTxResponse {
+  // Every read the transaction requested, settled or not, in request-id order.
+  repeated UniversalRead reads = 1 [(gogoproto.nullable) = false];
+}
+
+message QueryAllAbortedReadRequestsRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+message QueryAllAbortedReadRequestsResponse {
+  // Reads whose expiry call never landed. Each carries error_msg explaining why.
+  repeated UniversalRead reads = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}

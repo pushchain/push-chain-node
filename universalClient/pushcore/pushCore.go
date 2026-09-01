@@ -16,6 +16,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/cosmos/cosmos-sdk/x/authz"
+	ucallbacktypes "github.com/pushchain/push-chain-node/x/ucallback/types"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
@@ -34,6 +35,7 @@ type Client struct {
 	uvalidatorClients []uvalidatortypes.QueryClient // Universal validator query clients
 	utssClients       []utsstypes.QueryClient       // TSS query clients
 	uexecutorClients  []uexecutortypes.QueryClient  // Executor query clients (for gas price queries)
+	ucallbackClients  []ucallbacktypes.QueryClient  // Callback query clients (for pending read requests)
 	cmtClients        []cmtservice.ServiceClient    // CometBFT service clients
 	txClients         []tx.ServiceClient            // Transaction service clients
 	authzClients      []authz.QueryClient           // AuthZ query clients
@@ -65,6 +67,7 @@ func New(urls []string, logger zerolog.Logger) (*Client, error) {
 		c.uvalidatorClients = append(c.uvalidatorClients, uvalidatortypes.NewQueryClient(conn))
 		c.utssClients = append(c.utssClients, utsstypes.NewQueryClient(conn))
 		c.uexecutorClients = append(c.uexecutorClients, uexecutortypes.NewQueryClient(conn))
+		c.ucallbackClients = append(c.ucallbackClients, ucallbacktypes.NewQueryClient(conn))
 		c.cmtClients = append(c.cmtClients, cmtservice.NewServiceClient(conn))
 		c.txClients = append(c.txClients, tx.NewServiceClient(conn))
 		c.authzClients = append(c.authzClients, authz.NewQueryClient(conn))
@@ -93,6 +96,7 @@ func (c *Client) Close() error {
 	c.uvalidatorClients = nil
 	c.utssClients = nil
 	c.uexecutorClients = nil
+	c.ucallbackClients = nil
 	c.cmtClients = nil
 	c.txClients = nil
 	c.authzClients = nil
@@ -470,6 +474,31 @@ func (c *Client) GetAllPendingOutbounds(ctx context.Context) ([]*uexecutortypes.
 		Msg("pending outbound page cap reached; the remainder is read on the next poll")
 
 	return entries, outbounds, nil
+}
+
+// GetAllPendingReadRequests retrieves up to the first 1000 pending external read
+// requests from Push Chain. The query already withholds requests past their expiry
+// height, so validators never take on work that can no longer be fulfilled in time.
+func (c *Client) GetAllPendingReadRequests(ctx context.Context) ([]*ucallbacktypes.ReadRequest, error) {
+	return retryWithRoundRobin(
+		len(c.ucallbackClients),
+		&c.rr,
+		func(idx int) ([]*ucallbacktypes.ReadRequest, error) {
+			resp, err := c.ucallbackClients[idx].AllPendingReadRequests(ctx, &ucallbacktypes.QueryAllPendingReadRequestsRequest{
+				Pagination: &query.PageRequest{Limit: 1000},
+			})
+			if err != nil {
+				return nil, err
+			}
+			requests := make([]*ucallbacktypes.ReadRequest, 0, len(resp.Reads))
+			for i := range resp.Reads {
+				requests = append(requests, resp.Reads[i].Request)
+			}
+			return requests, nil
+		},
+		"GetAllPendingReadRequests",
+		c.logger,
+	)
 }
 
 // createGRPCConnection creates a gRPC connection with appropriate transport security.

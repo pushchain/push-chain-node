@@ -23,9 +23,10 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --de
 
 WORKDIR /code
 
-# Copy dkls23-rs and garbling first (needed for go.mod replace directive)
+# Copy local replace-directive targets first (needed to read their go.mod during `go mod download`)
 COPY dkls23-rs ./dkls23-rs
 COPY garbling ./garbling
+COPY compat/orm-api ./compat/orm-api
 
 # Download go modules + wasmvm static library
 ADD go.mod go.sum ./

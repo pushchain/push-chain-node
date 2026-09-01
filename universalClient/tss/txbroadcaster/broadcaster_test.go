@@ -22,9 +22,9 @@ import (
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 
-	"github.com/pushchain/push-chain-node/universalClient/chains"
-	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/config"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	"github.com/pushchain/push-chain-node/universalClient/tss/coordinator"
 	"github.com/pushchain/push-chain-node/universalClient/tss/eventstore"
@@ -81,9 +81,12 @@ func (m *mockTxBuilder) BroadcastFundMigrationTx(ctx context.Context, req *commo
 
 type mockChainClient struct{ builder *mockTxBuilder }
 
-func (m *mockChainClient) Start(context.Context) error             { return nil }
-func (m *mockChainClient) Stop() error                             { return nil }
-func (m *mockChainClient) IsHealthy() bool                         { return true }
+func (m *mockChainClient) Start(context.Context) error { return nil }
+func (m *mockChainClient) Stop() error                 { return nil }
+func (m *mockChainClient) IsHealthy() bool             { return true }
+func (m *mockChainClient) GetReadRequestHandler() (common.ReadRequestHandler, error) {
+	return nil, nil
+}
 func (m *mockChainClient) GetTxBuilder() (common.TxBuilder, error) { return m.builder, nil }
 
 func setupTestDB(t *testing.T) (*eventstore.Store, *gorm.DB) {
@@ -94,9 +97,9 @@ func setupTestDB(t *testing.T) (*eventstore.Store, *gorm.DB) {
 	return eventstore.NewStore(db, zerolog.Nop()), db
 }
 
-func newTestChains(t *testing.T, chainID string, vmType uregistrytypes.VmType, client common.ChainClient) *chains.Chains {
+func newTestChains(t *testing.T, chainID string, vmType uregistrytypes.VmType, client common.ChainClient) *externalchains.Chains {
 	t.Helper()
-	c := chains.NewChains(nil, nil, &config.Config{PushChainID: "test-chain"}, zerolog.Nop())
+	c := externalchains.NewChains(nil, nil, &config.Config{PushChainID: "test-chain"}, zerolog.Nop())
 
 	// Inject into unexported maps via reflect+unsafe.
 	v := reflect.ValueOf(c).Elem()
@@ -216,7 +219,7 @@ func getEvent(t *testing.T, db *gorm.DB, eventID string) store.Event {
 	return ev
 }
 
-func newBroadcaster(evtStore *eventstore.Store, ch *chains.Chains) *Broadcaster {
+func newBroadcaster(evtStore *eventstore.Store, ch *externalchains.Chains) *Broadcaster {
 	return NewBroadcaster(Config{
 		EventStore:    evtStore,
 		Chains:        ch,
@@ -667,6 +670,45 @@ func TestMarkBroadcasted_FormatsCAIPTxHash(t *testing.T) {
 	require.Equal(t, store.StatusBroadcasted, updated.Status)
 }
 
+// TestFundMigrationEVM_TransferAmountThreaded asserts the pinned transfer amount captured
+// at signing time is decoded onto the signing req passed to BroadcastFundMigrationTx. Without
+// this, the second validator's broadcast queries balance=0 (post-sweep) and the assembler
+// returns "insufficient balance" — leaving the event stuck in SIGNED forever and blocking
+// migration consensus.
+func TestFundMigrationEVM_TransferAmountThreaded(t *testing.T) {
+	evtStore, db := setupTestDB(t)
+	builder := &mockTxBuilder{}
+	client := &mockChainClient{builder: builder}
+	ch := newTestChains(t, "eip155:1", uregistrytypes.VmType_EVM, client)
+
+	event := store.Event{
+		EventID:           "fm-transfer",
+		BlockHeight:       100,
+		ExpiryBlockHeight: 99999,
+		Type:              store.EventTypeSignFundMigrate,
+		ConfirmationType:  "INSTANT",
+		Status:            store.StatusSigned,
+		EventData:         makeSignedFundMigrationDataWithTransfer(t, "eip155:1", 0, new(big.Int).SetUint64(777_000_000_000_000_000)),
+	}
+	require.NoError(t, db.Create(&event).Error)
+
+	builder.On("BroadcastFundMigrationTx",
+		mock.Anything,
+		mock.Anything,
+		mock.MatchedBy(func(data *common.FundMigrationData) bool {
+			return data.TransferAmount != nil && data.TransferAmount.String() == "777000000000000000"
+		}),
+		mock.Anything).
+		Return("0xmigrate777", nil)
+
+	b := newBroadcaster(evtStore, ch)
+	b.processSigned(context.Background())
+
+	ev := getEvent(t, db, "fm-transfer")
+	require.Equal(t, store.StatusBroadcasted, ev.Status)
+	builder.AssertExpectations(t)
+}
+
 func TestMarkBroadcasted_EmptyTxHash(t *testing.T) {
 	evtStore, db := setupTestDB(t)
 	insertSignedEvent(t, db, "ev-1", "solana:mainnet", 3)
@@ -766,45 +808,6 @@ func TestFundMigrationEVM_BroadcastSuccess(t *testing.T) {
 	ev := getEvent(t, db, "fm-1")
 	require.Equal(t, store.StatusBroadcasted, ev.Status)
 	require.Equal(t, "eip155:1:0xmigrate123", ev.BroadcastedTxHash)
-	builder.AssertExpectations(t)
-}
-
-// TestFundMigrationEVM_TSSFundMigrationAmountThreaded asserts the tss_fund_migration_amount captured
-// at signing time is decoded onto the signing req passed to BroadcastFundMigrationTx. Without
-// this, the second validator's broadcast queries balance=0 (post-sweep) and the assembler
-// returns "insufficient balance" — leaving the event stuck in SIGNED forever and blocking
-// migration consensus.
-func TestFundMigrationEVM_TSSFundMigrationAmountThreaded(t *testing.T) {
-	evtStore, db := setupTestDB(t)
-	builder := &mockTxBuilder{}
-	client := &mockChainClient{builder: builder}
-	ch := newTestChains(t, "eip155:1", uregistrytypes.VmType_EVM, client)
-
-	event := store.Event{
-		EventID:           "fm-transfer",
-		BlockHeight:       100,
-		ExpiryBlockHeight: 99999,
-		Type:              store.EventTypeSignFundMigrate,
-		ConfirmationType:  "INSTANT",
-		Status:            store.StatusSigned,
-		EventData:         makeSignedFundMigrationDataWithTransfer(t, "eip155:1", 0, new(big.Int).SetUint64(777_000_000_000_000_000)),
-	}
-	require.NoError(t, db.Create(&event).Error)
-
-	builder.On("BroadcastFundMigrationTx",
-		mock.Anything,
-		mock.Anything,
-		mock.MatchedBy(func(data *common.FundMigrationData) bool {
-			return data.TransferAmount != nil && data.TransferAmount.String() == "777000000000000000"
-		}),
-		mock.Anything).
-		Return("0xmigrate777", nil)
-
-	b := newBroadcaster(evtStore, ch)
-	b.processSigned(context.Background())
-
-	ev := getEvent(t, db, "fm-transfer")
-	require.Equal(t, store.StatusBroadcasted, ev.Status)
 	builder.AssertExpectations(t)
 }
 

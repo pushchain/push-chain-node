@@ -26,13 +26,13 @@ type Keeper struct {
 	schemaBuilder *collections.SchemaBuilder
 
 	// state management
-	storeService      storetypes.KVStoreService
-	Params            collections.Item[types.Params]
-	authority         string
-	evmKeeper         types.EVMKeeper
-	feemarketKeeper   types.FeeMarketKeeper
-	bankKeeper        types.BankKeeper
-	accountKeeper     types.AccountKeeper
+	storeService     storetypes.KVStoreService
+	Params           collections.Item[types.Params]
+	authority        string
+	evmKeeper        types.EVMKeeper
+	feemarketKeeper  types.FeeMarketKeeper
+	bankKeeper       types.BankKeeper
+	accountKeeper    types.AccountKeeper
 	uregistryKeeper  types.UregistryKeeper
 	uvalidatorKeeper types.UValidatorKeeper
 
@@ -93,11 +93,11 @@ func NewKeeper(
 		storeService:  storeService,
 		Params:        collections.NewItem(sb, types.ParamsKey, types.ParamsName, codec.CollValue[types.Params](cdc)),
 
-		authority:         authority,
-		evmKeeper:         evmKeeper,
-		feemarketKeeper:   feemarketKeeper,
-		bankKeeper:        bankKeeper,
-		accountKeeper:     accountKeeper,
+		authority:        authority,
+		evmKeeper:        evmKeeper,
+		feemarketKeeper:  feemarketKeeper,
+		bankKeeper:       bankKeeper,
+		accountKeeper:    accountKeeper,
 		uregistryKeeper:  uregistryKeeper,
 		uvalidatorKeeper: uvalidatorKeeper,
 
@@ -331,6 +331,15 @@ func (k *Keeper) GetUeModuleAddress(ctx context.Context) (common.Address, string
 	return ethSenderUEAddr, ethSenderUEAddr.Hex()
 }
 
+// IsUeModuleAddress reports whether addr is the uexecutor module account's EVM
+// address. The check compares the raw 20-byte values — an address's VM-native
+// identity — so hex casing / EIP-55 checksum is irrelevant here and no string
+// normalization (lowercasing) is needed or correct.
+func (k *Keeper) IsUeModuleAddress(ctx context.Context, addr common.Address) bool {
+	moduleAddr, _ := k.GetUeModuleAddress(ctx)
+	return addr == moduleAddr
+}
+
 func (k Keeper) SchemaBuilder() *collections.SchemaBuilder {
 	return k.schemaBuilder
 }
@@ -381,6 +390,21 @@ func (k Keeper) SetModuleAccountNonce(ctx sdk.Context, nonce uint64) error {
 // back here so that a nonce the EVM *did* advance — a CREATE from the module, or
 // a chain upgraded from a build that left the account nonce behind — is picked up
 // instead of being re-issued.
+// IncrementModuleAccountNonce hands out the module sender's next nonce and burns
+// it, so callers outside the keeper advance it the same way derivedModuleCall
+// does. Returns the value the counter now sits at.
+func (k Keeper) IncrementModuleAccountNonce(ctx sdk.Context) (uint64, error) {
+	moduleAddr, _ := k.GetUeModuleAddress(ctx)
+	nonce, err := k.nextModuleSenderNonce(ctx, moduleAddr)
+	if err != nil {
+		return 0, err
+	}
+	if err := k.burnModuleSenderNonce(ctx, moduleAddr, nonce); err != nil {
+		return 0, err
+	}
+	return nonce + 1, nil
+}
+
 func (k Keeper) nextModuleSenderNonce(ctx sdk.Context, moduleAddr common.Address) (uint64, error) {
 	nonce, err := k.GetModuleAccountNonce(ctx)
 	if err != nil {

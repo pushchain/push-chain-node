@@ -56,6 +56,42 @@ func TestOutboundTx_ValidateBasic(t *testing.T) {
 			expectError: false,
 		},
 		{
+			name: "valid PC20 export (empty external_asset_addr, has pc20_contract_address)",
+			outbound: func() types.OutboundTx {
+				ob := baseValidOutbound()
+				ob.IsPc20 = true
+				ob.Pc20ContractAddress = "0x000000000000000000000000000000000000c0de"
+				ob.ExternalAssetAddr = "" // wrapper unknown until settlement — must be allowed for PC20
+				ob.Prc20AssetAddr = ""
+				return ob
+			}(),
+			expectError: false,
+		},
+		{
+			name: "PC20 export missing pc20_contract_address",
+			outbound: func() types.OutboundTx {
+				ob := baseValidOutbound()
+				ob.IsPc20 = true
+				ob.ExternalAssetAddr = ""
+				ob.Pc20ContractAddress = ""
+				return ob
+			}(),
+			expectError: true,
+			errContains: "pc20_contract_address cannot be empty",
+		},
+		{
+			name: "PC20 export invalid pc20_contract_address",
+			outbound: func() types.OutboundTx {
+				ob := baseValidOutbound()
+				ob.IsPc20 = true
+				ob.ExternalAssetAddr = ""
+				ob.Pc20ContractAddress = "not-an-address"
+				return ob
+			}(),
+			expectError: true,
+			errContains: "invalid pc20_contract_address",
+		},
+		{
 			name: "empty destination_chain",
 			outbound: func() types.OutboundTx {
 				ob := baseValidOutbound()

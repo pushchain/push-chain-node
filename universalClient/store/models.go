@@ -28,6 +28,7 @@ const (
 	EventTypeSignFundMigrate = "SIGN_FUND_MIGRATE"
 	EventTypeInbound         = "INBOUND"
 	EventTypeOutbound        = "OUTBOUND"
+	EventTypeReadRequest     = "READ_REQUEST"
 )
 
 // Confirmation type values.

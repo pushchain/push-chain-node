@@ -14,8 +14,8 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/pushchain/push-chain-node/universalClient/chains"
-	"github.com/pushchain/push-chain-node/universalClient/chains/common"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/pushsigner"
 	"github.com/pushchain/push-chain-node/universalClient/store"
@@ -47,8 +47,8 @@ type SessionManager struct {
 	eventStore                 *eventstore.Store
 	coordinator                *coordinator.Coordinator
 	keyshareManager            *keyshare.Manager
-	pushCore                   *pushcore.Client // For validating gas prices
-	chains                     *chains.Chains   // For getting txBuilders
+	pushCore                   *pushcore.Client       // For validating gas prices
+	chains                     *externalchains.Chains // For getting txBuilders
 	send                       SendFunc
 	partyID                    string // Our validator address (pushvaloper format)
 	logger                     zerolog.Logger
@@ -68,7 +68,7 @@ func NewSessionManager(
 	coord *coordinator.Coordinator,
 	keyshareManager *keyshare.Manager,
 	pushCore *pushcore.Client,
-	chains *chains.Chains,
+	chains *externalchains.Chains,
 	send SendFunc,
 	partyID string,
 	sessionExpiryTime time.Duration,

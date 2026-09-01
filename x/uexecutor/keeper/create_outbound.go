@@ -56,41 +56,12 @@ func (k Keeper) BuildOutboundsFromReceipt(
 			return nil, fmt.Errorf("outbound is disabled for chain %s", event.ChainId)
 		}
 
-		// Get the external asset addr
-		tokenCfg, err := k.uregistryKeeper.GetTokenConfigByPRC20(
-			ctx,
-			event.ChainId,
-			event.Token, // PRC20 address
-		)
+		outbound, err := k.buildOutboundFromEvent(ctx, event, receipt.Hash, lg.Index)
 		if err != nil {
 			// Wrapped so the caller can surface an actionable reason: the bare
 			// collections.ErrNotFound ("not found") says nothing about which leg
 			// of a multicall failed.
 			return nil, fmt.Errorf("no token config for PRC20 %s on chain %s: %w", event.Token, event.ChainId, err)
-		}
-
-		outbound := &types.OutboundTx{
-			DestinationChain:  event.ChainId,
-			Recipient:         event.Target,
-			Amount:            event.Amount.String(),
-			ExternalAssetAddr: tokenCfg.Address,
-			Prc20AssetAddr:    event.Token,
-			Sender:            event.Sender,
-			Payload:           event.Payload,
-			GasFee:            event.GasFee.String(),
-			GasLimit:          event.GasLimit.String(),
-			GasPrice:          event.GasPrice.String(),
-			GasToken:          event.GasToken,
-			TxType:            event.TxType,
-			PcTx: &types.OriginatingPcTx{
-				TxHash:   receipt.Hash,
-				LogIndex: fmt.Sprintf("%d", lg.Index),
-			},
-			RevertInstructions: &types.RevertInstructions{
-				FundRecipient: event.RevertRecipient,
-			},
-			OutboundStatus: types.Status_PENDING,
-			Id:             strings.TrimPrefix(event.TxID, "0x"),
 		}
 
 		k.Logger().Debug("outbound built from receipt",
@@ -105,6 +76,60 @@ func (k Keeper) BuildOutboundsFromReceipt(
 
 	k.Logger().Debug("outbounds built from receipt", "utx_id", utxId, "count", len(outbounds))
 	return outbounds, nil
+}
+
+// buildOutboundFromEvent constructs an OutboundTx from a decoded gateway
+// UniversalTxOutbound event, routing on the payload prefix:
+//   - PC20 export (payload starts with the PC20 selector): a Push-native token
+//     was locked in VaultPC20 and a wrapper is minted on the destination chain.
+//     A PC20-native token has no PRC20 config, so the registry lookup is skipped
+//     (skipping it is what prevents the whole EVM tx — including the vault lock —
+//     from reverting). event.Token is the Push-native PC20 contract, i.e. the
+//     locked source asset; the destination wrapper address is unknown until
+//     settlement, so external_asset_addr is left empty. The settlement and
+//     revert paths are selected by the is_pc20 flag.
+//   - PRC20 (default): the external asset is resolved from the registry.
+func (k Keeper) buildOutboundFromEvent(
+	ctx context.Context,
+	event *types.UniversalTxOutboundEvent,
+	txHash string,
+	logIndex uint64,
+) (*types.OutboundTx, error) {
+	outbound := &types.OutboundTx{
+		DestinationChain: event.ChainId,
+		Recipient:        event.Target,
+		Amount:           event.Amount.String(),
+		Sender:           event.Sender,
+		Payload:          event.Payload,
+		GasFee:           event.GasFee.String(),
+		GasLimit:         event.GasLimit.String(),
+		GasPrice:         event.GasPrice.String(),
+		GasToken:         event.GasToken,
+		TxType:           event.TxType,
+		PcTx: &types.OriginatingPcTx{
+			TxHash:   txHash,
+			LogIndex: fmt.Sprintf("%d", logIndex),
+		},
+		RevertInstructions: &types.RevertInstructions{
+			FundRecipient: event.RevertRecipient,
+		},
+		OutboundStatus: types.Status_PENDING,
+		Id:             strings.TrimPrefix(event.TxID, "0x"),
+	}
+
+	if types.IsPC20Payload(event.Payload) {
+		outbound.IsPc20 = true
+		outbound.Pc20ContractAddress = event.Token
+		return outbound, nil
+	}
+
+	tokenCfg, err := k.uregistryKeeper.GetTokenConfigByPRC20(ctx, event.ChainId, event.Token)
+	if err != nil {
+		return nil, err
+	}
+	outbound.ExternalAssetAddr = tokenCfg.Address
+	outbound.Prc20AssetAddr = event.Token
+	return outbound, nil
 }
 
 func (k Keeper) CreateUniversalTxFromPCTx(
@@ -290,44 +315,51 @@ func (k Keeper) AttachRescueOutboundFromReceipt(
 			}
 		}
 
-		// The asset is DERIVED from the original stuck inbound, never taken from the
-		// rescue event. The rescued Amount below is always originalUtx.InboundTx.Amount,
-		// so accepting the caller's event.PRC20 as the asset identity would pair one
-		// asset's raw amount with another asset's identity. Amounts are raw base units,
-		// so differing decimals amplify that: a stuck 1e18 of an 18-decimal token pointed
-		// at a 6-decimal token becomes a claim on 10^12 whole tokens.
-		tokenCfg, err := k.uregistryKeeper.GetTokenConfig(
-			ctx,
-			originalUtx.InboundTx.SourceChain,
-			originalUtx.InboundTx.AssetAddr,
-		)
-		if err != nil {
-			return fmt.Errorf("rescue: no token config registered for original asset %s on %s: %w",
-				originalUtx.InboundTx.AssetAddr, originalUtx.InboundTx.SourceChain, err)
-		}
-		if tokenCfg.NativeRepresentation == nil || tokenCfg.NativeRepresentation.ContractAddress == "" {
-			return fmt.Errorf("rescue: token config for original asset %s on %s has no PRC20 representation",
-				originalUtx.InboundTx.AssetAddr, originalUtx.InboundTx.SourceChain)
-		}
-		derivedPRC20 := tokenCfg.NativeRepresentation.ContractAddress
-
-		// Defence in depth: the event still names a PRC20, and it must agree with the one
-		// derived above. Reject on disagreement instead of silently overriding, so a
-		// mismatched caller surfaces as an error rather than a wrong-asset outbound.
-		// Lenient canonicalization mirrors uregistry's own PRC20 identity function
-		// (canonicalPRC20), so exactly the pairs the registry considers equal are accepted;
-		// a missing representation is already rejected above, so it can never read as a match.
-		if utils.LenientCanonicalizeEVMAddress(event.PRC20) != utils.LenientCanonicalizeEVMAddress(derivedPRC20) {
-			return fmt.Errorf(
-				"rescue: event PRC20 %s does not match PRC20 %s registered for original asset %s on %s",
-				event.PRC20, derivedPRC20, originalUtx.InboundTx.AssetAddr, originalUtx.InboundTx.SourceChain)
-		}
-
 		// Rescued funds go to the original revert recipient (or the sender as fallback).
 		recipient := originalUtx.InboundTx.Sender
 		if originalUtx.InboundTx.RevertInstructions != nil &&
 			originalUtx.InboundTx.RevertInstructions.FundRecipient != "" {
 			recipient = originalUtx.InboundTx.RevertInstructions.FundRecipient
+		}
+
+		// Resolve the external asset the rescue outbound carries as its token:
+		//   - PC20 return: the external wrapper. Vault.rescueFunds detects it via
+		//     _isPC20Wrapper(token) and re-mints the burnt wrapper, so no PRC20
+		//     registry lookup is needed (and it would fail for a wrapper). Detection
+		//     is on the original inbound's is_pc20, not the rescue event.
+		//   - PRC20: the external source token, resolved from the PRC20 token config.
+		var externalAssetAddr, prc20AssetAddr string
+		if originalUtx.InboundTx.IsPc20 {
+			externalAssetAddr = originalUtx.InboundTx.AssetAddr
+		} else {
+			// Derived from the original stuck inbound, never taken from the rescue
+			// event. The amount below is always the original inbound's, so accepting
+			// the caller's PRC20 as the asset identity would pair one asset's raw
+			// amount with another asset's identity, amplified by differing decimals.
+			tokenCfg, err := k.uregistryKeeper.GetTokenConfig(
+				ctx,
+				originalUtx.InboundTx.SourceChain,
+				originalUtx.InboundTx.AssetAddr,
+			)
+			if err != nil {
+				return fmt.Errorf("rescue: no token config registered for original asset %s on %s: %w",
+					originalUtx.InboundTx.AssetAddr, originalUtx.InboundTx.SourceChain, err)
+			}
+			if tokenCfg.NativeRepresentation == nil || tokenCfg.NativeRepresentation.ContractAddress == "" {
+				return fmt.Errorf("rescue: token config for original asset %s on %s has no PRC20 representation",
+					originalUtx.InboundTx.AssetAddr, originalUtx.InboundTx.SourceChain)
+			}
+			derivedPRC20 := tokenCfg.NativeRepresentation.ContractAddress
+
+			// The event still names a PRC20 and it must agree with the derived one.
+			// Lenient canonicalization mirrors uregistry's own canonicalPRC20.
+			if utils.LenientCanonicalizeEVMAddress(event.PRC20) != utils.LenientCanonicalizeEVMAddress(derivedPRC20) {
+				return fmt.Errorf(
+					"rescue: event PRC20 %s does not match PRC20 %s registered for original asset %s on %s",
+					event.PRC20, derivedPRC20, originalUtx.InboundTx.AssetAddr, originalUtx.InboundTx.SourceChain)
+			}
+			externalAssetAddr = tokenCfg.Address
+			prc20AssetAddr = derivedPRC20
 		}
 
 		logIndex := fmt.Sprintf("%d", lg.Index)
@@ -336,8 +368,8 @@ func (k Keeper) AttachRescueOutboundFromReceipt(
 			DestinationChain:  originalUtx.InboundTx.SourceChain,
 			Recipient:         recipient,
 			Amount:            originalUtx.InboundTx.Amount,
-			ExternalAssetAddr: tokenCfg.Address,
-			Prc20AssetAddr:    derivedPRC20,
+			ExternalAssetAddr: externalAssetAddr,
+			Prc20AssetAddr:    prc20AssetAddr,
 			Sender:            event.Sender,
 			GasFee:            event.GasFee.String(),
 			GasPrice:          event.GasPrice.String(),
@@ -423,24 +455,34 @@ func (k Keeper) attachOutboundsToUtx(
 				logIndex = outbound.PcTx.LogIndex
 			}
 
+			// For a PC20 export the destination wrapper isn't known until settlement, so
+			// external_asset_addr is empty; surface the Push-native source
+			// (pc20_contract_address) as the event's asset_addr. PRC20 keeps its external asset.
+			assetAddr := outbound.ExternalAssetAddr
+			if outbound.IsPc20 {
+				assetAddr = outbound.Pc20ContractAddress
+			}
+
 			evt, err := types.NewOutboundCreatedEvent(types.OutboundCreatedEvent{
-				UniversalTxId:    utxId,
-				TxID:             outbound.Id,
-				DestinationChain: outbound.DestinationChain,
-				Recipient:        outbound.Recipient,
-				Amount:           outbound.Amount,
-				AssetAddr:        outbound.ExternalAssetAddr,
-				Sender:           outbound.Sender,
-				Payload:          outbound.Payload,
-				GasFee:           outbound.GasFee,
-				GasLimit:         outbound.GasLimit,
-				GasPrice:         outbound.GasPrice,
-				GasToken:         outbound.GasToken,
-				TxType:           outbound.TxType.String(),
-				PcTxHash:         pcTxHash,
-				LogIndex:         logIndex,
-				RevertMsg:        revertMsg,
-				SigningDeadline:  signingDeadline,
+				UniversalTxId:       utxId,
+				TxID:                outbound.Id,
+				DestinationChain:    outbound.DestinationChain,
+				Recipient:           outbound.Recipient,
+				Amount:              outbound.Amount,
+				AssetAddr:           assetAddr,
+				Sender:              outbound.Sender,
+				Payload:             outbound.Payload,
+				GasFee:              outbound.GasFee,
+				GasLimit:            outbound.GasLimit,
+				GasPrice:            outbound.GasPrice,
+				GasToken:            outbound.GasToken,
+				TxType:              outbound.TxType.String(),
+				PcTxHash:            pcTxHash,
+				LogIndex:            logIndex,
+				RevertMsg:           revertMsg,
+				SigningDeadline:     signingDeadline,
+				IsPc20:              outbound.IsPc20,
+				Pc20ContractAddress: outbound.Pc20ContractAddress,
 			})
 			if err == nil {
 				ctx.EventManager().EmitEvent(evt)

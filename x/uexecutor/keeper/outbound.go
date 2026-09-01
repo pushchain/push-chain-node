@@ -6,7 +6,9 @@ import (
 	"math/big"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	evmtypes "github.com/cosmos/evm/x/vm/types"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pushchain/push-chain-node/utils"
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
@@ -100,9 +102,11 @@ func (k Keeper) FinalizeOutbound(ctx context.Context, utxId string, outbound typ
 // then attempts to refund any excess gas (gasFee - gasFeeUsed) just like a
 // successful outbound would. Both operations are recorded on the outbound.
 func (k Keeper) handleFailedOutbound(ctx sdk.Context, utxId string, outbound types.OutboundTx, obs *types.OutboundObservation) error {
-	// Only revert bridged funds for funds-related tx types
-	if outbound.TxType == types.TxType_FUNDS || outbound.TxType == types.TxType_GAS_AND_PAYLOAD ||
-		outbound.TxType == types.TxType_FUNDS_AND_PAYLOAD {
+	// Revert bridged funds for funds-related tx types. A PC20 export always locks
+	// native funds in VaultPC20, so it must be released on failure regardless of
+	// TxType — never leave locked custody stranded on a gate assumption.
+	if outbound.IsPc20 || outbound.TxType == types.TxType_FUNDS ||
+		outbound.TxType == types.TxType_GAS_AND_PAYLOAD || outbound.TxType == types.TxType_FUNDS_AND_PAYLOAD {
 
 		// Decide revert recipient safely
 		recipient := outbound.Sender
@@ -116,7 +120,25 @@ func (k Keeper) handleFailedOutbound(ctx sdk.Context, utxId string, outbound typ
 		if !ok {
 			return fmt.Errorf("invalid amount: %s", outbound.Amount)
 		}
-		receipt, err := k.CallPRC20Deposit(ctx, common.HexToAddress(outbound.Prc20AssetAddr), common.HexToAddress(recipient), amount)
+		var (
+			receipt *evmtypes.MsgEthereumTxResponse
+			err     error
+		)
+		if outbound.IsPc20 {
+			// PC20 export failed to settle: the funds are locked in VaultPC20
+			// (not minted), so release them to the revert recipient on Push via
+			// revertExport rather than minting a PRC20. subTxId = the export id,
+			// which is the vault's single-shot replay guard.
+			receipt, err = k.CallVaultPC20RevertExport(
+				ctx,
+				common.HexToHash(outbound.Id),
+				common.HexToAddress(outbound.Pc20ContractAddress),
+				common.HexToAddress(recipient),
+				amount,
+			)
+		} else {
+			receipt, err = k.CallPRC20Deposit(ctx, common.HexToAddress(outbound.Prc20AssetAddr), common.HexToAddress(recipient), amount)
+		}
 
 		pcTx := types.PCTx{
 			Sender:      outbound.Sender,
@@ -167,8 +189,72 @@ func (k Keeper) handleSuccessfulOutbound(ctx sdk.Context, utxId string, outbound
 		"outbound_id", outbound.Id,
 		"dest_chain", outbound.DestinationChain,
 	)
+	if outbound.IsPc20 {
+		k.flipPC20WrapperDeployed(ctx, &outbound, obs)
+	}
 	k.applyGasRefund(ctx, &outbound, obs)
 	return k.UpdateOutbound(ctx, utxId, outbound)
+}
+
+// flipPC20WrapperDeployed records, in UniversalCore's registry, the deployed
+// wrapper for (source asset, destination chain). This mapping backs two things:
+// the export gas-gate (repeat exports skip the one-time deploy overhead) and the
+// wrapper->source reverse lookup the PC20 return path relies on to resolve which
+// locked token to unlock. setWrapperDeployed is idempotent, unpaused and
+// module-gated, so it does not fail under correct config/bytecode; a failure
+// therefore signals a deployment/config bug (e.g. UniversalCore missing the
+// method) rather than a transient error, so it is logged at Error and not
+// retried — a deterministic bug will not self-heal. It is a no-op when the
+// settlement observation carried no wrapper address (the wrapper already existed
+// on the destination, so the mapping was set by the first export).
+func (k Keeper) flipPC20WrapperDeployed(ctx sdk.Context, outbound *types.OutboundTx, obs *types.OutboundObservation) {
+	if obs.Pc20WrapperAddress == "" {
+		return
+	}
+	// Record the destination wrapper as the settled outbound's external asset.
+	// asset_addr was empty at creation because the wrapper address is not known
+	// until settlement; for a PC20 export it is the destination-chain asset. Done
+	// before the best-effort setWrapperDeployed call so the backfill persists even
+	// if that registry write reverts.
+	outbound.ExternalAssetAddr = obs.Pc20WrapperAddress
+
+	// The wrapper lives on the destination chain (EVM or SVM); encode it to the
+	// bytes32 key UniversalCore stores. A malformed wrapper is a settlement/observation
+	// bug, so log and skip — best-effort, like a setWrapperDeployed revert.
+	wrapper, err := utils.AddressToBytes32(outbound.DestinationChain, obs.Pc20WrapperAddress)
+	if err != nil {
+		k.Logger().Error("PC20 setWrapperDeployed skipped — invalid wrapper address",
+			"outbound_id", outbound.Id,
+			"dest_chain", outbound.DestinationChain,
+			"wrapper", obs.Pc20WrapperAddress,
+			"error", err.Error(),
+		)
+		return
+	}
+
+	resp, err := k.CallUniversalCoreSetWrapperDeployed(
+		ctx,
+		common.HexToAddress(outbound.Pc20ContractAddress),
+		outbound.DestinationChain,
+		wrapper,
+	)
+	if err != nil {
+		k.Logger().Error("PC20 setWrapperDeployed failed — wrapper->source mapping not recorded",
+			"outbound_id", outbound.Id,
+			"source_asset", outbound.Pc20ContractAddress,
+			"dest_chain", outbound.DestinationChain,
+			"wrapper", obs.Pc20WrapperAddress,
+			"error", err.Error(),
+		)
+		return
+	}
+	k.Logger().Info("PC20 wrapper deploy flag set",
+		"outbound_id", outbound.Id,
+		"source_asset", outbound.Pc20ContractAddress,
+		"dest_chain", outbound.DestinationChain,
+		"wrapper", obs.Pc20WrapperAddress,
+		"tx_hash", resp.Hash,
+	)
 }
 
 // applyGasRefund computes the excess gas (gasFee - gasFeeUsed) and, if positive,

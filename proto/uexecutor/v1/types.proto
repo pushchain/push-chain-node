@@ -124,6 +124,7 @@ message Inbound {
   RevertInstructions revert_instructions = 11; // revert config
   bool isCEA = 12; // isCEA is the boolean indicating this inbound is initiated by a CEA
   string raw_payload = 13; // hex-encoded raw payload bytes from source chain event; decoded into universal_payload by the core validator
+  bool is_pc20 = 14; // true when the raw payload carried the PC20 selector (a PC20 return: burn wrapper -> unlock locked native); set during NormalizeForTxType after the selector is stripped
 }
 
 message PCTx {
@@ -148,6 +149,7 @@ message OutboundObservation {
   string tx_hash = 3;           // external chain tx hash
   string error_msg = 4;
   string gas_fee_used = 5;      // actual gas fee consumed on destination chain; used to compute excess refund
+  string pc20_wrapper_address = 6; // PC20 only: wrapper address deployed on the destination chain (observed at settlement), used to flip the PC20 deploy flag
 }
 
 message OriginatingPcTx {
@@ -184,6 +186,8 @@ message OutboundTx {
   string refund_swap_error   = 19; // non-empty if swap-refund failed and we fell back to no-swap
   string gas_token           = 20; // gas token PRC20 address used to pay relayer fee
   string abort_reason        = 21; // Human-readable reason why the outbound was aborted
+  bool   is_pc20             = 22; // true when this outbound is a PC20 export (lock native on Push -> mint wrapper on dest); routes settlement/revert to the PC20 path
+  string pc20_contract_address = 23; // PC20 only: the Push-native PC20 token contract address (the locked source asset); used for VaultPC20.revertExport and the deploy-flag registry
 }
 
 message UniversalTx {

@@ -5,18 +5,22 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/gagliardetto/solana-go"
 	solanarpc "github.com/gagliardetto/solana-go/rpc"
+	"github.com/mr-tron/base58"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/pushchain/push-chain-node/universalClient/chains/common"
 	"github.com/pushchain/push-chain-node/universalClient/db"
+	"github.com/pushchain/push-chain-node/universalClient/store"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
@@ -683,200 +687,68 @@ const (
 	testAttackerProgram = "AttackerProgram1111111111111111111111111111"
 )
 
-// getSignaturesForAddress returns any tx that merely references the gateway in
-// accountKeys, and a discriminator is a schema tag, not an authenticator. So a
-// gateway-shaped log must only be trusted when the gateway is the executing
-// program. Otherwise any program can forge a deposit that every honest UV
-// deterministically votes for.
-func TestGatewayEmittedLogs(t *testing.T) {
-	const data = "Program data: q83vEjRWeJA="
-
-	t.Run("accepts log emitted by the gateway", func(t *testing.T) {
-		logs := []string{
-			"Program " + testGatewayProgram + " invoke [1]",
-			data,
-			"Program " + testGatewayProgram + " success",
-		}
-		assert.Equal(t, map[int]bool{1: true}, gatewayEmittedLogs(logs, testGatewayProgram))
-	})
-
-	// The reported attack: attacker program lists the gateway as an unused
-	// read-only account and emits a correctly encoded gateway event.
-	t.Run("rejects forged log from an attacker program", func(t *testing.T) {
-		logs := []string{
-			"Program " + testAttackerProgram + " invoke [1]",
-			data,
-			"Program " + testAttackerProgram + " success",
-		}
-		assert.Empty(t, gatewayEmittedLogs(logs, testGatewayProgram))
-	})
-
-	t.Run("accepts gateway frame reached via CPI", func(t *testing.T) {
-		logs := []string{
-			"Program " + testAttackerProgram + " invoke [1]",
-			"Program " + testGatewayProgram + " invoke [2]",
-			data,
-			"Program " + testGatewayProgram + " success",
-			"Program " + testAttackerProgram + " success",
-		}
-		assert.Equal(t, map[int]bool{2: true}, gatewayEmittedLogs(logs, testGatewayProgram))
-	})
-
-	// After the gateway frame exits, control is back with the caller, so a log
-	// there is not the gateway's.
-	t.Run("rejects log emitted after the gateway frame exits", func(t *testing.T) {
-		logs := []string{
-			"Program " + testAttackerProgram + " invoke [1]",
-			"Program " + testGatewayProgram + " invoke [2]",
-			"Program " + testGatewayProgram + " success",
-			data,
-			"Program " + testAttackerProgram + " success",
-		}
-		assert.Empty(t, gatewayEmittedLogs(logs, testGatewayProgram))
-	})
-
-	t.Run("rejects log from a failed gateway invocation's caller", func(t *testing.T) {
-		logs := []string{
-			"Program " + testGatewayProgram + " invoke [1]",
-			"Program " + testGatewayProgram + " failed: custom program error: 0x1",
-			data,
-		}
-		assert.Empty(t, gatewayEmittedLogs(logs, testGatewayProgram))
-	})
-
-	// A program can only emit "Program log: ..." or "Program data: ...", so it
-	// cannot fake an invoke line to push a gateway frame onto the stack.
-	t.Run("cannot spoof an invoke line via program log", func(t *testing.T) {
-		logs := []string{
-			"Program " + testAttackerProgram + " invoke [1]",
-			"Program log: Program " + testGatewayProgram + " invoke [1]",
-			data,
-			"Program " + testAttackerProgram + " success",
-		}
-		assert.Empty(t, gatewayEmittedLogs(logs, testGatewayProgram))
-	})
-
-	// A callee that logs "success" emits "Program log: success". If that were
-	// treated as a frame exit it would pop its own frame and the next data log
-	// would be attributed to its caller, the gateway.
-	t.Run("callee cannot pop its frame by logging success", func(t *testing.T) {
-		logs := []string{
-			"Program " + testGatewayProgram + " invoke [1]",
-			"Program " + testAttackerProgram + " invoke [2]",
-			"Program log: success",
-			data,
-			"Program " + testAttackerProgram + " success",
-			"Program " + testGatewayProgram + " success",
-		}
-		assert.Empty(t, gatewayEmittedLogs(logs, testGatewayProgram),
-			"data logged inside the callee must not be attributed to the gateway")
-	})
-
-	t.Run("no logs or no invocation yields nothing", func(t *testing.T) {
-		assert.Empty(t, gatewayEmittedLogs(nil, testGatewayProgram))
-		assert.Empty(t, gatewayEmittedLogs([]string{data}, testGatewayProgram))
-	})
-
-	// Unbalanced logs are reachable: truncation can cut a frame's exit line, and
-	// the parser must not underflow or start attributing to a frame nobody owns.
-	t.Run("more exits than invokes does not underflow", func(t *testing.T) {
-		assert.Empty(t, gatewayEmittedLogs([]string{
-			"Program " + testGatewayProgram + " success",
-			"Program " + testGatewayProgram + " success",
-			data,
-		}, testGatewayProgram))
-
-		assert.Empty(t, gatewayEmittedLogs([]string{
-			"Program " + testGatewayProgram + " invoke [1]",
-			"Program " + testGatewayProgram + " success",
-			"Program " + testGatewayProgram + " success",
-			data,
-		}, testGatewayProgram))
-	})
-
-	t.Run("attacker exits cannot expose an outer gateway frame", func(t *testing.T) {
-		// Gateway CPIs into the attacker, who emits surplus exits hoping to pop
-		// back to the gateway frame and have its own data log attributed to it.
-		assert.Empty(t, gatewayEmittedLogs([]string{
-			"Program " + testGatewayProgram + " invoke [1]",
-			"Program " + testAttackerProgram + " invoke [2]",
-			"Program " + testAttackerProgram + " success",
-			"Program " + testGatewayProgram + " success",
-			data,
-		}, testGatewayProgram))
-	})
-
-	t.Run("gateway frame left open still attributes", func(t *testing.T) {
-		// What a mid-frame truncation looks like: the exit line never arrives.
-		assert.Equal(t, map[int]bool{1: true}, gatewayEmittedLogs([]string{
-			"Program " + testGatewayProgram + " invoke [1]",
-			data,
-		}, testGatewayProgram))
-	})
-
-	t.Run("unrelated runtime lines do not disturb the stack", func(t *testing.T) {
-		logs := []string{
-			"Program " + testGatewayProgram + " invoke [1]",
-			"Program log: Instruction: SendFunds",
-			"Program return: " + testGatewayProgram + " AQID",
-			"Program " + testGatewayProgram + " consumed 12345 of 200000 compute units",
-			data,
-			"Program " + testGatewayProgram + " success",
-		}
-		assert.Equal(t, map[int]bool{4: true}, gatewayEmittedLogs(logs, testGatewayProgram))
-	})
-}
-
-func TestInvokedProgramAndExit(t *testing.T) {
-	id, ok := invokedProgram("Program " + testGatewayProgram + " invoke [1]")
-	assert.True(t, ok)
-	assert.Equal(t, testGatewayProgram, id)
-
-	_, ok = invokedProgram("Program log: hello")
-	assert.False(t, ok)
-	_, ok = invokedProgram("Program data: AQID")
-	assert.False(t, ok)
-
-	assert.True(t, isProgramExit("Program "+testGatewayProgram+" success"))
-	assert.True(t, isProgramExit("Program "+testGatewayProgram+" failed: custom program error: 0x1"))
-	assert.False(t, isProgramExit("Program log: success"))
-	assert.False(t, isProgramExit("Program data: AQID"))
-	assert.False(t, isProgramExit("Program "+testGatewayProgram+" consumed 1 of 2 compute units"))
-}
-
-// forgeryRPC serves one transaction whose logs the test controls.
 type forgeryRPC struct {
-	slot uint64
-	sig  solana.Signature
-	logs []string
+	slot   uint64
+	sig    solana.Signature
+	txJSON string
+	sigErr interface{}
 }
 
 func (m *forgeryRPC) GetLatestSlot(context.Context) (uint64, error) { return m.slot, nil }
 
 func (m *forgeryRPC) GetSignaturesForAddress(context.Context, solana.PublicKey, solana.Signature) ([]*solanarpc.TransactionSignature, error) {
-	return []*solanarpc.TransactionSignature{{Signature: m.sig, Slot: m.slot}}, nil
+	return []*solanarpc.TransactionSignature{{Signature: m.sig, Slot: m.slot, Err: m.sigErr}}, nil
 }
 
 func (m *forgeryRPC) GetTransaction(context.Context, solana.Signature) (*solanarpc.GetTransactionResult, error) {
-	return &solanarpc.GetTransactionResult{
-		Slot: m.slot,
-		Meta: &solanarpc.TransactionMeta{LogMessages: m.logs},
-	}, nil
+	var tx solanarpc.GetTransactionResult
+	if err := json.Unmarshal([]byte(m.txJSON), &tx); err != nil {
+		return nil, err
+	}
+	return &tx, nil
+}
+
+// txWithEmittedEvent renders a transaction whose only inner instruction is an
+// emit_cpi event from `emitter`, alongside whatever the runtime logged.
+func txWithEmittedEvent(t *testing.T, emitter string, payload []byte, logs []string) string {
+	t.Helper()
+	data := append(append([]byte{}, eventIxTag...), payload...)
+	logJSON, err := json.Marshal(logs)
+	require.NoError(t, err)
+	return fmt.Sprintf(`{
+		"slot": 100,
+		"transaction": {
+			"signatures": ["%s"],
+			"message": {
+				"header": {"numRequiredSignatures":1,"numReadonlySignedAccounts":0,"numReadonlyUnsignedAccounts":1},
+				"accountKeys": ["%s","%s"],
+				"recentBlockhash": "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+				"instructions": []
+			}
+		},
+		"meta": {
+			"err": null,
+			"logMessages": %s,
+			"innerInstructions": [
+				{"index":0,"instructions":[{"programIdIndex":1,"accounts":[],"data":"%s","stackHeight":2}]}
+			]
+		}
+	}`, mkSig(7).String(), testGatewayProgram, emitter, string(logJSON), base58.Encode(data))
 }
 
 // End-to-end proof that the listener drops a forged event. The same valid
 // send_funds payload is served twice: emitted by an attacker program it must be
-// ignored, emitted by the gateway it must be stored. Running both with one
-// payload shows attribution is what rejects it, not a decode failure.
+// ignored, emitted by the gateway it must be stored. With emit_cpi the emitter
+// is the inner instruction's own program id, so a forgery cannot be dressed up
+// by nesting log lines.
 func TestProcessSignatureBatch_RejectsForgedGatewayEvent(t *testing.T) {
 	discriminator := "0000000000000000" // buildSendFundsPayload zeroes the discriminator
 	payload := buildSendFundsPayload(
 		[32]byte{1}, [20]byte{2}, [32]byte{3}, 1_000_000,
 		nil, [32]byte{4}, 0, nil, false,
 	)
-	dataLog := "Program data: " + base64.StdEncoding.EncodeToString(payload)
 
-	run := func(t *testing.T, logs []string) int {
+	run := func(t *testing.T, emitter string) int {
 		t.Helper()
 		database, err := db.OpenInMemoryDB(true)
 		require.NoError(t, err)
@@ -885,7 +757,7 @@ func TestProcessSignatureBatch_RejectsForgedGatewayEvent(t *testing.T) {
 		methods := []*uregistrytypes.GatewayMethods{
 			{Name: EventTypeSendFunds, EventIdentifier: discriminator},
 		}
-		rpc := &forgeryRPC{slot: 100, sig: mkSig(7), logs: logs}
+		rpc := &forgeryRPC{slot: 100, sig: mkSig(7), txJSON: txWithEmittedEvent(t, emitter, payload, nil)}
 		el, err := NewEventListener(rpc, testGatewayProgram, "solana:test", methods, database, 10, nil, zerolog.Nop())
 		require.NoError(t, err)
 
@@ -900,94 +772,149 @@ func TestProcessSignatureBatch_RejectsForgedGatewayEvent(t *testing.T) {
 	}
 
 	t.Run("forged by attacker program is not stored", func(t *testing.T) {
-		stored := run(t, []string{
-			"Program " + testAttackerProgram + " invoke [1]",
-			dataLog,
-			"Program " + testAttackerProgram + " success",
-		})
-		assert.Zero(t, stored, "forged gateway event must not become an inbound")
+		assert.Zero(t, run(t, testAttackerProgram), "forged gateway event must not become an inbound")
 	})
 
 	t.Run("same payload from the gateway is stored", func(t *testing.T) {
-		stored := run(t, []string{
-			"Program " + testGatewayProgram + " invoke [1]",
-			dataLog,
-			"Program " + testGatewayProgram + " success",
-		})
-		assert.Equal(t, 1, stored, "genuine gateway event must be observed")
+		assert.Equal(t, 1, run(t, testGatewayProgram), "genuine gateway event must be observed")
 	})
 }
 
-// Gateway events are emitted with sol_log_data, so once the runtime truncates
-// the log buffer the event line is gone and no RPC call recovers it. Detect it
-// so a missed deposit is alertable instead of silent.
-func TestLogsTruncated(t *testing.T) {
-	t.Run("detects the runtime marker", func(t *testing.T) {
-		assert.True(t, logsTruncated([]string{
-			"Program " + testGatewayProgram + " invoke [1]",
-			"Program log: Instruction: SendFunds",
-			"Log truncated",
-		}))
-	})
-
-	t.Run("matches wording variants and case", func(t *testing.T) {
-		assert.True(t, logsTruncated([]string{"log truncated"}))
-		assert.True(t, logsTruncated([]string{"Log Truncated"}))
-	})
-
-	t.Run("normal logs are not flagged", func(t *testing.T) {
-		assert.False(t, logsTruncated([]string{
-			"Program " + testGatewayProgram + " invoke [1]",
-			"Program log: Instruction: SendFunds",
-			"Program data: q83vEjRWeJA=",
-			"Program " + testGatewayProgram + " success",
-		}))
-		assert.False(t, logsTruncated(nil))
-	})
-
-	// A program cannot emit a bare line, so it cannot fake the marker. Its own
-	// output is always prefixed and must not trip detection.
-	t.Run("program cannot spoof the marker", func(t *testing.T) {
-		assert.False(t, logsTruncated([]string{
-			"Program " + testAttackerProgram + " invoke [1]",
-			"Program log: Log truncated",
-			"Program data: dHJ1bmNhdGVk",
-			"Program " + testAttackerProgram + " success",
-		}))
-	})
-}
-
-// Truncation must not discard the events that did survive: anything logged
-// before the cut is genuine and attributable.
-func TestProcessSignatureBatch_TruncatedLogsStillStoreVisibleEvents(t *testing.T) {
-	discriminator := "0000000000000000"
+// A failed transaction rolls every state change back, but its meta still
+// carries the logs and inner instructions that ran before it aborted. Voting
+// success off one would credit a transfer that never happened.
+func TestProcessSignatureBatch_SkipsFailedTransactions(t *testing.T) {
 	payload := buildSendFundsPayload(
 		[32]byte{1}, [20]byte{2}, [32]byte{3}, 1_000_000,
 		nil, [32]byte{4}, 0, nil, false,
 	)
+	methods := []*uregistrytypes.GatewayMethods{
+		{Name: EventTypeSendFunds, EventIdentifier: "0000000000000000"},
+	}
 
+	run := func(t *testing.T, sigErr interface{}, txJSON string) int {
+		t.Helper()
+		database, err := db.OpenInMemoryDB(true)
+		require.NoError(t, err)
+		t.Cleanup(func() { database.Close() })
+
+		rpc := &forgeryRPC{slot: 100, sig: mkSig(7), txJSON: txJSON, sigErr: sigErr}
+		el, err := NewEventListener(rpc, testGatewayProgram, "solana:test", methods, database, 10, nil, zerolog.Nop())
+		require.NoError(t, err)
+
+		_, err = el.processSignatureBatch(context.Background(), []*solanarpc.TransactionSignature{
+			{Signature: mkSig(7), Slot: 100, Err: sigErr},
+		}, 0, 200)
+		require.NoError(t, err)
+
+		events, err := common.NewChainStore(database).GetPendingEvents(100)
+		require.NoError(t, err)
+		return len(events)
+	}
+
+	ok := txWithEmittedEvent(t, testGatewayProgram, payload, nil)
+
+	t.Run("succeeded transaction is stored", func(t *testing.T) {
+		assert.Equal(t, 1, run(t, nil, ok))
+	})
+
+	t.Run("signature reported as failed is skipped", func(t *testing.T) {
+		assert.Zero(t, run(t, map[string]interface{}{"InstructionError": []interface{}{0.0}}, ok),
+			"an event emitted before the abort must not be observed")
+	})
+
+	t.Run("meta reporting failure is skipped", func(t *testing.T) {
+		failed := strings.Replace(ok, `"err": null`, `"err": {"InstructionError":[0,{"Custom":6020}]}`, 1)
+		require.NotEqual(t, ok, failed)
+		assert.Zero(t, run(t, nil, failed),
+			"the tx-level error must be honoured even if the signature listing looked clean")
+	})
+}
+
+// The point of emit_cpi: the event lives in an inner instruction, so a
+// destination CPI that floods the log buffer can no longer take the terminal
+// event down with it. This is the F-2026-18817 observation half.
+func TestProcessSignatureBatch_TruncatedLogsStillYieldEvent(t *testing.T) {
 	database, err := db.OpenInMemoryDB(true)
 	require.NoError(t, err)
-	defer database.Close()
+	t.Cleanup(func() { database.Close() })
+
+	payload := buildSendFundsPayload(
+		[32]byte{1}, [20]byte{2}, [32]byte{3}, 1_000_000,
+		nil, [32]byte{4}, 0, nil, false,
+	)
+	truncated := []string{
+		"Program " + testGatewayProgram + " invoke [1]",
+		"Program log: truncated",
+	}
 
 	methods := []*uregistrytypes.GatewayMethods{
-		{Name: EventTypeSendFunds, EventIdentifier: discriminator},
+		{Name: EventTypeSendFunds, EventIdentifier: "0000000000000000"},
 	}
-	rpc := &forgeryRPC{slot: 100, sig: mkSig(9), logs: []string{
-		"Program " + testGatewayProgram + " invoke [1]",
-		"Program data: " + base64.StdEncoding.EncodeToString(payload),
-		"Program " + testGatewayProgram + " success",
-		"Log truncated",
-	}}
+	rpc := &forgeryRPC{slot: 100, sig: mkSig(7), txJSON: txWithEmittedEvent(t, testGatewayProgram, payload, truncated)}
 	el, err := NewEventListener(rpc, testGatewayProgram, "solana:test", methods, database, 10, nil, zerolog.Nop())
 	require.NoError(t, err)
 
 	_, err = el.processSignatureBatch(context.Background(), []*solanarpc.TransactionSignature{
-		{Signature: mkSig(9), Slot: 100},
+		{Signature: mkSig(7), Slot: 100},
 	}, 0, 200)
 	require.NoError(t, err)
 
 	events, err := common.NewChainStore(database).GetPendingEvents(100)
 	require.NoError(t, err)
-	assert.Len(t, events, 1, "events logged before the cut must still be stored")
+	assert.Len(t, events, 1, "a truncated log buffer must not cost us the event")
+}
+
+// devnetFinalizeTx is a real FinalizeUniversalTxWithIxDataRef from the devnet
+// gateway, signature 4ye6nTo4oKcEctDza44Zr7QAwHmqhH4qfeBkDjHqE2aFtgxuhdF9dfs1EmBbYiTfwXMvWUupJ592DQQQAGx5Abus.
+// It carries no "Program data:" line at all: the gateway emits through
+// emit_cpi, so the event is a self-CPI inner instruction instead.
+const devnetFinalizeTx = `{"blockTime":1788253699,"meta":{"computeUnitsConsumed":132988,"costUnits":136994,"err":null,"fee":5000,"innerInstructions":[{"index":0,"instructions":[{"accounts":[0,5],"data":"11114pZy3PBZenKB1vn2UptrP91MCBmdVNUDneZKAWH7B8Sg5eCB3E67uKRhm1xbvr4ACz","programIdIndex":10,"stackHeight":2},{"accounts":[0,9],"data":"1111NuBxPLg6vZ28hQWMLnv7auFnJFYGTC4L1MUjrNkN9xikCBvdVStP4KiJr9vvBcWPa","programIdIndex":10,"stackHeight":2},{"accounts":[9,15],"data":"18ukwGkxoTJPx4HkLTz6ZybMUmX1yt47MVERA5H6yQGUdgK","programIdIndex":16,"stackHeight":2},{"accounts":[0,3],"data":"11113ahNe3Yfn6gi8hZhcH9k4YUezY3FJNRHx6tPLUTkr868BMzwWAZDTUtWcrGK2cw1Fx","programIdIndex":10,"stackHeight":2},{"accounts":[0,4,7,9,10,16],"data":"1","programIdIndex":13,"stackHeight":2},{"accounts":[9],"data":"84eT","programIdIndex":16,"stackHeight":3},{"accounts":[0,4],"data":"11113z11NKiYBjwDfL71F9myuy3cwdtTaatpiC6rj9zomYP4qbzHXZVjhEFkM5qi31QeQg","programIdIndex":10,"stackHeight":3},{"accounts":[4],"data":"P","programIdIndex":16,"stackHeight":3},{"accounts":[4,9],"data":"6VKrKvV2EjfdgaesMejJQDnusTVKHbdt2BPiddZq2WzGf","programIdIndex":16,"stackHeight":3},{"accounts":[9,4,9],"data":"6YF7VVXZihvw","programIdIndex":16,"stackHeight":2},{"accounts":[2,0],"data":"3Bxs4R98mv6mmz5M","programIdIndex":10,"stackHeight":2},{"accounts":[2,0],"data":"3Bxs4PckVVt51W8w","programIdIndex":10,"stackHeight":2},{"accounts":[11],"data":"9opCxkAgBxqeR8UTbeow8YC7933mDbBMCEMKiYsmMRqLs1N8zRudTsxXqkeWaXpNdpt2QZhCyZprcPNHfS7EwMkBnfrzuFhd3zMg8ZLA6Uk1BVxrx5nq9s2EYueLPKVCWCvzyKsZqph76dduPdkHBQs7TdFtP5FtvJssMKvwPu5zShUSegxsJLaYKZCjZAcrYscVbEmLzrvehE2s4qYdMGyW58rkamNjPC4BgKoZpPt136NYv31ftYXB4sVrTdjkJogbp9HpWA1BnewRmXuWddeYyGxyiFG3X44mG5ALa7rTuPgcZukdFmahFVfE2Txj","programIdIndex":14,"stackHeight":2}]}],"loadedAddresses":{"readonly":[],"writable":[]},"logMessages":["Program DJoFYDpgbTfxbXBv1QYhYGc9FK4J5FUKpYXAfSkHryXp invoke [1]","Program log: Instruction: FinalizeUniversalTxWithIxDataRef","Program 11111111111111111111111111111111 invoke [2]","Program 11111111111111111111111111111111 success","Program 11111111111111111111111111111111 invoke [2]","Program 11111111111111111111111111111111 success","Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]","Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 86 of 148619 compute units","Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success","Program 11111111111111111111111111111111 invoke [2]","Program 11111111111111111111111111111111 success","Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL invoke [2]","Program log: Create","Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [3]","Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 179 of 93967 compute units","Program return: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA pQAAAAAAAAA=","Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success","Program 11111111111111111111111111111111 invoke [3]","Program 11111111111111111111111111111111 success","Program log: Initialize the associated token account","Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [3]","Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 37 of 88878 compute units","Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success","Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [3]","Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 233 of 86415 compute units","Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success","Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL consumed 15010 of 100888 compute units","Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL success","Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]","Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 122 of 82575 compute units","Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success","Program 11111111111111111111111111111111 invoke [2]","Program 11111111111111111111111111111111 success","Program 11111111111111111111111111111111 invoke [2]","Program 11111111111111111111111111111111 success","Program DJoFYDpgbTfxbXBv1QYhYGc9FK4J5FUKpYXAfSkHryXp invoke [2]","Program DJoFYDpgbTfxbXBv1QYhYGc9FK4J5FUKpYXAfSkHryXp consumed 2517 of 71342 compute units","Program DJoFYDpgbTfxbXBv1QYhYGc9FK4J5FUKpYXAfSkHryXp success","Program DJoFYDpgbTfxbXBv1QYhYGc9FK4J5FUKpYXAfSkHryXp consumed 132988 of 200000 compute units","Program DJoFYDpgbTfxbXBv1QYhYGc9FK4J5FUKpYXAfSkHryXp success"],"postBalances":[5010154600,2793266460,17563563083,1203270,1855569,861288,0,0,1566000,1329930,1,0,2832720,5938070540,1141440,1009200,15367267856],"postTokenBalances":[{"accountIndex":4,"mint":"ZTgXiGpKZjEopH1mSqZ1GjY8k9G6dQaJoCm8iUkab7V","owner":"9C9ezHVSSpMrKAmqZa74jpUUxbjUBtcKUUYn8z9DDqqh","programId":"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA","uiTokenAmount":{"amount":"10000000","decimals":6,"uiAmount":10.0,"uiAmountString":"10"}}],"preBalances":[5006672783,2793266460,17568823140,0,0,0,3476817,0,1566000,0,1,0,2832720,5938070540,1141440,1009200,15367267856],"preTokenBalances":[],"rewards":[],"status":{"Ok":null}},"slot":491383584,"transaction":{"message":{"accountKeys":["4QbAt2CJ8QqCHeps2RmMjG1nWUCmPqjkEyYQMjrJaVtH","2EEYH6e1PtCdWzZaag9buJmDDS79gvrm1aQm9yEcgWdR","4sQLizYQ1ZJjc2doLqTQsk1Kj8XVS5uviJykpHNNMSi5","4VC5j3WgPU7TTF8YzgikNdpF8zwnGkqAjf9iWfA5xCi7","59oiUm1Anavheg38XWDDdv3GAjD4XYSUhQBY8qyxXnTc","5BT6kxRRU2jSVbvVdeEBAszUoCXTzUpHWeruS5kYkqz","5PZEHeEx9mhMNPneusoQvLunGDLgHAQcyGmnoT1jJCEk","9C9ezHVSSpMrKAmqZa74jpUUxbjUBtcKUUYn8z9DDqqh","FDxeNn8YT8DoWrJ5GzqNTW8rjx8cLFNFBgHpBTMifeYJ","ZTgXiGpKZjEopH1mSqZ1GjY8k9G6dQaJoCm8iUkab7V","11111111111111111111111111111111","5FRwYKUHLYoSq6uNgrjZ2sq436AAzPnv77fv9e7EiFPi","7QAS73zgRm7KMt85XMGWbWDnmhZR1UyTULhhxR254YYR","ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL","DJoFYDpgbTfxbXBv1QYhYGc9FK4J5FUKpYXAfSkHryXp","SysvarRent111111111111111111111111111111111","TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"],"header":{"numReadonlySignedAccounts":0,"numReadonlyUnsignedAccounts":7,"numRequiredSignatures":1},"instructions":[{"accounts":[0,12,2,7,8,5,10,10,1,14,4,14,16,15,13,14,14,14,6,0,11,14,3,9],"data":"42AXCSarXAyth9mmjqkpxW8qtkNjcbj5KuupCERvjRCapw5ydhidmiLmMnypfiZFedPUhVNQyeLPfF17ZtqeBJUS83v6DJRgwFHuVMK1dDy4MFW7QhMwVxfJwuZ1hgv9TtXcmdmixaHukCq77ikrN37w3UR2P12aY9ERa5tXuQGkxXAenYcsNHQuw7y99mXT2icCjvcVd3yGRtWgvnbrd4Gf36pzqRpZkrNgKdJzvSDYgoarEXdPq6m3GjZxRkvsgQJ2sZTsKbNCeRrL5tdxTRgd7YZXqXVDJ4ShaYAKqLXBqMGf1LbynGK2G8HUriKn41xVEFK2Rg37E3dykeHSDS","programIdIndex":14,"stackHeight":1}],"recentBlockhash":"2CEDFZcp6d5ug1BgDjuNzMPRXqi4WX8QTZskNr9yJicY"},"signatures":["4ye6nTo4oKcEctDza44Zr7QAwHmqhH4qfeBkDjHqE2aFtgxuhdF9dfs1EmBbYiTfwXMvWUupJ592DQQQAGx5Abus"]},"transactionIndex":12,"version":"legacy"}`
+
+// Pinned against a real transaction because the layout is set by the deployed
+// program, not by us. gas_fee - gas_used == gas_to_refund in this event, which
+// is what makes the offsets self-checking.
+func TestGatewayEventPayloads_RealDevnetTransaction(t *testing.T) {
+	const gateway = "DJoFYDpgbTfxbXBv1QYhYGc9FK4J5FUKpYXAfSkHryXp"
+
+	var tx solanarpc.GetTransactionResult
+	require.NoError(t, json.Unmarshal([]byte(devnetFinalizeTx), &tx))
+
+	require.NotNil(t, tx.Meta)
+	for _, l := range tx.Meta.LogMessages {
+		require.False(t, strings.HasPrefix(l, "Program data: "),
+			"this transaction predates emit_cpi if it still logs event data")
+	}
+
+	payloads := gatewayEventPayloads(&tx, gateway)
+	require.Len(t, payloads, 1, "the finalize emits exactly one gateway event")
+
+	el := &EventListener{
+		gatewayAddress: gateway,
+		// sha256("event:UniversalTxFinalized")[:8], as emitted on chain.
+		discriminatorToEventType: map[string]string{"b3409670758c9c25": EventTypeFinalizeUniversalTx},
+		chainID:                  "solana:devnet",
+		logger:                   zerolog.Nop(),
+	}
+	eventType := el.determineEventType(payloads[0])
+	require.Equal(t, EventTypeFinalizeUniversalTx, eventType)
+
+	event := ParseEvent(payloads[0], "sig", 42, 0, eventType, "solana:devnet", zerolog.Nop())
+	require.NotNil(t, event)
+
+	var payload common.OutboundEvent
+	require.NoError(t, json.Unmarshal(event.EventData, &payload))
+	assert.Equal(t, "5260057", payload.GasFeeUsed, "gas_used must come from offset 112, not from wrapper_address")
+	assert.Equal(t, store.EventTypeOutbound, event.Type)
+}
+
+// A program that is not the gateway can put anything in its own inner
+// instruction, discriminator included, so the emitter check is what makes the
+// event trustworthy.
+func TestGatewayEventPayloads_IgnoresForeignEmitter(t *testing.T) {
+	var tx solanarpc.GetTransactionResult
+	require.NoError(t, json.Unmarshal([]byte(devnetFinalizeTx), &tx))
+
+	assert.Empty(t, gatewayEventPayloads(&tx, "11111111111111111111111111111111"),
+		"an event emitted by another program must not be read as the gateway's")
 }

@@ -1,6 +1,7 @@
 package svm
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/hex"
@@ -285,6 +286,17 @@ func (el *EventListener) processSignatureBatch(
 		}
 		processed++
 
+		// A failed transaction still records the logs and inner instructions that
+		// ran before it aborted, while every state change is rolled back. Reading
+		// an event out of one would vote success for a transfer that never
+		// happened, so drop it before it is ever fetched.
+		if sig.Err != nil {
+			el.logger.Debug().
+				Str("signature", sig.Signature.String()).
+				Msg("skipping failed transaction")
+			continue
+		}
+
 		// Get transaction details
 		tx, err := el.rpcClient.GetTransaction(ctx, sig.Signature)
 		if err != nil {
@@ -295,55 +307,43 @@ func (el *EventListener) processSignatureBatch(
 			continue
 		}
 
-		// Process each log in the transaction.
-		// getSignaturesForAddress returns any tx that merely references the
-		// gateway in accountKeys, and a discriminator is a schema tag rather than
-		// an authenticator. So track the invocation stack and accept a
-		// "Program data:" line only while the gateway is the executing program;
-		// otherwise any program could emit a forged gateway event.
-		if tx != nil && tx.Meta != nil && len(tx.Meta.LogMessages) > 0 {
-			// Surface truncation loudly: a gateway event may have been dropped and
-			// is unrecoverable from RPC, so the deposit needs manual reconciliation.
-			// Visible logs are still processed, since events before the cut are real.
-			if logsTruncated(tx.Meta.LogMessages) {
-				el.logger.Error().
-					Str("signature", sig.Signature.String()).
-					Uint64("slot", sig.Slot).
-					Msg("solana log buffer truncated; a gateway event may have been dropped and needs manual review")
+		// The gateway emits through emit_cpi, so events arrive as self-CPI inner
+		// instructions rather than "Program data:" logs. That puts them outside
+		// the log buffer, so a chatty destination CPI can no longer truncate a
+		// terminal event away, and the emitter is the inner instruction's own
+		// program id rather than something inferred from the log nesting.
+		if tx != nil && tx.Meta != nil && tx.Meta.Err != nil {
+			el.logger.Debug().
+				Str("signature", sig.Signature.String()).
+				Msg("skipping failed transaction")
+			continue
+		}
+
+		for payloadIndex, payload := range gatewayEventPayloads(tx, el.gatewayAddress) {
+			eventType := el.determineEventType(payload)
+			if eventType == "" {
+				continue
 			}
 
-			fromGateway := gatewayEmittedLogs(tx.Meta.LogMessages, el.gatewayAddress)
-			for logIndex, log := range tx.Meta.LogMessages {
-				if !fromGateway[logIndex] {
-					continue
-				}
+			event := ParseEvent(payload, sig.Signature.String(), sig.Slot, uint(payloadIndex), eventType, el.chainID, el.logger)
+			if event == nil {
+				continue
+			}
 
-				// Determine event type based on discriminator
-				eventType := el.determineEventType(log)
-				if eventType == "" {
-					continue
-				}
-
-				// Parse gateway event from individual log
-				event := ParseEvent(log, sig.Signature.String(), sig.Slot, uint(logIndex), eventType, el.chainID, el.logger)
-				if event != nil {
-					// Insert event if it doesn't already exist
-					if stored, err := el.chainStore.InsertEventIfNotExists(event); err != nil {
-						el.logger.Error().
-							Err(err).
-							Str("event_id", event.EventID).
-							Str("type", event.Type).
-							Uint64("slot", event.BlockHeight).
-							Msg("failed to store event")
-					} else if stored {
-						el.logger.Debug().
-							Str("event_id", event.EventID).
-							Str("type", event.Type).
-							Uint64("slot", event.BlockHeight).
-							Str("confirmation_type", event.ConfirmationType).
-							Msg("stored new event")
-					}
-				}
+			if stored, err := el.chainStore.InsertEventIfNotExists(event); err != nil {
+				el.logger.Error().
+					Err(err).
+					Str("event_id", event.EventID).
+					Str("type", event.Type).
+					Uint64("slot", event.BlockHeight).
+					Msg("failed to store event")
+			} else if stored {
+				el.logger.Debug().
+					Str("event_id", event.EventID).
+					Str("type", event.Type).
+					Uint64("slot", event.BlockHeight).
+					Str("confirmation_type", event.ConfirmationType).
+					Msg("stored new event")
 			}
 		}
 	}
@@ -436,55 +436,6 @@ func invokedProgram(log string) (string, bool) {
 	return programID, true
 }
 
-// gatewayEmittedLogs returns the indexes of "Program data:" lines emitted while
-// gatewayAddress was the executing program, walking the invoke/exit stack.
-// Lines emitted by any other program are excluded: a discriminator identifies an
-// encoding schema, not the emitter, so without this any program could log a
-// well-formed gateway event and have it observed as a real deposit.
-func gatewayEmittedLogs(logs []string, gatewayAddress string) map[int]bool {
-	emitted := make(map[int]bool)
-	var stack []string
-	for i, log := range logs {
-		if programID, ok := invokedProgram(log); ok {
-			stack = append(stack, programID)
-			continue
-		}
-		if isProgramExit(log) {
-			if len(stack) > 0 {
-				stack = stack[:len(stack)-1]
-			}
-			continue
-		}
-		if !strings.HasPrefix(log, "Program data: ") {
-			continue
-		}
-		if len(stack) > 0 && stack[len(stack)-1] == gatewayAddress {
-			emitted[i] = true
-		}
-	}
-	return emitted
-}
-
-// logsTruncated reports whether the runtime dropped part of this transaction's
-// log buffer. Programs can only emit "Program log:" and "Program data:" lines,
-// so a bare line is runtime-generated and cannot be spoofed. Matching on the
-// word rather than one exact literal keeps this working if the wording changes.
-//
-// It matters because gateway events are emitted with sol_log_data: once the
-// buffer overflows the event line is gone, and no RPC call can recover it. The
-// deposit would otherwise be missed in silence.
-func logsTruncated(logs []string) bool {
-	for _, log := range logs {
-		if strings.HasPrefix(log, "Program ") {
-			continue
-		}
-		if strings.Contains(strings.ToLower(log), "truncated") {
-			return true
-		}
-	}
-	return false
-}
-
 // isProgramExit reports whether log ends an invocation frame, i.e.
 // "Program <id> success" or "Program <id> failed: ...".
 // The program ID must parse as a pubkey: otherwise a program logging "success"
@@ -508,6 +459,51 @@ func isProgramExit(log string) bool {
 }
 
 // determineEventType determines the event type based on the log discriminator
+// eventIxTag prefixes the data of every Anchor emit_cpi instruction.
+var eventIxTag = []byte{0xe4, 0x45, 0xa5, 0x2e, 0x51, 0xcb, 0x9a, 0x1d}
+
+// gatewayEventPayloads returns the gateway's emit_cpi events, rendered in the
+// same "Program data:" form the parsers take. The data of such an instruction
+// is eventIxTag || discriminator || borsh, so dropping the tag leaves exactly
+// the bytes a "Program data:" line used to carry.
+//
+// Only inner instructions whose own program id is the gateway are read, which
+// is what makes the emitter unforgeable: a discriminator is a schema tag, so
+// any program could previously log a lookalike gateway event.
+func gatewayEventPayloads(tx *solanarpc.GetTransactionResult, gatewayAddress string) []string {
+	if tx == nil || tx.Meta == nil || len(tx.Meta.InnerInstructions) == 0 {
+		return nil
+	}
+	gateway, err := solana.PublicKeyFromBase58(gatewayAddress)
+	if err != nil {
+		return nil
+	}
+	parsed, txErr := tx.Transaction.GetTransaction()
+	if txErr != nil || parsed == nil {
+		return nil
+	}
+
+	// Account indexes span the static keys followed by anything the tx pulled in
+	// through an address lookup table, in that order.
+	keys := append(solana.PublicKeySlice{}, parsed.Message.AccountKeys...)
+	keys = append(keys, tx.Meta.LoadedAddresses.Writable...)
+	keys = append(keys, tx.Meta.LoadedAddresses.ReadOnly...)
+
+	var payloads []string
+	for _, group := range tx.Meta.InnerInstructions {
+		for _, ix := range group.Instructions {
+			if int(ix.ProgramIDIndex) >= len(keys) || !keys[ix.ProgramIDIndex].Equals(gateway) {
+				continue
+			}
+			if len(ix.Data) < len(eventIxTag) || !bytes.Equal(ix.Data[:len(eventIxTag)], eventIxTag) {
+				continue
+			}
+			payloads = append(payloads, "Program data: "+base64.StdEncoding.EncodeToString(ix.Data[len(eventIxTag):]))
+		}
+	}
+	return payloads
+}
+
 func (el *EventListener) determineEventType(log string) string {
 	if !strings.HasPrefix(log, "Program data: ") {
 		return ""

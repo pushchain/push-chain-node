@@ -48,7 +48,7 @@ func ParseEvent(log string, signature string, slot uint64, logIndex uint, eventT
 	case EventTypeSendFunds:
 		return parseSendFundsEvent(log, signature, slot, logIndex, chainID, logger)
 	case EventTypeFinalizeUniversalTx, EventTypeRevertUniversalTx, EventTypeFundsRescued:
-		return parseOutboundObservationEvent(log, signature, slot, logIndex, chainID, logger)
+		return parseOutboundObservationEvent(log, signature, slot, logIndex, eventType, chainID, logger)
 	default:
 		logger.Debug().
 			Str("event_type", eventType).
@@ -111,16 +111,13 @@ func parseSendFundsEvent(log string, signature string, slot uint64, logIndex uin
 // - discriminator (8 bytes)
 // - sub_tx_id (32 bytes)
 // - universal_tx_id (32 bytes)
-// - gas_fee (8 bytes, u64 lamports)        — prepaid budget
-// - gas_used (8 bytes, u64 lamports)       — actual lamports consumed
-// - gas_to_refund (8 bytes, u64 lamports)  — gas_fee - gas_used returned to caller
-// - ata_created (1 byte, bool)             — true if SPL ATA was newly created
-// - push_account (20 bytes)
-// - target (32 bytes, Pubkey)
-// - token (32 bytes, Pubkey)
-// - amount (8 bytes, u64)
-// - payload (4 bytes length + data, Vec<u8>)
-func parseOutboundObservationEvent(log string, signature string, slot uint64, logIndex uint, chainID string, logger zerolog.Logger) *store.Event {
+// The three outbound events diverge after universal_tx_id, so gas_used sits at
+// a different offset in each:
+//
+//	UniversalTxFinalized  ... wrapper_address(32) gas_fee(8)   gas_used -> 112
+//	RevertUniversalTx     ... revert_recipient(32) token(32) amount(8)  -> 144
+//	FundsRescued          ... token(32) amount(8)                       -> 112
+func parseOutboundObservationEvent(log string, signature string, slot uint64, logIndex uint, eventType string, chainID string, logger zerolog.Logger) *store.Event {
 	if !strings.HasPrefix(log, "Program data: ") {
 		return nil
 	}
@@ -161,12 +158,23 @@ func parseOutboundObservationEvent(log string, signature string, slot uint64, lo
 	universalTxID := "0x" + hex.EncodeToString(decoded[offset:offset+32])
 	offset += 32
 
-	// Skip gas_fee (prepaid budget, 8 bytes); the audited finalize event reports
-	// gas_used separately and that's the value we want to surface as GasFeeUsed.
-	offset += 8
-
-	// Extract gas_used (8 bytes, u64 little-endian lamports) — actual gas consumed.
-	gasUsed := binary.LittleEndian.Uint64(decoded[offset : offset+8])
+	gasUsedOffset := 0
+	switch eventType {
+	case EventTypeFinalizeUniversalTx, EventTypeFundsRescued:
+		gasUsedOffset = 112
+	case EventTypeRevertUniversalTx:
+		gasUsedOffset = 144
+	default:
+		return nil
+	}
+	if len(decoded) < gasUsedOffset+8 {
+		logger.Warn().
+			Int("data_len", len(decoded)).
+			Str("event_type", eventType).
+			Msg("outboundObservation event too short for gas_used")
+		return nil
+	}
+	gasUsed := binary.LittleEndian.Uint64(decoded[gasUsedOffset : gasUsedOffset+8])
 
 	// Create OutboundEvent payload
 	payload := common.OutboundEvent{

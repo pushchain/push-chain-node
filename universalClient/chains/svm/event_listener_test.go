@@ -887,6 +887,62 @@ func TestGatewayEventPayloads_Rejects(t *testing.T) {
 	})
 }
 
+// Account indexes run static keys, then ALT writable, then ALT readonly. The
+// gateway is reached through the universal ALT, so getting that order wrong
+// would either lose every event or, worse, attribute one program's instruction
+// to another key.
+func TestGatewayEventPayloads_ResolvesLookupTableKeys(t *testing.T) {
+	payload := buildSendFundsPayload(
+		[32]byte{1}, [20]byte{2}, [32]byte{3}, 1_000_000,
+		nil, [32]byte{4}, 0, nil, false,
+	)
+	data := append(append([]byte{}, eventIxTag...), payload...)
+	other := "11111111111111111111111111111111"
+
+	// index 0 = static, 1 = ALT writable, 2 = ALT readonly (the gateway).
+	mk := func(programIdIndex int) string {
+		return fmt.Sprintf(`{
+			"slot": 100,
+			"transaction": {
+				"signatures": ["%s"],
+				"message": {
+					"header": {"numRequiredSignatures":1,"numReadonlySignedAccounts":0,"numReadonlyUnsignedAccounts":0},
+					"accountKeys": ["%s"],
+					"recentBlockhash": "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+					"instructions": []
+				}
+			},
+			"meta": {
+				"err": null,
+				"logMessages": [],
+				"loadedAddresses": {"writable": ["%s"], "readonly": ["%s"]},
+				"innerInstructions": [
+					{"index":0,"instructions":[{"programIdIndex":%d,"accounts":[],"data":"%s","stackHeight":2}]}
+				]
+			}
+		}`, mkSig(7).String(), other, testAttackerProgram, testGatewayProgram, programIdIndex, base58.Encode(data))
+	}
+
+	t.Run("gateway resolved from the readonly segment", func(t *testing.T) {
+		var tx solanarpc.GetTransactionResult
+		require.NoError(t, json.Unmarshal([]byte(mk(2)), &tx))
+		assert.Len(t, gatewayEventPayloads(&tx, testGatewayProgram), 1)
+	})
+
+	t.Run("writable segment is not mistaken for the gateway", func(t *testing.T) {
+		var tx solanarpc.GetTransactionResult
+		require.NoError(t, json.Unmarshal([]byte(mk(1)), &tx))
+		assert.Empty(t, gatewayEventPayloads(&tx, testGatewayProgram),
+			"index 1 is the ALT writable entry, not the gateway")
+	})
+
+	t.Run("an index past the key list is ignored", func(t *testing.T) {
+		var tx solanarpc.GetTransactionResult
+		require.NoError(t, json.Unmarshal([]byte(mk(99)), &tx))
+		assert.Empty(t, gatewayEventPayloads(&tx, testGatewayProgram))
+	})
+}
+
 // txWithRawInnerData renders a transaction whose inner instruction data is used
 // verbatim, with no emit_cpi tag prepended.
 func txWithRawInnerData(t *testing.T, emitter string, data []byte) string {

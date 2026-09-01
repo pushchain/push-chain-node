@@ -159,17 +159,9 @@ func parseOutboundObservationEvent(log string, signature string, slot uint64, lo
 		Uint64("slot", slot).
 		Msg("processing outboundObservation event")
 
-	// Skip discriminator (8 bytes)
-	offset := 8
-
-	// Extract txID (32 bytes)
-	txID := "0x" + hex.EncodeToString(decoded[offset:offset+32])
-	offset += 32
-
-	// Extract universalTxID (32 bytes)
-	universalTxID := "0x" + hex.EncodeToString(decoded[offset:offset+32])
-	offset += 32
-
+	// All three events share the first two fields: disc(8) sub_tx_id(32) universal_tx_id(32).
+	txID := "0x" + hex.EncodeToString(decoded[8:40])
+	universalTxID := "0x" + hex.EncodeToString(decoded[40:72])
 	gasUsed := binary.LittleEndian.Uint64(decoded[gasUsedOffset : gasUsedOffset+8])
 
 	// Create OutboundEvent payload

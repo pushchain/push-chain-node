@@ -92,14 +92,24 @@ func wrapAsLog(data []byte) string {
 // the parser reports as GasFeeUsed; gas_fee (offset 72..80) is the prepaid
 // budget and is skipped. Tests pass `gasUsed` to match what the parser will
 // extract; gas_fee in the payload is left zero.
+// UniversalTxFinalized: disc(8) sub_tx_id(32) universal_tx_id(32)
+// wrapper_address(32) gas_fee(8) gas_used(8) gas_to_refund(8) ...
 func buildOutboundPayload(txID [32]byte, universalTxID [32]byte, gasUsed uint64) []byte {
-	data := make([]byte, 97)
-	// discriminator (8 bytes, zeroed is fine)
+	data := make([]byte, 130)
 	copy(data[8:40], txID[:])
 	copy(data[40:72], universalTxID[:])
-	// gas_fee at 72..80 (prepaid budget, left zero in tests)
-	binary.LittleEndian.PutUint64(data[80:88], gasUsed)
-	// gas_to_refund at 88..96 (left zero); ata_created at 96 (left zero)
+	// wrapper_address at 72..104 stays zero, which is the non-PC20 case.
+	binary.LittleEndian.PutUint64(data[112:120], gasUsed)
+	return data
+}
+
+// RevertUniversalTx: disc(8) sub_tx_id(32) universal_tx_id(32)
+// revert_recipient(32) token(32) amount(8) gas_used(8) ...
+func buildRevertPayload(txID [32]byte, universalTxID [32]byte, gasUsed uint64) []byte {
+	data := make([]byte, 152)
+	copy(data[8:40], txID[:])
+	copy(data[40:72], universalTxID[:])
+	binary.LittleEndian.PutUint64(data[144:152], gasUsed)
 	return data
 }
 
@@ -195,9 +205,20 @@ func TestParseEvent_Routing(t *testing.T) {
 	})
 
 	t.Run("revert_universal_tx routes to outbound parser", func(t *testing.T) {
-		event := ParseEvent(outboundLog, sig, 100, 0, EventTypeRevertUniversalTx, chainID, logger)
+		// Its own layout: gas_used sits further in than the finalize event's.
+		revertLog := wrapAsLog(buildRevertPayload(txID, utxID, 5000))
+		event := ParseEvent(revertLog, sig, 100, 0, EventTypeRevertUniversalTx, chainID, logger)
 		require.NotNil(t, event)
 		assert.Equal(t, store.EventTypeOutbound, event.Type)
+
+		var outbound common.OutboundEvent
+		require.NoError(t, json.Unmarshal(event.EventData, &outbound))
+		assert.Equal(t, "5000", outbound.GasFeeUsed)
+	})
+
+	t.Run("a finalize-shaped payload is too short to be read as a revert", func(t *testing.T) {
+		assert.Nil(t, ParseEvent(outboundLog, sig, 100, 0, EventTypeRevertUniversalTx, chainID, logger),
+			"reading a revert at the finalize offset would report the wrong gas_used")
 	})
 
 	t.Run("unknown event type returns nil", func(t *testing.T) {
@@ -209,6 +230,61 @@ func TestParseEvent_Routing(t *testing.T) {
 		event := ParseEvent(outboundLog, sig, 100, 0, "", chainID, logger)
 		assert.Nil(t, event)
 	})
+}
+
+// Each outbound event has its own gas_used offset, so "long enough" differs by
+// type. A revert-length check applied to a revert payload is the case that
+// would silently read the wrong field if the offsets were shared.
+func TestParseOutboundObservationEvent_LengthIsPerEventType(t *testing.T) {
+	logger := nopLogger()
+	chainID := "solana:devnet"
+	sig := "sig"
+	var txID, utxID [32]byte
+
+	t.Run("finalize needs 120 bytes", func(t *testing.T) {
+		assert.Nil(t, ParseEvent(wrapAsLog(make([]byte, 119)), sig, 1, 0, EventTypeFinalizeUniversalTx, chainID, logger))
+		assert.NotNil(t, ParseEvent(wrapAsLog(make([]byte, 120)), sig, 1, 0, EventTypeFinalizeUniversalTx, chainID, logger))
+	})
+
+	t.Run("rescue needs 120 bytes", func(t *testing.T) {
+		assert.Nil(t, ParseEvent(wrapAsLog(make([]byte, 119)), sig, 1, 0, EventTypeFundsRescued, chainID, logger))
+		assert.NotNil(t, ParseEvent(wrapAsLog(make([]byte, 120)), sig, 1, 0, EventTypeFundsRescued, chainID, logger))
+	})
+
+	t.Run("revert needs 152 bytes", func(t *testing.T) {
+		assert.Nil(t, ParseEvent(wrapAsLog(make([]byte, 151)), sig, 1, 0, EventTypeRevertUniversalTx, chainID, logger))
+		assert.NotNil(t, ParseEvent(wrapAsLog(buildRevertPayload(txID, utxID, 1)), sig, 1, 0, EventTypeRevertUniversalTx, chainID, logger))
+	})
+
+	t.Run("an unroutable event type is refused", func(t *testing.T) {
+		assert.Nil(t, parseOutboundObservationEvent(
+			wrapAsLog(buildOutboundPayload(txID, utxID, 1)), sig, 1, 0, "send_funds", chainID, logger),
+			"only the three outbound events have a known gas_used offset")
+	})
+}
+
+// The three offsets are what the deployed program's layout dictates, so pin
+// them against a payload where every field is distinguishable.
+func TestParseOutboundObservationEvent_ReadsItsOwnOffset(t *testing.T) {
+	logger := nopLogger()
+	var txID, utxID [32]byte
+
+	for _, tc := range []struct {
+		eventType string
+		payload   []byte
+	}{
+		{EventTypeFinalizeUniversalTx, buildOutboundPayload(txID, utxID, 4242)},
+		{EventTypeFundsRescued, buildOutboundPayload(txID, utxID, 4242)},
+		{EventTypeRevertUniversalTx, buildRevertPayload(txID, utxID, 4242)},
+	} {
+		t.Run(tc.eventType, func(t *testing.T) {
+			event := ParseEvent(wrapAsLog(tc.payload), "sig", 1, 0, tc.eventType, "solana:devnet", logger)
+			require.NotNil(t, event)
+			var outbound common.OutboundEvent
+			require.NoError(t, json.Unmarshal(event.EventData, &outbound))
+			assert.Equal(t, "4242", outbound.GasFeeUsed)
+		})
+	}
 }
 
 func TestParseSendFundsEvent(t *testing.T) {
@@ -421,21 +497,20 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 	})
 
 	t.Run("returns nil for data too short", func(t *testing.T) {
-		shortData := make([]byte, 96) // needs 97
+		shortData := make([]byte, 119) // gas_used ends at 120
 		event := ParseEvent(wrapAsLog(shortData), signature, 12345, 0, EventTypeFinalizeUniversalTx, chainID, logger)
 		assert.Nil(t, event)
 	})
 
-	t.Run("parses minimum valid data (exactly 97 bytes)", func(t *testing.T) {
-		data := make([]byte, 97)
+	t.Run("parses minimum valid data (exactly 120 bytes)", func(t *testing.T) {
+		data := make([]byte, 120)
 		for i := 8; i < 40; i++ {
 			data[i] = 0x11
 		}
 		for i := 40; i < 72; i++ {
 			data[i] = 0x22
 		}
-		// gas_used at 80..88
-		binary.LittleEndian.PutUint64(data[80:88], 12345)
+		binary.LittleEndian.PutUint64(data[112:120], 12345)
 
 		event := ParseEvent(wrapAsLog(data), signature, 100, 0, EventTypeFinalizeUniversalTx, chainID, logger)
 		require.NotNil(t, event)
@@ -447,7 +522,7 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 		assert.Equal(t, "12345", outbound.GasFeeUsed)
 	})
 
-	t.Run("handles data longer than 97 bytes", func(t *testing.T) {
+	t.Run("handles data longer than the fixed fields", func(t *testing.T) {
 		var txID, utxID [32]byte
 		for i := range txID {
 			txID[i] = 0xAA

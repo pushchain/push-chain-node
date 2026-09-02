@@ -19,12 +19,13 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Msg_UpdateParams_FullMethodName       = "/uexecutor.v1.Msg/UpdateParams"
-	Msg_ExecutePayload_FullMethodName     = "/uexecutor.v1.Msg/ExecutePayload"
-	Msg_VoteInbound_FullMethodName        = "/uexecutor.v1.Msg/VoteInbound"
-	Msg_VoteOutbound_FullMethodName       = "/uexecutor.v1.Msg/VoteOutbound"
-	Msg_VoteChainMeta_FullMethodName      = "/uexecutor.v1.Msg/VoteChainMeta"
-	Msg_RevertStuckInbound_FullMethodName = "/uexecutor.v1.Msg/RevertStuckInbound"
+	Msg_UpdateParams_FullMethodName        = "/uexecutor.v1.Msg/UpdateParams"
+	Msg_ExecutePayload_FullMethodName      = "/uexecutor.v1.Msg/ExecutePayload"
+	Msg_VoteInbound_FullMethodName         = "/uexecutor.v1.Msg/VoteInbound"
+	Msg_VoteOutbound_FullMethodName        = "/uexecutor.v1.Msg/VoteOutbound"
+	Msg_VoteChainMeta_FullMethodName       = "/uexecutor.v1.Msg/VoteChainMeta"
+	Msg_RevertStuckInbound_FullMethodName  = "/uexecutor.v1.Msg/RevertStuckInbound"
+	Msg_ExecuteStuckInbound_FullMethodName = "/uexecutor.v1.Msg/ExecuteStuckInbound"
 )
 
 // MsgClient is the client API for Msg service.
@@ -47,6 +48,11 @@ type MsgClient interface {
 	// ballot has expired without finalizing, refunding the user on the source
 	// chain via the normal revert/outbound flow. Admin-only escape hatch.
 	RevertStuckInbound(ctx context.Context, in *MsgRevertStuckInbound, opts ...grpc.CallOption) (*MsgRevertStuckInboundResponse, error)
+	// ExecuteStuckInbound finalizes an inbound ballot that is provably unable to
+	// finalize on its own yet already carries enough YES votes, then runs the
+	// normal post-finalization pipeline so the user receives funds on Push.
+	// Admin-only escape hatch, sibling of RevertStuckInbound.
+	ExecuteStuckInbound(ctx context.Context, in *MsgExecuteStuckInbound, opts ...grpc.CallOption) (*MsgExecuteStuckInboundResponse, error)
 }
 
 type msgClient struct {
@@ -111,6 +117,15 @@ func (c *msgClient) RevertStuckInbound(ctx context.Context, in *MsgRevertStuckIn
 	return out, nil
 }
 
+func (c *msgClient) ExecuteStuckInbound(ctx context.Context, in *MsgExecuteStuckInbound, opts ...grpc.CallOption) (*MsgExecuteStuckInboundResponse, error) {
+	out := new(MsgExecuteStuckInboundResponse)
+	err := c.cc.Invoke(ctx, Msg_ExecuteStuckInbound_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MsgServer is the server API for Msg service.
 // All implementations must embed UnimplementedMsgServer
 // for forward compatibility
@@ -131,6 +146,11 @@ type MsgServer interface {
 	// ballot has expired without finalizing, refunding the user on the source
 	// chain via the normal revert/outbound flow. Admin-only escape hatch.
 	RevertStuckInbound(context.Context, *MsgRevertStuckInbound) (*MsgRevertStuckInboundResponse, error)
+	// ExecuteStuckInbound finalizes an inbound ballot that is provably unable to
+	// finalize on its own yet already carries enough YES votes, then runs the
+	// normal post-finalization pipeline so the user receives funds on Push.
+	// Admin-only escape hatch, sibling of RevertStuckInbound.
+	ExecuteStuckInbound(context.Context, *MsgExecuteStuckInbound) (*MsgExecuteStuckInboundResponse, error)
 	mustEmbedUnimplementedMsgServer()
 }
 
@@ -155,6 +175,9 @@ func (UnimplementedMsgServer) VoteChainMeta(context.Context, *MsgVoteChainMeta) 
 }
 func (UnimplementedMsgServer) RevertStuckInbound(context.Context, *MsgRevertStuckInbound) (*MsgRevertStuckInboundResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RevertStuckInbound not implemented")
+}
+func (UnimplementedMsgServer) ExecuteStuckInbound(context.Context, *MsgExecuteStuckInbound) (*MsgExecuteStuckInboundResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ExecuteStuckInbound not implemented")
 }
 func (UnimplementedMsgServer) mustEmbedUnimplementedMsgServer() {}
 
@@ -277,6 +300,24 @@ func _Msg_RevertStuckInbound_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Msg_ExecuteStuckInbound_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgExecuteStuckInbound)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).ExecuteStuckInbound(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_ExecuteStuckInbound_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).ExecuteStuckInbound(ctx, req.(*MsgExecuteStuckInbound))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Msg_ServiceDesc is the grpc.ServiceDesc for Msg service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -307,6 +348,10 @@ var Msg_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RevertStuckInbound",
 			Handler:    _Msg_RevertStuckInbound_Handler,
+		},
+		{
+			MethodName: "ExecuteStuckInbound",
+			Handler:    _Msg_ExecuteStuckInbound_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

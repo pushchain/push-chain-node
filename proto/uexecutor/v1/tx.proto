@@ -35,6 +35,12 @@ service Msg {
   // ballot has expired without finalizing, refunding the user on the source
   // chain via the normal revert/outbound flow. Admin-only escape hatch.
   rpc RevertStuckInbound(MsgRevertStuckInbound) returns (MsgRevertStuckInboundResponse);
+
+  // ExecuteStuckInbound finalizes an inbound ballot that is provably unable to
+  // finalize on its own yet already carries enough YES votes, then runs the
+  // normal post-finalization pipeline so the user receives funds on Push.
+  // Admin-only escape hatch, sibling of RevertStuckInbound.
+  rpc ExecuteStuckInbound(MsgExecuteStuckInbound) returns (MsgExecuteStuckInboundResponse);
 }
 
 // MsgUpdateParams is the Msg/UpdateParams request type.
@@ -141,4 +147,27 @@ message MsgRevertStuckInbound {
 message MsgRevertStuckInboundResponse {
   string utx_id = 1;       // ID of the UTX created to hold the revert
   string outbound_id = 2;  // ID of the INBOUND_REVERT outbound created
+}
+
+// MsgExecuteStuckInbound is an admin escape hatch and the sibling of
+// MsgRevertStuckInbound. For an inbound whose ballot is stored PENDING but can
+// never finalize on its own, and whose YES votes already meet the recomputed
+// threshold, this marks the ballot PASSED and runs the same post-finalization
+// pipeline a finalizing vote would have run - so the user receives the bridged
+// funds on Push instead of a source-chain refund.
+message MsgExecuteStuckInbound {
+  option (amino.name) = "uexecutor/MsgExecuteStuckInbound";
+  option (cosmos.msg.v1.signer) = "signer";
+
+  // signer must equal uvalidator Params.Admin
+  string signer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // inbound is the original payload the stuck ballot was voting on. Admin
+  // supplies this from off-chain UV observation logs since the chain does not
+  // persist ballot payloads.
+  Inbound inbound = 2;
+}
+
+message MsgExecuteStuckInboundResponse {
+  string utx_id = 1;  // ID of the UTX created for the executed inbound
 }

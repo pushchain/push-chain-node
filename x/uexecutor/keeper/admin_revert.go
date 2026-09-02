@@ -53,7 +53,9 @@ import (
 // chain instead of receiving bridged funds on Push. For a ballot whose YES votes
 // met the threshold that is the less generous of the two resolutions, and it is
 // the deliberate trade for a change that stays inside the module that owns
-// inbound execution.
+// inbound execution. MsgExecuteStuckInbound is the sibling hatch for that case
+// and executes instead; which of the two to use stays the admin's call, so this
+// one deliberately keeps accepting PENDING-unreachable.
 //
 // The ballot record itself is left untouched. The HasUniversalTx guard below is
 // the idempotency barrier, and mutating ballot status from x/uexecutor would

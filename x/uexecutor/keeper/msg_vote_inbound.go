@@ -93,6 +93,19 @@ func (k Keeper) VoteInbound(ctx context.Context, universalValidator sdk.ValAddre
 	}
 
 	// --- Ballot finalized: always create UTX from here on ---
+	return k.finalizeInboundAndExecute(ctx, inbound, universalTxKey)
+}
+
+// finalizeInboundAndExecute runs the post-finalization pipeline for an inbound
+// whose ballot has reached PASSED: normalize, create the UniversalTx, drop the
+// pending entry, then validate and execute.
+//
+// Shared by the normal vote path (VoteInbound) and the admin escape hatch
+// (ExecuteStuckInbound) so a finalized inbound resolves identically whichever
+// route finalized its ballot.
+func (k Keeper) finalizeInboundAndExecute(ctx context.Context, inbound types.Inbound, universalTxKey string) error {
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+
 	k.Logger().Info("inbound ballot finalized, creating utx", "utx_key", universalTxKey, "source_chain", inbound.SourceChain)
 
 	// Normalize inbound after finalization: strip irrelevant fields, decode raw_payload.

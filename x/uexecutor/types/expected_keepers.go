@@ -125,6 +125,10 @@ type UValidatorKeeper interface {
 	GetEligibleVoters(ctx context.Context) ([]uvalidatortypes.UniversalValidator, error)
 	GetBallot(ctx context.Context, id string) (uvalidatortypes.Ballot, error)
 	GetAdmin(ctx context.Context) (string, error)
+	// MarkBallotFinalized drives a ballot to PASSED/REJECTED. Needed by the
+	// ExecuteStuckInbound escape hatch, which finalizes a ballot the vote flow
+	// can no longer finalize on its own.
+	MarkBallotFinalized(ctx context.Context, id string, status uvalidatortypes.BallotStatus) error
 }
 
 // ParamSubspace defines the expected Subspace interface for parameters.

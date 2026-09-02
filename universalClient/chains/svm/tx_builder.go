@@ -923,10 +923,6 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 	}
 
 	// --- Assemble the Solana transaction ---
-	// Instructions in order:
-	//   1. SetComputeUnitLimit — tells the runtime how many compute units to allocate
-	//   2. (revert/rescue SPL only) CreateAssociatedTokenAccountIdempotent
-	//   3. The actual gateway instruction (withdraw/execute/revert)
 
 	gatewayInstruction := solana.NewInstruction(
 		tb.gatewayAddress,
@@ -939,8 +935,8 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 	computeLimitIx := tb.buildSetComputeUnitLimitInstruction(defaultComputeUnitLimit)
 
 	// Build the instruction list.
-	// The gateway creates the recipient ATA on every path now and meters the rent
-	// into gas_used, so creating it here would leave that cost unmetered.
+	// The gateway creates the recipient ATA and meters the rent, so creating it
+	// here would leave that cost outside gas_used.
 	instructions := []solana.Instruction{computeLimitIx, gatewayInstruction}
 
 	// Get a recent blockhash — Solana uses this instead of nonces for transaction expiry.
@@ -2177,8 +2173,7 @@ func (tb *TxBuilder) buildRevertAccounts(
 			&solana.AccountMeta{PublicKey: recipientATA, IsWritable: true, IsSigner: false},
 			&solana.AccountMeta{PublicKey: mintPubkey, IsWritable: false, IsSigner: false},
 			&solana.AccountMeta{PublicKey: solana.TokenProgramID, IsWritable: false, IsSigner: false},
-			// The gateway creates the recipient ATA on this path, so it needs the
-			// ATA program and the rent sysvar.
+			// The gateway needs these to create the recipient ATA.
 			&solana.AccountMeta{PublicKey: solana.SPLAssociatedTokenAccountProgramID, IsWritable: false, IsSigner: false},
 			&solana.AccountMeta{PublicKey: solana.SysVarRentPubkey, IsWritable: false, IsSigner: false},
 		)

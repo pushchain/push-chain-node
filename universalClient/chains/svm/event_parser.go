@@ -117,10 +117,8 @@ func parseSendFundsEvent(log string, signature string, slot uint64, logIndex uin
 //	FundsRescued          ... token(32) amount(8)                       -> 112
 //	RevertUniversalTx     ... revert_recipient(32) token(32) amount(8)  -> no gas_used
 //
-// Revert carries no gas_used: it always reimburses from the fee vault, and
-// InboundFeeReimbursed.amount_lamports records the amount instead. Push never
-// refunds on a revert (applyGasRefund returns early for INBOUND_REVERT), so the
-// value is not load bearing on this path.
+// Revert carries no gas_used, and core never refunds one (applyGasRefund returns
+// early for INBOUND_REVERT), so nothing needs the value.
 func parseOutboundObservationEvent(log string, signature string, slot uint64, logIndex uint, eventType string, chainID string, logger zerolog.Logger) *store.Event {
 	if !strings.HasPrefix(log, "Program data: ") {
 		return nil

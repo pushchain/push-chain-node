@@ -1227,10 +1227,8 @@ func TestBuildWithdrawAndExecuteAccounts(t *testing.T) {
 	})
 }
 
-// The gateway creates the recipient ATA itself now, but it can only do that if
-// we hand it recipient_ata, rent and the ATA program in the slots its Accounts
-// struct declares. Dropping any of them breaks an SPL withdraw to a fresh
-// recipient on chain, which no amount of local building would reveal.
+// The gateway can only create the recipient ATA if we hand it recipient_ata,
+// rent and the ATA program. Dropping any of them fails only on chain.
 func TestBuildWithdrawAndExecuteAccounts_SPLSlots(t *testing.T) {
 	builder := newTestBuilder(t)
 
@@ -1345,9 +1343,8 @@ func TestBuildRevertAccounts(t *testing.T) {
 		assert.Equal(t, executed, accounts[5].PublicKey, "executed_tx")
 		assert.Equal(t, caller, accounts[6].PublicKey, "caller")
 		assert.Equal(t, solana.SystemProgramID, accounts[7].PublicKey, "system_program")
-		// SPL: token_vault, recipient_token_account, token_mint, token_program,
-		// associated_token_program, rent. The last two are what let the gateway
-		// create the recipient ATA itself.
+		// token_vault, recipient_token_account, token_mint, token_program,
+		// associated_token_program, rent.
 		assert.True(t, accounts[8].IsWritable, "token_vault should be writable")
 		assert.True(t, accounts[9].IsWritable, "recipient_token_account should be writable")
 		assert.Equal(t, tokenMint, accounts[10].PublicKey, "token_mint")
@@ -2886,9 +2883,9 @@ func TestVerifyBroadcastedTx_NotFoundVersusRPCFailure(t *testing.T) {
 	})
 }
 
-// The gateway creates the recipient ATA on every path and meters the rent into
-// gas_used, so the client must not create it: doing so makes the gateway see the
-// account already present, leaving the rent outside gas_used (F-2026-18815).
+// The gateway creates the recipient ATA and meters the rent. Creating it here
+// makes the gateway see it already present, leaving the rent outside gas_used
+// (F-2026-18815).
 func TestBuildOutboundTransaction_NoClientSideATACreate(t *testing.T) {
 	ataProgram := solana.MustPublicKeyFromBase58("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
 
@@ -2938,8 +2935,7 @@ func TestBuildOutboundTransaction_NoClientSideATACreate(t *testing.T) {
 				assert.NotEqual(t, ataProgram, program, "instruction %d creates an ATA", i)
 			}
 
-			// Revert and rescue must still hand the gateway the canonical ATA plus
-			// the two accounts it needs to create it.
+			// Revert and rescue still hand the gateway what it needs to create it.
 			if tc.spl && (instructionID == 3 || instructionID == 4) {
 				gatewayIx := tx.Message.Instructions[len(tx.Message.Instructions)-1]
 				metas, err := gatewayIx.ResolveInstructionAccounts(&tx.Message)

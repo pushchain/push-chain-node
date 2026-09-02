@@ -2,7 +2,6 @@ package types
 
 import (
 	"encoding/json"
-	"math/big"
 	"strings"
 
 	"cosmossdk.io/errors"
@@ -87,8 +86,9 @@ func (p OutboundTx) ValidateBasic() error {
 
 	// gas_limit (uint)
 	if strings.TrimSpace(p.GasLimit) != "" {
-		if _, ok := new(big.Int).SetString(p.GasLimit, 10); !ok {
-			return errors.Wrap(sdkerrors.ErrInvalidRequest, "gas_limit must be a valid uint")
+		// Length-capped, range-checked uint256 parse — see F-2026-18798.
+		if _, err := ValidateUint256String(p.GasLimit, "gas_limit must be a valid uint"); err != nil {
+			return err
 		}
 	}
 

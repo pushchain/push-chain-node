@@ -68,8 +68,8 @@ func aliasedSigner(t *testing.T, length int) sdk.AccAddress {
 	return addr
 }
 
-// gaslessMsgFor builds one of the two user-facing gasless messages with the
-// given declared signer.
+// gaslessMsgFor builds a user-facing gasless message with the given declared
+// signer.
 func gaslessMsgFor(t *testing.T, msgType string, signer sdk.AccAddress) sdk.Msg {
 	t.Helper()
 	ua := &uexecutortypes.UniversalAccountId{
@@ -88,17 +88,6 @@ func gaslessMsgFor(t *testing.T, msgType string, signer sdk.AccAddress) sdk.Msg 
 				Data: "0xabcdef",
 			},
 			VerificationData: "0xabcdef",
-		}
-	case "MsgMigrateUEA":
-		return &uexecutortypes.MsgMigrateUEA{
-			Signer:             signer.String(),
-			UniversalAccountId: ua,
-			MigrationPayload: &uexecutortypes.MigrationPayload{
-				Migration: "0x000000000000000000000000000000000000beef",
-				Nonce:     "0",
-				Deadline:  "1",
-			},
-			Signature: "0xabcdef",
 		}
 	default:
 		t.Fatalf("unknown msg type %q", msgType)
@@ -146,9 +135,9 @@ func newSignerBindingDecorator(t *testing.T, encCfg appparams.EncodingConfig) (a
 	t.Helper()
 	ak := newMockAccountKeeperAnte(sdk.AccAddress([]byte("feeCollector")))
 	// The uvalidator mock knows about nobody, so it rejects every address it is
-	// asked about. Every test in this file uses MsgExecutePayload / MsgMigrateUEA,
-	// which are deliberately NOT gated on validator status (F-2026-18186), so they
-	// must keep working against it.
+	// asked about. Every test in this file uses MsgExecutePayload, which is
+	// deliberately NOT gated on validator status (F-2026-18186), so it must keep
+	// working against it.
 	return ante.NewAccountInitDecorator(ak, newMockUValidatorKeeperAnte(), encCfg.TxConfig.SignModeHandler()), ak
 }
 
@@ -157,11 +146,11 @@ func newSignerBindingDecorator(t *testing.T, encCfg appparams.EncodingConfig) (a
 // onto the uexecutor module address while being signed by an unrelated key.
 //
 // Hacken's PoC only used the 21-byte case; truncation works for ANY length > 20,
-// so 21, 22 and 32 bytes are all covered, against both gasless messages.
+// so 21, 22 and 32 bytes are all covered.
 func TestAccountInitDecorator_RejectsAliasedModuleSigner(t *testing.T) {
 	encCfg := newSignerBindingEncodingConfig(t)
 
-	for _, msgType := range []string{"MsgExecutePayload", "MsgMigrateUEA"} {
+	for _, msgType := range []string{"MsgExecutePayload"} {
 		for _, length := range []int{21, 22, 32} {
 			t.Run(fmt.Sprintf("%s/%dbytes", msgType, length), func(t *testing.T) {
 				attackerKey := secp256k1.GenPrivKey()
@@ -214,7 +203,7 @@ func TestAccountInitDecorator_RejectsMismatchedSigner(t *testing.T) {
 func TestAccountInitDecorator_AcceptsMatchingSigner(t *testing.T) {
 	encCfg := newSignerBindingEncodingConfig(t)
 
-	for _, msgType := range []string{"MsgExecutePayload", "MsgMigrateUEA"} {
+	for _, msgType := range []string{"MsgExecutePayload"} {
 		t.Run(msgType, func(t *testing.T) {
 			key := secp256k1.GenPrivKey()
 			signer := sdk.AccAddress(key.PubKey().Address())

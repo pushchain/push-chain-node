@@ -21,7 +21,6 @@ const _ = grpc.SupportPackageIsVersion7
 const (
 	Msg_UpdateParams_FullMethodName       = "/uexecutor.v1.Msg/UpdateParams"
 	Msg_ExecutePayload_FullMethodName     = "/uexecutor.v1.Msg/ExecutePayload"
-	Msg_MigrateUEA_FullMethodName         = "/uexecutor.v1.Msg/MigrateUEA"
 	Msg_VoteInbound_FullMethodName        = "/uexecutor.v1.Msg/VoteInbound"
 	Msg_VoteOutbound_FullMethodName       = "/uexecutor.v1.Msg/VoteOutbound"
 	Msg_VoteChainMeta_FullMethodName      = "/uexecutor.v1.Msg/VoteChainMeta"
@@ -38,8 +37,6 @@ type MsgClient interface {
 	UpdateParams(ctx context.Context, in *MsgUpdateParams, opts ...grpc.CallOption) (*MsgUpdateParamsResponse, error)
 	// ExecutePayload defines a message for executing a universal payload
 	ExecutePayload(ctx context.Context, in *MsgExecutePayload, opts ...grpc.CallOption) (*MsgExecutePayloadResponse, error)
-	// MigrateUEA defines a message for migrating UEA
-	MigrateUEA(ctx context.Context, in *MsgMigrateUEA, opts ...grpc.CallOption) (*MsgMigrateUEAResponse, error)
 	// VoteInbound defines a message for voting on synthetic assets bridging from external chain to PC
 	VoteInbound(ctx context.Context, in *MsgVoteInbound, opts ...grpc.CallOption) (*MsgVoteInboundResponse, error)
 	// VoteOutbound defines a message for voting on a observed outbound tx on external chain
@@ -72,15 +69,6 @@ func (c *msgClient) UpdateParams(ctx context.Context, in *MsgUpdateParams, opts 
 func (c *msgClient) ExecutePayload(ctx context.Context, in *MsgExecutePayload, opts ...grpc.CallOption) (*MsgExecutePayloadResponse, error) {
 	out := new(MsgExecutePayloadResponse)
 	err := c.cc.Invoke(ctx, Msg_ExecutePayload_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *msgClient) MigrateUEA(ctx context.Context, in *MsgMigrateUEA, opts ...grpc.CallOption) (*MsgMigrateUEAResponse, error) {
-	out := new(MsgMigrateUEAResponse)
-	err := c.cc.Invoke(ctx, Msg_MigrateUEA_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -133,8 +121,6 @@ type MsgServer interface {
 	UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error)
 	// ExecutePayload defines a message for executing a universal payload
 	ExecutePayload(context.Context, *MsgExecutePayload) (*MsgExecutePayloadResponse, error)
-	// MigrateUEA defines a message for migrating UEA
-	MigrateUEA(context.Context, *MsgMigrateUEA) (*MsgMigrateUEAResponse, error)
 	// VoteInbound defines a message for voting on synthetic assets bridging from external chain to PC
 	VoteInbound(context.Context, *MsgVoteInbound) (*MsgVoteInboundResponse, error)
 	// VoteOutbound defines a message for voting on a observed outbound tx on external chain
@@ -157,9 +143,6 @@ func (UnimplementedMsgServer) UpdateParams(context.Context, *MsgUpdateParams) (*
 }
 func (UnimplementedMsgServer) ExecutePayload(context.Context, *MsgExecutePayload) (*MsgExecutePayloadResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ExecutePayload not implemented")
-}
-func (UnimplementedMsgServer) MigrateUEA(context.Context, *MsgMigrateUEA) (*MsgMigrateUEAResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method MigrateUEA not implemented")
 }
 func (UnimplementedMsgServer) VoteInbound(context.Context, *MsgVoteInbound) (*MsgVoteInboundResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method VoteInbound not implemented")
@@ -218,24 +201,6 @@ func _Msg_ExecutePayload_Handler(srv interface{}, ctx context.Context, dec func(
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MsgServer).ExecutePayload(ctx, req.(*MsgExecutePayload))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Msg_MigrateUEA_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MsgMigrateUEA)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(MsgServer).MigrateUEA(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Msg_MigrateUEA_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MsgServer).MigrateUEA(ctx, req.(*MsgMigrateUEA))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -326,10 +291,6 @@ var Msg_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ExecutePayload",
 			Handler:    _Msg_ExecutePayload_Handler,
-		},
-		{
-			MethodName: "MigrateUEA",
-			Handler:    _Msg_MigrateUEA_Handler,
 		},
 		{
 			MethodName: "VoteInbound",

@@ -1403,3 +1403,67 @@ func TestGetAllPendingOutbounds_RequestCapBoundsTheDegradedPath(t *testing.T) {
 	assert.NotEmpty(t, entries, "the poll must still make progress")
 	assert.Less(t, len(entries), pendingOutboundMaxRows, "the remainder waits for the next poll")
 }
+
+// The cap is only useful if the rows under it are the right ones. Asserting the
+// count alone would pass on a walk that skipped a page and re-read another, so
+// this checks the whole sequence, and that entries and outbounds stay aligned.
+func TestGetAllPendingOutbounds_ReadsTheCappedSetExactlyOnce(t *testing.T) {
+	ctx := context.Background()
+
+	assertContiguous := func(t *testing.T, entries []*uexecutortypes.PendingOutboundEntry, outbounds []*uexecutortypes.OutboundTx) {
+		t.Helper()
+		require.Len(t, entries, pendingOutboundMaxRows)
+		require.Len(t, outbounds, pendingOutboundMaxRows, "an outbound per entry")
+
+		seen := make(map[string]int, len(entries))
+		for i, e := range entries {
+			assert.Equal(t, fmt.Sprintf("ob-%d", i), e.OutboundId, "row %d out of order", i)
+			assert.Equal(t, e.OutboundId, outbounds[i].Id, "entry and outbound diverged at %d", i)
+			seen[e.OutboundId]++
+		}
+		require.Len(t, seen, pendingOutboundMaxRows, "a row was skipped or read twice")
+		for id, n := range seen {
+			require.Equal(t, 1, n, "%s appeared %d times", id, n)
+		}
+	}
+
+	t.Run("full pages", func(t *testing.T) {
+		m := &oversizedPageClient{total: 20000, maxServable: pendingOutboundPageSize}
+		client := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{m}}
+
+		entries, outbounds, err := client.GetAllPendingOutbounds(ctx)
+		require.NoError(t, err)
+		assertContiguous(t, entries, outbounds)
+	})
+
+	t.Run("pages that had to shrink", func(t *testing.T) {
+		m := &oversizedPageClient{total: 20000, maxServable: 250}
+		client := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{m}}
+
+		entries, outbounds, err := client.GetAllPendingOutbounds(ctx)
+		require.NoError(t, err)
+		assertContiguous(t, entries, outbounds)
+	})
+
+	t.Run("exactly the cap available stops without a second empty request", func(t *testing.T) {
+		m := &oversizedPageClient{total: pendingOutboundMaxRows, maxServable: pendingOutboundPageSize}
+		client := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{m}}
+
+		entries, outbounds, err := client.GetAllPendingOutbounds(ctx)
+		require.NoError(t, err)
+		assertContiguous(t, entries, outbounds)
+		assert.Len(t, m.reqs, pendingOutboundMaxRows/pendingOutboundPageSize,
+			"hitting the cap exactly must not cost an extra round trip")
+	})
+
+	t.Run("under the cap returns everything and stops early", func(t *testing.T) {
+		m := &oversizedPageClient{total: 2500, maxServable: pendingOutboundPageSize}
+		client := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{m}}
+
+		entries, _, err := client.GetAllPendingOutbounds(ctx)
+		require.NoError(t, err)
+		require.Len(t, entries, 2500)
+		assert.Equal(t, "ob-0", entries[0].OutboundId)
+		assert.Equal(t, "ob-2499", entries[2499].OutboundId)
+	})
+}

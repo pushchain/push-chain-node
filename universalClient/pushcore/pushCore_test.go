@@ -22,6 +22,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestNew(t *testing.T) {
@@ -1263,5 +1265,101 @@ func TestClient_GetAllPendingOutbounds_WalksOldestFirst(t *testing.T) {
 		_, _, err := client.GetAllPendingOutbounds(ctx)
 		require.NoError(t, err)
 		assert.NotContains(t, logBuf.String(), "page cap reached")
+	})
+}
+
+// oversizedPageClient serves rows by offset like the mock above, but rejects any
+// page larger than maxServable with ResourceExhausted, the way grpc-go does when
+// a response exceeds the receive limit.
+type oversizedPageClient struct {
+	uexecutortypes.QueryClient
+	total       int
+	maxServable uint64
+	reqs        []*query.PageRequest
+}
+
+func (m *oversizedPageClient) AllPendingOutbounds(ctx context.Context, req *uexecutortypes.QueryAllPendingOutboundsRequest, opts ...grpc.CallOption) (*uexecutortypes.QueryAllPendingOutboundsResponse, error) {
+	m.reqs = append(m.reqs, req.Pagination)
+	if req.Pagination.GetLimit() > m.maxServable {
+		return nil, status.Error(codes.ResourceExhausted,
+			"grpc: received message larger than max")
+	}
+	offset := int(req.Pagination.GetOffset())
+	end := offset + int(req.Pagination.GetLimit())
+	if end > m.total {
+		end = m.total
+	}
+	resp := &uexecutortypes.QueryAllPendingOutboundsResponse{
+		Pagination: &query.PageResponse{Total: uint64(m.total)},
+	}
+	for i := offset; i < end; i++ {
+		id := fmt.Sprintf("ob-%d", i)
+		resp.Entries = append(resp.Entries, &uexecutortypes.PendingOutboundEntry{OutboundId: id})
+		resp.Outbounds = append(resp.Outbounds, &uexecutortypes.OutboundTx{Id: id})
+	}
+	return resp, nil
+}
+
+// A page that will not fit must not blind the poll. The client halves until the
+// response fits, which terminates because core caps an outbound payload well
+// below the receive limit, so a page of one always fits.
+func TestGetAllPendingOutbounds_HalvesOnResourceExhausted(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("degrades and still returns every row oldest first", func(t *testing.T) {
+		m := &oversizedPageClient{total: 300, maxServable: 250}
+		client := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{m}}
+
+		entries, outbounds, err := client.GetAllPendingOutbounds(ctx)
+		require.NoError(t, err, "an oversized page must not fail the whole poll")
+		require.Len(t, entries, 300)
+		require.Len(t, outbounds, 300)
+
+		assert.Equal(t, "ob-0", entries[0].OutboundId, "oldest first")
+		assert.Equal(t, "ob-299", entries[299].OutboundId)
+
+		// 1000 rejected, then 500 rejected, then 250 serves.
+		require.GreaterOrEqual(t, len(m.reqs), 3)
+		assert.Equal(t, uint64(1000), m.reqs[0].Limit)
+		assert.Equal(t, uint64(500), m.reqs[1].Limit)
+		assert.Equal(t, uint64(250), m.reqs[2].Limit)
+	})
+
+	t.Run("offsets follow the rows actually returned", func(t *testing.T) {
+		m := &oversizedPageClient{total: 300, maxServable: 250}
+		client := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{m}}
+
+		_, _, err := client.GetAllPendingOutbounds(ctx)
+		require.NoError(t, err)
+
+		// The second served page must start where the first ended, not at a
+		// multiple of the original page size.
+		var served []*query.PageRequest
+		for _, r := range m.reqs {
+			if r.Limit <= m.maxServable {
+				served = append(served, r)
+			}
+		}
+		require.GreaterOrEqual(t, len(served), 2)
+		assert.Equal(t, uint64(0), served[0].Offset)
+		assert.Equal(t, uint64(250), served[1].Offset, "no row may be skipped or read twice")
+	})
+
+	t.Run("a page of one that still fails is a real error", func(t *testing.T) {
+		m := &oversizedPageClient{total: 10, maxServable: 0}
+		client := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{m}}
+
+		_, _, err := client.GetAllPendingOutbounds(ctx)
+		require.Error(t, err, "nothing left to halve, so the caller must see it")
+		assert.Equal(t, codes.ResourceExhausted, status.Code(err))
+	})
+
+	t.Run("an unrelated error is not retried smaller", func(t *testing.T) {
+		m := &mockUExecutorQueryClient{err: status.Error(codes.Unavailable, "endpoint down")}
+		client := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{m}}
+
+		_, _, err := client.GetAllPendingOutbounds(ctx)
+		require.Error(t, err)
+		assert.Len(t, m.pendingReqs, 1, "halving is only for a response that did not fit")
 	})
 }

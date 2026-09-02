@@ -1247,12 +1247,12 @@ func TestClient_GetAllPendingOutbounds_WalksOldestFirst(t *testing.T) {
 	// The cap bounds one poll; the rest is read on the next tick.
 	t.Run("stops at the row budget and says so", func(t *testing.T) {
 		var logBuf bytes.Buffer
-		m := &mockUExecutorQueryClient{pendingTotal: pendingOutboundPageSize * (pendingOutboundMaxPages + 2)}
+		m := &mockUExecutorQueryClient{pendingTotal: pendingOutboundMaxRows + 2*pendingOutboundPageSize}
 		client := &Client{logger: zerolog.New(&logBuf), uexecutorClients: []uexecutortypes.QueryClient{m}}
 
 		entries, _, err := client.GetAllPendingOutbounds(ctx)
 		require.NoError(t, err)
-		assert.Len(t, m.pendingReqs, pendingOutboundMaxPages)
+		assert.Len(t, m.pendingReqs, pendingOutboundMaxRows/pendingOutboundPageSize)
 		assert.Len(t, entries, pendingOutboundMaxRows)
 		assert.Contains(t, logBuf.String(), "row budget reached")
 	})

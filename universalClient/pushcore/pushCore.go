@@ -403,13 +403,11 @@ const (
 	// gRPC's 4 MiB default. Asking for the whole set in one request would fail
 	// the call outright once the set grew, taking the poll down entirely.
 	pendingOutboundPageSize = 1000
-	pendingOutboundMaxPages = 5
 
-	// pendingOutboundMaxRows is the per-poll budget. It is held in rows rather
-	// than pages so a page that had to shrink costs extra requests, not rows:
-	// bounding iterations instead would silently cut the poll from 5000 rows to
-	// 5 times whatever the page degraded to.
-	pendingOutboundMaxRows = pendingOutboundPageSize * pendingOutboundMaxPages
+	// pendingOutboundMaxRows caps one poll. The remainder is read on the next
+	// tick. Counted in rows so a page that had to shrink costs extra requests
+	// rather than fewer rows.
+	pendingOutboundMaxRows = 5000
 
 	// pendingOutboundMaxRequests stops the degraded path from turning into one
 	// request per row if an endpoint rejects everything but the smallest page.
@@ -472,7 +470,6 @@ func (c *Client) GetAllPendingOutbounds(ctx context.Context) ([]*uexecutortypes.
 		if remaining := pendingOutboundMaxRows - uint64(len(entries)); pageLimit > remaining {
 			pageLimit = remaining
 		}
-
 		requests++
 		resp, err := retryWithRoundRobin(
 			len(c.uexecutorClients),

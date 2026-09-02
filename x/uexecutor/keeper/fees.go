@@ -90,26 +90,14 @@ func (k Keeper) CalculateGasCost(
 	return gasCost, nil
 }
 
-// ChargeRevertedPayloadGas bills a reverted payload's gas on a best-effort basis.
+// ChargeRevertedPayloadGas bills a reverted payload for the gas it burned. It
+// charges the parent ctx so the amount survives the caller's discarded EVM cache,
+// clamps to the balance held, and never returns an error — callers record a FAILED
+// PcTx and carry on.
 //
-// INBOUND ROUTES ONLY. Do not call this from the direct MsgExecutePayload path.
-// That route is permissionless (msg.Signer is the relayer; owner authorization is
-// verified inside the UEA contract) and a revert rolls back the contract's nonce
-// increment, so the payload hash — which binds the STORED nonce — is unchanged and
-// one captured owner signature stays valid indefinitely. Billing reverts there
-// would let anyone drain a funded UEA by resubmitting a failing payload. Inbound
-// routes are gated on universal-validator quorum, so no such replay exists.
-//
-// Two properties make it safe and useful here:
-//   - the caller has already discarded its EVM cache, and this bills the PARENT
-//     ctx, so the charge survives the reverted state;
-//   - it never returns an error. The inbound handlers record a FAILED PcTx and
-//     continue rather than failing the message, and a hard error here would undo
-//     the charge along with everything else (F-2026-18824 rec 2).
-//
-// The amount is clamped to the balance actually held. On GAS_AND_PAYLOAD the gas
-// deposit was committed on sdkCtx before the cache opened, so it survives the
-// revert and there is a real balance to bill.
+// INBOUND ROUTES ONLY. Never call this from MsgExecutePayload: submission there is
+// permissionless and a revert rolls back the UEA nonce, so one captured owner
+// signature stays replayable and billing it would let anyone drain the UEA.
 func (k Keeper) ChargeRevertedPayloadGas(
 	ctx context.Context,
 	sdkCtx sdk.Context,

@@ -10,15 +10,9 @@ import (
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
-// TestInboundRevertedPayloadBillsGas is the regression test for F-2026-18824 rec 2.
-//
-// When an inbound payload reverts, its EVM state is discarded — but the gas it burned
-// on the way there is real work the validators performed. It used to be free:
-// DerivedEVMCall returned a nil response on a VM failure, so the caller's fee deduction
-// had nothing to bill against and a reverting payload paid nothing at all.
-//
-// The UEA here is funded with upc directly by the setup and the inbound deposit is a
-// PRC20, so upc moves for exactly one reason: gas.
+// TestInboundRevertedPayloadBillsGas covers F-2026-18824 rec 2: a reverted inbound
+// payload used to pay no gas at all. The UEA is funded with upc by the setup and the
+// deposit is a PRC20, so upc moves for exactly one reason here — gas.
 func TestInboundRevertedPayloadBillsGas(t *testing.T) {
 	prc20 := utils.GetDefaultAddresses().PRC20USDCAddr
 
@@ -26,8 +20,7 @@ func TestInboundRevertedPayloadBillsGas(t *testing.T) {
 	ueaAcc := sdk.AccAddress(ueaAddr.Bytes())
 	upcBefore := chainApp.BankKeeper.GetBalance(ctx, ueaAcc, "upc")
 
-	// 0xdeadbeef matches no selector on the PRC20, which has no fallback, so the
-	// call reverts — after the UEA has already paid to dispatch it.
+	// 0xdeadbeef matches no selector on the PRC20, which has no fallback -> revert.
 	inbound := multicallInbound("0xreverted-payload-gas-01", uexecutortypes.TxType_FUNDS_AND_PAYLOAD, "1000000", "0xdeadbeef")
 	inbound.UniversalPayload.To = prc20.Hex()
 
@@ -38,8 +31,8 @@ func TestInboundRevertedPayloadBillsGas(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, found, "the inbound must be recorded even though its payload reverted")
 
-	// Guard the premise. Without this a payload that silently stopped reverting —
-	// or one that never ran at all — would make the balance assertion meaningless.
+	// Guard the premise: a payload that stopped reverting, or never ran, would make
+	// the balance assertion below meaningless.
 	pcTx := payloadPcTx(t, utx)
 	require.Equal(t, "FAILED", pcTx.Status, "the payload must have reverted for this test to mean anything")
 	require.NotContains(t, pcTx.ErrorMsg, "depositAutoSwap failed",
@@ -47,12 +40,11 @@ func TestInboundRevertedPayloadBillsGas(t *testing.T) {
 
 	upcAfter := chainApp.BankKeeper.GetBalance(ctx, ueaAcc, "upc")
 
-	// The fix: the reverted payload's gas came out of the UEA.
+	// The fix.
 	require.True(t, upcAfter.Amount.LT(upcBefore.Amount),
 		"a reverted payload must still be billed for the gas it burned (before=%s, after=%s)",
 		upcBefore.Amount, upcAfter.Amount)
 
-	// Billing is best-effort and clamped to the available balance, so it can never
-	// overdraw the UEA or fail the inbound.
+	// Billing is clamped to the available balance.
 	require.False(t, upcAfter.Amount.IsNegative(), "billing must never drive the UEA balance negative")
 }

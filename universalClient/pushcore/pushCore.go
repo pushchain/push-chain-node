@@ -405,6 +405,16 @@ const (
 	pendingOutboundPageSize = 1000
 	pendingOutboundMaxPages = 5
 
+	// pendingOutboundMaxRows is the per-poll budget. It is held in rows rather
+	// than pages so a page that had to shrink costs extra requests, not rows:
+	// bounding iterations instead would silently cut the poll from 5000 rows to
+	// 5 times whatever the page degraded to.
+	pendingOutboundMaxRows = pendingOutboundPageSize * pendingOutboundMaxPages
+
+	// pendingOutboundMaxRequests stops the degraded path from turning into one
+	// request per row if an endpoint rejects everything but the smallest page.
+	pendingOutboundMaxRequests = 64
+
 	chainConfigPageSize = 200
 	chainConfigMaxPages = 20
 
@@ -447,52 +457,60 @@ func (c *Client) GetAllPendingOutbounds(ctx context.Context) ([]*uexecutortypes.
 	// one always fits and no row is ever unfetchable.
 	var offset uint64
 	limit := uint64(pendingOutboundPageSize)
+	requests := 0
 
-	for page := 0; page < pendingOutboundMaxPages; page++ {
-		var resp *uexecutortypes.QueryAllPendingOutboundsResponse
+	for uint64(len(entries)) < pendingOutboundMaxRows {
+		if requests >= pendingOutboundMaxRequests {
+			c.logger.Warn().
+				Int("requests", requests).
+				Int("fetched", len(entries)).
+				Msg("pending outbound request cap reached; the remainder is read on the next poll")
+			return entries, outbounds, nil
+		}
 
-		for {
-			pageLimit := limit
-			r, err := retryWithRoundRobin(
-				len(c.uexecutorClients),
-				&c.rr,
-				func(idx int) (*uexecutortypes.QueryAllPendingOutboundsResponse, error) {
-					return c.uexecutorClients[idx].AllPendingOutbounds(ctx, &uexecutortypes.QueryAllPendingOutboundsRequest{
-						Pagination: &query.PageRequest{Offset: offset, Limit: pageLimit},
-					})
-				},
-				"GetAllPendingOutbounds",
-				c.logger,
-			)
-			if err == nil {
-				resp = r
-				break
-			}
+		pageLimit := limit
+		if remaining := pendingOutboundMaxRows - uint64(len(entries)); pageLimit > remaining {
+			pageLimit = remaining
+		}
+
+		requests++
+		resp, err := retryWithRoundRobin(
+			len(c.uexecutorClients),
+			&c.rr,
+			func(idx int) (*uexecutortypes.QueryAllPendingOutboundsResponse, error) {
+				return c.uexecutorClients[idx].AllPendingOutbounds(ctx, &uexecutortypes.QueryAllPendingOutboundsRequest{
+					Pagination: &query.PageRequest{Offset: offset, Limit: pageLimit},
+				})
+			},
+			"GetAllPendingOutbounds",
+			c.logger,
+		)
+		if err != nil {
 			if status.Code(err) != codes.ResourceExhausted || limit == 1 {
 				return nil, nil, err
 			}
-
 			limit /= 2
 			c.logger.Warn().
 				Uint64("offset", offset).
 				Uint64("was", pageLimit).
 				Uint64("now", limit).
 				Msg("pending outbound page exceeded the receive limit; halving the page")
+			continue
 		}
 
 		entries = append(entries, resp.Entries...)
 		outbounds = append(outbounds, resp.Outbounds...)
 
-		if uint64(len(resp.Entries)) < limit {
+		if uint64(len(resp.Entries)) < pageLimit {
 			return entries, outbounds, nil
 		}
 		offset += uint64(len(resp.Entries))
 	}
 
 	c.logger.Warn().
-		Int("max_pages", pendingOutboundMaxPages).
+		Int("max_rows", pendingOutboundMaxRows).
 		Int("fetched", len(entries)).
-		Msg("pending outbound page cap reached; the remainder is read on the next poll")
+		Msg("pending outbound row budget reached; the remainder is read on the next poll")
 
 	return entries, outbounds, nil
 }

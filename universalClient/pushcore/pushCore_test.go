@@ -1245,7 +1245,7 @@ func TestClient_GetAllPendingOutbounds_WalksOldestFirst(t *testing.T) {
 	})
 
 	// The cap bounds one poll; the rest is read on the next tick.
-	t.Run("stops at the page cap and says so", func(t *testing.T) {
+	t.Run("stops at the row budget and says so", func(t *testing.T) {
 		var logBuf bytes.Buffer
 		m := &mockUExecutorQueryClient{pendingTotal: pendingOutboundPageSize * (pendingOutboundMaxPages + 2)}
 		client := &Client{logger: zerolog.New(&logBuf), uexecutorClients: []uexecutortypes.QueryClient{m}}
@@ -1253,8 +1253,8 @@ func TestClient_GetAllPendingOutbounds_WalksOldestFirst(t *testing.T) {
 		entries, _, err := client.GetAllPendingOutbounds(ctx)
 		require.NoError(t, err)
 		assert.Len(t, m.pendingReqs, pendingOutboundMaxPages)
-		assert.Len(t, entries, pendingOutboundPageSize*pendingOutboundMaxPages)
-		assert.Contains(t, logBuf.String(), "page cap reached")
+		assert.Len(t, entries, pendingOutboundMaxRows)
+		assert.Contains(t, logBuf.String(), "row budget reached")
 	})
 
 	t.Run("quiet when the set fits", func(t *testing.T) {
@@ -1362,4 +1362,44 @@ func TestGetAllPendingOutbounds_HalvesOnResourceExhausted(t *testing.T) {
 		require.Error(t, err)
 		assert.Len(t, m.pendingReqs, 1, "halving is only for a response that did not fit")
 	})
+}
+
+// A page that had to shrink must cost extra requests, not rows. Bounding the
+// walk by iterations instead would quietly cut a degraded poll from 5000 rows to
+// five times whatever the page shrank to.
+func TestGetAllPendingOutbounds_RowBudgetSurvivesDegradedPages(t *testing.T) {
+	ctx := context.Background()
+
+	full := &oversizedPageClient{total: 20000, maxServable: pendingOutboundPageSize}
+	fullClient := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{full}}
+	fullEntries, _, err := fullClient.GetAllPendingOutbounds(ctx)
+	require.NoError(t, err)
+
+	degraded := &oversizedPageClient{total: 20000, maxServable: 250}
+	degradedClient := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{degraded}}
+	degradedEntries, _, err := degradedClient.GetAllPendingOutbounds(ctx)
+	require.NoError(t, err)
+
+	assert.Len(t, fullEntries, pendingOutboundMaxRows)
+	assert.Len(t, degradedEntries, pendingOutboundMaxRows,
+		"a shrunken page must not shrink the poll")
+	assert.Greater(t, len(degraded.reqs), len(full.reqs),
+		"the cost of degrading is requests, not rows")
+
+	// Same rows, same order, whatever the page size was.
+	require.Equal(t, fullEntries[0].OutboundId, degradedEntries[0].OutboundId)
+	require.Equal(t, fullEntries[len(fullEntries)-1].OutboundId, degradedEntries[len(degradedEntries)-1].OutboundId)
+}
+
+// An endpoint that rejects everything but the smallest page must not turn one
+// poll into thousands of requests.
+func TestGetAllPendingOutbounds_RequestCapBoundsTheDegradedPath(t *testing.T) {
+	m := &oversizedPageClient{total: 20000, maxServable: 1}
+	client := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{m}}
+
+	entries, _, err := client.GetAllPendingOutbounds(context.Background())
+	require.NoError(t, err, "a bounded walk still returns what it read")
+	assert.LessOrEqual(t, len(m.reqs), pendingOutboundMaxRequests+10)
+	assert.NotEmpty(t, entries, "the poll must still make progress")
+	assert.Less(t, len(entries), pendingOutboundMaxRows, "the remainder waits for the next poll")
 }

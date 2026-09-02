@@ -22,8 +22,10 @@ import (
 	uvalidatortypes "github.com/pushchain/push-chain-node/x/uvalidator/types"
 	"github.com/rs/zerolog"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 )
 
 // Client is a fan-out client that connects to multiple Push Chain gRPC endpoints.
@@ -439,29 +441,52 @@ func (c *Client) GetAllPendingOutbounds(ctx context.Context) ([]*uexecutortypes.
 		outbounds []*uexecutortypes.OutboundTx
 	)
 
+	// Halving on ResourceExhausted is what keeps one large row from blinding the
+	// whole poll. It terminates because core caps an outbound payload
+	// (MaxOutboundPayloadBytes) well below maxPushCoreRecvMsgSize, so a page of
+	// one always fits and no row is ever unfetchable.
+	var offset uint64
+	limit := uint64(pendingOutboundPageSize)
+
 	for page := 0; page < pendingOutboundMaxPages; page++ {
-		offset := uint64(page) * pendingOutboundPageSize
-		resp, err := retryWithRoundRobin(
-			len(c.uexecutorClients),
-			&c.rr,
-			func(idx int) (*uexecutortypes.QueryAllPendingOutboundsResponse, error) {
-				return c.uexecutorClients[idx].AllPendingOutbounds(ctx, &uexecutortypes.QueryAllPendingOutboundsRequest{
-					Pagination: &query.PageRequest{Offset: offset, Limit: pendingOutboundPageSize},
-				})
-			},
-			"GetAllPendingOutbounds",
-			c.logger,
-		)
-		if err != nil {
-			return nil, nil, err
+		var resp *uexecutortypes.QueryAllPendingOutboundsResponse
+
+		for {
+			pageLimit := limit
+			r, err := retryWithRoundRobin(
+				len(c.uexecutorClients),
+				&c.rr,
+				func(idx int) (*uexecutortypes.QueryAllPendingOutboundsResponse, error) {
+					return c.uexecutorClients[idx].AllPendingOutbounds(ctx, &uexecutortypes.QueryAllPendingOutboundsRequest{
+						Pagination: &query.PageRequest{Offset: offset, Limit: pageLimit},
+					})
+				},
+				"GetAllPendingOutbounds",
+				c.logger,
+			)
+			if err == nil {
+				resp = r
+				break
+			}
+			if status.Code(err) != codes.ResourceExhausted || limit == 1 {
+				return nil, nil, err
+			}
+
+			limit /= 2
+			c.logger.Warn().
+				Uint64("offset", offset).
+				Uint64("was", pageLimit).
+				Uint64("now", limit).
+				Msg("pending outbound page exceeded the receive limit; halving the page")
 		}
 
 		entries = append(entries, resp.Entries...)
 		outbounds = append(outbounds, resp.Outbounds...)
 
-		if len(resp.Entries) < pendingOutboundPageSize {
+		if uint64(len(resp.Entries)) < limit {
 			return entries, outbounds, nil
 		}
+		offset += uint64(len(resp.Entries))
 	}
 
 	c.logger.Warn().

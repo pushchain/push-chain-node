@@ -259,6 +259,14 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 					prc20Addr,
 					txId,
 				)
+				if contractErr != nil {
+					// The callback reverted: cacheCtx is discarded, but the
+					// recipient still owes for the EVM work it caused
+					// (F-2026-18824 rec 2). Bill on the parent sdkCtx so the
+					// charge survives the discard, best-effort so a short
+					// balance cannot fail the inbound.
+					k.ChargeRevertedPayloadGas(ctx, sdkCtx, ueaAddr, contractReceipt, utx.InboundTx.UniversalPayload)
+				}
 				if contractErr == nil {
 					feeErr = k.DeductGasFeesFromReceipt(cacheCtx, cacheCtx, ueaAddr, contractReceipt, utx.InboundTx.UniversalPayload)
 					if feeErr == nil {

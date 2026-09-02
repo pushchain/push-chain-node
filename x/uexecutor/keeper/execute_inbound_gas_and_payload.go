@@ -260,6 +260,18 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 
 		var feeErr error
 		var attachErr error
+		if contractErr != nil {
+			// The callback reverted: cacheCtx is discarded, but the UEA still owes
+			// for the EVM work it caused (F-2026-18824 rec 2). Bill on the parent
+			// sdkCtx so the charge survives, best-effort so a short balance cannot
+			// fail the inbound. The gas deposited earlier in this handler was
+			// committed on sdkCtx before the cache opened, so there is a real
+			// balance to bill here — unlike the direct MsgExecutePayload route,
+			// where charging a revert is unsafe: submission is permissionless and
+			// a revert rolls back the UEA nonce increment, leaving one captured
+			// owner signature infinitely replayable and therefore drainable.
+			k.ChargeRevertedPayloadGas(ctx, sdkCtx, ueaAddr, contractReceipt, utx.InboundTx.UniversalPayload)
+		}
 		if contractErr == nil && contractReceipt != nil {
 			feeErr = k.DeductGasFeesFromReceipt(cacheCtx, cacheCtx, ueaAddr, contractReceipt, utx.InboundTx.UniversalPayload)
 			if feeErr == nil {

@@ -90,6 +90,79 @@ func (k Keeper) CalculateGasCost(
 	return gasCost, nil
 }
 
+// ChargeRevertedPayloadGas bills a reverted payload's gas on a best-effort basis.
+//
+// INBOUND ROUTES ONLY. Do not call this from the direct MsgExecutePayload path.
+// That route is permissionless (msg.Signer is the relayer; owner authorization is
+// verified inside the UEA contract) and a revert rolls back the contract's nonce
+// increment, so the payload hash — which binds the STORED nonce — is unchanged and
+// one captured owner signature stays valid indefinitely. Billing reverts there
+// would let anyone drain a funded UEA by resubmitting a failing payload. Inbound
+// routes are gated on universal-validator quorum, so no such replay exists.
+//
+// Two properties make it safe and useful here:
+//   - the caller has already discarded its EVM cache, and this bills the PARENT
+//     ctx, so the charge survives the reverted state;
+//   - it never returns an error. The inbound handlers record a FAILED PcTx and
+//     continue rather than failing the message, and a hard error here would undo
+//     the charge along with everything else (F-2026-18824 rec 2).
+//
+// The amount is clamped to the balance actually held. On GAS_AND_PAYLOAD the gas
+// deposit was committed on sdkCtx before the cache opened, so it survives the
+// revert and there is a real balance to bill.
+func (k Keeper) ChargeRevertedPayloadGas(
+	ctx context.Context,
+	sdkCtx sdk.Context,
+	recipient common.Address,
+	receipt *evmtypes.MsgEthereumTxResponse,
+	universalPayload *types.UniversalPayload,
+) {
+	if receipt == nil || receipt.GasUsed == 0 || universalPayload == nil {
+		return
+	}
+
+	abiPayload, err := types.NewAbiUniversalPayload(universalPayload)
+	if err != nil {
+		return
+	}
+	baseFee := k.feemarketKeeper.GetBaseFee(sdkCtx)
+	if baseFee.IsNil() {
+		return
+	}
+	gasCost, err := k.CalculateGasCost(baseFee, abiPayload.MaxFeePerGas, abiPayload.MaxPriorityFeePerGas, receipt.GasUsed)
+	if err != nil || gasCost.Sign() <= 0 {
+		return
+	}
+
+	recipientAccAddr := sdk.AccAddress(recipient.Bytes())
+	available := k.bankKeeper.GetBalance(sdkCtx, recipientAccAddr, pchaintypes.BaseDenom).Amount.BigInt()
+
+	charge := gasCost
+	if available.Cmp(gasCost) < 0 {
+		charge = available
+	}
+	if charge.Sign() <= 0 {
+		k.Logger().Info("reverted payload not billed: no balance",
+			"recipient", recipient.Hex(), "gas_used", receipt.GasUsed, "gas_cost", gasCost.String())
+		return
+	}
+
+	if err := k.DeductAndBurnFees(ctx, recipientAccAddr, charge); err != nil {
+		// Best effort: never fail the message over the revert-path charge.
+		k.Logger().Error("failed to bill reverted payload gas",
+			"recipient", recipient.Hex(), "charge", charge.String(), "error", err)
+		return
+	}
+
+	k.Logger().Info("reverted payload gas billed",
+		"recipient", recipient.Hex(),
+		"gas_used", receipt.GasUsed,
+		"gas_cost", gasCost.String(),
+		"charged", charge.String(),
+		"partial", charge.Cmp(gasCost) < 0,
+	)
+}
+
 // DeductGasFeesFromReceipt calculates and deducts gas fees from a recipient address
 // based on the EVM receipt and universal payload parameters.
 // Returns nil if receipt is nil (Go-level error, no EVM tx was created).

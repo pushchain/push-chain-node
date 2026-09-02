@@ -12,11 +12,8 @@ var (
 	_ sdk.Msg = &MsgExecuteStuckOutbound{}
 )
 
-// ValidateBasic does a sanity check on the provided data.
-//
-// It mirrors MsgVoteOutbound.ValidateBasic field-for-field: the admin has to
-// supply exactly the observation the validators voted on, so an observation
-// this rejects could never have produced a ballot to settle against.
+// ValidateBasic mirrors MsgVoteOutbound: the admin must supply exactly the
+// observation the validators voted on.
 func (msg *MsgExecuteStuckOutbound) ValidateBasic() error {
 	if _, err := sdk.AccAddressFromBech32(msg.Signer); err != nil {
 		return errors.Wrap(err, "invalid signer address")

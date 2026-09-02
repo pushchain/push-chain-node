@@ -7,13 +7,8 @@ import (
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
-// ValidateBasic sanity-checks a destination-chain observation.
-//
-// Shared by MsgVoteOutbound (the validator vote path) and
-// MsgExecuteStuckOutbound (the admin hatch) so both admit exactly the same set
-// of observations. They must not drift: the admin hatch derives its ballot key
-// from the observation, so anything the vote path refuses can never have a
-// ballot to settle against anyway.
+// ValidateBasic sanity-checks a destination-chain observation. Shared by
+// MsgVoteOutbound and MsgExecuteStuckOutbound so the two cannot drift.
 func (obs *OutboundObservation) ValidateBasic() error {
 	// gas_fee_used is always required — the external chain consumes gas regardless
 	// of success or failure, and excess gas must be refundable in both cases.

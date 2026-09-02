@@ -110,18 +110,10 @@ func (k Keeper) ExecuteStuckInbound(ctx context.Context, inbound types.Inbound) 
 	return universalTxKey, nil
 }
 
-// requireCarriedUnreachablePending returns nil only for the one ballot shape an
-// admin execute hatch may finalize on the validators' behalf: stored PENDING,
-// no vote left to cast (Ballot.IsUnreachablePending), and YES votes already at
-// the stored threshold.
-//
-// The threshold is checked explicitly rather than inferred from unreachability:
-// both vote sites hardcode VOTE_RESULT_SUCCESS today, so yes == len(voters)
-// always holds, but the check must not depend on that if a negative-vote path is
-// ever added.
-//
-// Shared by ExecuteStuckInbound and ExecuteStuckOutbound. Each appends its own
-// remedy, since which other route applies differs per direction.
+// requireCarriedUnreachablePending accepts only the shape an admin hatch may
+// finalize: PENDING, no vote left to cast, YES already at the threshold.
+// Threshold is checked explicitly, not inferred — both vote sites hardcode
+// SUCCESS today, but this must not depend on that.
 func requireCarriedUnreachablePending(ballotKey string, ballot uvalidatortypes.Ballot) error {
 	if !ballot.IsUnreachablePending() {
 		return fmt.Errorf("ballot %s status is %s; admin execute requires PENDING with every eligible voter already voted (no further vote can be cast). "+

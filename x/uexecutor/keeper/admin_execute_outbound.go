@@ -13,48 +13,21 @@ import (
 	uvalidatortypes "github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
-// ExecuteStuckOutbound settles an outbound whose ballot can no longer reach a
-// terminal-and-settled state, running the same pipeline a finalizing vote would
-// have run.
+// ExecuteStuckOutbound settles an outbound whose ballot can no longer finalize,
+// running the same pipeline a finalizing vote would have. Accepts EXPIRED, and
+// PENDING-unreachable with the threshold met (F-2026-18147).
 //
-// All post-finalization work for an outbound lives inside VoteOutbound, so an
-// outbound whose ballot never finalizes has no recovery path at all: the tokens
-// were already burned on Push, the destination-chain tx may well have landed,
-// and nothing marks the outbound OBSERVED, refunds gas or mints the funds back.
-// Two shapes get stuck:
-//
-//   - PENDING-unreachable. Every eligible voter has voted but the stored
-//     VotingThreshold is stale/high - what MsgRecomputeBallotQuorum can leave
-//     behind (F-2026-18147). AddVote rejects repeat votes, so nothing can move
-//     the ballot.
-//   - EXPIRED. Quorum never formed.
-//
-// Both are accepted, and the settlement outcome follows observed_tx.success in
-// both: a success settles normally, a failure mints the bridged tokens back to
-// the revert recipient and refunds the excess gas. One message covers
-// settle-and-refund because the outcome is carried in the observation, not in
-// the message type. That is why EXPIRED is accepted here while
-// MsgExecuteStuckInbound refuses it: an inbound has MsgRevertStuckInbound as the
-// honest resolution for "quorum never formed", whereas an outbound has no
-// sibling hatch - the funds have already left Push and only the observation says
-// what became of them.
-//
-// Deriving the ballot key from the admin-supplied observation is the security
-// property: an observation no validator ever voted derives a key with no ballot,
-// so the admin can only settle against something the validator set actually
-// reported. For PENDING-unreachable that is a full threshold of votes; for
-// EXPIRED it is at least one, and picking the right variant among any divergent
-// observations is the admin's call.
-//
-// Returns the settled outbound ID for telemetry.
+// The outcome follows observed_tx.success — success settles, failure mints the
+// tokens back and refunds gas — so one message covers both. The ballot key is
+// derived from the supplied observation, so the admin can only settle against
+// something validators actually voted on.
 func (k Keeper) ExecuteStuckOutbound(
 	ctx context.Context,
 	utxId string,
 	outboundId string,
 	observedTx types.OutboundObservation,
 ) (string, error) {
-	// Locate the outbound first, exactly as VoteOutbound does: the observed tx
-	// hash is canonicalized for the destination chain, which is read off it.
+	// Located first because canonicalizing the tx hash needs DestinationChain.
 	utx, found, err := k.GetUniversalTx(ctx, utxId)
 	if err != nil {
 		return "", err
@@ -79,9 +52,7 @@ func (k Keeper) ExecuteStuckOutbound(
 		return "", errors.Wrap(sdkErrors.ErrNotFound, fmt.Sprintf("outbound %s not found in UniversalTx %s", outboundId, utxId))
 	}
 
-	// Same canonical form as the vote path, and applied before the ballot key is
-	// derived: the key is a digest over these exact fields, so canonicalizing
-	// differently or later derives a key no validator ever voted on.
+	// Canonicalize before deriving the key — it is a digest over these fields.
 	observedTx.TxHash = utils.LenientCanonicalizeTxHash(outbound.DestinationChain, observedTx.TxHash)
 	observedTx.GasFeeUsed = strings.TrimSpace(observedTx.GasFeeUsed)
 	observedTx.ErrorMsg = strings.TrimSpace(observedTx.ErrorMsg)
@@ -119,9 +90,7 @@ func (k Keeper) ExecuteStuckOutbound(
 			fmt.Sprintf("outbound with key %s is already finalized (status %s)", outboundId, outbound.OutboundStatus.String()))
 	}
 
-	// MarkBallotFinalized only accepts PASSED/REJECTED, so an EXPIRED ballot is
-	// left exactly as it is - it is terminal already, and the outbound's OBSERVED
-	// status is the real record. Mirrors RevertStuckInbound.
+	// EXPIRED is left alone: MarkBallotFinalized takes only PASSED/REJECTED.
 	if finalizeBallot {
 		if fErr := k.uvalidatorKeeper.MarkBallotFinalized(ctx, ballotKey, uvalidatortypes.BallotStatus_BALLOT_STATUS_PASSED); fErr != nil {
 			return "", fmt.Errorf("failed to finalize ballot %s: %w", ballotKey, fErr)

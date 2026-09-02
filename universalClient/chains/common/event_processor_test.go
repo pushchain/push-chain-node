@@ -1128,3 +1128,31 @@ func TestConstructInbound_RejectsEventWithoutData(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "event data is missing")
 }
+
+// A revert observation carries no gas fee from the chain: the gateway dropped
+// gas_used from RevertUniversalTx. The vote must still say "0" rather than empty,
+// because core rejects an empty gas_fee_used outright and the value is part of
+// the outbound ballot key, so every validator has to produce the same one.
+func TestBuildOutboundObservation_EmptyGasFeeUsedBecomesZero(t *testing.T) {
+	processor := NewEventProcessor(nil, nil, "solana:devnet", true, true, zerolog.Nop())
+	event := &store.Event{EventID: "sig:0", BlockHeight: 100}
+
+	obs, err := processor.buildOutboundObservation(event, &OutboundEvent{
+		TxID:          "0x1234",
+		UniversalTxID: "0xabcd",
+		// GasFeeUsed intentionally unset, as a revert leaves it.
+	})
+	require.NoError(t, err)
+	require.NotNil(t, obs)
+
+	assert.Equal(t, "0", obs.GasFeeUsed, "an empty gas fee must not reach the vote")
+	assert.NotEmpty(t, obs.GasFeeUsed, "core rejects observed_tx.gas_fee_used when empty")
+
+	// Same input twice must give the same value: it feeds the ballot key, so a
+	// non-deterministic default would split validators across ballots.
+	again, err := processor.buildOutboundObservation(event, &OutboundEvent{
+		TxID: "0x1234", UniversalTxID: "0xabcd",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, obs.GasFeeUsed, again.GasFeeUsed)
+}

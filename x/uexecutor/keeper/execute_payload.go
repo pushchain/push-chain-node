@@ -50,6 +50,8 @@ func (k Keeper) ExecutePayloadV2(ctx context.Context, evmFrom common.Address, ue
 
 	if execErr != nil {
 		// EVM execution failed — cache discarded by not calling writeCache.
+		// Bill the gas on the parent sdkCtx so the charge survives the discard.
+		k.ChargeRevertedPayloadGas(ctx, sdkCtx, ueaAddr, receipt, universalPayload)
 		return receipt, execErr
 	}
 

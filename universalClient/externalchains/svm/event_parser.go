@@ -109,11 +109,14 @@ func parseSendFundsEvent(log string, signature string, slot uint64, logIndex uin
 // parseOutboundObservationEvent parses an outbound observation event.
 //
 // All three share disc(8) sub_tx_id(32) universal_tx_id(32) and diverge after
-// that, so gas_used sits at a different offset in each:
+// that:
 //
 //	UniversalTxFinalized  ... wrapper_address(32) gas_fee(8)   gas_used -> 112
-//	RevertUniversalTx     ... revert_recipient(32) token(32) amount(8)  -> 144
 //	FundsRescued          ... token(32) amount(8)                       -> 112
+//	RevertUniversalTx     ... revert_recipient(32) token(32) amount(8)  -> no gas_used
+//
+// Revert carries no gas_used, and core never refunds one (applyGasRefund returns
+// early for INBOUND_REVERT), so nothing needs the value.
 func parseOutboundObservationEvent(log string, signature string, slot uint64, logIndex uint, eventType string, logger zerolog.Logger) *store.Event {
 	if !strings.HasPrefix(log, "Program data: ") {
 		return nil
@@ -125,21 +128,24 @@ func parseOutboundObservationEvent(log string, signature string, slot uint64, lo
 		return nil
 	}
 
-	gasUsedOffset := 0
+	// -1 means the event carries no gas_used field.
+	gasUsedOffset := -1
 	switch eventType {
 	case EventTypeFinalizeUniversalTx, EventTypeFundsRescued:
 		gasUsedOffset = 112
 	case EventTypeRevertUniversalTx:
-		gasUsedOffset = 144
 	default:
 		return nil
 	}
 
-	// gas_used is the last field read, so one check covers the earlier ones.
-	if len(decoded) < gasUsedOffset+8 {
+	need := 72 // the shared prefix
+	if gasUsedOffset >= 0 {
+		need = gasUsedOffset + 8
+	}
+	if len(decoded) < need {
 		logger.Warn().
 			Int("data_len", len(decoded)).
-			Int("need", gasUsedOffset+8).
+			Int("need", need).
 			Str("event_type", eventType).
 			Msg("data too short for outboundObservation event")
 		return nil
@@ -157,7 +163,10 @@ func parseOutboundObservationEvent(log string, signature string, slot uint64, lo
 
 	txID := "0x" + hex.EncodeToString(decoded[8:40])
 	universalTxID := "0x" + hex.EncodeToString(decoded[40:72])
-	gasUsed := binary.LittleEndian.Uint64(decoded[gasUsedOffset : gasUsedOffset+8])
+	gasFeeUsed := ""
+	if gasUsedOffset >= 0 {
+		gasFeeUsed = fmt.Sprintf("%d", binary.LittleEndian.Uint64(decoded[gasUsedOffset:gasUsedOffset+8]))
+	}
 
 	// Only the finalize event carries wrapper_address, at 72..104. The length
 	// check above already covers that range. Zero is Pubkey::default(), the
@@ -175,7 +184,7 @@ func parseOutboundObservationEvent(log string, signature string, slot uint64, lo
 	payload := common.OutboundObservation{
 		TxID:               txID,
 		UniversalTxID:      universalTxID,
-		GasFeeUsed:         fmt.Sprintf("%d", gasUsed),
+		GasFeeUsed:         gasFeeUsed,
 		Pc20WrapperAddress: wrapperAddr,
 	}
 
@@ -204,7 +213,7 @@ func parseOutboundObservationEvent(log string, signature string, slot uint64, lo
 		Str("event_id", eventID).
 		Str("tx_id", txID).
 		Str("universal_tx_id", universalTxID).
-		Str("gas_used", fmt.Sprintf("%d", gasUsed)).
+		Str("gas_fee_used", gasFeeUsed).
 		Msg("parsed outboundObservation event")
 
 	return event

@@ -227,8 +227,7 @@ func TestParseEvent_Routing(t *testing.T) {
 		assert.Equal(t, store.EventTypeOutbound, event.Type)
 	})
 
-	t.Run("revert_universal_tx routes to outbound parser", func(t *testing.T) {
-		// Revert puts gas_used further in than finalize does.
+	t.Run("revert_universal_tx routes to outbound parser without a gas fee", func(t *testing.T) {
 		revertLog := wrapAsLog(buildRevertPayload(txID, utxID, 5000))
 		event := ParseEvent(revertLog, sig, 100, 0, EventTypeRevertUniversalTx, chainID, logger)
 		require.NotNil(t, event)
@@ -236,13 +235,13 @@ func TestParseEvent_Routing(t *testing.T) {
 
 		var outbound common.OutboundObservation
 		require.NoError(t, json.Unmarshal(event.EventData, &outbound))
-		assert.Equal(t, "5000", outbound.GasFeeUsed)
+		assert.Empty(t, outbound.GasFeeUsed,
+			"the revert event carries no gas_used; reading one would report revert_instruction bytes")
 	})
 
 	t.Run("a payload too short for a revert is refused", func(t *testing.T) {
-		short := wrapAsLog(make([]byte, 151)) // revert reads gas_used at 144..152
-		assert.Nil(t, ParseEvent(short, sig, 100, 0, EventTypeRevertUniversalTx, chainID, logger),
-			"reading a revert at the finalize offset would report the wrong gas_used")
+		short := wrapAsLog(make([]byte, 71)) // revert needs the 72-byte shared prefix
+		assert.Nil(t, ParseEvent(short, sig, 100, 0, EventTypeRevertUniversalTx, chainID, logger))
 	})
 
 	t.Run("unknown event type returns nil", func(t *testing.T) {
@@ -274,9 +273,9 @@ func TestParseOutboundObservationEvent_LengthIsPerEventType(t *testing.T) {
 		assert.NotNil(t, ParseEvent(wrapAsLog(make([]byte, 120)), sig, 1, 0, EventTypeFundsRescued, chainID, logger))
 	})
 
-	t.Run("revert needs 152 bytes", func(t *testing.T) {
-		assert.Nil(t, ParseEvent(wrapAsLog(make([]byte, 151)), sig, 1, 0, EventTypeRevertUniversalTx, chainID, logger))
-		assert.NotNil(t, ParseEvent(wrapAsLog(buildRevertPayload(txID, utxID, 1)), sig, 1, 0, EventTypeRevertUniversalTx, chainID, logger))
+	t.Run("revert needs only the shared prefix", func(t *testing.T) {
+		assert.Nil(t, ParseEvent(wrapAsLog(make([]byte, 71)), sig, 1, 0, EventTypeRevertUniversalTx, chainID, logger))
+		assert.NotNil(t, ParseEvent(wrapAsLog(make([]byte, 72)), sig, 1, 0, EventTypeRevertUniversalTx, chainID, logger))
 	})
 
 	t.Run("an unroutable event type is refused", func(t *testing.T) {
@@ -297,7 +296,6 @@ func TestParseOutboundObservationEvent_ReadsItsOwnOffset(t *testing.T) {
 	}{
 		{EventTypeFinalizeUniversalTx, buildOutboundPayload(txID, utxID, 4242)},
 		{EventTypeFundsRescued, buildOutboundPayload(txID, utxID, 4242)},
-		{EventTypeRevertUniversalTx, buildRevertPayload(txID, utxID, 4242)},
 	} {
 		t.Run(tc.eventType, func(t *testing.T) {
 			event := ParseEvent(wrapAsLog(tc.payload), "sig", 1, 0, tc.eventType, "solana:devnet", logger)
@@ -528,7 +526,7 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 		assert.Empty(t, outbound.Pc20WrapperAddress)
 	})
 
-	t.Run("revert event reads gas_used (@144) and no wrapper", func(t *testing.T) {
+	t.Run("revert event reports no gas_used and no wrapper", func(t *testing.T) {
 		var txID, utxID [32]byte
 		data := buildRevertPayload(txID, utxID, 7777)
 		event := ParseEvent(wrapAsLog(data), signature, 1, 0, EventTypeRevertUniversalTx, chainID, logger)
@@ -537,7 +535,8 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 		var outbound common.OutboundObservation
 		require.NoError(t, json.Unmarshal(event.EventData, &outbound))
 		assert.Empty(t, outbound.Pc20WrapperAddress)
-		assert.Equal(t, "7777", outbound.GasFeeUsed)
+		assert.Empty(t, outbound.GasFeeUsed,
+			"the gateway dropped gas_used from RevertUniversalTx")
 	})
 
 	t.Run("rescue event reads gas_used (@112) and no wrapper", func(t *testing.T) {

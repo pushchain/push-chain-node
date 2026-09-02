@@ -1030,9 +1030,6 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 	}
 
 	// --- Assemble the Solana transaction ---
-	// Instructions in order:
-	//   1. SetComputeUnitLimit — tells the runtime how many compute units to allocate
-	//   2. The actual gateway instruction (withdraw/execute/revert)
 
 	gatewayInstruction := solana.NewInstruction(
 		tb.gatewayAddress,
@@ -1045,18 +1042,9 @@ func (tb *TxBuilder) BuildOutboundTransaction(
 	computeLimitIx := tb.buildSetComputeUnitLimitInstruction(defaultComputeUnitLimit)
 
 	// Build the instruction list.
-	instructions := []solana.Instruction{computeLimitIx}
-
-	// Withdraw (1) is created and metered by the gateway. Revert (3) and rescue
-	// (4) take its legacy SPL branch, which transfers into the recipient token
-	// account without creating it. PC20 remint creates it gateway-side too.
-	if !isNative && (instructionID == 3 || instructionID == 4) && pc20SourceAsset == nil {
-		instructions = append(instructions, tb.buildCreateATAIdempotentInstruction(
-			relayerKeypair.PublicKey(), recipientPubkey, mintPubkey,
-		))
-	}
-
-	instructions = append(instructions, gatewayInstruction)
+	// The gateway creates the recipient ATA and meters the rent, so creating it
+	// here would leave that cost outside gas_used.
+	instructions := []solana.Instruction{computeLimitIx, gatewayInstruction}
 
 	// Get a recent blockhash — Solana uses this instead of nonces for transaction expiry.
 	// Transactions expire after ~60-90 seconds if not confirmed.
@@ -2274,7 +2262,7 @@ func (tb *TxBuilder) buildRevertAccounts(
 
 	if isNative {
 		// SOL: optional SPL accounts are None (gateway program ID sentinel)
-		for i := 0; i < 4; i++ {
+		for i := 0; i < 6; i++ {
 			accounts = append(accounts, &solana.AccountMeta{PublicKey: tb.gatewayAddress, IsWritable: false, IsSigner: false})
 		}
 	} else {
@@ -2292,6 +2280,9 @@ func (tb *TxBuilder) buildRevertAccounts(
 			&solana.AccountMeta{PublicKey: recipientATA, IsWritable: true, IsSigner: false},
 			&solana.AccountMeta{PublicKey: mintPubkey, IsWritable: false, IsSigner: false},
 			&solana.AccountMeta{PublicKey: solana.TokenProgramID, IsWritable: false, IsSigner: false},
+			// The gateway needs these to create the recipient ATA.
+			&solana.AccountMeta{PublicKey: solana.SPLAssociatedTokenAccountProgramID, IsWritable: false, IsSigner: false},
+			&solana.AccountMeta{PublicKey: solana.SysVarRentPubkey, IsWritable: false, IsSigner: false},
 		)
 	}
 
@@ -2488,32 +2479,6 @@ func (tb *TxBuilder) buildCloseStoredIxDataAccounts(caller, storedIxDataPDA, exe
 		{PublicKey: caller, IsWritable: true, IsSigner: false},
 		{PublicKey: executedSubTxPDA, IsWritable: false, IsSigner: false},
 	}
-}
-
-// buildCreateATAIdempotentInstruction creates the recipient's ATA if absent
-// (no-op if present). Needed on the revert and rescue paths only: the gateway
-// creates the recipient ATA for withdraw but not on its legacy SPL branch.
-func (tb *TxBuilder) buildCreateATAIdempotentInstruction(
-	payer solana.PublicKey,
-	owner solana.PublicKey,
-	mint solana.PublicKey,
-) solana.Instruction {
-	ata, _, _ := solana.FindProgramAddress(
-		[][]byte{owner.Bytes(), solana.TokenProgramID.Bytes(), mint.Bytes()},
-		solana.SPLAssociatedTokenAccountProgramID,
-	)
-
-	accounts := []*solana.AccountMeta{
-		{PublicKey: payer, IsWritable: true, IsSigner: true},
-		{PublicKey: ata, IsWritable: true, IsSigner: false},
-		{PublicKey: owner, IsWritable: false, IsSigner: false},
-		{PublicKey: mint, IsWritable: false, IsSigner: false},
-		{PublicKey: solana.SystemProgramID, IsWritable: false, IsSigner: false},
-		{PublicKey: solana.TokenProgramID, IsWritable: false, IsSigner: false},
-	}
-
-	// 0 = Create (fails if exists), 1 = CreateIdempotent.
-	return solana.NewInstruction(solana.SPLAssociatedTokenAccountProgramID, accounts, []byte{1})
 }
 
 // =============================================================================

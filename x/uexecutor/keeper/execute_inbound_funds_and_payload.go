@@ -263,6 +263,11 @@ func (k Keeper) ExecuteInboundFundsAndPayload(ctx context.Context, utx types.Uni
 					prc20Addr,
 					txId,
 				)
+				if contractErr != nil {
+					// Reverted: cacheCtx is discarded, so bill the gas on the
+					// parent sdkCtx.
+					k.ChargeRevertedPayloadGas(ctx, sdkCtx, ueaAddr, contractReceipt, utx.InboundTx.UniversalPayload)
+				}
 				if contractErr == nil {
 					feeErr = k.DeductGasFeesFromReceipt(cacheCtx, cacheCtx, ueaAddr, contractReceipt, utx.InboundTx.UniversalPayload)
 					if feeErr == nil {

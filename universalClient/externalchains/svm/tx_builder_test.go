@@ -1307,10 +1307,10 @@ func TestBuildRevertAccounts(t *testing.T) {
 	caller := solana.NewWallet().PublicKey()
 	tokenMint := solana.NewWallet().PublicKey()
 
-	t.Run("SOL revert has 12 accounts (8 required + 4 None sentinels)", func(t *testing.T) {
+	t.Run("SOL revert has 14 accounts (8 required + 6 None sentinels)", func(t *testing.T) {
 		accounts := builder.buildRevertAccounts(config, vault, feeVault, tss, recipient, executed, caller, true, solana.PublicKey{})
 
-		assert.Len(t, accounts, 12)
+		assert.Len(t, accounts, 14)
 		assert.Equal(t, config, accounts[0].PublicKey, "config")
 		assert.False(t, accounts[0].IsWritable)
 		assert.Equal(t, vault, accounts[1].PublicKey, "vault")
@@ -1326,16 +1326,16 @@ func TestBuildRevertAccounts(t *testing.T) {
 		assert.Equal(t, caller, accounts[6].PublicKey, "caller")
 		assert.True(t, accounts[6].IsSigner)
 		assert.Equal(t, solana.SystemProgramID, accounts[7].PublicKey, "system_program")
-		// SOL: 4 optional SPL accounts are gateway sentinel (None)
-		for i := 8; i < 12; i++ {
+		// SOL: 6 optional SPL accounts are gateway sentinel (None)
+		for i := 8; i < 14; i++ {
 			assert.Equal(t, builder.gatewayAddress, accounts[i].PublicKey, "SOL sentinel account %d", i)
 		}
 	})
 
-	t.Run("SPL revert has 12 accounts (8 required + 4 SPL accounts)", func(t *testing.T) {
+	t.Run("SPL revert has 14 accounts (8 required + 6 SPL accounts)", func(t *testing.T) {
 		accounts := builder.buildRevertAccounts(config, vault, feeVault, tss, recipient, executed, caller, false, tokenMint)
 
-		assert.Len(t, accounts, 12)
+		assert.Len(t, accounts, 14)
 		// First 8 same as SOL
 		assert.Equal(t, config, accounts[0].PublicKey, "config")
 		assert.Equal(t, vault, accounts[1].PublicKey, "vault")
@@ -1345,11 +1345,18 @@ func TestBuildRevertAccounts(t *testing.T) {
 		assert.Equal(t, executed, accounts[5].PublicKey, "executed_tx")
 		assert.Equal(t, caller, accounts[6].PublicKey, "caller")
 		assert.Equal(t, solana.SystemProgramID, accounts[7].PublicKey, "system_program")
-		// SPL: token_vault, recipient_token_account, token_mint, token_program
+		// token_vault, recipient_token_account, token_mint, token_program,
+		// associated_token_program, rent.
 		assert.True(t, accounts[8].IsWritable, "token_vault should be writable")
 		assert.True(t, accounts[9].IsWritable, "recipient_token_account should be writable")
 		assert.Equal(t, tokenMint, accounts[10].PublicKey, "token_mint")
 		assert.Equal(t, solana.TokenProgramID, accounts[11].PublicKey, "token_program")
+		assert.Equal(t, solana.SPLAssociatedTokenAccountProgramID, accounts[12].PublicKey, "associated_token_program")
+		assert.Equal(t, solana.SysVarRentPubkey, accounts[13].PublicKey, "rent")
+
+		wantRecipientATA, _, err := solana.FindAssociatedTokenAddress(recipient, tokenMint)
+		require.NoError(t, err)
+		assert.Equal(t, wantRecipientATA, accounts[9].PublicKey, "recipient_token_account must be the canonical ATA")
 	})
 }
 
@@ -3129,29 +3136,23 @@ func TestVerifyBroadcastedTx_NotFoundVersusRPCFailure(t *testing.T) {
 	})
 }
 
-// The gateway creates the recipient ATA and meters the rent into gas_used.
-// A create prepended here would put that cost outside the metered path, so the
-// built transaction must carry only the compute limit and the gateway call.
-// The gateway creates the recipient ATA on withdraw and meters the rent, but
-// its revert and rescue paths take the legacy SPL branch, which transfers into
-// the recipient token account without creating it. Dropping the client-side
-// create on those two strands an SPL revert or rescue whose recipient has no
-// ATA for the mint, which RevertInstructions.FundRecipient lets a user pick.
-func TestBuildOutboundTransaction_RecipientATACreateScope(t *testing.T) {
+// The gateway creates the recipient ATA and meters the rent. Creating it here
+// makes the gateway see it already present, leaving the rent outside gas_used
+// (F-2026-18815).
+func TestBuildOutboundTransaction_NoClientSideATACreate(t *testing.T) {
 	ataProgram := solana.MustPublicKeyFromBase58("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
 
 	for _, tc := range []struct {
-		name      string
-		txType    string
-		spl       bool
-		wantATAIx bool
+		name   string
+		txType string
+		spl    bool
 	}{
-		{"SPL withdraw is created by the gateway", "FUNDS", true, false},
-		{"SPL revert needs a client-side create", "INBOUND_REVERT", true, true},
-		{"SPL rescue needs a client-side create", "RESCUE_FUNDS", true, true},
-		{"native withdraw has no ATA at all", "FUNDS", false, false},
-		{"native revert has no ATA at all", "INBOUND_REVERT", false, false},
-		{"native rescue has no ATA at all", "RESCUE_FUNDS", false, false},
+		{"SPL withdraw", "FUNDS", true},
+		{"SPL revert", "INBOUND_REVERT", true},
+		{"SPL rescue", "RESCUE_FUNDS", true},
+		{"native withdraw", "FUNDS", false},
+		{"native revert", "INBOUND_REVERT", false},
+		{"native rescue", "RESCUE_FUNDS", false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			builder := newBlockhashOnlyBuilder(t)
@@ -3176,45 +3177,30 @@ func TestBuildOutboundTransaction_RecipientATACreateScope(t *testing.T) {
 			}
 			req := &common.UnsignedSigningReq{SigningHash: make([]byte, 32), Nonce: 0}
 
-			tx, _, err := builder.BuildOutboundTransaction(context.Background(), req, data, make([]byte, 65))
+			tx, instructionID, err := builder.BuildOutboundTransaction(context.Background(), req, data, make([]byte, 65))
 			require.NoError(t, err)
 			require.NotNil(t, tx)
 
-			var ataIx *solana.CompiledInstruction
+			require.Len(t, tx.Message.Instructions, 2, "compute limit and the gateway call only")
 			for i := range tx.Message.Instructions {
 				program, err := tx.Message.Program(tx.Message.Instructions[i].ProgramIDIndex)
 				require.NoError(t, err)
-				if program.Equals(ataProgram) {
-					ataIx = &tx.Message.Instructions[i]
-				}
+				assert.NotEqual(t, ataProgram, program, "instruction %d creates an ATA", i)
 			}
 
-			if !tc.wantATAIx {
-				assert.Nil(t, ataIx, "no ATA creation expected on this path")
-				assert.Len(t, tx.Message.Instructions, 2, "compute limit and the gateway call only")
-				return
+			// Revert and rescue still hand the gateway what it needs to create it.
+			if tc.spl && (instructionID == 3 || instructionID == 4) {
+				gatewayIx := tx.Message.Instructions[len(tx.Message.Instructions)-1]
+				metas, err := gatewayIx.ResolveInstructionAccounts(&tx.Message)
+				require.NoError(t, err)
+				require.Len(t, metas, 14)
+
+				wantATA, _, err := solana.FindAssociatedTokenAddress(recipient, mint)
+				require.NoError(t, err)
+				assert.Equal(t, wantATA, metas[9].PublicKey, "recipient_token_account")
+				assert.Equal(t, solana.SPLAssociatedTokenAccountProgramID, metas[12].PublicKey, "associated_token_program")
+				assert.Equal(t, solana.SysVarRentPubkey, metas[13].PublicKey, "rent")
 			}
-
-			require.NotNil(t, ataIx, "recipient ATA must be created for this path")
-			require.Len(t, tx.Message.Instructions, 3)
-			assert.Equal(t, []byte{1}, []byte(ataIx.Data), "must be CreateIdempotent, not Create")
-
-			metas, err := ataIx.ResolveInstructionAccounts(&tx.Message)
-			require.NoError(t, err)
-			require.Len(t, metas, 6)
-
-			wantATA, _, err := solana.FindAssociatedTokenAddress(recipient, mint)
-			require.NoError(t, err)
-			assert.True(t, metas[0].IsSigner, "relayer funds the rent")
-			assert.Equal(t, wantATA, metas[1].PublicKey, "creates the recipient's ATA")
-			assert.Equal(t, recipient, metas[2].PublicKey, "owner is the recipient")
-			assert.Equal(t, mint, metas[3].PublicKey)
-
-			// The gateway is handed the same ATA it will transfer into.
-			gatewayIx := tx.Message.Instructions[len(tx.Message.Instructions)-1]
-			gwMetas, err := gatewayIx.ResolveInstructionAccounts(&tx.Message)
-			require.NoError(t, err)
-			assert.Equal(t, wantATA, gwMetas[9].PublicKey, "recipient_token_account slot")
 		})
 	}
 }

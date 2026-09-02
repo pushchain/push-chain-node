@@ -20,6 +20,15 @@ func (p OutboundTx) String() string {
 }
 
 // ValidateBasic does the sanity check on the OutboundTx fields.
+// ValidateSize caps the payload. Split out so the keeper can apply it to an
+// event-sourced outbound before the row is built.
+func (p *OutboundTx) ValidateSize() error {
+	if p == nil {
+		return nil
+	}
+	return ValidateOutboundPayloadBlobSize("payload", p.Payload)
+}
+
 func (p OutboundTx) ValidateBasic() error {
 	// Validate destination_chain (must follow CAIP-2 format)
 	chain := strings.TrimSpace(p.DestinationChain)

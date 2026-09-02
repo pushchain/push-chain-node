@@ -69,3 +69,10 @@ var RescueFundsOnSourceChainEventSig = crypto.Keccak256Hash([]byte(
 // UniversalPayload struct because that struct is variable length; a flat number
 // is auditable and stable.
 const MaxUniversalPayloadBytes = 128 * 1024
+
+// MaxOutboundPayloadBytes caps the hex-encoded payload an outbound carries to a
+// destination chain, so ~64 KiB of calldata. Bounded by what the destination can
+// accept: geth's txpool rejects transactions over 128 KB (txMaxSize), so a larger
+// payload yields a tx no EVM node accepts — unsendable once TSS has signed it.
+// Same value as MaxUniversalPayloadBytes, different reason; do not collapse them.
+const MaxOutboundPayloadBytes = 128 * 1024

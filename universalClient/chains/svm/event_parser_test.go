@@ -1,7 +1,6 @@
 package svm
 
 import (
-	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
@@ -841,68 +840,4 @@ func TestDecodeUniversalTxEvent_TruncatedRealEventIsRejected(t *testing.T) {
 		require.NoError(t, err, "%d-byte event was rejected", n)
 		assert.Equal(t, uint(2), got.TxType)
 	}
-}
-
-// The discriminator is Anchor's, derived from the event name, so pin it rather
-// than trusting the constant to have been typed correctly.
-func TestInboundFeeReimbursedDiscriminator(t *testing.T) {
-	want := sha256.Sum256([]byte("event:InboundFeeReimbursed"))
-	assert.Equal(t, want[:8], inboundFeeReimbursedDisc[:8])
-	assert.Equal(t, "57c224759956a4b2", hex.EncodeToString(inboundFeeReimbursedDisc[:8]))
-}
-
-// Revert no longer carries gas_used; the figure lives in the InboundFeeReimbursed
-// event emitted beside it in the same transaction.
-func TestReimbursedFeesAndApply(t *testing.T) {
-	var subTx [32]byte
-	for i := range subTx {
-		subTx[i] = 0xAB
-	}
-	subTxHex := "0x" + hex.EncodeToString(subTx[:])
-
-	feePayload := make([]byte, 80)
-	copy(feePayload[:8], inboundFeeReimbursedDisc[:8])
-	copy(feePayload[8:40], subTx[:])
-	binary.LittleEndian.PutUint64(feePayload[72:80], 2_044_280)
-
-	t.Run("extracts the amount keyed by sub_tx_id", func(t *testing.T) {
-		fees := reimbursedFees([]string{wrapAsLog(feePayload)})
-		require.Len(t, fees, 1)
-		assert.Equal(t, uint64(2_044_280), fees[subTxHex])
-	})
-
-	t.Run("ignores events that are not a fee reimbursement", func(t *testing.T) {
-		other := make([]byte, 80) // zero discriminator
-		assert.Empty(t, reimbursedFees([]string{wrapAsLog(other)}))
-	})
-
-	t.Run("ignores a truncated payload", func(t *testing.T) {
-		assert.Empty(t, reimbursedFees([]string{wrapAsLog(feePayload[:79])}))
-	})
-
-	t.Run("fills the gas fee on the matching revert", func(t *testing.T) {
-		revert := make([]byte, 152)
-		copy(revert[8:40], subTx[:])
-		event := ParseEvent(wrapAsLog(revert), "sig", 1, 0, EventTypeRevertUniversalTx, "solana:devnet", nopLogger())
-		require.NotNil(t, event)
-
-		applyReimbursedFee(event, reimbursedFees([]string{wrapAsLog(feePayload)}), nopLogger())
-
-		var outbound common.OutboundEvent
-		require.NoError(t, json.Unmarshal(event.EventData, &outbound))
-		assert.Equal(t, "2044280", outbound.GasFeeUsed)
-	})
-
-	t.Run("a revert with no matching fee event is left alone", func(t *testing.T) {
-		revert := make([]byte, 152)
-		revert[8] = 0x01 // a different sub_tx_id
-		event := ParseEvent(wrapAsLog(revert), "sig", 1, 0, EventTypeRevertUniversalTx, "solana:devnet", nopLogger())
-		require.NotNil(t, event)
-
-		applyReimbursedFee(event, reimbursedFees([]string{wrapAsLog(feePayload)}), nopLogger())
-
-		var outbound common.OutboundEvent
-		require.NoError(t, json.Unmarshal(event.EventData, &outbound))
-		assert.Empty(t, outbound.GasFeeUsed)
-	})
 }

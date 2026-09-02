@@ -1,8 +1,6 @@
 package svm
 
 import (
-	"bytes"
-	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
@@ -106,63 +104,6 @@ func parseSendFundsEvent(log string, signature string, slot uint64, logIndex uin
 	}
 
 	return event
-}
-
-// inboundFeeReimbursedDisc is sha256("event:InboundFeeReimbursed")[:8]. It is a
-// property of the event name, not a configured value, so it is derived here
-// rather than taken from the registry: this event is only ever read to enrich a
-// revert observation, never voted on its own.
-var inboundFeeReimbursedDisc = sha256.Sum256([]byte("event:InboundFeeReimbursed"))
-
-// reimbursedFees maps sub_tx_id to the lamports the gateway paid the relayer,
-// read from the InboundFeeReimbursed events in one transaction.
-//
-// Revert dropped its own gas_used because this event already carries the same
-// figure, emitted from the same variable in the same transaction. Layout is
-// disc(8) sub_tx_id(32) relayer(32) amount_lamports(8).
-func reimbursedFees(payloads []string) map[string]uint64 {
-	var fees map[string]uint64
-	for _, payload := range payloads {
-		if !strings.HasPrefix(payload, "Program data: ") {
-			continue
-		}
-		decoded, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(payload, "Program data: "))
-		if err != nil || len(decoded) < 80 {
-			continue
-		}
-		if !bytes.Equal(decoded[:8], inboundFeeReimbursedDisc[:8]) {
-			continue
-		}
-		if fees == nil {
-			fees = make(map[string]uint64)
-		}
-		fees["0x"+hex.EncodeToString(decoded[8:40])] = binary.LittleEndian.Uint64(decoded[72:80])
-	}
-	return fees
-}
-
-// applyReimbursedFee fills in the gas fee for a revert observation, which the
-// revert event itself no longer carries.
-func applyReimbursedFee(event *store.Event, fees map[string]uint64, logger zerolog.Logger) {
-	if event == nil || len(fees) == 0 {
-		return
-	}
-	var payload common.OutboundEvent
-	if err := json.Unmarshal(event.EventData, &payload); err != nil {
-		return
-	}
-	amount, ok := fees[payload.TxID]
-	if !ok {
-		return
-	}
-	payload.GasFeeUsed = fmt.Sprintf("%d", amount)
-
-	data, err := json.Marshal(payload)
-	if err != nil {
-		logger.Warn().Err(err).Str("event_id", event.EventID).Msg("failed to re-marshal outbound event payload")
-		return
-	}
-	event.EventData = data
 }
 
 // parseOutboundObservationEvent parses an outboundObservation event (UniversalTxFinalized)

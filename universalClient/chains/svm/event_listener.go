@@ -307,10 +307,7 @@ func (el *EventListener) processSignatureBatch(
 			continue
 		}
 
-		payloads := gatewayEventPayloads(tx, el.gatewayAddress)
-		fees := reimbursedFees(payloads)
-
-		for payloadIndex, payload := range payloads {
+		for payloadIndex, payload := range gatewayEventPayloads(tx, el.gatewayAddress) {
 			eventType := el.determineEventType(payload)
 			if eventType == "" {
 				continue
@@ -319,12 +316,6 @@ func (el *EventListener) processSignatureBatch(
 			event := ParseEvent(payload, sig.Signature.String(), sig.Slot, uint(payloadIndex), eventType, el.chainID, el.logger)
 			if event == nil {
 				continue
-			}
-
-			// Revert carries no gas_used of its own; the figure is in the
-			// InboundFeeReimbursed event beside it.
-			if eventType == EventTypeRevertUniversalTx {
-				applyReimbursedFee(event, fees, el.logger)
 			}
 
 			if stored, err := el.chainStore.InsertEventIfNotExists(event); err != nil {

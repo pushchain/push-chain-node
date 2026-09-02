@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -1002,76 +1001,4 @@ func TestGatewayEventPayloads_IgnoresForeignEmitter(t *testing.T) {
 
 	assert.Empty(t, gatewayEventPayloads(&tx, "11111111111111111111111111111111"),
 		"an event emitted by another program must not be read as the gateway's")
-}
-
-// txWithEmittedEvents renders a transaction carrying several emit_cpi events
-// from the gateway, as a revert does: the revert itself plus the fee event.
-func txWithEmittedEvents(t *testing.T, emitter string, payloads [][]byte) string {
-	t.Helper()
-	ixs := make([]string, 0, len(payloads))
-	for _, p := range payloads {
-		data := append(append([]byte{}, eventIxTag...), p...)
-		ixs = append(ixs, fmt.Sprintf(
-			`{"programIdIndex":1,"accounts":[],"data":"%s","stackHeight":2}`, base58.Encode(data)))
-	}
-	return fmt.Sprintf(`{
-		"slot": 100,
-		"transaction": {
-			"signatures": ["%s"],
-			"message": {
-				"header": {"numRequiredSignatures":1,"numReadonlySignedAccounts":0,"numReadonlyUnsignedAccounts":1},
-				"accountKeys": ["%s","%s"],
-				"recentBlockhash": "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
-				"instructions": []
-			}
-		},
-		"meta": {
-			"err": null,
-			"logMessages": [],
-			"innerInstructions": [{"index":0,"instructions":[%s]}]
-		}
-	}`, mkSig(7).String(), testGatewayProgram, emitter, strings.Join(ixs, ","))
-}
-
-// End to end: a revert observation must carry the lamports the gateway actually
-// reimbursed, which since the gateway dropped RevertUniversalTx.gas_used only
-// exists in the InboundFeeReimbursed event emitted beside it.
-func TestProcessSignatureBatch_RevertCarriesReimbursedFee(t *testing.T) {
-	database, err := db.OpenInMemoryDB(true)
-	require.NoError(t, err)
-	t.Cleanup(func() { database.Close() })
-
-	var subTx [32]byte
-	for i := range subTx {
-		subTx[i] = 0xAB
-	}
-
-	revert := make([]byte, 152)
-	copy(revert[8:40], subTx[:])
-
-	fee := make([]byte, 80)
-	copy(fee[:8], inboundFeeReimbursedDisc[:8])
-	copy(fee[8:40], subTx[:])
-	binary.LittleEndian.PutUint64(fee[72:80], 2_044_280)
-
-	methods := []*uregistrytypes.GatewayMethods{
-		{Name: EventTypeRevertUniversalTx, EventIdentifier: "0000000000000000"},
-	}
-	rpc := &forgeryRPC{slot: 100, sig: mkSig(7), txJSON: txWithEmittedEvents(t, testGatewayProgram, [][]byte{revert, fee})}
-	el, err := NewEventListener(rpc, testGatewayProgram, "solana:test", methods, database, 10, nil, zerolog.Nop())
-	require.NoError(t, err)
-
-	_, err = el.processSignatureBatch(context.Background(), []*solanarpc.TransactionSignature{
-		{Signature: mkSig(7), Slot: 100},
-	}, 0, 200)
-	require.NoError(t, err)
-
-	events, err := common.NewChainStore(database).GetPendingEvents(100)
-	require.NoError(t, err)
-	require.Len(t, events, 1, "the revert is observed; the fee event is only a lookup")
-
-	var outbound common.OutboundEvent
-	require.NoError(t, json.Unmarshal(events[0].EventData, &outbound))
-	assert.Equal(t, "2044280", outbound.GasFeeUsed,
-		"the revert observation must report what the gateway actually reimbursed")
 }

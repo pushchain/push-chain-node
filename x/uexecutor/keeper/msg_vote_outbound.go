@@ -107,6 +107,23 @@ func (k Keeper) VoteOutbound(
 		return nil
 	}
 
+	return k.finalizeOutboundAndSettle(ctx, utxId, outboundId, outbound, observedTx)
+}
+
+// finalizeOutboundAndSettle runs the post-finalization pipeline for an outbound
+// whose ballot has reached a terminal-and-settled state: record the observation,
+// drop the pending entry, then settle (refund if the observation failed).
+//
+// Shared by the normal vote path (VoteOutbound) and the admin escape hatch
+// (ExecuteStuckOutbound) so a settled outbound resolves identically whichever
+// route finalized its ballot.
+func (k Keeper) finalizeOutboundAndSettle(
+	ctx context.Context,
+	utxId string,
+	outboundId string,
+	outbound types.OutboundTx,
+	observedTx types.OutboundObservation,
+) error {
 	// Step 5: Update outbound state to OBSERVED
 	outbound.OutboundStatus = types.Status_OBSERVED
 	outbound.ObservedTx = &observedTx

@@ -268,3 +268,42 @@ func (ms msgServer) ExecuteStuckInbound(ctx context.Context, msg *types.MsgExecu
 		UtxId: utxId,
 	}, nil
 }
+
+// ExecuteStuckOutbound is the admin escape hatch — see Keeper.ExecuteStuckOutbound.
+func (ms msgServer) ExecuteStuckOutbound(ctx context.Context, msg *types.MsgExecuteStuckOutbound) (*types.MsgExecuteStuckOutboundResponse, error) {
+	ms.k.Logger().Info("msg: ExecuteStuckOutbound", "signer", msg.Signer)
+
+	admin, err := ms.k.uvalidatorKeeper.GetAdmin(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read uvalidator admin")
+	}
+	if admin != msg.Signer {
+		return nil, errors.Wrapf(govtypes.ErrInvalidSigner, "invalid admin; expected %s, got %s", admin, msg.Signer)
+	}
+
+	if msg.ObservedTx == nil {
+		return nil, errors.Wrap(sdkErrors.ErrInvalidRequest, "observed_tx is required")
+	}
+
+	// Normalize IDs: strip 0x prefix, as VoteOutbound does.
+	utxId := strings.TrimPrefix(msg.UtxId, "0x")
+	outboundId := strings.TrimPrefix(msg.TxId, "0x")
+
+	settledId, err := ms.k.ExecuteStuckOutbound(ctx, utxId, outboundId, *msg.ObservedTx)
+	if err != nil {
+		return nil, err
+	}
+
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+		"outbound_executed_by_admin",
+		sdk.NewAttribute("admin", msg.Signer),
+		sdk.NewAttribute("utx_id", utxId),
+		sdk.NewAttribute("outbound_id", settledId),
+		sdk.NewAttribute("success", fmt.Sprintf("%t", msg.ObservedTx.Success)),
+	))
+
+	return &types.MsgExecuteStuckOutboundResponse{
+		OutboundId: settledId,
+	}, nil
+}

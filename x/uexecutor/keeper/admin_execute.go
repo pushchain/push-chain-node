@@ -69,20 +69,10 @@ func (k Keeper) ExecuteStuckInbound(ctx context.Context, inbound types.Inbound) 
 		return "", errors.Wrap(sdkErrors.ErrNotFound, fmt.Sprintf("ballot for inbound not found (key=%s): %s", ballotKey, err))
 	}
 
-	if !ballot.IsUnreachablePending() {
+	if gErr := requireCarriedUnreachablePending(ballotKey, ballot); gErr != nil {
 		return "", errors.Wrap(sdkErrors.ErrInvalidRequest,
-			fmt.Sprintf("ballot %s status is %s; admin execute requires PENDING with every eligible voter already voted (no further vote can be cast). "+
-				"A pending ballot that still has an unvoted eligible voter has to be finalized by that voter through the normal vote flow, "+
-				"and an EXPIRED ballot never reached quorum at all - use MsgRevertStuckInbound to refund it on the source chain",
-				ballotKey, ballot.Status.String()))
-	}
-
-	yes, _ := ballot.CountVotes()
-	if int64(yes) < ballot.VotingThreshold {
-		return "", errors.Wrap(sdkErrors.ErrInvalidRequest,
-			fmt.Sprintf("ballot %s has %d YES vote(s) against a voting threshold of %d; admin execute may only finalize a ballot the validators actually carried. "+
-				"Use MsgRevertStuckInbound to refund this inbound on the source chain instead",
-				ballotKey, yes, ballot.VotingThreshold))
+			fmt.Sprintf("%s. An EXPIRED ballot never reached quorum at all - use MsgRevertStuckInbound to refund this inbound on the source chain instead",
+				gErr))
 	}
 
 	universalTxKey := types.GetInboundUniversalTxKey(inbound)
@@ -102,6 +92,7 @@ func (k Keeper) ExecuteStuckInbound(ctx context.Context, inbound types.Inbound) 
 		return "", fmt.Errorf("failed to finalize ballot %s: %w", ballotKey, fErr)
 	}
 
+	yes, _ := ballot.CountVotes()
 	k.Logger().Info("admin execute: stuck inbound ballot finalized",
 		"utx_id", universalTxKey,
 		"ballot_id", ballotKey,
@@ -117,4 +108,31 @@ func (k Keeper) ExecuteStuckInbound(ctx context.Context, inbound types.Inbound) 
 	}
 
 	return universalTxKey, nil
+}
+
+// requireCarriedUnreachablePending returns nil only for the one ballot shape an
+// admin execute hatch may finalize on the validators' behalf: stored PENDING,
+// no vote left to cast (Ballot.IsUnreachablePending), and YES votes already at
+// the stored threshold.
+//
+// The threshold is checked explicitly rather than inferred from unreachability:
+// both vote sites hardcode VOTE_RESULT_SUCCESS today, so yes == len(voters)
+// always holds, but the check must not depend on that if a negative-vote path is
+// ever added.
+//
+// Shared by ExecuteStuckInbound and ExecuteStuckOutbound. Each appends its own
+// remedy, since which other route applies differs per direction.
+func requireCarriedUnreachablePending(ballotKey string, ballot uvalidatortypes.Ballot) error {
+	if !ballot.IsUnreachablePending() {
+		return fmt.Errorf("ballot %s status is %s; admin execute requires PENDING with every eligible voter already voted (no further vote can be cast). "+
+			"A pending ballot that still has an unvoted eligible voter has to be finalized by that voter through the normal vote flow",
+			ballotKey, ballot.Status.String())
+	}
+
+	if yes, _ := ballot.CountVotes(); int64(yes) < ballot.VotingThreshold {
+		return fmt.Errorf("ballot %s has %d YES vote(s) against a voting threshold of %d; admin execute may only finalize a ballot the validators actually carried",
+			ballotKey, yes, ballot.VotingThreshold)
+	}
+
+	return nil
 }

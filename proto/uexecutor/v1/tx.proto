@@ -41,6 +41,11 @@ service Msg {
   // normal post-finalization pipeline so the user receives funds on Push.
   // Admin-only escape hatch, sibling of RevertStuckInbound.
   rpc ExecuteStuckInbound(MsgExecuteStuckInbound) returns (MsgExecuteStuckInboundResponse);
+
+  // ExecuteStuckOutbound settles an outbound whose ballot can no longer reach a
+  // terminal-and-settled state, running the same post-finalization pipeline a
+  // finalizing vote would have run. Admin-only escape hatch.
+  rpc ExecuteStuckOutbound(MsgExecuteStuckOutbound) returns (MsgExecuteStuckOutboundResponse);
 }
 
 // MsgUpdateParams is the Msg/UpdateParams request type.
@@ -170,4 +175,29 @@ message MsgExecuteStuckInbound {
 
 message MsgExecuteStuckInboundResponse {
   string utx_id = 1;  // ID of the UTX created for the executed inbound
+}
+
+// MsgExecuteStuckOutbound is an admin escape hatch for an outbound whose ballot
+// can no longer reach a terminal-and-settled state — EXPIRED, or PENDING with
+// every eligible voter already voted and the YES votes at the stored threshold.
+// It runs the same settlement pipeline a finalizing vote would have run, so the
+// outcome follows observed_tx.success: a success settles, a failure mints the
+// bridged tokens back to the revert recipient and refunds the excess gas.
+message MsgExecuteStuckOutbound {
+  option (amino.name) = "uexecutor/MsgExecuteStuckOutbound";
+  option (cosmos.msg.v1.signer) = "signer";
+
+  // signer must equal uvalidator Params.Admin
+  string signer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string tx_id = 2; // txId of outbound tx
+  string utx_id = 3; // UniversalTx Id
+  // observed_tx is the destination-chain observation the stuck ballot was voting
+  // on. Admin supplies this from off-chain UV observation logs since the chain
+  // does not persist ballot payloads; it must match field-for-field or the
+  // derived ballot key finds no ballot.
+  OutboundObservation observed_tx = 4;
+}
+
+message MsgExecuteStuckOutboundResponse {
+  string outbound_id = 1;  // ID of the outbound that was settled
 }

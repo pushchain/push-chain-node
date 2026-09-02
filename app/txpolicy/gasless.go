@@ -15,7 +15,6 @@ func IsGaslessTx(tx sdk.Tx) bool {
 	var (
 		// GaslessMsgTypes defines the message types that are allowed in gasless transactions
 		GaslessMsgTypes = []string{
-			sdk.MsgTypeURL(&uexecutortypes.MsgMigrateUEA{}),
 			sdk.MsgTypeURL(&uexecutortypes.MsgExecutePayload{}),
 			sdk.MsgTypeURL(&uexecutortypes.MsgVoteInbound{}),
 			sdk.MsgTypeURL(&uexecutortypes.MsgVoteOutbound{}),

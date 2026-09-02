@@ -363,3 +363,180 @@ func TestOutboundTx_ValidateBasic_Uint256Range(t *testing.T) {
 		})
 	}
 }
+
+// baseValidVoteOutbound is a well-formed success vote; only gas_fee_used varies
+// in the tests below.
+func baseValidVoteOutbound() types.MsgVoteOutbound {
+	return types.MsgVoteOutbound{
+		Signer: "push1fgaewhyd9fkwtqaj9c233letwcuey6dgly9gv9",
+		TxId:   "ob-1",
+		UtxId:  "utx-1",
+		ObservedTx: &types.OutboundObservation{
+			Success:     true,
+			BlockHeight: 100,
+			TxHash:      "0xb28f49668e7e76dc96d7aabe5b7f63fecfbd1c3574774c05e8204e749fd96fbd",
+			GasFeeUsed:  "21000",
+		},
+	}
+}
+
+// F-2026-18798, DoS half, for the two gas fields that were missed in the first
+// pass. Neither message is size capped, so the per-field length cap is the only
+// thing standing between a validator-signed multi-million-digit string and the
+// superlinear parse — and both messages are gasless.
+func TestGasFields_RejectHugeDecimalFast(t *testing.T) {
+	huge := hugeDecimal()
+
+	t.Run("outbound gas_limit", func(t *testing.T) {
+		ob := baseValidOutbound()
+		ob.GasLimit = huge
+
+		start := time.Now()
+		err := ob.ValidateBasic()
+		elapsed := time.Since(start)
+
+		require.Error(t, err)
+		require.Less(t, elapsed, dosBudget, "rejecting a %d-digit gas_limit took %s", dosDigits, elapsed)
+		require.Contains(t, err.Error(), "exceeds the maximum of 80 characters")
+	})
+
+	t.Run("vote outbound gas_fee_used", func(t *testing.T) {
+		msg := baseValidVoteOutbound()
+		msg.ObservedTx.GasFeeUsed = huge
+
+		start := time.Now()
+		err := msg.ValidateBasic()
+		elapsed := time.Since(start)
+
+		require.Error(t, err)
+		require.Less(t, elapsed, dosBudget, "rejecting a %d-digit gas_fee_used took %s", dosDigits, elapsed)
+		require.Contains(t, err.Error(), "exceeds the maximum of 80 characters")
+	})
+}
+
+func TestOutboundTx_ValidateBasic_GasLimitUint256(t *testing.T) {
+	tests := []struct {
+		name        string
+		gasLimit    string
+		expectError bool
+		errContains string
+	}{
+		{name: "normal gas_limit accepted", gasLimit: "21000"},
+		{name: "zero accepted", gasLimit: "0"},
+		{name: "empty gas_limit still skipped", gasLimit: ""},
+		{name: "max uint256 accepted", gasLimit: maxUint256Dec},
+		{
+			name:        "2^256 rejected",
+			gasLimit:    overMaxUint256Dec,
+			expectError: true,
+			errContains: "exceeds the uint256 range",
+		},
+		{
+			name:        "78 nines rejected despite fitting the length cap",
+			gasLimit:    nines78(),
+			expectError: true,
+			errContains: "exceeds the uint256 range",
+		},
+		{
+			name:        "over length cap rejected",
+			gasLimit:    strings.Repeat("1", types.MaxUint256DecimalLen+1),
+			expectError: true,
+			errContains: "exceeds the maximum of 80 characters",
+		},
+		// Regression: the old check discarded the parsed value, so it never looked
+		// at the sign and accepted a negative gas_limit.
+		{
+			name:        "negative rejected",
+			gasLimit:    "-5",
+			expectError: true,
+			errContains: "gas_limit must be a valid uint",
+		},
+		{
+			name:        "non-numeric rejected",
+			gasLimit:    "abc",
+			expectError: true,
+			errContains: "gas_limit must be a valid uint",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			ob := baseValidOutbound()
+			ob.GasLimit = tc.gasLimit
+
+			err := ob.ValidateBasic()
+			if tc.expectError {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.errContains)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestMsgVoteOutbound_ValidateBasic_GasFeeUsedUint256(t *testing.T) {
+	tests := []struct {
+		name        string
+		gasFeeUsed  string
+		expectError bool
+		errContains string
+	}{
+		{name: "normal gas_fee_used accepted", gasFeeUsed: "21000"},
+		{name: "zero accepted", gasFeeUsed: "0"},
+		{name: "max uint256 accepted", gasFeeUsed: maxUint256Dec},
+		// Pre-existing semantics preserved: the field is required, and keeps its
+		// own message ahead of the uint256 parse.
+		{
+			name:        "empty still rejected as required",
+			gasFeeUsed:  "",
+			expectError: true,
+			errContains: "observed_tx.gas_fee_used is required",
+		},
+		{
+			name:        "2^256 rejected",
+			gasFeeUsed:  overMaxUint256Dec,
+			expectError: true,
+			errContains: "exceeds the uint256 range",
+		},
+		{
+			name:        "78 nines rejected despite fitting the length cap",
+			gasFeeUsed:  nines78(),
+			expectError: true,
+			errContains: "exceeds the uint256 range",
+		},
+		{
+			name:        "over length cap rejected",
+			gasFeeUsed:  strings.Repeat("1", types.MaxUint256DecimalLen+1),
+			expectError: true,
+			errContains: "exceeds the maximum of 80 characters",
+		},
+		{
+			name:        "negative rejected",
+			gasFeeUsed:  "-1",
+			expectError: true,
+			errContains: "observed_tx.gas_fee_used must be a valid uint256",
+		},
+		{
+			name:        "non-numeric rejected",
+			gasFeeUsed:  "abc",
+			expectError: true,
+			errContains: "observed_tx.gas_fee_used must be a valid uint256",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			msg := baseValidVoteOutbound()
+			msg.ObservedTx.GasFeeUsed = tc.gasFeeUsed
+
+			err := msg.ValidateBasic()
+			if tc.expectError {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.errContains)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}

@@ -74,6 +74,11 @@ func (msg *MsgVoteOutbound) ValidateBasic() error {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest,
 			"observed_tx.gas_fee_used is required")
 	}
+	// Length-capped, range-checked uint256 parse — see F-2026-18798. The value
+	// also feeds the outbound ballot key, so a malformed one must never be voted.
+	if _, err := ValidateUint256String(obs.GasFeeUsed, "observed_tx.gas_fee_used must be a valid uint256"); err != nil {
+		return err
+	}
 
 	if obs.Success {
 		// Success additionally requires tx_hash and block_height.

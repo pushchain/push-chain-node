@@ -25,9 +25,9 @@ import (
 // msg servers gates on IsBondedUniversalValidator (VoteChainMeta gates on the
 // strictly narrower eligible-voter set, of which bonded is a component).
 //
-// The remaining gasless types - MsgExecutePayload and MsgMigrateUEA - are
-// deliberately absent: they are permissionless by design and creating an account
-// for a first-time universal user is the intended behaviour of this decorator.
+// The remaining gasless type - MsgExecutePayload - is deliberately absent: it is
+// permissionless by design and creating an account for a first-time universal
+// user is the intended behaviour of this decorator.
 var validatorOnlyGaslessMsgTypes = map[string]struct{}{
 	sdk.MsgTypeURL(&uexecutortypes.MsgVoteInbound{}):   {},
 	sdk.MsgTypeURL(&uexecutortypes.MsgVoteOutbound{}):  {},

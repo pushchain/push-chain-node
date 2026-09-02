@@ -32,8 +32,8 @@ func aliasedModuleSigner(t *testing.T, length int) string {
 }
 
 // TestGaslessMsgs_RejectOverlongSigner is the CheckTx-time guard for
-// F-2026-18200: both gasless messages must reject a signer that does not decode
-// to exactly 20 bytes, before the ante chain ever runs.
+// F-2026-18200: a gasless message must reject a signer that does not decode to
+// exactly 20 bytes, before the ante chain ever runs.
 func TestGaslessMsgs_RejectOverlongSigner(t *testing.T) {
 	validUA := &types.UniversalAccountId{
 		ChainNamespace: "eip155",
@@ -55,20 +55,6 @@ func TestGaslessMsgs_RejectOverlongSigner(t *testing.T) {
 		}
 		err := execMsg.ValidateBasic()
 		require.Error(t, err, "MsgExecutePayload must reject a %d-byte signer", length)
-		require.Contains(t, err.Error(), "invalid signer address length")
-
-		migrateMsg := &types.MsgMigrateUEA{
-			Signer:             signer,
-			UniversalAccountId: validUA,
-			MigrationPayload: &types.MigrationPayload{
-				Migration: "0x000000000000000000000000000000000000beef",
-				Nonce:     "0",
-				Deadline:  "1",
-			},
-			Signature: "abcdef",
-		}
-		err = migrateMsg.ValidateBasic()
-		require.Error(t, err, "MsgMigrateUEA must reject a %d-byte signer", length)
 		require.Contains(t, err.Error(), "invalid signer address length")
 	}
 }
@@ -92,16 +78,4 @@ func TestGaslessMsgs_Accept20ByteSigner(t *testing.T) {
 		VerificationData: "abcdef",
 	}
 	require.NoError(t, execMsg.ValidateBasic())
-
-	migrateMsg := &types.MsgMigrateUEA{
-		Signer:             signer,
-		UniversalAccountId: validUA,
-		MigrationPayload: &types.MigrationPayload{
-			Migration: "0x000000000000000000000000000000000000beef",
-			Nonce:     "0",
-			Deadline:  "1",
-		},
-		Signature: "abcdef",
-	}
-	require.NoError(t, migrateMsg.ValidateBasic())
 }

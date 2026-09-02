@@ -256,15 +256,14 @@ func TestAccountInitDecorator_BondedValidatorVoteStillWorks(t *testing.T) {
 }
 
 // TestAccountInitDecorator_PermissionlessGaslessMsgsUngated proves the scoping.
-// MsgExecutePayload and MsgMigrateUEA are permissionless by design: a first-time
-// universal user has no account and no validator status, and creating the account
-// for them is the intended behaviour of this decorator. Gating them would break
-// real users, so they must still work against a uvalidator keeper that rejects
-// every address.
+// MsgExecutePayload is permissionless by design: a first-time universal user has
+// no account and no validator status, and creating the account for them is the
+// intended behaviour of this decorator. Gating it would break real users, so it
+// must still work against a uvalidator keeper that rejects every address.
 func TestAccountInitDecorator_PermissionlessGaslessMsgsUngated(t *testing.T) {
 	encCfg := newSignerBindingEncodingConfig(t)
 
-	for _, msgType := range []string{"MsgExecutePayload", "MsgMigrateUEA"} {
+	for _, msgType := range []string{"MsgExecutePayload"} {
 		t.Run(msgType, func(t *testing.T) {
 			key := secp256k1.GenPrivKey()
 			signer := sdk.AccAddress(key.PubKey().Address())

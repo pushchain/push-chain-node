@@ -143,19 +143,45 @@ func retryWithRoundRobin[T any](
 
 // GetAllChainConfigs retrieves all chain configurations from Push Chain.
 func (c *Client) GetAllChainConfigs(ctx context.Context) ([]*uregistrytypes.ChainConfig, error) {
-	return retryWithRoundRobin(
-		len(c.eps),
-		&c.rr,
-		func(idx int) ([]*uregistrytypes.ChainConfig, error) {
-			resp, err := c.eps[idx].AllChainConfigs(ctx, &uregistrytypes.QueryAllChainConfigsRequest{})
-			if err != nil {
-				return nil, err
-			}
-			return resp.Configs, nil
-		},
-		"GetAllChainConfigs",
-		c.logger,
+	// Paged rather than a single request: the server paginates this collection,
+	// and an omitted PageRequest silently caps the response at the SDK default of
+	// 100. A chain missing from this list is simply never watched, so truncation
+	// must not be possible.
+	var (
+		configs []*uregistrytypes.ChainConfig
+		nextKey []byte
 	)
+	for page := 0; page < chainConfigMaxPages; page++ {
+		key := nextKey
+		resp, err := retryWithRoundRobin(
+			len(c.eps),
+			&c.rr,
+			func(idx int) (*uregistrytypes.QueryAllChainConfigsResponse, error) {
+				return c.eps[idx].AllChainConfigs(ctx, &uregistrytypes.QueryAllChainConfigsRequest{
+					Pagination: &query.PageRequest{Key: key, Limit: chainConfigPageSize},
+				})
+			},
+			"GetAllChainConfigs",
+			c.logger,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		configs = append(configs, resp.Configs...)
+
+		if resp.Pagination == nil || len(resp.Pagination.NextKey) == 0 {
+			return configs, nil
+		}
+		nextKey = resp.Pagination.NextKey
+	}
+
+	// Unreachable with any plausible number of chains; loud rather than silent.
+	c.logger.Error().
+		Int("max_pages", chainConfigMaxPages).
+		Int("fetched", len(configs)).
+		Msg("chain config page cap reached; some chains will not be watched")
+	return configs, nil
 }
 
 // GetLatestBlock retrieves the latest block from Push Chain.
@@ -211,6 +237,27 @@ func (c *Client) GetCurrentKey(ctx context.Context) (*utsstypes.TssKey, error) {
 			return resp.Key, nil
 		},
 		"GetCurrentKey",
+		c.logger,
+	)
+}
+
+// GetKeyByID retrieves a single TSS key from the on-chain key history.
+// Returns an error if the key ID is not in the history.
+func (c *Client) GetKeyByID(ctx context.Context, keyID string) (*utsstypes.TssKey, error) {
+	return retryWithRoundRobin(
+		len(c.utssClients),
+		&c.rr,
+		func(idx int) (*utsstypes.TssKey, error) {
+			resp, err := c.utssClients[idx].KeyById(ctx, &utsstypes.QueryKeyByIdRequest{KeyId: keyID})
+			if err != nil {
+				return nil, err
+			}
+			if resp == nil || resp.Key == nil {
+				return nil, fmt.Errorf("pushcore: TSS key %s not found", keyID)
+			}
+			return resp.Key, nil
+		},
+		"GetKeyByID",
 		c.logger,
 	)
 }
@@ -351,24 +398,82 @@ func (c *Client) GetPendingFundMigrations(ctx context.Context) ([]*utsstypes.Fun
 	)
 }
 
-// GetAllPendingOutbounds retrieves up to the first 1000 pending outbound transactions from Push Chain.
-// Sorted by created_at (block height) ascending — oldest first.
+// Page size and page cap for the pending-outbound walk. The cap bounds a single
+// poll; anything beyond it is picked up on the next tick.
+const (
+	// A row costs roughly a kilobyte on the wire, so a page stays well inside
+	// gRPC's 4 MiB default. Asking for the whole set in one request would fail
+	// the call outright once the set grew, taking the poll down entirely.
+	pendingOutboundPageSize = 1000
+	pendingOutboundMaxPages = 5
+
+	chainConfigPageSize = 200
+	chainConfigMaxPages = 20
+
+	// maxPushCoreRecvMsgSize bounds a single gRPC response from a Push-core
+	// endpoint. grpc-go otherwise applies an implicit 4 MiB default that nobody
+	// chose and that is not tied to anything this client asks for; pinning it
+	// here makes the bound deliberate and keeps it from drifting with the
+	// library default.
+	//
+	// Sized off the largest poll: GetAllPendingOutbounds asks for
+	// pendingOutboundPageSize entries and gets the matching outbounds back, so
+	// 2 x 1000 rows in one response. A row costs roughly a kilobyte today, so a
+	// 4 KiB per-row budget leaves 4x headroom and lands on 8 MiB — above the
+	// 4 MiB the client has been running on, so no response that works today
+	// starts failing, and low enough that a hostile or broken endpoint cannot
+	// stream an unbounded body into the validator.
+	maxPushCoreRecvMsgSize = 8 * 1024 * 1024
+)
+
+// GetAllPendingOutbounds retrieves pending outbound transactions from Push Chain,
+// oldest first, so older work is signed before newer.
+//
+// Walked by offset rather than read as a single page. An outbound leaves the
+// pending set only when a quorum vote terminalizes it, so rows that cannot reach
+// one accumulate at the head of the list; without the walk they would hide every
+// newer outbound behind them, on every chain, since this query is not chain
+// scoped.
+//
+// The walk stops at the first short page, so the ordinary case where the whole
+// set fits in one page costs exactly one request.
 func (c *Client) GetAllPendingOutbounds(ctx context.Context) ([]*uexecutortypes.PendingOutboundEntry, []*uexecutortypes.OutboundTx, error) {
-	resp, err := retryWithRoundRobin(
-		len(c.uexecutorClients),
-		&c.rr,
-		func(idx int) (*uexecutortypes.QueryAllPendingOutboundsResponse, error) {
-			return c.uexecutorClients[idx].AllPendingOutbounds(ctx, &uexecutortypes.QueryAllPendingOutboundsRequest{
-				Pagination: &query.PageRequest{Limit: 1000},
-			})
-		},
-		"GetAllPendingOutbounds",
-		c.logger,
+	var (
+		entries   []*uexecutortypes.PendingOutboundEntry
+		outbounds []*uexecutortypes.OutboundTx
 	)
-	if err != nil {
-		return nil, nil, err
+
+	for page := 0; page < pendingOutboundMaxPages; page++ {
+		offset := uint64(page) * pendingOutboundPageSize
+		resp, err := retryWithRoundRobin(
+			len(c.uexecutorClients),
+			&c.rr,
+			func(idx int) (*uexecutortypes.QueryAllPendingOutboundsResponse, error) {
+				return c.uexecutorClients[idx].AllPendingOutbounds(ctx, &uexecutortypes.QueryAllPendingOutboundsRequest{
+					Pagination: &query.PageRequest{Offset: offset, Limit: pendingOutboundPageSize},
+				})
+			},
+			"GetAllPendingOutbounds",
+			c.logger,
+		)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		entries = append(entries, resp.Entries...)
+		outbounds = append(outbounds, resp.Outbounds...)
+
+		if len(resp.Entries) < pendingOutboundPageSize {
+			return entries, outbounds, nil
+		}
 	}
-	return resp.Entries, resp.Outbounds, nil
+
+	c.logger.Warn().
+		Int("max_pages", pendingOutboundMaxPages).
+		Int("fetched", len(entries)).
+		Msg("pending outbound page cap reached; the remainder is read on the next poll")
+
+	return entries, outbounds, nil
 }
 
 // GetAllPendingReadRequests retrieves up to the first 1000 pending external read
@@ -426,7 +531,9 @@ func createGRPCConnection(endpoint string) (*grpc.ClientConn, error) {
 		}
 	}
 
-	var opts []grpc.DialOption
+	opts := []grpc.DialOption{
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(maxPushCoreRecvMsgSize)),
+	}
 	if useTLS {
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(nil)))
 	} else {

@@ -93,26 +93,30 @@ func parseSendFundsEvent(log string, signature string, slot uint64, logIndex uin
 		ExpiryBlockHeight: 0, // Will be set based on confirmation type if needed
 	}
 
-	// Parse event data from this log
-	parseUniversalTxEvent(event, decoded, logIndex, chainID, logger)
+	// Parse event data from this log. A malformed event is dropped rather than
+	// stored half-decoded: the zero values it would carry are not neutral.
+	if err := parseUniversalTxEvent(event, decoded, logIndex, chainID, logger); err != nil {
+		logger.Warn().
+			Err(err).
+			Str("event_id", eventID).
+			Msg("discarding malformed UniversalTx event")
+		return nil
+	}
 
 	return event
 }
 
-// parseOutboundObservationEvent parses an outboundObservation event (UniversalTxFinalized)
-// Event structure (Borsh serialized):
-// - discriminator (8 bytes)
-// - sub_tx_id (32 bytes)
-// - universal_tx_id (32 bytes)
-// - gas_fee (8 bytes, u64 lamports)        — prepaid budget
-// - gas_used (8 bytes, u64 lamports)       — actual lamports consumed
-// - gas_to_refund (8 bytes, u64 lamports)  — gas_fee - gas_used returned to caller
-// - ata_created (1 byte, bool)             — true if SPL ATA was newly created
-// - push_account (20 bytes)
-// - target (32 bytes, Pubkey)
-// - token (32 bytes, Pubkey)
-// - amount (8 bytes, u64)
-// - payload (4 bytes length + data, Vec<u8>)
+// parseOutboundObservationEvent parses an outbound observation event.
+//
+// All three share disc(8) sub_tx_id(32) universal_tx_id(32) and diverge after
+// that:
+//
+//	UniversalTxFinalized  ... wrapper_address(32) gas_fee(8)   gas_used -> 112
+//	FundsRescued          ... token(32) amount(8)                       -> 112
+//	RevertUniversalTx     ... revert_recipient(32) token(32) amount(8)  -> no gas_used
+//
+// Revert carries no gas_used, and core never refunds one (applyGasRefund returns
+// early for INBOUND_REVERT), so nothing needs the value.
 func parseOutboundObservationEvent(log string, signature string, slot uint64, logIndex uint, eventType string, logger zerolog.Logger) *store.Event {
 	if !strings.HasPrefix(log, "Program data: ") {
 		return nil
@@ -124,12 +128,26 @@ func parseOutboundObservationEvent(log string, signature string, slot uint64, lo
 		return nil
 	}
 
-	// Minimum: 8 disc + 32 sub_tx_id + 32 universal_tx_id + 8 gas_fee + 8 gas_used
-	// + 8 gas_to_refund + 1 ata_created = 97 bytes.
-	if len(decoded) < 97 {
+	// -1 means the event carries no gas_used field.
+	gasUsedOffset := -1
+	switch eventType {
+	case EventTypeFinalizeUniversalTx, EventTypeFundsRescued:
+		gasUsedOffset = 112
+	case EventTypeRevertUniversalTx:
+	default:
+		return nil
+	}
+
+	need := 72 // the shared prefix
+	if gasUsedOffset >= 0 {
+		need = gasUsedOffset + 8
+	}
+	if len(decoded) < need {
 		logger.Warn().
 			Int("data_len", len(decoded)).
-			Msg("data too short for outboundObservation event; need at least 97 bytes")
+			Int("need", need).
+			Str("event_type", eventType).
+			Msg("data too short for outboundObservation event")
 		return nil
 	}
 
@@ -143,44 +161,30 @@ func parseOutboundObservationEvent(log string, signature string, slot uint64, lo
 		Uint64("slot", slot).
 		Msg("processing outboundObservation event")
 
-	// All three events share the first two fields: disc(8) sub_tx_id(32) universal_tx_id(32).
 	txID := "0x" + hex.EncodeToString(decoded[8:40])
 	universalTxID := "0x" + hex.EncodeToString(decoded[40:72])
-
-	// gas_used sits at a different offset per event (the structs diverge after
-	// universal_tx_id). Only UniversalTxFinalized carries wrapper_address.
-	var gasUsed uint64
-	var wrapperAddr string
-	readGasUsed := func(offset int) {
-		if len(decoded) >= offset+8 {
-			gasUsed = binary.LittleEndian.Uint64(decoded[offset : offset+8])
-		}
+	gasFeeUsed := ""
+	if gasUsedOffset >= 0 {
+		gasFeeUsed = fmt.Sprintf("%d", binary.LittleEndian.Uint64(decoded[gasUsedOffset:gasUsedOffset+8]))
 	}
-	switch eventType {
-	case EventTypeFinalizeUniversalTx:
-		// ...universal_tx_id(32) wrapper_address(32) gas_fee(8) gas_used(8) ...
-		const wrapperOffset = 8 + 32 + 32   // 72
-		readGasUsed(wrapperOffset + 32 + 8) // 112 (skip wrapper_address + gas_fee)
-		if len(decoded) >= wrapperOffset+32 {
-			var wrap [32]byte
-			copy(wrap[:], decoded[wrapperOffset:wrapperOffset+32])
-			if wrap != ([32]byte{}) { // Pubkey::default() = non-PC20 path, no wrapper
-				wrapperAddr = solana.PublicKeyFromBytes(wrap[:]).String()
-			}
+
+	// Only the finalize event carries wrapper_address, at 72..104. The length
+	// check above already covers that range. Zero is Pubkey::default(), the
+	// non-PC20 path.
+	var wrapperAddr string
+	if eventType == EventTypeFinalizeUniversalTx {
+		var wrap [32]byte
+		copy(wrap[:], decoded[72:104])
+		if wrap != ([32]byte{}) {
+			wrapperAddr = solana.PublicKeyFromBytes(wrap[:]).String()
 		}
-	case EventTypeRevertUniversalTx:
-		// ...universal_tx_id(32) revert_recipient(32) token(32) amount(8) gas_used(8) ...
-		readGasUsed(8 + 32 + 32 + 32 + 32 + 8) // 144
-	case EventTypeFundsRescued:
-		// ...universal_tx_id(32) token(32) amount(8) gas_used(8) ...
-		readGasUsed(8 + 32 + 32 + 32 + 8) // 112
 	}
 
 	// Create OutboundEvent payload
 	payload := common.OutboundObservation{
 		TxID:               txID,
 		UniversalTxID:      universalTxID,
-		GasFeeUsed:         fmt.Sprintf("%d", gasUsed),
+		GasFeeUsed:         gasFeeUsed,
 		Pc20WrapperAddress: wrapperAddr,
 	}
 
@@ -209,7 +213,7 @@ func parseOutboundObservationEvent(log string, signature string, slot uint64, lo
 		Str("event_id", eventID).
 		Str("tx_id", txID).
 		Str("universal_tx_id", universalTxID).
-		Str("gas_used", fmt.Sprintf("%d", gasUsed)).
+		Str("gas_fee_used", gasFeeUsed).
 		Msg("parsed outboundObservation event")
 
 	return event
@@ -217,15 +221,11 @@ func parseOutboundObservationEvent(log string, signature string, slot uint64, lo
 
 // parseUniversalTxEvent extracts specific data from a single log event
 // For TxWithFunds events, it JSON-marshals the decoded fields into event.EventData.
-func parseUniversalTxEvent(event *store.Event, decoded []byte, logIndex uint, chainID string, logger zerolog.Logger) {
-	// Parse the TxWithFunds event
+func parseUniversalTxEvent(event *store.Event, decoded []byte, logIndex uint, chainID string, logger zerolog.Logger) error {
+	// Parse the UniversalTx event
 	payload, err := decodeUniversalTxEvent(decoded, logger)
 	if err != nil {
-		logger.Warn().
-			Err(err).
-			Uint("log_index", logIndex).
-			Msg("failed to decode TxWithFunds event")
-		return
+		return fmt.Errorf("decode UniversalTx event: %w", err)
 	}
 
 	// Set source chain and log index
@@ -233,13 +233,11 @@ func parseUniversalTxEvent(event *store.Event, decoded []byte, logIndex uint, ch
 	payload.LogIndex = logIndex
 
 	// Marshal and store into event.EventData
-	if b, err := json.Marshal(payload); err == nil {
-		event.EventData = b
-	} else {
-		logger.Warn().
-			Err(err).
-			Msg("failed to marshal universal tx payload")
+	b, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("marshal universal tx payload: %w", err)
 	}
+	event.EventData = b
 
 	// if TxType is 0 or 1, use FAST else use STANDARD
 	if payload.TxType == 0 || payload.TxType == 1 {
@@ -247,16 +245,20 @@ func parseUniversalTxEvent(event *store.Event, decoded []byte, logIndex uint, ch
 	} else {
 		event.ConfirmationType = store.ConfirmationStandard
 	}
+
+	return nil
 }
 
-// decodeUniversalTxEvent decodes a TxWithFunds event
+// decodeUniversalTxEvent decodes the gateway's Borsh-encoded UniversalTx event:
+//
+//	sender 32, recipient 20, token 32, amount u64, payload (u32 len + bytes),
+//	revert_recipient 32, tx_type 1, signature_data (u32 len + bytes), from_cea 1
+//
+// Every field through signature_data is required. A truncated event is rejected
+// rather than returned half-filled, since the zero values are not neutral:
+// tx_type 0 is GAS, which routes funds to a different account than FUNDS does.
+// Only from_cea is optional, defaulting to false as its absence cannot misroute.
 func decodeUniversalTxEvent(data []byte, logger zerolog.Logger) (*common.InboundObservation, error) {
-	if len(data) < 120 {
-		logger.Warn().
-			Int("data_len", len(data)).
-			Msg("data might be too short for complete TxWithFunds event")
-	}
-
 	offset := 8
 	payload := &common.InboundObservation{}
 
@@ -302,19 +304,14 @@ func decodeUniversalTxEvent(data []byte, logger zerolog.Logger) (*common.Inbound
 
 	// Parse data field length (4 bytes)
 	if len(data) < offset+4 {
-		logger.Warn().Msg("not enough data for data field length")
-		return payload, nil
+		return nil, fmt.Errorf("not enough data for data field length")
 	}
 	dataLen := binary.LittleEndian.Uint32(data[offset : offset+4])
 	offset += 4
 
 	// Parse data field
 	if len(data) < offset+int(dataLen) {
-		logger.Warn().
-			Uint32("expected_len", dataLen).
-			Int("available", len(data)-offset).
-			Msg("not enough data for data field")
-		return payload, nil
+		return nil, fmt.Errorf("data field claims %d bytes, only %d available", dataLen, len(data)-offset)
 	}
 	if dataLen > 0 {
 		dataField := data[offset : offset+int(dataLen)]
@@ -324,18 +321,19 @@ func decodeUniversalTxEvent(data []byte, logger zerolog.Logger) (*common.Inbound
 
 	// Parse revert_recipient (Pubkey)
 	if len(data) < offset+32 {
-		logger.Warn().Msg("not enough data for revert recipient")
-		return payload, nil
+		return nil, fmt.Errorf("not enough data for revert recipient")
 	}
 	revertRecipient := solana.PublicKey(data[offset : offset+32])
 	payload.RevertFundRecipient = revertRecipient.String()
 	offset += 32
 
 	// Parse tx_type (TxType enum)
+	//
+	// No default. Wire 0 is GAS, which credits the sender UEA via swap rather
+	// than depositing to the recipient, and also selects fast confirmation.
+	// Guessing it on a truncated event silently changes where the money goes.
 	if len(data) <= offset {
-		logger.Warn().Msg("not enough data for tx_type, defaulting to Funds")
-		payload.TxType = uint(0)
-		return payload, nil
+		return nil, fmt.Errorf("not enough data for tx_type")
 	}
 	txType := data[offset]
 	payload.TxType = uint(txType)
@@ -343,19 +341,14 @@ func decodeUniversalTxEvent(data []byte, logger zerolog.Logger) (*common.Inbound
 
 	// Parse signature data length (4 bytes)
 	if len(data) < offset+4 {
-		logger.Warn().Msg("not enough data for signature length")
-		return payload, nil
+		return nil, fmt.Errorf("not enough data for signature length")
 	}
 	sigLen := binary.LittleEndian.Uint32(data[offset : offset+4])
 	offset += 4
 
 	remainingBytes := len(data) - offset
 	if int(sigLen) > remainingBytes {
-		logger.Warn().
-			Uint32("expected_len", sigLen).
-			Int("available", remainingBytes).
-			Msg("signature data length exceeds available data, skipping")
-		return payload, nil
+		return nil, fmt.Errorf("signature data claims %d bytes, only %d available", sigLen, remainingBytes)
 	}
 
 	if sigLen > 0 {

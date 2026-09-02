@@ -25,8 +25,22 @@ func NewCosmosAnteHandler(ctx sdk.Context, options HandlerOptions) sdk.AnteHandl
 			sdk.MsgTypeURL(&evmtypes.MsgEthereumTx{}),
 			sdk.MsgTypeURL(&sdkvesting.MsgCreateVestingAccount{}),
 		),
+		// Vesting accounts can delegate locked coins, but the EVM state view only
+		// tracks spendable balance. Delegating more than the spendable balance makes
+		// the StateDB subtract more than it holds, which reconciles back to bank as a
+		// mint (or a burn for the victim). Block vesting-account creation outright so
+		// the precondition cannot be created permissionlessly.
+		NewBlockedMsgsDecorator(
+			sdk.MsgTypeURL(&sdkvesting.MsgCreateVestingAccount{}),
+			sdk.MsgTypeURL(&sdkvesting.MsgCreatePermanentLockedAccount{}),
+			sdk.MsgTypeURL(&sdkvesting.MsgCreatePeriodicVestingAccount{}),
+		),
 
 		ante.NewSetUpContextDecorator(),
+		// Gasless txs pay no fee, so the fee is not a bound on the gas they
+		// declare. Cap it explicitly, before NewGasWantedDecorator adds the
+		// declared gas to the block's cumulative gas wanted.
+		NewGaslessGasLimitDecorator(options.UexecutorKeeper),
 		wasmkeeper.NewLimitSimulationGasDecorator(options.WasmConfig.SimulationGasLimit), // after setup context to enforce limits early
 		wasmkeeper.NewCountTXDecorator(options.TXCounterStoreService),
 		wasmkeeper.NewGasRegisterDecorator(options.WasmKeeper.GetGasRegister()),
@@ -43,9 +57,12 @@ func NewCosmosAnteHandler(ctx sdk.Context, options HandlerOptions) sdk.AnteHandl
 		// NewAccountInitDecorator must be called before all signature verification decorators and SetPubKeyDecorator
 		// - this
 		// 1. generates the account for the new accounts only for gasless transactions,
-		// 2. verifies the sig, and
+		//    refusing to do so for the validator-only vote messages, whose signer
+		//    must already be a bonded universal validator (F-2026-18186),
+		// 2. binds the declared signer to the signing key, enforces the signature
+		//    count limit and verifies the sig, and
 		// 3. bypasses the rest of the ante chain
-		NewAccountInitDecorator(options.AccountKeeper, options.SignModeHandler),
+		NewAccountInitDecorator(options.AccountKeeper, options.UValidatorKeeper, options.SignModeHandler),
 		// SetPubKeyDecorator must be called before all signature verification decorators
 		ante.NewSetPubKeyDecorator(options.AccountKeeper),
 		ante.NewValidateSigCountDecorator(options.AccountKeeper),

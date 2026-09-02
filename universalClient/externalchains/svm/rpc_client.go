@@ -297,9 +297,12 @@ func calculateMedian(fees []uint64) uint64 {
 // otherwise it returns signatures strictly older than `before`, enabling
 // backward pagination.
 func (rc *RPCClient) GetSignaturesForAddress(ctx context.Context, address solana.PublicKey, before solana.Signature) ([]*rpc.TransactionSignature, error) {
-	var opts *rpc.GetSignaturesForAddressOpts
+	// Commitment is set explicitly rather than left to the server default, so
+	// discovery and the slot the confirmation depth is measured against are on
+	// the same footing.
+	opts := &rpc.GetSignaturesForAddressOpts{Commitment: rpc.CommitmentFinalized}
 	if !before.IsZero() {
-		opts = &rpc.GetSignaturesForAddressOpts{Before: before}
+		opts.Before = before
 	}
 	var signatures []*rpc.TransactionSignature
 	err := rc.executeWithFailover(ctx, "get_signatures_for_address", func(client *rpc.Client) error {
@@ -321,6 +324,7 @@ func (rc *RPCClient) GetTransaction(ctx context.Context, signature solana.Signat
 			signature,
 			&rpc.GetTransactionOpts{
 				Encoding:                       solana.EncodingBase64,
+				Commitment:                     rpc.CommitmentFinalized,
 				MaxSupportedTransactionVersion: &maxVersion,
 			},
 		)

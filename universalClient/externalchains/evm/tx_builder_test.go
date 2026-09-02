@@ -3,13 +3,20 @@ package evm
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
+	"io"
 	"math/big"
+	"net/http"
+	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	ethcommon "github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
@@ -17,6 +24,7 @@ import (
 
 	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
+	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 )
 
 // testVaultAddress is a non-zero address used as the vault in tests
@@ -944,6 +952,130 @@ func TestSimulateBSC_RescueFunds_ERC20(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
+// VerifyBroadcastedTx
+// ---------------------------------------------------------------------------
+
+const testReceiptTxHash = "0x1111111111111111111111111111111111111111111111111111111111111111"
+
+// newReceiptRPCBuilder drives the real RPCClient against a local JSON-RPC
+// server, so these exercise the same path production takes rather than a mock
+// that can return errors the real client never produces.
+func newReceiptRPCBuilder(t *testing.T, respond func(method string, w http.ResponseWriter)) *TxBuilder {
+	t.Helper()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.Contains(string(body), "eth_getTransactionReceipt"):
+			respond("eth_getTransactionReceipt", w)
+		case strings.Contains(string(body), "eth_blockNumber"):
+			respond("eth_blockNumber", w)
+		default:
+			_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":"0x1"}`))
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	rpcClient, err := NewRPCClient([]string{server.URL}, 1, zerolog.Nop())
+	require.NoError(t, err)
+	t.Cleanup(rpcClient.Close)
+
+	return &TxBuilder{rpcClient: rpcClient, chainID: "eip155:1", chainIDInt: 1, logger: zerolog.Nop()}
+}
+
+// A receipt RPC failure is not evidence about the transaction. Reported as
+// not-found it combines with a consumed nonce to look like "never executed",
+// and the resolver votes failure against an outbound the destination already paid.
+func TestVerifyBroadcastedTx_ReceiptRPCFailureIsNotAVerdict(t *testing.T) {
+	t.Run("json-rpc error", func(t *testing.T) {
+		tb := newReceiptRPCBuilder(t, func(_ string, w http.ResponseWriter) {
+			_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"error":{"code":-32005,"message":"rate limited"}}`))
+		})
+
+		found, _, _, _, err := tb.VerifyBroadcastedTx(context.Background(), testReceiptTxHash)
+		require.Error(t, err, "an unreachable chain must not be reported as a verdict")
+		assert.False(t, found)
+	})
+
+	t.Run("transport failure", func(t *testing.T) {
+		tb := newReceiptRPCBuilder(t, func(_ string, w http.ResponseWriter) {
+			w.WriteHeader(http.StatusInternalServerError)
+		})
+
+		found, _, _, _, err := tb.VerifyBroadcastedTx(context.Background(), testReceiptTxHash)
+		require.Error(t, err)
+		assert.False(t, found)
+	})
+
+	t.Run("null receipt is a real not-found", func(t *testing.T) {
+		tb := newReceiptRPCBuilder(t, func(_ string, w http.ResponseWriter) {
+			_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":null}`))
+		})
+
+		found, _, _, _, err := tb.VerifyBroadcastedTx(context.Background(), testReceiptTxHash)
+		require.NoError(t, err, "the chain answered, so this is a verdict and not a failure")
+		assert.False(t, found)
+	})
+}
+
+func TestVerifyBroadcastedTx_ReceiptFound(t *testing.T) {
+	const receipt = `{"jsonrpc":"2.0","id":1,"result":{"status":"0x1","blockNumber":"0x64","gasUsed":"0x5208","effectiveGasPrice":"0x3b9aca00"}}`
+
+	t.Run("reports block height, confirmations and status", func(t *testing.T) {
+		tb := newReceiptRPCBuilder(t, func(method string, w http.ResponseWriter) {
+			if method == "eth_blockNumber" {
+				_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":"0x6e"}`)) // 110
+				return
+			}
+			_, _ = w.Write([]byte(receipt))
+		})
+
+		found, blockHeight, confs, status, err := tb.VerifyBroadcastedTx(context.Background(), testReceiptTxHash)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, uint64(100), blockHeight)
+		assert.Equal(t, uint64(11), confs)
+		assert.Equal(t, uint8(1), status)
+	})
+
+	// The block number is only needed for the confirmation count. Failing it must
+	// not discard the receipt we already have: zero confirmations makes the
+	// resolver wait, which is the correct outcome.
+	t.Run("block number failure keeps the tx found with zero confirmations", func(t *testing.T) {
+		tb := newReceiptRPCBuilder(t, func(method string, w http.ResponseWriter) {
+			if method == "eth_blockNumber" {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			_, _ = w.Write([]byte(receipt))
+		})
+
+		found, blockHeight, confs, status, err := tb.VerifyBroadcastedTx(context.Background(), testReceiptTxHash)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, uint64(100), blockHeight)
+		assert.Zero(t, confs)
+		assert.Equal(t, uint8(1), status)
+	})
+
+	t.Run("reverted receipt reports status zero", func(t *testing.T) {
+		tb := newReceiptRPCBuilder(t, func(method string, w http.ResponseWriter) {
+			if method == "eth_blockNumber" {
+				_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":"0x6e"}`))
+				return
+			}
+			_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":{"status":"0x0","blockNumber":"0x64","gasUsed":"0x5208"}}`))
+		})
+
+		found, _, _, status, err := tb.VerifyBroadcastedTx(context.Background(), testReceiptTxHash)
+		require.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, uint8(0), status)
+	})
+}
+
+// ---------------------------------------------------------------------------
 // parseGasLimit — additional edge-case coverage
 // ---------------------------------------------------------------------------
 
@@ -1062,74 +1194,6 @@ func TestNewTxBuilderZeroGatewayAddress(t *testing.T) {
 // Fund migration transfer math
 // ---------------------------------------------------------------------------
 
-// TestComputeFundMigrationTransfer covers the sweep-amount formula
-// balance - (gasPrice * gasLimit) - l1GasFee for both L1 and L2-style chains.
-// All validators must compute the same value — any drift breaks the TSS hash.
-func TestComputeFundMigrationTransfer(t *testing.T) {
-	t.Run("no L1 fee (mainnet-style) nil", func(t *testing.T) {
-		// balance 1 ETH, gasPrice 20 gwei, gasLimit 21000 → gasCost = 420000 gwei
-		balance := new(big.Int).SetUint64(1_000_000_000_000_000_000)
-		gasPrice := new(big.Int).SetUint64(20_000_000_000)
-		got, err := computeFundMigrationTransfer(balance, gasPrice, 21000, nil)
-		require.NoError(t, err)
-		want := new(big.Int).Sub(balance, new(big.Int).Mul(gasPrice, big.NewInt(21000)))
-		assert.Equal(t, want.String(), got.String())
-	})
-
-	t.Run("zero L1 fee (mainnet-style) treated as zero", func(t *testing.T) {
-		balance := new(big.Int).SetUint64(1_000_000_000_000_000_000)
-		gasPrice := new(big.Int).SetUint64(20_000_000_000)
-		got, err := computeFundMigrationTransfer(balance, gasPrice, 21000, big.NewInt(0))
-		require.NoError(t, err)
-		want := new(big.Int).Sub(balance, new(big.Int).Mul(gasPrice, big.NewInt(21000)))
-		assert.Equal(t, want.String(), got.String())
-	})
-
-	t.Run("non-zero L1 fee (OP-stack) is subtracted on top of L2 gas cost", func(t *testing.T) {
-		// 1 ETH balance, L2 gasCost=420000 gwei, L1 data-availability fee=150 gwei
-		balance := new(big.Int).SetUint64(1_000_000_000_000_000_000)
-		gasPrice := new(big.Int).SetUint64(20_000_000_000)
-		l1Fee := new(big.Int).SetUint64(150_000_000_000)
-		got, err := computeFundMigrationTransfer(balance, gasPrice, 21000, l1Fee)
-		require.NoError(t, err)
-		gasCost := new(big.Int).Mul(gasPrice, big.NewInt(21000))
-		want := new(big.Int).Sub(balance, new(big.Int).Add(gasCost, l1Fee))
-		assert.Equal(t, want.String(), got.String())
-	})
-
-	t.Run("balance exactly equals total fee → insufficient", func(t *testing.T) {
-		gasPrice := new(big.Int).SetUint64(20_000_000_000)
-		l1Fee := big.NewInt(100)
-		gasCost := new(big.Int).Mul(gasPrice, big.NewInt(21000))
-		balance := new(big.Int).Add(gasCost, l1Fee)
-		_, err := computeFundMigrationTransfer(balance, gasPrice, 21000, l1Fee)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "insufficient balance")
-	})
-
-	t.Run("L1 fee tips balance into insufficient", func(t *testing.T) {
-		// Without L1 fee, balance covers gas and leaves 100 wei. With L1 fee of 200, it's insufficient.
-		gasPrice := new(big.Int).SetUint64(20_000_000_000)
-		gasCost := new(big.Int).Mul(gasPrice, big.NewInt(21000))
-		balance := new(big.Int).Add(gasCost, big.NewInt(100))
-		_, err := computeFundMigrationTransfer(balance, gasPrice, 21000, big.NewInt(200))
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "insufficient balance")
-	})
-
-	t.Run("deterministic across equivalent l1 fee representations", func(t *testing.T) {
-		// big.NewInt(0) and nil must produce identical results — the TSS signing
-		// hash depends on it.
-		balance := new(big.Int).SetUint64(500_000_000_000_000_000)
-		gasPrice := new(big.Int).SetUint64(15_000_000_000)
-		withNil, err := computeFundMigrationTransfer(balance, gasPrice, 21000, nil)
-		require.NoError(t, err)
-		withZero, err := computeFundMigrationTransfer(balance, gasPrice, 21000, big.NewInt(0))
-		require.NoError(t, err)
-		assert.Equal(t, withNil.String(), withZero.String())
-	})
-}
-
 func TestL1GasFeeString(t *testing.T) {
 	assert.Equal(t, "0", l1GasFeeString(nil))
 	assert.Equal(t, "0", l1GasFeeString(big.NewInt(0)))
@@ -1153,96 +1217,90 @@ func TestGetFundMigrationSigningRequest_RejectsZeroGasLimit(t *testing.T) {
 }
 
 // TestBroadcastFundMigrationTx_RejectsMissingAmount verifies broadcast refuses
-// to assemble a tx without the signing-time amount.
+// Broadcast refuses without the chain-pinned amount rather than re-deriving it.
 func TestBroadcastFundMigrationTx_RejectsMissingAmount(t *testing.T) {
 	tb := newTestTxBuilder(t)
-	data := &common.FundMigrationData{
-		From:     "0x1111111111111111111111111111111111111111",
-		To:       "0x2222222222222222222222222222222222222222",
-		GasPrice: big.NewInt(20_000_000_000),
-		GasLimit: 21000,
+	sig := make([]byte, 65)
+	req := &common.UnsignedSigningReq{SigningHash: []byte{0x01}, Nonce: 0}
+
+	for _, tc := range []struct {
+		name   string
+		amount *big.Int
+	}{
+		{"nil amount rejected", nil},
+		{"zero amount rejected", big.NewInt(0)},
+		{"negative amount rejected", big.NewInt(-1)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			data := &common.FundMigrationData{
+				From:           "0x1111111111111111111111111111111111111111",
+				To:             "0x2222222222222222222222222222222222222222",
+				GasPrice:       big.NewInt(20_000_000_000),
+				GasLimit:       21000,
+				L1GasFee:       big.NewInt(0),
+				TransferAmount: tc.amount,
+			}
+			_, err := tb.BroadcastFundMigrationTx(context.Background(), req, data, sig)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "transfer amount is required")
+		})
 	}
-	sig := make([]byte, 65) // valid length; bytes don't have to be a real ECDSA sig
-
-	t.Run("nil amount rejected", func(t *testing.T) {
-		req := &common.UnsignedSigningReq{
-			SigningHash: []byte{0x01},
-			Nonce:       0,
-			// TSSFundMigrationAmount intentionally nil
-		}
-		_, err := tb.BroadcastFundMigrationTx(context.Background(), req, data, sig)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "TSSFundMigrationAmount must be set")
-	})
-
-	t.Run("zero amount rejected", func(t *testing.T) {
-		req := &common.UnsignedSigningReq{
-			SigningHash:            []byte{0x01},
-			Nonce:                  0,
-			TSSFundMigrationAmount: big.NewInt(0),
-		}
-		_, err := tb.BroadcastFundMigrationTx(context.Background(), req, data, sig)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "TSSFundMigrationAmount must be set")
-	})
-
-	t.Run("negative amount rejected", func(t *testing.T) {
-		req := &common.UnsignedSigningReq{
-			SigningHash:            []byte{0x01},
-			Nonce:                  0,
-			TSSFundMigrationAmount: big.NewInt(-1),
-		}
-		_, err := tb.BroadcastFundMigrationTx(context.Background(), req, data, sig)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "TSSFundMigrationAmount must be set")
-	})
 }
 
-// TestGetFundMigrationSigningRequest_UsesProvidedBalance verifies that when
-// data.Balance is non-nil the builder uses it verbatim and skips the RPC
-// GetBalance call. This is the determinism guarantee the coordinator's
-// verification path depends on.
-func TestGetFundMigrationSigningRequest_UsesProvidedBalance(t *testing.T) {
-	tb := newTestTxBuilder(t)
-
+// The builder signs the chain-pinned amount verbatim.
+func TestGetFundMigrationSigningRequest_UsesPinnedAmount(t *testing.T) {
 	gasPrice := big.NewInt(20_000_000_000)
 	gasLimit := uint64(21000)
 	expectedAmount := big.NewInt(1_000_000_000_000_000)
 	gasCost := new(big.Int).Mul(gasPrice, new(big.Int).SetUint64(gasLimit))
 	balance := new(big.Int).Add(expectedAmount, gasCost)
 
+	// Live balance is sufficient (equal to the provided balance).
+	tb := txBuilderWithBalance(t, new(big.Int).Set(balance))
+
 	data := &common.FundMigrationData{
-		From:     "0x1111111111111111111111111111111111111111",
-		To:       "0x2222222222222222222222222222222222222222",
-		GasPrice: gasPrice,
-		GasLimit: gasLimit,
-		L1GasFee: big.NewInt(0),
-		Balance:  balance,
+		From:           "0x1111111111111111111111111111111111111111",
+		To:             "0x2222222222222222222222222222222222222222",
+		GasPrice:       gasPrice,
+		GasLimit:       gasLimit,
+		L1GasFee:       big.NewInt(0),
+		TransferAmount: expectedAmount,
 	}
 
 	req, err := tb.GetFundMigrationSigningRequest(context.Background(), data, 42)
 	require.NoError(t, err)
-	assert.Equal(t, 0, expectedAmount.Cmp(req.TSSFundMigrationAmount))
 	assert.NotEmpty(t, req.SigningHash)
 	assert.Equal(t, uint64(42), req.Nonce)
 }
 
-// TestGetFundMigrationSigningRequest_ProvidedBalanceInsufficient verifies the
-// insufficient-balance check fires on caller-provided Balance below gas cost.
-func TestGetFundMigrationSigningRequest_ProvidedBalanceInsufficient(t *testing.T) {
-	tb := newTestTxBuilder(t)
-
-	data := &common.FundMigrationData{
-		From:     "0x1111111111111111111111111111111111111111",
-		To:       "0x2222222222222222222222222222222222222222",
-		GasPrice: big.NewInt(20_000_000_000),
-		GasLimit: 21000,
-		L1GasFee: big.NewInt(0),
-		Balance:  big.NewInt(1),
+// A missing pinned amount must be refused, not filled from a live balance.
+func TestGetFundMigrationSigningRequest_RequiresPinnedAmount(t *testing.T) {
+	base := func() *common.FundMigrationData {
+		return &common.FundMigrationData{
+			From:     "0x1111111111111111111111111111111111111111",
+			To:       "0x2222222222222222222222222222222222222222",
+			GasPrice: big.NewInt(20_000_000_000),
+			GasLimit: 21000,
+			L1GasFee: big.NewInt(0),
+		}
 	}
-	_, err := tb.GetFundMigrationSigningRequest(context.Background(), data, 0)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "insufficient balance")
+	for _, tc := range []struct {
+		name   string
+		amount *big.Int
+	}{
+		{"nil", nil},
+		{"zero", big.NewInt(0)},
+		{"negative", big.NewInt(-1)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tb := txBuilderWithBalance(t, new(big.Int).SetUint64(1_000_000_000_000_000_000))
+			data := base()
+			data.TransferAmount = tc.amount
+			_, err := tb.GetFundMigrationSigningRequest(context.Background(), data, 0)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "transfer amount is required")
+		})
+	}
 }
 
 // TestBroadcastFundMigrationTx_DoesNotQueryBalance asserts broadcast never
@@ -1257,9 +1315,8 @@ func TestBroadcastFundMigrationTx_DoesNotQueryBalance(t *testing.T) {
 		L1GasFee: big.NewInt(0),
 	}
 	req := &common.UnsignedSigningReq{
-		SigningHash:            []byte{0x01},
-		Nonce:                  0,
-		TSSFundMigrationAmount: big.NewInt(1_000_000_000_000_000), // 0.001 ETH
+		SigningHash: []byte{0x01},
+		Nonce:       0, // 0.001 ETH
 	}
 	sig := make([]byte, 65)
 
@@ -1267,6 +1324,202 @@ func TestBroadcastFundMigrationTx_DoesNotQueryBalance(t *testing.T) {
 	require.Error(t, err)
 	assert.NotContains(t, err.Error(), "get_balance", "broadcast must not call GetBalance")
 	assert.NotContains(t, err.Error(), "failed to get balance", "broadcast must not call GetBalance")
+}
+
+// txBuilderWithBalance returns a TxBuilder whose RPC pool answers eth_getBalance
+// with the given wei value (Sepolia chain id).
+func txBuilderWithBalance(t *testing.T, balanceWei *big.Int) *TxBuilder {
+	t.Helper()
+	balHex := "0x" + balanceWei.Text(16)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		body := make([]byte, r.ContentLength)
+		r.Body.Read(body)
+		switch {
+		case strings.Contains(string(body), "eth_chainId"):
+			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":"0xaa36a7"}`)) // 11155111
+		case strings.Contains(string(body), "eth_getBalance"):
+			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":"` + balHex + `"}`))
+		default:
+			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":null}`))
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	rc, err := NewRPCClient([]string{server.URL}, 11155111, zerolog.Nop())
+	require.NoError(t, err)
+	t.Cleanup(func() { rc.Close() })
+
+	return &TxBuilder{
+		rpcClient:  rc,
+		chainID:    "eip155:11155111",
+		chainIDInt: 11155111,
+		logger:     zerolog.Nop(),
+	}
+}
+
+// A dust transfer to the old TSS EOA between the coordinator's build and a
+// follower's verify must not change the pinned-balance signing hash, and a
+// pinned amount larger than the live balance must be rejected.
+func TestGetFundMigrationSigningRequest_PinnedBalance(t *testing.T) {
+	from := "0x1111111111111111111111111111111111111111"
+	to := "0x2222222222222222222222222222222222222222"
+	gasPrice := big.NewInt(20_000_000_000)
+	gasLimit := uint64(21000)
+	amount := big.NewInt(1_000_000_000_000_000) // 0.001 ETH
+	fees := new(big.Int).Mul(gasPrice, new(big.Int).SetUint64(gasLimit))
+	pinned := new(big.Int).Add(amount, fees) // balance = amount + fees
+
+	data := func() *common.FundMigrationData {
+		return &common.FundMigrationData{
+			From:           from,
+			To:             to,
+			GasPrice:       gasPrice,
+			GasLimit:       gasLimit,
+			L1GasFee:       big.NewInt(0),
+			TransferAmount: new(big.Int).Set(amount),
+		}
+	}
+
+	t.Run("hash unchanged by +1 wei dust inflow", func(t *testing.T) {
+		tbExact := txBuilderWithBalance(t, new(big.Int).Set(pinned))
+		reqExact, err := tbExact.GetFundMigrationSigningRequest(context.Background(), data(), 7)
+		require.NoError(t, err)
+
+		tbDust := txBuilderWithBalance(t, new(big.Int).Add(pinned, big.NewInt(1)))
+		reqDust, err := tbDust.GetFundMigrationSigningRequest(context.Background(), data(), 7)
+		require.NoError(t, err)
+
+		assert.Equal(t, reqExact.SigningHash, reqDust.SigningHash)
+	})
+
+	// Reproducible after the sweep landed and the balance is gone, which the ACK
+	// verify path depends on.
+	t.Run("hash unchanged once the balance is swept away", func(t *testing.T) {
+		tbFunded := txBuilderWithBalance(t, new(big.Int).Set(pinned))
+		reqFunded, err := tbFunded.GetFundMigrationSigningRequest(context.Background(), data(), 7)
+		require.NoError(t, err)
+
+		tbDrained := txBuilderWithBalance(t, big.NewInt(0))
+		reqDrained, err := tbDrained.GetFundMigrationSigningRequest(context.Background(), data(), 7)
+		require.NoError(t, err)
+
+		assert.Equal(t, reqFunded.SigningHash, reqDrained.SigningHash)
+	})
+}
+
+// End to end for the pinned sweep amount: the value the chain pinned is the
+// value that gets signed, and the value that reaches the wire. It no longer
+// travels with the signature, so nothing but the event determines it.
+func TestFundMigration_PinnedAmountReachesTheWire(t *testing.T) {
+	const (
+		fromAddr = "0x1111111111111111111111111111111111111111"
+		toAddr   = "0x2222222222222222222222222222222222222222"
+		nonce    = uint64(7)
+	)
+	pinned := big.NewInt(1_234_567_890_000_000)
+	gasPrice := big.NewInt(20_000_000_000)
+	gasLimit := uint64(21000)
+
+	// The event as the chain pins it at initiate time.
+	migration := utsstypes.FundMigrationInitiatedEventData{
+		Chain:          "eip155:11155111",
+		GasPrice:       gasPrice.String(),
+		GasLimit:       gasLimit,
+		L1GasFee:       "0",
+		TransferAmount: pinned.String(),
+	}
+
+	dataFromEvent := func() *common.FundMigrationData {
+		amount, ok := new(big.Int).SetString(migration.TransferAmount, 10)
+		require.True(t, ok)
+		gp, ok := new(big.Int).SetString(migration.GasPrice, 10)
+		require.True(t, ok)
+		l1, ok := new(big.Int).SetString(migration.L1GasFee, 10)
+		require.True(t, ok)
+		return &common.FundMigrationData{
+			From:           fromAddr,
+			To:             toAddr,
+			GasPrice:       gp,
+			GasLimit:       migration.GasLimit,
+			L1GasFee:       l1,
+			TransferAmount: amount,
+		}
+	}
+
+	// Coordinator and a follower on a chain whose balance has since moved.
+	coordinator := txBuilderWithBalance(t, new(big.Int).Add(pinned, big.NewInt(1_000_000_000_000_000)))
+	follower := txBuilderWithBalance(t, big.NewInt(0))
+
+	coordReq, err := coordinator.GetFundMigrationSigningRequest(context.Background(), dataFromEvent(), nonce)
+	require.NoError(t, err)
+	followerReq, err := follower.GetFundMigrationSigningRequest(context.Background(), dataFromEvent(), nonce)
+	require.NoError(t, err)
+	require.Equal(t, coordReq.SigningHash, followerReq.SigningHash,
+		"validators must agree on the hash regardless of what the balance is doing")
+
+	key, err := crypto.HexToECDSA("4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318")
+	require.NoError(t, err)
+	signature, err := crypto.Sign(coordReq.SigningHash, key)
+	require.NoError(t, err)
+
+	sent, sender := txBuilderCapturingSend(t)
+	txHash, err := sender.BroadcastFundMigrationTx(context.Background(), coordReq, dataFromEvent(), signature)
+	require.NoError(t, err)
+	require.NotEmpty(t, txHash)
+
+	raw := <-sent
+	var broadcast types.Transaction
+	require.NoError(t, broadcast.UnmarshalBinary(raw))
+
+	assert.Equal(t, pinned.String(), broadcast.Value().String(), "the wire value must be the pinned amount")
+	assert.Equal(t, toAddr, strings.ToLower(broadcast.To().Hex()))
+	assert.Equal(t, nonce, broadcast.Nonce())
+	assert.Equal(t, gasLimit, broadcast.Gas())
+
+	// The signature covers exactly this transaction.
+	recovered, err := types.Sender(types.NewEIP155Signer(big.NewInt(11155111)), &broadcast)
+	require.NoError(t, err)
+	assert.Equal(t, crypto.PubkeyToAddress(key.PublicKey), recovered)
+}
+
+// txBuilderCapturingSend returns a builder whose RPC accepts eth_sendRawTransaction
+// and hands the raw bytes back on the channel.
+func txBuilderCapturingSend(t *testing.T) (chan []byte, *TxBuilder) {
+	t.Helper()
+	sent := make(chan []byte, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		body, _ := io.ReadAll(r.Body)
+		switch {
+		case strings.Contains(string(body), "eth_chainId"):
+			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":"0xaa36a7"}`))
+		case strings.Contains(string(body), "eth_sendRawTransaction"):
+			var req struct {
+				Params []string `json:"params"`
+			}
+			require.NoError(t, json.Unmarshal(body, &req))
+			require.Len(t, req.Params, 1)
+			decoded, err := hexutil.Decode(req.Params[0])
+			require.NoError(t, err)
+			sent <- decoded
+			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":"0x` + strings.Repeat("ab", 32) + `"}`))
+		default:
+			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":null}`))
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	rc, err := NewRPCClient([]string{server.URL}, 11155111, zerolog.Nop())
+	require.NoError(t, err)
+	t.Cleanup(func() { rc.Close() })
+
+	return sent, &TxBuilder{
+		rpcClient:  rc,
+		chainID:    "eip155:11155111",
+		chainIDInt: 11155111,
+		logger:     zerolog.Nop(),
+	}
 }
 
 // A PC20 inbound-revert/rescue re-mints the wrapper on EVM. The Vault detects PC20

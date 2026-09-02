@@ -49,6 +49,13 @@ var (
 
 	// FinalizedBallotIDsName is the name of the finalized ballot IDs set.
 	FinalizedBallotIDsName = "finalized_ballot_ids"
+
+	// PendingByExpiryKey is the key for the (expiryHeight, ballotID) index over
+	// the active ballot set. Next free prefix after FinalizedBallotIDsKey(6).
+	PendingByExpiryKey = collections.NewPrefix(7)
+
+	// PendingByExpiryName is the name of the pending-by-expiry index.
+	PendingByExpiryName = "pending_ballots_by_expiry"
 )
 
 const (

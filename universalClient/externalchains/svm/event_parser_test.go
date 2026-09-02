@@ -227,10 +227,21 @@ func TestParseEvent_Routing(t *testing.T) {
 		assert.Equal(t, store.EventTypeOutbound, event.Type)
 	})
 
-	t.Run("revert_universal_tx routes to outbound parser", func(t *testing.T) {
-		event := ParseEvent(outboundLog, sig, 100, 0, EventTypeRevertUniversalTx, chainID, logger)
+	t.Run("revert_universal_tx routes to outbound parser without a gas fee", func(t *testing.T) {
+		revertLog := wrapAsLog(buildRevertPayload(txID, utxID, 5000))
+		event := ParseEvent(revertLog, sig, 100, 0, EventTypeRevertUniversalTx, chainID, logger)
 		require.NotNil(t, event)
 		assert.Equal(t, store.EventTypeOutbound, event.Type)
+
+		var outbound common.OutboundObservation
+		require.NoError(t, json.Unmarshal(event.EventData, &outbound))
+		assert.Empty(t, outbound.GasFeeUsed,
+			"the revert event carries no gas_used; reading one would report revert_instruction bytes")
+	})
+
+	t.Run("a payload too short for a revert is refused", func(t *testing.T) {
+		short := wrapAsLog(make([]byte, 71)) // revert needs the 72-byte shared prefix
+		assert.Nil(t, ParseEvent(short, sig, 100, 0, EventTypeRevertUniversalTx, chainID, logger))
 	})
 
 	t.Run("unknown event type returns nil", func(t *testing.T) {
@@ -242,6 +253,58 @@ func TestParseEvent_Routing(t *testing.T) {
 		event := ParseEvent(outboundLog, sig, 100, 0, "", chainID, logger)
 		assert.Nil(t, event)
 	})
+}
+
+// Each outbound event has its own gas_used offset, so "long enough" differs
+// by type.
+func TestParseOutboundObservationEvent_LengthIsPerEventType(t *testing.T) {
+	logger := nopLogger()
+	chainID := "solana:devnet"
+	sig := "sig"
+	var txID, utxID [32]byte
+
+	t.Run("finalize needs 120 bytes", func(t *testing.T) {
+		assert.Nil(t, ParseEvent(wrapAsLog(make([]byte, 119)), sig, 1, 0, EventTypeFinalizeUniversalTx, chainID, logger))
+		assert.NotNil(t, ParseEvent(wrapAsLog(make([]byte, 120)), sig, 1, 0, EventTypeFinalizeUniversalTx, chainID, logger))
+	})
+
+	t.Run("rescue needs 120 bytes", func(t *testing.T) {
+		assert.Nil(t, ParseEvent(wrapAsLog(make([]byte, 119)), sig, 1, 0, EventTypeFundsRescued, chainID, logger))
+		assert.NotNil(t, ParseEvent(wrapAsLog(make([]byte, 120)), sig, 1, 0, EventTypeFundsRescued, chainID, logger))
+	})
+
+	t.Run("revert needs only the shared prefix", func(t *testing.T) {
+		assert.Nil(t, ParseEvent(wrapAsLog(make([]byte, 71)), sig, 1, 0, EventTypeRevertUniversalTx, chainID, logger))
+		assert.NotNil(t, ParseEvent(wrapAsLog(make([]byte, 72)), sig, 1, 0, EventTypeRevertUniversalTx, chainID, logger))
+	})
+
+	t.Run("an unroutable event type is refused", func(t *testing.T) {
+		assert.Nil(t, parseOutboundObservationEvent(
+			wrapAsLog(buildOutboundPayload(txID, utxID, 1)), sig, 1, 0, "send_funds", logger),
+			"only the three outbound events have a known gas_used offset")
+	})
+}
+
+// Each event type must read gas_used from its own offset.
+func TestParseOutboundObservationEvent_ReadsItsOwnOffset(t *testing.T) {
+	logger := nopLogger()
+	var txID, utxID [32]byte
+
+	for _, tc := range []struct {
+		eventType string
+		payload   []byte
+	}{
+		{EventTypeFinalizeUniversalTx, buildOutboundPayload(txID, utxID, 4242)},
+		{EventTypeFundsRescued, buildOutboundPayload(txID, utxID, 4242)},
+	} {
+		t.Run(tc.eventType, func(t *testing.T) {
+			event := ParseEvent(wrapAsLog(tc.payload), "sig", 1, 0, tc.eventType, "solana:devnet", logger)
+			require.NotNil(t, event)
+			var outbound common.OutboundObservation
+			require.NoError(t, json.Unmarshal(event.EventData, &outbound))
+			assert.Equal(t, "4242", outbound.GasFeeUsed)
+		})
+	}
 }
 
 func TestParseSendFundsEvent(t *testing.T) {
@@ -379,22 +442,30 @@ func TestParseSendFundsEvent_TruncatedData(t *testing.T) {
 	chainID := "solana:devnet"
 	sig := "truncSig"
 
-	t.Run("data too short for sender returns event with nil EventData", func(t *testing.T) {
+	// A truncated event is discarded rather than stored. Every field it fails to
+	// reach would otherwise be left at its zero value, and tx_type 0 is GAS,
+	// which credits the sender UEA instead of depositing to the recipient.
+	t.Run("data too short for sender is discarded", func(t *testing.T) {
 		// Only discriminator (8 bytes), no sender
 		data := make([]byte, 8)
 		event := ParseEvent(wrapAsLog(data), sig, 1, 0, EventTypeSendFunds, chainID, logger)
-		require.NotNil(t, event)
-		// Event is created but parseUniversalTxEvent will fail to decode,
-		// so EventData may be nil
-		assert.Equal(t, store.EventTypeInbound, event.Type)
+		assert.Nil(t, event)
 	})
 
-	t.Run("data truncated after sender still returns event", func(t *testing.T) {
+	t.Run("data truncated after sender is discarded", func(t *testing.T) {
 		// 8 disc + 32 sender = 40 bytes, missing recipient
 		data := make([]byte, 40)
 		event := ParseEvent(wrapAsLog(data), sig, 1, 0, EventTypeSendFunds, chainID, logger)
-		require.NotNil(t, event)
-		assert.Equal(t, store.EventTypeInbound, event.Type)
+		assert.Nil(t, event)
+	})
+
+	t.Run("truncated one byte before tx_type is discarded", func(t *testing.T) {
+		// Everything through revert_recipient, then nothing. This is the exact
+		// shape that used to decode as TxType 0 and route to GAS.
+		data := make([]byte, 136)
+		binary.LittleEndian.PutUint32(data[100:104], 0)
+		event := ParseEvent(wrapAsLog(data), sig, 1, 0, EventTypeSendFunds, chainID, logger)
+		assert.Nil(t, event)
 	})
 }
 
@@ -455,7 +526,7 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 		assert.Empty(t, outbound.Pc20WrapperAddress)
 	})
 
-	t.Run("revert event reads gas_used (@144) and no wrapper", func(t *testing.T) {
+	t.Run("revert event reports no gas_used and no wrapper", func(t *testing.T) {
 		var txID, utxID [32]byte
 		data := buildRevertPayload(txID, utxID, 7777)
 		event := ParseEvent(wrapAsLog(data), signature, 1, 0, EventTypeRevertUniversalTx, chainID, logger)
@@ -464,7 +535,8 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 		var outbound common.OutboundObservation
 		require.NoError(t, json.Unmarshal(event.EventData, &outbound))
 		assert.Empty(t, outbound.Pc20WrapperAddress)
-		assert.Equal(t, "7777", outbound.GasFeeUsed)
+		assert.Empty(t, outbound.GasFeeUsed,
+			"the gateway dropped gas_used from RevertUniversalTx")
 	})
 
 	t.Run("rescue event reads gas_used (@112) and no wrapper", func(t *testing.T) {
@@ -495,7 +567,7 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 	})
 
 	t.Run("returns nil for data too short", func(t *testing.T) {
-		shortData := make([]byte, 96) // needs 97
+		shortData := make([]byte, 119) // gas_used ends at 120
 		event := ParseEvent(wrapAsLog(shortData), signature, 12345, 0, EventTypeFinalizeUniversalTx, chainID, logger)
 		assert.Nil(t, event)
 	})
@@ -521,7 +593,7 @@ func TestParseOutboundObservationEvent(t *testing.T) {
 		assert.Equal(t, "12345", outbound.GasFeeUsed)
 	})
 
-	t.Run("handles data longer than 97 bytes", func(t *testing.T) {
+	t.Run("handles data longer than the fixed fields", func(t *testing.T) {
 		var txID, utxID [32]byte
 		for i := range txID {
 			txID[i] = 0xAA
@@ -665,42 +737,186 @@ func TestDecodeUniversalTxEvent_PartialData(t *testing.T) {
 		assert.Contains(t, err.Error(), "bridge_amount")
 	})
 
-	t.Run("returns partial result when no data field length", func(t *testing.T) {
+	// Everything through signature_data is required. Returning a partial result
+	// leaves tx_type at 0, which is GAS on the wire, so a truncated FUNDS
+	// transfer would be credited to the sender UEA instead of the recipient.
+
+	t.Run("returns error when no data field length", func(t *testing.T) {
 		// 8 + 32 + 20 + 32 + 8 = 100, no data_len
 		data := make([]byte, 100)
 		binary.LittleEndian.PutUint64(data[92:100], 777)
-		result, err := decodeUniversalTxEvent(data, logger)
-		require.NoError(t, err)
-		assert.Equal(t, "777", result.Amount)
+		_, err := decodeUniversalTxEvent(data, logger)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "data field length")
 	})
 
-	t.Run("returns partial result when data field exceeds available bytes", func(t *testing.T) {
+	t.Run("returns error when data field exceeds available bytes", func(t *testing.T) {
 		// 8 + 32 + 20 + 32 + 8 + 4 = 104
 		data := make([]byte, 104)
 		binary.LittleEndian.PutUint64(data[92:100], 555)
 		binary.LittleEndian.PutUint32(data[100:104], 999) // claims 999 bytes of payload
-		result, err := decodeUniversalTxEvent(data, logger)
-		require.NoError(t, err)
-		assert.Equal(t, "555", result.Amount)
-		assert.Empty(t, result.RawPayload) // not enough data, so payload is skipped
+		_, err := decodeUniversalTxEvent(data, logger)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "claims 999 bytes")
 	})
 
-	t.Run("returns partial result when missing revert recipient", func(t *testing.T) {
+	t.Run("returns error when missing revert recipient", func(t *testing.T) {
 		// 8 + 32 + 20 + 32 + 8 + 4(data_len=0) = 104
 		data := make([]byte, 104)
 		binary.LittleEndian.PutUint32(data[100:104], 0) // 0 length payload
-		result, err := decodeUniversalTxEvent(data, logger)
-		require.NoError(t, err)
-		assert.Empty(t, result.RevertFundRecipient)
+		_, err := decodeUniversalTxEvent(data, logger)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "revert recipient")
 	})
 
-	t.Run("returns partial result when missing tx_type", func(t *testing.T) {
+	t.Run("returns error when missing tx_type rather than defaulting to GAS", func(t *testing.T) {
 		// 8 + 32 + 20 + 32 + 8 + 4(data_len=0) + 32(revert) = 136
 		data := make([]byte, 136)
 		binary.LittleEndian.PutUint32(data[100:104], 0)
+		_, err := decodeUniversalTxEvent(data, logger)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "tx_type")
+	})
+
+	t.Run("returns error when missing signature length", func(t *testing.T) {
+		// 136 + 1(tx_type) = 137, no signature length
+		data := make([]byte, 137)
+		binary.LittleEndian.PutUint32(data[100:104], 0)
+		data[136] = 2 // Funds
+		_, err := decodeUniversalTxEvent(data, logger)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "signature length")
+	})
+
+	t.Run("returns error when signature data exceeds available bytes", func(t *testing.T) {
+		data := make([]byte, 141)
+		binary.LittleEndian.PutUint32(data[100:104], 0)
+		data[136] = 2
+		binary.LittleEndian.PutUint32(data[137:141], 500)
+		_, err := decodeUniversalTxEvent(data, logger)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "claims 500 bytes")
+	})
+
+	t.Run("from_cea stays optional and defaults to false", func(t *testing.T) {
+		// 141 bytes: complete through signature_data, no from_cea byte.
+		data := make([]byte, 141)
+		binary.LittleEndian.PutUint32(data[100:104], 0)
+		data[136] = 2 // Funds
+		binary.LittleEndian.PutUint32(data[137:141], 0)
 		result, err := decodeUniversalTxEvent(data, logger)
 		require.NoError(t, err)
-		// tx_type defaults to 0 when missing
-		assert.Equal(t, uint(0), result.TxType)
+		assert.Equal(t, uint(2), result.TxType)
+		assert.False(t, result.FromCEA)
 	})
+}
+
+// Real UniversalTx events captured from the deployed devnet gateway
+// CFVSincHYbETh2k7w6u1ENEkjbSLtveRCEBupKidw2VS. They pin the decoder to what
+// the chain actually emits rather than to a hand-built fixture.
+//
+// Layout, matching the gateway on pc20-3rd-iteration:
+//
+//	disc 8, sender 32, recipient 20, token 32, amount u64,
+//	payload (u32 len + bytes), revert_recipient 32, tx_type 1,
+//	signature_data (u32 len + bytes), from_cea 1  = 142 bytes when both vecs are empty
+var devnetUniversalTxEvents = []struct {
+	name           string
+	hex            string
+	wantAmount     string
+	wantTxType     uint
+	wantFromCEA    bool
+	wantConfirmDep string
+}{
+	{
+		name:           "3000000 lamports, Funds",
+		hex:            "6c9ad829b5ea1d7c5824d1bda3f79e54416ae3d2ec8d8a7456ae9a3e8a85e2f43e3bd20f25a39e5107a26674effcfbef4ee6cc6e8a00dc54801d83d90000000000000000000000000000000000000000000000000000000000000000c0c62d0000000000000000005824d1bda3f79e54416ae3d2ec8d8a7456ae9a3e8a85e2f43e3bd20f25a39e51020000000001",
+		wantAmount:     "3000000",
+		wantTxType:     2,
+		wantFromCEA:    true,
+		wantConfirmDep: store.ConfirmationStandard,
+	},
+	{
+		name:           "8000 lamports, Funds",
+		hex:            "6c9ad829b5ea1d7cdc84c8dd7c695f0ed78f3507fd867827812dcd9ccbba61ca9a16d899b6f5ac665c70c864cf1adfb04a0e107ffa248ba3600eab8dcbcae9e66452fe98abcf0fa51e557fc8d671c7fc6ce83c05f92992a3d2bf1932401f00000000000000000000dc84c8dd7c695f0ed78f3507fd867827812dcd9ccbba61ca9a16d899b6f5ac66020000000001",
+		wantAmount:     "8000",
+		wantTxType:     2,
+		wantFromCEA:    true,
+		wantConfirmDep: store.ConfirmationStandard,
+	},
+	{
+		name:           "5000000 lamports, Funds",
+		hex:            "6c9ad829b5ea1d7cdc84c8dd7c695f0ed78f3507fd867827812dcd9ccbba61ca9a16d899b6f5ac665c70c864cf1adfb04a0e107ffa248ba3600eab8d0000000000000000000000000000000000000000000000000000000000000000404b4c000000000000000000dc84c8dd7c695f0ed78f3507fd867827812dcd9ccbba61ca9a16d899b6f5ac66020000000001",
+		wantAmount:     "5000000",
+		wantTxType:     2,
+		wantFromCEA:    true,
+		wantConfirmDep: store.ConfirmationStandard,
+	},
+}
+
+func TestDecodeUniversalTxEvent_RealDevnetEvents(t *testing.T) {
+	logger := nopLogger()
+
+	for _, tc := range devnetUniversalTxEvents {
+		t.Run(tc.name, func(t *testing.T) {
+			data, err := hex.DecodeString(tc.hex)
+			require.NoError(t, err)
+			require.Len(t, data, 142, "captured event is not the deployed layout")
+
+			got, err := decodeUniversalTxEvent(data, logger)
+			require.NoError(t, err)
+
+			assert.Equal(t, tc.wantAmount, got.Amount)
+			assert.Equal(t, tc.wantTxType, got.TxType, "tx_type must survive decoding, not be defaulted")
+			assert.Equal(t, tc.wantFromCEA, got.FromCEA)
+			assert.NotEmpty(t, got.Sender)
+			assert.NotEmpty(t, got.Recipient)
+			assert.NotEmpty(t, got.RevertFundRecipient)
+		})
+	}
+}
+
+// FUNDS must take the slower confirmation path. The old default of 0 selected
+// FAST as well as routing to GAS, so a high value transfer lost finality too.
+func TestParseSendFundsEvent_RealDevnetEventConfirmation(t *testing.T) {
+	logger := nopLogger()
+
+	for _, tc := range devnetUniversalTxEvents {
+		t.Run(tc.name, func(t *testing.T) {
+			data, err := hex.DecodeString(tc.hex)
+			require.NoError(t, err)
+			log := "Program data: " + base64.StdEncoding.EncodeToString(data)
+
+			event := ParseEvent(log, "devnetSig", 1, 0, EventTypeSendFunds, "solana:devnet", logger)
+			require.NotNil(t, event)
+			require.NotNil(t, event.EventData)
+
+			assert.Equal(t, store.EventTypeInbound, event.Type)
+			assert.Equal(t, tc.wantConfirmDep, event.ConfirmationType)
+		})
+	}
+}
+
+// Truncating a real event anywhere past bridge_amount must be rejected. Before
+// the fix each of these decoded successfully with TxType left at 0.
+func TestDecodeUniversalTxEvent_TruncatedRealEventIsRejected(t *testing.T) {
+	logger := nopLogger()
+
+	full, err := hex.DecodeString(devnetUniversalTxEvents[0].hex)
+	require.NoError(t, err)
+
+	// 100 is the end of bridge_amount; 142 is the whole event. from_cea is the
+	// only optional field, so 141 is the shortest valid length.
+	for n := 100; n < 141; n++ {
+		got, err := decodeUniversalTxEvent(full[:n], logger)
+		require.Error(t, err, "%d-byte truncation was accepted", n)
+		assert.Nil(t, got)
+	}
+
+	// The two valid lengths still decode, and both carry the real tx_type.
+	for _, n := range []int{141, 142} {
+		got, err := decodeUniversalTxEvent(full[:n], logger)
+		require.NoError(t, err, "%d-byte event was rejected", n)
+		assert.Equal(t, uint(2), got.TxType)
+	}
 }

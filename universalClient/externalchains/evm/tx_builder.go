@@ -251,14 +251,18 @@ func (tb *TxBuilder) VerifyBroadcastedTx(ctx context.Context, txHash string) (fo
 	hash := ethcommon.HexToHash(txHash)
 	receipt, err := tb.rpcClient.GetTransactionReceipt(ctx, hash)
 	if err != nil {
+		// Reporting a not-found verdict here would let the resolver vote failure against a tx that already executed.
+		return false, 0, 0, 0, err
+	}
+	if receipt == nil {
 		return false, 0, 0, 0, nil
 	}
 
-	receiptBlock := receipt.BlockNumber.Uint64()
+	receiptBlock := receipt.BlockNumber
 
 	var confs uint64
-	latestBlock, err := tb.rpcClient.GetLatestBlock(ctx)
-	if err == nil && latestBlock >= receiptBlock {
+	latestBlock, blockErr := tb.rpcClient.GetLatestBlock(ctx)
+	if blockErr == nil && latestBlock >= receiptBlock {
 		confs = latestBlock - receiptBlock + 1
 	}
 
@@ -448,38 +452,35 @@ func (tb *TxBuilder) IsAlreadyExecuted(ctx context.Context, txID string) (bool, 
 	return false, 0, nil
 }
 
-// GetGasFeeUsed returns the gas fee used by a transaction on the EVM chain.
-// Fetches the receipt for gasUsed and the transaction for gasPrice, then returns
-// gasUsed * gasPrice as a decimal string. Returns "0" if not found.
+// GetGasFeeUsed returns the gas fee used by a transaction on the EVM chain:
+// L2 execution (gasUsed * effectiveGasPrice) plus the OP-Stack L1 data fee
+// (0 on non-OP chains). Errors when the fee cannot be determined so callers
+// retry rather than record an under-reported fee.
 func (tb *TxBuilder) GetGasFeeUsed(ctx context.Context, txHash string) (string, error) {
-	hash := ethcommon.HexToHash(txHash)
-	receipt, err := tb.rpcClient.GetTransactionReceipt(ctx, hash)
+	receipt, err := tb.rpcClient.GetTransactionReceipt(ctx, ethcommon.HexToHash(txHash))
 	if err != nil {
-		return "0", nil
+		return "", fmt.Errorf("failed to fetch receipt for %s: %w", txHash, err)
 	}
-
-	tx, _, err := tb.rpcClient.GetTransactionByHash(ctx, hash)
-	if err != nil {
-		return "0", nil
+	if receipt == nil {
+		return "", fmt.Errorf("receipt not found for %s", txHash)
 	}
-
-	gasUsed := new(big.Int).SetUint64(receipt.GasUsed)
-	gasPrice := tx.GasPrice()
-	if gasPrice == nil || gasPrice.Sign() == 0 {
-		return "0", nil
+	if receipt.EffectiveGasPrice == nil {
+		return "", fmt.Errorf("receipt for %s missing effectiveGasPrice", txHash)
 	}
-
-	gasFeeUsed := new(big.Int).Mul(gasUsed, gasPrice)
-	return gasFeeUsed.String(), nil
+	return gasFeeUsed(receipt.GasUsed, receipt.EffectiveGasPrice, receipt.L1Fee).String(), nil
 }
 
-// GetFundMigrationSigningRequest builds a native token transfer for fund migration,
-// transferring the maximum possible balance (balance minus gas cost minus L1 fee).
-// Fund migration only triggers when outbound is disabled and no pending outbounds remain,
-// so the balance at signing time will equal the balance at broadcast time.
-// L1GasFee covers OP-stack sequencer data-availability charges; 0 for non-L2 chains.
+// gasFeeUsed returns the full destination cost of an included tx: L2 execution
+// (gasUsed * effectiveGasPrice) plus the OP-Stack L1 data fee.
+func gasFeeUsed(gasUsed uint64, gasPrice, l1Fee *big.Int) *big.Int {
+	fee := new(big.Int).Mul(new(big.Int).SetUint64(gasUsed), gasPrice)
+	return fee.Add(fee, l1Fee)
+}
+
+// GetFundMigrationSigningRequest builds the native transfer sweeping the old TSS
+// balance to the current one. The amount is pinned on chain, so this makes no RPC
+// call and stays reproducible after the sweep has already landed.
 func (tb *TxBuilder) GetFundMigrationSigningRequest(ctx context.Context, data *common.FundMigrationData, nonce uint64) (*common.UnsignedSigningReq, error) {
-	fromAddr := ethcommon.HexToAddress(data.From)
 	toAddr := ethcommon.HexToAddress(data.To)
 
 	if data.GasPrice == nil || data.GasPrice.Sign() == 0 {
@@ -489,26 +490,14 @@ func (tb *TxBuilder) GetFundMigrationSigningRequest(ctx context.Context, data *c
 		return nil, fmt.Errorf("gas limit must be provided for fund migration")
 	}
 
-	var balance *big.Int
-	if data.Balance != nil {
-		balance = new(big.Int).Set(data.Balance)
-	} else {
-		queried, err := tb.rpcClient.GetBalance(ctx, fromAddr)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get balance of %s: %w", data.From, err)
-		}
-		balance = queried
+	if data.TransferAmount == nil || data.TransferAmount.Sign() <= 0 {
+		return nil, fmt.Errorf("fund migration transfer amount is required")
 	}
-
-	maxTransfer, err := computeFundMigrationTransfer(balance, data.GasPrice, data.GasLimit, data.L1GasFee)
-	if err != nil {
-		return nil, err
-	}
+	maxTransfer := new(big.Int).Set(data.TransferAmount)
 
 	tb.logger.Debug().
 		Str("from", data.From).
 		Str("to", data.To).
-		Str("balance", balance.String()).
 		Str("gas_price", data.GasPrice.String()).
 		Uint64("gas_limit", data.GasLimit).
 		Str("l1_gas_fee", l1GasFeeString(data.L1GasFee)).
@@ -527,17 +516,13 @@ func (tb *TxBuilder) GetFundMigrationSigningRequest(ctx context.Context, data *c
 	signer := types.NewEIP155Signer(big.NewInt(tb.chainIDInt))
 	txHash := signer.Hash(tx).Bytes()
 
-	// TSSFundMigrationAmount rides alongside Nonce in the req — both are signing-time-decided
-	// values that must reach broadcast unchanged so the signed tx is reproduced exactly.
 	return &common.UnsignedSigningReq{
-		SigningHash:            txHash,
-		Nonce:                  nonce,
-		TSSFundMigrationAmount: new(big.Int).Set(maxTransfer),
+		SigningHash: txHash,
+		Nonce:       nonce,
 	}, nil
 }
 
 // BroadcastFundMigrationTx assembles and broadcasts a signed fund migration transaction.
-// Uses req.TSSFundMigrationAmount fixed at signing time — do not re-query balance.
 func (tb *TxBuilder) BroadcastFundMigrationTx(ctx context.Context, req *common.UnsignedSigningReq, data *common.FundMigrationData, signature []byte) (string, error) {
 	if len(signature) != 65 {
 		return "", fmt.Errorf("signature must be 65 bytes [r(32)|s(32)|v(1)], got %d", len(signature))
@@ -550,13 +535,11 @@ func (tb *TxBuilder) BroadcastFundMigrationTx(ctx context.Context, req *common.U
 		return "", fmt.Errorf("gas limit must be provided for fund migration")
 	}
 
-	// Use the exact amount fixed at signing time. Re-querying balance here would race
-	// with a successful broadcast from another validator (balance goes to 0 post-sweep).
-	if req.TSSFundMigrationAmount == nil || req.TSSFundMigrationAmount.Sign() <= 0 {
-		return "", fmt.Errorf("req.TSSFundMigrationAmount must be set for fund migration broadcast")
+	if data.TransferAmount == nil || data.TransferAmount.Sign() <= 0 {
+		return "", fmt.Errorf("fund migration transfer amount is required for broadcast")
 	}
 	toAddr := ethcommon.HexToAddress(data.To)
-	maxTransfer := new(big.Int).Set(req.TSSFundMigrationAmount)
+	maxTransfer := new(big.Int).Set(data.TransferAmount)
 
 	tx := types.NewTransaction(
 		req.Nonce,
@@ -584,25 +567,6 @@ func (tb *TxBuilder) BroadcastFundMigrationTx(ctx context.Context, req *common.U
 		Msg("fund migration tx broadcast successfully")
 
 	return txHashStr, nil
-}
-
-// computeFundMigrationTransfer returns the native amount to sweep from the old
-// TSS address to the new one: balance - (gasPrice * gasLimit) - l1GasFee.
-// The l1GasFee covers OP-stack sequencer data-availability charges (0 for
-// non-L2 chains). All validators must compute the same value — any drift
-// here breaks the TSS signing hash.
-func computeFundMigrationTransfer(balance, gasPrice *big.Int, gasLimit uint64, l1GasFee *big.Int) (*big.Int, error) {
-	gasCost := new(big.Int).Mul(gasPrice, new(big.Int).SetUint64(gasLimit))
-	totalFee := new(big.Int).Set(gasCost)
-	if l1GasFee != nil && l1GasFee.Sign() > 0 {
-		totalFee.Add(totalFee, l1GasFee)
-	}
-	maxTransfer := new(big.Int).Sub(balance, totalFee)
-	if maxTransfer.Sign() <= 0 {
-		return nil, fmt.Errorf("insufficient balance for gas: balance=%s gasCost=%s l1GasFee=%s",
-			balance.String(), gasCost.String(), l1GasFeeString(l1GasFee))
-	}
-	return maxTransfer, nil
 }
 
 // l1GasFeeString returns a stable decimal representation of the L1 gas fee

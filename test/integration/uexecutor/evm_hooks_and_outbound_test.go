@@ -163,7 +163,8 @@ func TestUpdateParams(t *testing.T) {
 		err := app.UexecutorKeeper.Params.Set(ctx, initialParams)
 		require.NoError(t, err)
 
-		updatedParams := uexecutortypes.Params{SomeValue: !initialParams.SomeValue}
+		updatedParams := initialParams
+		updatedParams.SomeValue = !initialParams.SomeValue
 		err = app.UexecutorKeeper.UpdateParams(ctx, updatedParams)
 		require.NoError(t, err)
 

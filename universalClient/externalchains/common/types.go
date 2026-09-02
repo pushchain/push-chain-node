@@ -49,13 +49,12 @@ type ChainClient interface {
 // FundMigrationData contains the data needed to build a fund migration transaction.
 // Populated by the coordinator from the migration event + derived addresses.
 type FundMigrationData struct {
-	From     string   // Old TSS address (derived from old pubkey)
-	To       string   // New TSS address (derived from current pubkey)
-	GasPrice *big.Int // Gas price from the migration event
-	GasLimit uint64   // Gas limit from the migration event
-	L1GasFee *big.Int // Extra L1 data-availability fee (wei); 0 for non-L2 chains
-
-	Balance *big.Int // if nil, builder queries chain
+	From           string   // Old TSS address (derived from old pubkey)
+	To             string   // New TSS address (derived from current pubkey)
+	GasPrice       *big.Int // Gas price from the migration event
+	GasLimit       uint64   // Gas limit from the migration event
+	L1GasFee       *big.Int // Extra L1 data-availability fee (wei); 0 for non-L2 chains
+	TransferAmount *big.Int // sweep amount pinned on chain; never derived from a live balance
 }
 
 // UnsignedSigningReq contains the request for signing an outbound or fund-migration transaction.
@@ -63,10 +62,6 @@ type UnsignedSigningReq struct {
 	SigningHash []byte // Hash to be signed by TSS
 	Nonce       uint64 // evm - TSS Address nonce | svm - PDA nonce
 
-	// TSSFundMigrationAmount is the native value swept for a fund-migration tx, fixed at
-	// signing time. Nil for outbound. Must be reused verbatim at broadcast — re-querying
-	// balance there races with a successful sweep from another validator.
-	TSSFundMigrationAmount *big.Int `json:"TSSFundMigrationAmount,omitempty"`
 }
 
 // TxBuilder builds and broadcasts transactions for outbound transfers
@@ -83,7 +78,9 @@ type TxBuilder interface {
 
 	// VerifyBroadcastedTx checks the status of a broadcasted transaction on the destination chain.
 	// Returns (found, blockHeight, confirmations, status, error):
-	// - found=false: tx not found or not yet mined
+	// - err != nil: the chain could not be queried. Callers must retry and must not
+	//   treat this as evidence about whether the tx executed.
+	// - found=false, err=nil: the chain answered and the tx is not there.
 	// - found=true: tx exists on-chain
 	//   - blockHeight: the block in which the tx was mined
 	//   - confirmations: number of blocks since the tx was mined (0 = just mined)
@@ -101,9 +98,10 @@ type TxBuilder interface {
 	IsAlreadyExecuted(ctx context.Context, txID string) (executed bool, queryBlockTime int64, err error)
 
 	// GetGasFeeUsed returns the gas fee used by a transaction on the destination chain.
-	// EVM: fetches receipt and returns gasUsed * effectiveGasPrice as decimal string.
+	// EVM: gasUsed * effectiveGasPrice + OP-Stack l1Fee, as a decimal string; errors
+	// when the fee cannot be determined so callers retry instead of recording an
+	// under-reported fee.
 	// SVM: returns "0" (gas accounting is handled via vault gasFee reimbursement).
-	// Returns "0" if the transaction is not found.
 	GetGasFeeUsed(ctx context.Context, txHash string) (string, error)
 
 	// GetFundMigrationSigningRequest builds a native token transfer for fund migration,

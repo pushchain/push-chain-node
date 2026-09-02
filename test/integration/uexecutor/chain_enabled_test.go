@@ -220,7 +220,7 @@ func TestExecutePayload_ChainEnabled(t *testing.T) {
 		ms := uexecutorkeeper.NewMsgServerImpl(testApp.UexecutorKeeper)
 
 		_, err := ms.ExecutePayload(ctx, &uexecutortypes.MsgExecutePayload{
-			Signer: "cosmos1xpurwdecvsenyvpkxvmnge3cv93nyd34xuersef38pjnxen9xfsk2dnz8yek2drrv56qmn2ak9",
+			Signer: testSigner,
 			UniversalAccountId: &uexecutortypes.UniversalAccountId{
 				ChainNamespace: "eip155",
 				ChainId:        "11155111",

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/big"
 
 	"github.com/pushchain/push-chain-node/universalClient/store"
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
@@ -199,7 +198,6 @@ func (c *Coordinator) handleSignedAck(ctx context.Context, senderPeerID, eventID
 		signedData.Signature,
 		signedData.SigningHash,
 		signedData.Nonce,
-		signedData.TSSFundMigrationAmount,
 	)
 	if err != nil {
 		return fmt.Errorf("event %s: persist verified signature: %w", eventID, err)
@@ -234,7 +232,7 @@ func (c *Coordinator) VerifySignedData(ctx context.Context, event *store.Event, 
 	if len(signedData.Signature) != 64 && len(signedData.Signature) != 65 {
 		return fmt.Errorf("signature must be 64 or 65 bytes, got %d", len(signedData.Signature))
 	}
-	expectedHash, err := c.rebuildSigningHash(ctx, event, signedData.Nonce, signedData.TSSFundMigrationAmount)
+	expectedHash, err := c.rebuildSigningHash(ctx, event, signedData.Nonce)
 	if err != nil {
 		return fmt.Errorf("rebuild signing hash: %w", err)
 	}
@@ -279,7 +277,7 @@ func (c *Coordinator) verifyingPubkey(ctx context.Context, event *store.Event) (
 	}
 }
 
-func (c *Coordinator) rebuildSigningHash(ctx context.Context, event *store.Event, nonce uint64, claimedAmount *big.Int) ([]byte, error) {
+func (c *Coordinator) rebuildSigningHash(ctx context.Context, event *store.Event, nonce uint64) ([]byte, error) {
 	switch event.Type {
 	case store.EventTypeSignOutbound:
 		req, err := c.buildSignTransaction(ctx, event.EventData, &nonce)
@@ -288,10 +286,7 @@ func (c *Coordinator) rebuildSigningHash(ctx context.Context, event *store.Event
 		}
 		return req.SigningHash, nil
 	case store.EventTypeSignFundMigrate:
-		if claimedAmount == nil || claimedAmount.Sign() <= 0 {
-			return nil, fmt.Errorf("fund migration verification requires positive claimed amount")
-		}
-		req, err := c.buildFundMigrationTransaction(ctx, event.EventData, &nonce, claimedAmount)
+		req, err := c.buildFundMigrationTransaction(ctx, event.EventData, &nonce)
 		if err != nil {
 			return nil, err
 		}

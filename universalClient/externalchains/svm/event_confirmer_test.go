@@ -129,10 +129,11 @@ func TestEventConfirmerGetRequiredConfirmations(t *testing.T) {
 		assert.Equal(t, uint64(5), confirmations)
 	})
 
-	t.Run("FAST confirmation type with zero uses default", func(t *testing.T) {
+	t.Run("FAST confirmation type with zero honored as instant", func(t *testing.T) {
+		// Fallback policy lives in applyDefaults; the confirmer honors a resolved 0.
 		confirmer := NewEventConfirmer(nil, nil, "solana:mainnet", 5, 0, 12, logger)
 		confirmations := confirmer.getRequiredConfirmations(store.ConfirmationFast)
-		assert.Equal(t, uint64(5), confirmations) // Default is 5
+		assert.Equal(t, uint64(0), confirmations)
 	})
 
 	t.Run("STANDARD confirmation type with custom value", func(t *testing.T) {
@@ -141,10 +142,10 @@ func TestEventConfirmerGetRequiredConfirmations(t *testing.T) {
 		assert.Equal(t, uint64(20), confirmations)
 	})
 
-	t.Run("STANDARD confirmation type with zero uses default", func(t *testing.T) {
+	t.Run("STANDARD confirmation type with zero honored as instant", func(t *testing.T) {
 		confirmer := NewEventConfirmer(nil, nil, "solana:mainnet", 5, 5, 0, logger)
 		confirmations := confirmer.getRequiredConfirmations(store.ConfirmationStandard)
-		assert.Equal(t, uint64(12), confirmations) // Default is 12
+		assert.Equal(t, uint64(0), confirmations)
 	})
 
 	t.Run("unknown type defaults to standard configured", func(t *testing.T) {
@@ -153,10 +154,10 @@ func TestEventConfirmerGetRequiredConfirmations(t *testing.T) {
 		assert.Equal(t, uint64(25), confirmations)
 	})
 
-	t.Run("unknown type with zero falls back to default 12", func(t *testing.T) {
+	t.Run("unknown type with zero standard honored as instant", func(t *testing.T) {
 		confirmer := NewEventConfirmer(nil, nil, "solana:mainnet", 5, 0, 0, logger)
 		confirmations := confirmer.getRequiredConfirmations("UNKNOWN")
-		assert.Equal(t, uint64(12), confirmations)
+		assert.Equal(t, uint64(0), confirmations)
 	})
 
 	t.Run("empty type defaults to standard", func(t *testing.T) {
@@ -326,16 +327,16 @@ func TestEventConfirmerGetRequiredConfirmations_MoreEdgeCases(t *testing.T) {
 		assert.Equal(t, uint64(10), unknown)
 	})
 
-	t.Run("zero fast falls back to default 5", func(t *testing.T) {
+	t.Run("zero fast honored as instant", func(t *testing.T) {
 		ec := NewEventConfirmer(nil, nil, "solana:mainnet", 5, 0, 20, logger)
 		result := ec.getRequiredConfirmations(store.ConfirmationFast)
-		assert.Equal(t, uint64(5), result) // default 5
+		assert.Equal(t, uint64(0), result)
 	})
 
-	t.Run("zero standard falls back to default 12", func(t *testing.T) {
+	t.Run("zero standard honored as instant", func(t *testing.T) {
 		ec := NewEventConfirmer(nil, nil, "solana:mainnet", 5, 10, 0, logger)
 		result := ec.getRequiredConfirmations(store.ConfirmationStandard)
-		assert.Equal(t, uint64(12), result) // default 12
+		assert.Equal(t, uint64(0), result)
 	})
 }
 
@@ -440,4 +441,75 @@ func TestEventConfirmer_StartStop_ZeroPollInterval(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("event confirmer did not stop after context cancellation with zero poll interval")
 	}
+}
+
+// The skew this finding reports, end to end: the endpoint serving the
+// transaction is ahead of the one serving the slot, so the tx slot is above the
+// latest slot. Unchecked, latest-tx underflows to near 2^64 and clears any
+// threshold. The event must stay PENDING and be retried, never confirmed.
+func TestProcessPendingEvents_RPCHeightSkew_StaysPending(t *testing.T) {
+	sigStr := strings.Repeat("1", 64)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		body := make([]byte, r.ContentLength)
+		r.Body.Read(body)
+		bodyStr := string(body)
+
+		switch {
+		case strings.Contains(bodyStr, `"getHealth"`):
+			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":"ok"}`))
+		case strings.Contains(bodyStr, `"getSlot"`):
+			// The tip endpoint lags well behind the tx endpoint.
+			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":100}`))
+		case strings.Contains(bodyStr, `"getTransaction"`):
+			// Successful tx, but at a slot the observed tip has not reached.
+			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":{` +
+				`"slot":1000,` +
+				`"meta":{` +
+				`"err":null,` +
+				`"fee":5000,` +
+				`"preBalances":[],` +
+				`"postBalances":[],` +
+				`"logMessages":[],` +
+				`"status":{"Ok":null}` +
+				`},` +
+				`"transaction":["AQ==","base64"]` +
+				`}}`))
+		default:
+			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":null}`))
+		}
+	}))
+	defer server.Close()
+
+	logger := zerolog.Nop()
+	rpcClient, err := NewRPCClient([]string{server.URL}, "", logger)
+	require.NoError(t, err)
+	defer rpcClient.Close()
+
+	memDB, err := db.OpenInMemoryDB(true)
+	require.NoError(t, err)
+	defer memDB.Close()
+
+	ec := NewEventConfirmer(rpcClient, memDB, "solana:mainnet", 5, 5, 12, logger)
+	cs := common.NewChainStore(memDB)
+
+	pending := &store.Event{
+		EventID:          sigStr + ":0",
+		BlockHeight:      1000,
+		Type:             store.EventTypeInbound,
+		ConfirmationType: store.ConfirmationStandard,
+		Status:           store.StatusPending,
+		EventData:        []byte(`{}`),
+	}
+	inserted, err := cs.InsertEventIfNotExists(pending)
+	require.NoError(t, err)
+	require.True(t, inserted)
+
+	require.NoError(t, ec.processPendingEvents(context.Background()))
+
+	var got store.Event
+	require.NoError(t, memDB.Client().Where("event_id = ?", pending.EventID).First(&got).Error)
+	assert.Equal(t, store.StatusPending, got.Status,
+		"a tx slot above the observed tip must defer, not confirm")
 }

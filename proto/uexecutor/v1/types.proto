@@ -13,6 +13,13 @@ message Params {
   option (gogoproto.goproto_stringer) = false;
 
   bool some_value = 2;
+
+  // max_gasless_tx_gas is the maximum gas limit a fee-exempt (gasless)
+  // transaction is allowed to declare. Gasless transactions pay no fee, so
+  // their declared gas is not bounded by anything the sender has to spend;
+  // this cap is the only bound on how much a single gasless transaction can
+  // contribute to the block's cumulative gas wanted.
+  uint64 max_gasless_tx_gas = 3;
 }
 
 // Signature verification types

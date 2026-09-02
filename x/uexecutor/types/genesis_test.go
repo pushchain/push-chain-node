@@ -20,9 +20,12 @@ func TestGenesisState_Validate(t *testing.T) {
 			valid:    true,
 		},
 		{
-			desc:     "valid genesis state",
+			// An empty Params leaves max_gasless_tx_gas at 0, which would
+			// reject every gasless tx and stop the universal validators from
+			// voting. Fail at genesis rather than silently.
+			desc:     "empty params are rejected",
 			genState: &types.GenesisState{},
-			valid:    true,
+			valid:    false,
 		},
 	}
 	for _, tc := range tests {

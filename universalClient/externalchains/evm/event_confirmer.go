@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math/big"
 	"strings"
 	"sync"
 	"time"
@@ -140,7 +139,7 @@ func (ec *EventConfirmer) processPendingEvents(ctx context.Context) error {
 		// Get transaction receipt
 		hash := ethcommon.HexToHash(txHash)
 		receipt, err := ec.rpcClient.GetTransactionReceipt(ctx, hash)
-		if err != nil {
+		if err != nil || receipt == nil {
 			// Transaction not found or not yet mined - skip
 			continue
 		}
@@ -160,25 +159,33 @@ func (ec *EventConfirmer) processPendingEvents(ctx context.Context) error {
 
 		// Check if transaction is confirmed based on confirmation type
 		requiredConfirmations := ec.getRequiredConfirmations(event.ConfirmationType)
-		confirmations := latestBlock - receipt.BlockNumber.Uint64() + 1
+		txBlock := receipt.BlockNumber
+		confirmations, ok := chaincommon.ConfirmationDepth(latestBlock, txBlock)
+		if !ok {
+			// RPC height skew: latest block is behind the tx block. Defer.
+			ec.logger.Debug().
+				Str("event_id", event.EventID).
+				Uint64("latest_block", latestBlock).
+				Uint64("tx_block", txBlock).
+				Msg("latest block behind tx block (RPC height skew); deferring confirmation")
+			continue
+		}
 
 		if confirmations >= requiredConfirmations {
 			var rowsAffected int64
 
 			// For outbound events, enrich with gas fee before confirming
 			if event.Type == store.EventTypeOutbound {
-				tx, _, txErr := ec.rpcClient.GetTransactionByHash(ctx, hash)
-				if txErr != nil {
+				if receipt.EffectiveGasPrice == nil {
+					// Receipt omitted effectiveGasPrice; skip rather than record a
+					// gas fee missing its L2 execution component. Retried next poll.
 					ec.logger.Warn().
-						Err(txErr).
 						Str("event_id", event.EventID).
 						Str("tx_hash", txHash).
-						Msg("failed to fetch transaction for gas fee, skipping confirmation")
+						Msg("receipt missing effectiveGasPrice, skipping confirmation")
 					continue
 				}
-				gasUsed := new(big.Int).SetUint64(receipt.GasUsed)
-				gasPrice := tx.GasPrice()
-				gasFeeUsed := new(big.Int).Mul(gasUsed, gasPrice).String()
+				gasFeeUsedStr := gasFeeUsed(receipt.GasUsed, receipt.EffectiveGasPrice, receipt.L1Fee).String()
 
 				// Unmarshal, set GasFeeUsed, re-marshal
 				var outboundEvent chaincommon.OutboundObservation
@@ -189,7 +196,7 @@ func (ec *EventConfirmer) processPendingEvents(ctx context.Context) error {
 						Msg("failed to unmarshal outbound event data")
 					continue
 				}
-				outboundEvent.GasFeeUsed = gasFeeUsed
+				outboundEvent.GasFeeUsed = gasFeeUsedStr
 
 				updatedData, marshalErr := json.Marshal(outboundEvent)
 				if marshalErr != nil {
@@ -245,24 +252,13 @@ func (ec *EventConfirmer) getTxHashFromEventID(eventID string) string {
 	return parts[0]
 }
 
-// getRequiredConfirmations returns the required number of confirmations based on confirmation type
+// getRequiredConfirmations returns the depth for a confirmation type. Values are
+// resolved by applyDefaults, so a 0 here is an intentional instant route.
 func (ec *EventConfirmer) getRequiredConfirmations(confirmationType string) uint64 {
 	switch confirmationType {
 	case store.ConfirmationFast:
-		if ec.fastConfirmations >= 0 {
-			return ec.fastConfirmations
-		}
-		return 5
-	case store.ConfirmationStandard:
-		if ec.standardConfirmations >= 0 {
-			return ec.standardConfirmations
-		}
-		return 12
+		return ec.fastConfirmations
 	default:
-		// Default to standard if unknown
-		if ec.standardConfirmations >= 0 {
-			return ec.standardConfirmations
-		}
-		return 12
+		return ec.standardConfirmations
 	}
 }

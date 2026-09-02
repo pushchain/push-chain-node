@@ -105,6 +105,7 @@ type Node struct {
 	txBroadcaster    *txbroadcaster.Broadcaster
 	txResolver       *txresolver.Resolver
 	expirySweeper    *expirysweeper.Sweeper
+	keyshareSweeper  *keyshare.Sweeper
 
 	// Network configuration (used during Start)
 	networkCfg libp2pnet.Config
@@ -238,20 +239,12 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 		registeredPeers:            make(map[string]bool),
 	}
 
-	getTSSAddress := func(ctx context.Context) (string, error) {
-		if node.coordinator == nil {
-			return "", fmt.Errorf("coordinator not initialized")
-		}
-		return node.coordinator.GetTSSAddress(ctx)
-	}
-
 	node.txResolver = txresolver.NewResolver(txresolver.Config{
 		EventStore:    evtStore,
 		Chains:        cfg.Chains,
 		PushSigner:    cfg.PushSigner,
 		CheckInterval: sessionExpiryCheckInterval,
 		Logger:        logger,
-		GetTSSAddress: getTSSAddress,
 	})
 
 	node.txBroadcaster = txbroadcaster.NewBroadcaster(txbroadcaster.Config{
@@ -259,7 +252,6 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 		Chains:        cfg.Chains,
 		CheckInterval: sessionExpiryCheckInterval,
 		Logger:        logger,
-		GetTSSAddress: getTSSAddress,
 	})
 
 	node.expirySweeper = expirysweeper.NewSweeper(expirysweeper.Config{
@@ -267,6 +259,12 @@ func NewNode(ctx context.Context, cfg Config) (*Node, error) {
 		PushCore:      cfg.PushCore,
 		CheckInterval: sessionExpiryCheckInterval,
 		Logger:        logger,
+	})
+
+	node.keyshareSweeper = keyshare.NewSweeper(keyshare.Config{
+		Keyshares: mgr,
+		PushCore:  cfg.PushCore,
+		Logger:    logger,
 	})
 
 	return node, nil
@@ -285,34 +283,9 @@ func (n *Node) Start(ctx context.Context) error {
 
 	n.logger.Debug().Msg("starting TSS node")
 
-	// Start libp2p network
-	net, err := libp2pnet.New(ctx, n.networkCfg, n.logger)
-	if err != nil {
-		return fmt.Errorf("failed to start libp2p network: %w", err)
-	}
-	n.network = net
-
-	// Register global message handler
-	if err := net.RegisterHandler(n.onReceive); err != nil {
-		net.Close()
-		return fmt.Errorf("failed to register message handler: %w", err)
-	}
-
-	// Recover IN_PROGRESS events on startup. Two-pass:
-	//   1. Rows whose event_data already carries signing_data → SIGNED
-	//      (signature was persisted but status got clobbered by a race).
-	//   2. Remaining IN_PROGRESS → CONFIRMED (genuine mid-session crashes).
-	signedRecovered, confirmedReset, err := n.eventStore.RecoverInProgressEvents()
-	if err != nil {
-		n.logger.Warn().Err(err).Msg("failed to recover IN_PROGRESS events, continuing anyway")
-	} else if signedRecovered > 0 || confirmedReset > 0 {
-		n.logger.Info().
-			Int64("signed_recovered", signedRecovered).
-			Int64("confirmed_reset", confirmedReset).
-			Msg("recovered IN_PROGRESS events on node startup")
-	}
-
-	// Create coordinator with send function using node's Send method
+	// Create coordinator with send function using node's Send method.
+	// Created before the network so the connection gater and message handler
+	// never observe a nil coordinator or session manager.
 	if n.coordinator == nil {
 		coord := coordinator.NewCoordinator(
 			n.eventStore,
@@ -351,6 +324,36 @@ func (n *Node) Start(ctx context.Context) error {
 		n.sessionManager = sessionMgr
 	}
 
+	// Only Universal Validators may connect and open TSS streams
+	n.networkCfg.Authorizer = n.coordinator.IsKnownPeer
+
+	// Start libp2p network
+	net, err := libp2pnet.New(ctx, n.networkCfg, n.logger)
+	if err != nil {
+		return fmt.Errorf("failed to start libp2p network: %w", err)
+	}
+	n.network = net
+
+	// Register global message handler
+	if err := net.RegisterHandler(n.onReceive); err != nil {
+		net.Close()
+		return fmt.Errorf("failed to register message handler: %w", err)
+	}
+
+	// Recover IN_PROGRESS events on startup. Two-pass:
+	//   1. Rows whose event_data already carries signing_data → SIGNED
+	//      (signature was persisted but status got clobbered by a race).
+	//   2. Remaining IN_PROGRESS → CONFIRMED (genuine mid-session crashes).
+	signedRecovered, confirmedReset, err := n.eventStore.RecoverInProgressEvents()
+	if err != nil {
+		n.logger.Warn().Err(err).Msg("failed to recover IN_PROGRESS events, continuing anyway")
+	} else if signedRecovered > 0 || confirmedReset > 0 {
+		n.logger.Info().
+			Int64("signed_recovered", signedRecovered).
+			Int64("confirmed_reset", confirmedReset).
+			Msg("recovered IN_PROGRESS events on node startup")
+	}
+
 	// Start coordinator
 	n.coordinator.Start(ctx)
 
@@ -365,6 +368,9 @@ func (n *Node) Start(ctx context.Context) error {
 
 	// Start expiry sweeper (CONFIRMED past expiry → REVERTED)
 	n.expirySweeper.Start(ctx)
+
+	// Start keyshare GC (delete shares superseded by quorum change / key refresh)
+	n.keyshareSweeper.Start(ctx)
 
 	n.logger.Info().
 		Str("peer_id", net.ID()).

@@ -1,12 +1,16 @@
 package pushcore
 
 import (
+	"bytes"
 	"context"
+	"errors"
+	"fmt"
 	"math/big"
 	"testing"
 
 	cmtservice "github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/query"
 	"github.com/cosmos/cosmos-sdk/types/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/cosmos/cosmos-sdk/x/authz"
@@ -984,9 +988,24 @@ type mockRegistryQueryClient struct {
 	uregistrytypes.QueryClient
 	allChainConfigsResp *uregistrytypes.QueryAllChainConfigsResponse
 	err                 error
+
+	chainConfigPages []*uregistrytypes.QueryAllChainConfigsResponse
+	chainConfigKeys  [][]byte
 }
 
 func (m *mockRegistryQueryClient) AllChainConfigs(ctx context.Context, req *uregistrytypes.QueryAllChainConfigsRequest, opts ...grpc.CallOption) (*uregistrytypes.QueryAllChainConfigsResponse, error) {
+	if m.chainConfigPages != nil {
+		var key []byte
+		if req.Pagination != nil {
+			key = req.Pagination.Key
+		}
+		m.chainConfigKeys = append(m.chainConfigKeys, key)
+		idx := len(m.chainConfigKeys) - 1
+		if idx >= len(m.chainConfigPages) {
+			return nil, assert.AnError
+		}
+		return m.chainConfigPages[idx], nil
+	}
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -1034,6 +1053,7 @@ func (m *mockUValidatorQueryClient) UniversalValidator(ctx context.Context, req 
 type mockUTSSQueryClient struct {
 	utsstypes.QueryClient
 	currentKeyResp            *utsstypes.QueryCurrentKeyResponse
+	keyByIdResp               *utsstypes.QueryKeyByIdResponse
 	pendingTssEventsResp      *utsstypes.QueryAllPendingTssEventsResponse
 	pendingFundMigrationsResp *utsstypes.QueryPendingFundMigrationsResponse
 	err                       error
@@ -1061,7 +1081,10 @@ func (m *mockUTSSQueryClient) PendingFundMigrations(ctx context.Context, req *ut
 }
 
 func (m *mockUTSSQueryClient) KeyById(ctx context.Context, req *utsstypes.QueryKeyByIdRequest, opts ...grpc.CallOption) (*utsstypes.QueryKeyByIdResponse, error) {
-	return nil, nil
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.keyByIdResp, nil
 }
 
 type mockTxServiceClient struct {
@@ -1091,6 +1114,14 @@ type mockUExecutorQueryClient struct {
 	gasPriceResp            *uexecutortypes.QueryGasPriceResponse
 	allPendingOutboundsResp *uexecutortypes.QueryAllPendingOutboundsResponse
 	err                     error
+
+	// lastPendingReq records the request so tests can assert the limit sent.
+	lastPendingReq *uexecutortypes.QueryAllPendingOutboundsRequest
+
+	// pendingReqs records every page request of a walk.
+	pendingReqs []*uexecutortypes.QueryAllPendingOutboundsRequest
+	// pendingTotal, when set, makes the mock serve that many rows by offset.
+	pendingTotal int
 }
 
 func (m *mockUExecutorQueryClient) GasPrice(ctx context.Context, req *uexecutortypes.QueryGasPriceRequest, opts ...grpc.CallOption) (*uexecutortypes.QueryGasPriceResponse, error) {
@@ -1117,8 +1148,26 @@ func (m *mockUExecutorQueryClient) AllUniversalTx(ctx context.Context, req *uexe
 }
 
 func (m *mockUExecutorQueryClient) AllPendingOutbounds(ctx context.Context, req *uexecutortypes.QueryAllPendingOutboundsRequest, opts ...grpc.CallOption) (*uexecutortypes.QueryAllPendingOutboundsResponse, error) {
+	m.lastPendingReq = req
+	m.pendingReqs = append(m.pendingReqs, req)
 	if m.err != nil {
 		return nil, m.err
+	}
+	if m.pendingTotal > 0 {
+		offset := int(req.Pagination.GetOffset())
+		end := offset + int(req.Pagination.GetLimit())
+		if end > m.pendingTotal {
+			end = m.pendingTotal
+		}
+		resp := &uexecutortypes.QueryAllPendingOutboundsResponse{
+			Pagination: &query.PageResponse{Total: uint64(m.pendingTotal)},
+		}
+		for i := offset; i < end; i++ {
+			id := fmt.Sprintf("ob-%d", i)
+			resp.Entries = append(resp.Entries, &uexecutortypes.PendingOutboundEntry{OutboundId: id})
+			resp.Outbounds = append(resp.Outbounds, &uexecutortypes.OutboundTx{Id: id})
+		}
+		return resp, nil
 	}
 	return m.allPendingOutboundsResp, nil
 }
@@ -1151,6 +1200,138 @@ func (m *mockAuthAccountQueryClient) Account(ctx context.Context, req *authtypes
 		return nil, m.err
 	}
 	return m.accountResp, nil
+}
+
+func TestClient_GetKeyByID(t *testing.T) {
+	logger := zerolog.Nop()
+
+	t.Run("no endpoints configured", func(t *testing.T) {
+		client := &Client{logger: logger, utssClients: []utsstypes.QueryClient{}}
+
+		key, err := client.GetKeyByID(context.Background(), "key-123")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no endpoints configured")
+		assert.Nil(t, key)
+	})
+
+	t.Run("successful query returns key", func(t *testing.T) {
+		mockClient := &mockUTSSQueryClient{
+			keyByIdResp: &utsstypes.QueryKeyByIdResponse{
+				Key: &utsstypes.TssKey{KeyId: "key-123", TssPubkey: "0xpub"},
+			},
+		}
+		client := &Client{logger: logger, utssClients: []utsstypes.QueryClient{mockClient}}
+
+		key, err := client.GetKeyByID(context.Background(), "key-123")
+		require.NoError(t, err)
+		require.NotNil(t, key)
+		assert.Equal(t, "key-123", key.KeyId)
+		assert.Equal(t, "0xpub", key.TssPubkey)
+	})
+
+	t.Run("unknown key id errors", func(t *testing.T) {
+		mockClient := &mockUTSSQueryClient{
+			keyByIdResp: &utsstypes.QueryKeyByIdResponse{Key: nil},
+		}
+		client := &Client{logger: logger, utssClients: []utsstypes.QueryClient{mockClient}}
+
+		key, err := client.GetKeyByID(context.Background(), "missing")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not found")
+		assert.Nil(t, key)
+	})
+
+	// A nil response with a nil error must not panic.
+	t.Run("nil response errors", func(t *testing.T) {
+		mockClient := &mockUTSSQueryClient{keyByIdResp: nil}
+		client := &Client{logger: logger, utssClients: []utsstypes.QueryClient{mockClient}}
+
+		key, err := client.GetKeyByID(context.Background(), "key-123")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not found")
+		assert.Nil(t, key)
+	})
+
+	t.Run("query error propagates", func(t *testing.T) {
+		mockClient := &mockUTSSQueryClient{err: errors.New("rpc down")}
+		client := &Client{logger: logger, utssClients: []utsstypes.QueryClient{mockClient}}
+
+		key, err := client.GetKeyByID(context.Background(), "key-123")
+		require.Error(t, err)
+		assert.Nil(t, key)
+	})
+}
+
+// An outbound leaves the pending set only on a quorum vote, so rows that cannot
+// reach one accumulate at the head of an oldest-first list. The walk is what
+// stops them hiding everything newer.
+func TestClient_GetAllPendingOutbounds_WalksOldestFirst(t *testing.T) {
+	ctx := context.Background()
+
+	newClient := func(total int) (*Client, *mockUExecutorQueryClient) {
+		m := &mockUExecutorQueryClient{pendingTotal: total}
+		return &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{m}}, m
+	}
+
+	t.Run("oldest first, never reversed", func(t *testing.T) {
+		client, m := newClient(9)
+		_, _, err := client.GetAllPendingOutbounds(ctx)
+		require.NoError(t, err)
+
+		p := m.pendingReqs[0].Pagination
+		require.NotNil(t, p)
+		assert.False(t, p.Reverse, "older outbounds must be read first")
+		assert.Zero(t, p.Offset)
+		assert.Equal(t, uint64(pendingOutboundPageSize), p.Limit)
+	})
+
+	// The ordinary case is a set that fits, and it must not cost extra requests.
+	t.Run("a set that fits costs one request", func(t *testing.T) {
+		client, m := newClient(9)
+		entries, _, err := client.GetAllPendingOutbounds(ctx)
+		require.NoError(t, err)
+		assert.Len(t, m.pendingReqs, 1)
+		assert.Len(t, entries, 9)
+	})
+
+	// A stuck prefix must not hide what is behind it.
+	t.Run("walks past a full first page", func(t *testing.T) {
+		client, m := newClient(pendingOutboundPageSize + 250)
+		entries, outbounds, err := client.GetAllPendingOutbounds(ctx)
+		require.NoError(t, err)
+
+		require.Len(t, m.pendingReqs, 2)
+		assert.Equal(t, uint64(0), m.pendingReqs[0].Pagination.GetOffset())
+		assert.Equal(t, uint64(pendingOutboundPageSize), m.pendingReqs[1].Pagination.GetOffset())
+
+		require.Len(t, entries, pendingOutboundPageSize+250)
+		require.Len(t, outbounds, pendingOutboundPageSize+250)
+		assert.Equal(t, "ob-0", entries[0].OutboundId, "oldest first")
+		assert.Equal(t, fmt.Sprintf("ob-%d", pendingOutboundPageSize+249), entries[len(entries)-1].OutboundId)
+	})
+
+	// The cap bounds one poll; the rest is read on the next tick.
+	t.Run("stops at the page cap and says so", func(t *testing.T) {
+		var logBuf bytes.Buffer
+		m := &mockUExecutorQueryClient{pendingTotal: pendingOutboundPageSize * (pendingOutboundMaxPages + 2)}
+		client := &Client{logger: zerolog.New(&logBuf), uexecutorClients: []uexecutortypes.QueryClient{m}}
+
+		entries, _, err := client.GetAllPendingOutbounds(ctx)
+		require.NoError(t, err)
+		assert.Len(t, m.pendingReqs, pendingOutboundMaxPages)
+		assert.Len(t, entries, pendingOutboundPageSize*pendingOutboundMaxPages)
+		assert.Contains(t, logBuf.String(), "page cap reached")
+	})
+
+	t.Run("quiet when the set fits", func(t *testing.T) {
+		var logBuf bytes.Buffer
+		m := &mockUExecutorQueryClient{pendingTotal: 9}
+		client := &Client{logger: zerolog.New(&logBuf), uexecutorClients: []uexecutortypes.QueryClient{m}}
+
+		_, _, err := client.GetAllPendingOutbounds(ctx)
+		require.NoError(t, err)
+		assert.NotContains(t, logBuf.String(), "page cap reached")
+	})
 }
 
 type mockUCallbackQueryClient struct {

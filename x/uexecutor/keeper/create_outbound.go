@@ -58,7 +58,10 @@ func (k Keeper) BuildOutboundsFromReceipt(
 
 		outbound, err := k.buildOutboundFromEvent(ctx, event, receipt.Hash, lg.Index)
 		if err != nil {
-			return nil, err
+			// Wrapped so the caller can surface an actionable reason: the bare
+			// collections.ErrNotFound ("not found") says nothing about which leg
+			// of a multicall failed.
+			return nil, fmt.Errorf("no token config for PRC20 %s on chain %s: %w", event.Token, event.ChainId, err)
 		}
 
 		k.Logger().Debug("outbound built from receipt",
@@ -267,22 +270,28 @@ func (k Keeper) AttachRescueOutboundFromReceipt(
 		//  never arrived on Push Chain and are still locked on the source chain.
 		//
 		//  Non-CEA inbounds: the auto-generated INBOUND_REVERT outbound must exist and
-		//  have reached REVERTED status, meaning TSS could not return the funds to the
-		//  source chain and they are stuck (held by the gateway contract or in escrow).
+		//  have reached REVERTED or ABORTED status. REVERTED means TSS tried and could
+		//  not return the funds to the source chain; ABORTED means the revert could not
+		//  even be built (its gas metadata was unresolvable) so it was never queued for
+		//  signing. Either way the funds never came back and are stuck (held by the
+		//  gateway contract or in escrow), which is exactly what rescue exists for.
 		if originalUtx.InboundTx.IsCEA {
 			if len(originalUtx.PcTx) == 0 || originalUtx.PcTx[0] == nil || originalUtx.PcTx[0].Status != "FAILED" {
 				return fmt.Errorf("rescue: UTX %s CEA deposit did not fail", originalUtxId)
 			}
 		} else {
-			hasRevertedAutoRevert := false
+			hasUnrecoveredAutoRevert := false
 			for _, ob := range originalUtx.OutboundTx {
-				if ob != nil && ob.TxType == types.TxType_INBOUND_REVERT && ob.OutboundStatus == types.Status_REVERTED {
-					hasRevertedAutoRevert = true
+				if ob == nil || ob.TxType != types.TxType_INBOUND_REVERT {
+					continue
+				}
+				if ob.OutboundStatus == types.Status_REVERTED || ob.OutboundStatus == types.Status_ABORTED {
+					hasUnrecoveredAutoRevert = true
 					break
 				}
 			}
-			if !hasRevertedAutoRevert {
-				return fmt.Errorf("rescue: UTX %s has no reverted inbound-revert outbound", originalUtxId)
+			if !hasUnrecoveredAutoRevert {
+				return fmt.Errorf("rescue: UTX %s has no reverted or aborted inbound-revert outbound", originalUtxId)
 			}
 		}
 
@@ -323,17 +332,34 @@ func (k Keeper) AttachRescueOutboundFromReceipt(
 		if originalUtx.InboundTx.IsPc20 {
 			externalAssetAddr = originalUtx.InboundTx.AssetAddr
 		} else {
-			tokenCfg, err := k.uregistryKeeper.GetTokenConfigByPRC20(
+			// Derived from the original stuck inbound, never taken from the rescue
+			// event. The amount below is always the original inbound's, so accepting
+			// the caller's PRC20 as the asset identity would pair one asset's raw
+			// amount with another asset's identity, amplified by differing decimals.
+			tokenCfg, err := k.uregistryKeeper.GetTokenConfig(
 				ctx,
 				originalUtx.InboundTx.SourceChain,
-				event.PRC20,
+				originalUtx.InboundTx.AssetAddr,
 			)
 			if err != nil {
-				return fmt.Errorf("rescue: token config not found for PRC20 %s on %s: %w",
-					event.PRC20, originalUtx.InboundTx.SourceChain, err)
+				return fmt.Errorf("rescue: no token config registered for original asset %s on %s: %w",
+					originalUtx.InboundTx.AssetAddr, originalUtx.InboundTx.SourceChain, err)
+			}
+			if tokenCfg.NativeRepresentation == nil || tokenCfg.NativeRepresentation.ContractAddress == "" {
+				return fmt.Errorf("rescue: token config for original asset %s on %s has no PRC20 representation",
+					originalUtx.InboundTx.AssetAddr, originalUtx.InboundTx.SourceChain)
+			}
+			derivedPRC20 := tokenCfg.NativeRepresentation.ContractAddress
+
+			// The event still names a PRC20 and it must agree with the derived one.
+			// Lenient canonicalization mirrors uregistry's own canonicalPRC20.
+			if utils.LenientCanonicalizeEVMAddress(event.PRC20) != utils.LenientCanonicalizeEVMAddress(derivedPRC20) {
+				return fmt.Errorf(
+					"rescue: event PRC20 %s does not match PRC20 %s registered for original asset %s on %s",
+					event.PRC20, derivedPRC20, originalUtx.InboundTx.AssetAddr, originalUtx.InboundTx.SourceChain)
 			}
 			externalAssetAddr = tokenCfg.Address
-			prc20AssetAddr = event.PRC20
+			prc20AssetAddr = derivedPRC20
 		}
 
 		logIndex := fmt.Sprintf("%d", lg.Index)
@@ -397,14 +423,28 @@ func (k Keeper) attachOutboundsToUtx(
 				}
 			}
 
-			// Write to pending outbounds index (inside UpdateUniversalTx closure for atomicity)
-			if err := k.PendingOutbounds.Set(ctx, outbound.Id, types.PendingOutboundEntry{
-				OutboundId:      outbound.Id,
-				UniversalTxId:   utxId,
-				CreatedAt:       ctx.BlockHeight(),
-				SigningDeadline: signingDeadline,
-			}); err != nil {
-				return fmt.Errorf("failed to set pending outbound index for %s: %w", outbound.Id, err)
+			// Only PENDING outbounds belong in the signing queue. Anything already
+			// ABORTED (e.g. a revert whose gas metadata could not be resolved) is
+			// recorded on the universal tx for the audit trail, but indexing it would
+			// park a row that can never be signed: no ballot forms for it, nothing
+			// removes it, and there is no admin abort for outbounds.
+			if outbound.OutboundStatus == types.Status_PENDING {
+				// Write to pending outbounds index (inside UpdateUniversalTx closure for atomicity)
+				if err := k.PendingOutbounds.Set(ctx, outbound.Id, types.PendingOutboundEntry{
+					OutboundId:      outbound.Id,
+					UniversalTxId:   utxId,
+					CreatedAt:       ctx.BlockHeight(),
+					SigningDeadline: signingDeadline,
+				}); err != nil {
+					return fmt.Errorf("failed to set pending outbound index for %s: %w", outbound.Id, err)
+				}
+			} else {
+				k.Logger().Warn("outbound attached without entering the signing queue",
+					"utx_id", utxId,
+					"outbound_id", outbound.Id,
+					"status", outbound.OutboundStatus.String(),
+					"abort_reason", outbound.AbortReason,
+				)
 			}
 
 			var pcTxHash string
@@ -446,6 +486,17 @@ func (k Keeper) attachOutboundsToUtx(
 			})
 			if err == nil {
 				ctx.EventManager().EmitEvent(evt)
+			}
+
+			// Mirror AbortOutbound's monitoring signal for outbounds that arrive
+			// already aborted, so alerting sees them the same way.
+			if outbound.OutboundStatus == types.Status_ABORTED {
+				ctx.EventManager().EmitEvent(sdk.NewEvent(
+					"outbound_aborted",
+					sdk.NewAttribute("utx_id", utxId),
+					sdk.NewAttribute("outbound_id", outbound.Id),
+					sdk.NewAttribute("abort_reason", outbound.AbortReason),
+				))
 			}
 		}
 

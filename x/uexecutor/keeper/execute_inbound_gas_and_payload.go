@@ -189,7 +189,18 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 
 	// --- create revert ONLY for pre-deposit / deposit failures (non-isCEA path)
 	if execErr != nil && shouldRevert {
-		revertOutbound := k.buildRevertOutbound(sdkCtx, utx.InboundTx)
+		revertOutbound, buildErr := k.buildRevertOutbound(sdkCtx, utx.InboundTx)
+		if buildErr != nil {
+			// The revert is still attached (recorded ABORTED) so the attempt stays
+			// auditable and the UTX becomes eligible for rescue.
+			k.Logger().Error("revert outbound could not be fully built",
+				"utx_id", universalTxKey,
+				"error", buildErr.Error(),
+			)
+		}
+		if revertOutbound == nil {
+			return nil
+		}
 
 		if attachErr := k.attachOutboundsToUtx(
 			sdkCtx,
@@ -248,10 +259,27 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 		)
 
 		var feeErr error
+		var attachErr error
+		if contractErr != nil {
+			// Reverted: cacheCtx is discarded, so bill on the parent sdkCtx. The
+			// gas deposit committed before the cache opened, so there is a balance.
+			k.ChargeRevertedPayloadGas(ctx, sdkCtx, ueaAddr, contractReceipt, utx.InboundTx.UniversalPayload)
+		}
 		if contractErr == nil && contractReceipt != nil {
 			feeErr = k.DeductGasFeesFromReceipt(cacheCtx, cacheCtx, ueaAddr, contractReceipt, utx.InboundTx.UniversalPayload)
 			if feeErr == nil {
-				writeCache()
+				// A successful callback may itself have called
+				// UniversalGatewayPC, burning PRC20 and emitting
+				// UniversalTxOutbound. DerivedEVMCall skips PostTxProcessing,
+				// so nothing else picks those logs up: without this attach the
+				// supply is burned and no OutboundTx / PendingOutbounds row is
+				// ever created. Attaching inside cacheCtx keeps the burn and the
+				// outbound rows atomic - if the attach fails the cache is
+				// discarded, rolling the burn back with it.
+				attachErr = k.AttachOutboundsToExistingUniversalTx(cacheCtx, contractReceipt, utx)
+				if attachErr == nil {
+					writeCache()
+				}
 			}
 		}
 
@@ -271,6 +299,8 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 			// EVM call returned nil receipt without error — leave Status FAILED, no message.
 		case feeErr != nil:
 			callPcTx.ErrorMsg = fmt.Sprintf("gas fee deduction failed: %s", feeErr.Error())
+		case attachErr != nil:
+			callPcTx.ErrorMsg = fmt.Sprintf("outbound attach failed: %s", attachErr.Error())
 		default:
 			callPcTx.Status = "SUCCESS"
 		}
@@ -295,6 +325,7 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 		ueaAddr,
 		utx.InboundTx.UniversalPayload,
 		utx.InboundTx.VerificationData,
+		utx,
 	)
 
 	payloadPcTx := types.PCTx{
@@ -321,16 +352,9 @@ func (k Keeper) ExecuteInboundGasAndPayload(ctx context.Context, utx types.Unive
 			"tx_hash", receipt.Hash,
 			"gas_used", receipt.GasUsed,
 		)
+		// Outbounds are attached inside ExecutePayloadV2, atomically with the
+		// payload execution: reaching here means they are already committed.
 		payloadPcTx.Status = "SUCCESS"
-
-		if attachErr := k.AttachOutboundsToExistingUniversalTx(sdkCtx, receipt, utx); attachErr != nil {
-			if storeErr := k.UpdateUniversalTx(sdkCtx, universalTxKey, func(u *types.UniversalTx) error {
-				u.RevertError = attachErr.Error()
-				return nil
-			}); storeErr != nil {
-				return storeErr
-			}
-		}
 	}
 
 	updateErr := k.UpdateUniversalTx(ctx, universalTxKey, func(utx *types.UniversalTx) error {

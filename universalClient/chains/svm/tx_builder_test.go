@@ -1,11 +1,11 @@
 package svm
 
 import (
-	"encoding/base64"
 	"context"
 	"crypto/ecdsa"
 	crand "crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
@@ -1227,6 +1227,74 @@ func TestBuildWithdrawAndExecuteAccounts(t *testing.T) {
 	})
 }
 
+// The gateway creates the recipient ATA itself now, but it can only do that if
+// we hand it recipient_ata, rent and the ATA program in the slots its Accounts
+// struct declares. Dropping any of them breaks an SPL withdraw to a fresh
+// recipient on chain, which no amount of local building would reveal.
+func TestBuildWithdrawAndExecuteAccounts_SPLSlots(t *testing.T) {
+	builder := newTestBuilder(t)
+
+	caller := solana.NewWallet().PublicKey()
+	config := solana.NewWallet().PublicKey()
+	vault := solana.NewWallet().PublicKey()
+	cea := solana.NewWallet().PublicKey()
+	tss := solana.NewWallet().PublicKey()
+	executed := solana.NewWallet().PublicKey()
+	recipient := solana.NewWallet().PublicKey()
+	mint := solana.NewWallet().PublicKey()
+
+	accounts := builder.buildWithdrawAndExecuteAccounts(
+		caller, config, vault, cea, tss, executed,
+		solana.SystemProgramID,
+		false, 1,
+		recipient, mint,
+		nil,
+		solana.PublicKey{}, solana.PublicKey{},
+	)
+	require.Len(t, accounts, 20)
+
+	wantVaultATA, _, err := solana.FindAssociatedTokenAddress(vault, mint)
+	require.NoError(t, err)
+	wantCeaATA, _, err := solana.FindAssociatedTokenAddress(cea, mint)
+	require.NoError(t, err)
+	wantRecipientATA, _, err := solana.FindAssociatedTokenAddress(recipient, mint)
+	require.NoError(t, err)
+
+	for _, tc := range []struct {
+		slot     int
+		name     string
+		want     solana.PublicKey
+		writable bool
+	}{
+		{8, "recipient", recipient, true},
+		{9, "vault_ata", wantVaultATA, true},
+		{10, "cea_ata", wantCeaATA, true},
+		{11, "mint", mint, false},
+		{12, "token_program", solana.TokenProgramID, false},
+		{13, "rent", solana.SysVarRentPubkey, false},
+		{14, "associated_token_program", solana.SPLAssociatedTokenAccountProgramID, false},
+		{15, "recipient_ata", wantRecipientATA, true},
+	} {
+		assert.Equal(t, tc.want, accounts[tc.slot].PublicKey, "slot %d is %s", tc.slot, tc.name)
+		assert.Equal(t, tc.writable, accounts[tc.slot].IsWritable, "slot %d (%s) writability", tc.slot, tc.name)
+		assert.False(t, accounts[tc.slot].IsSigner, "slot %d (%s) must not sign", tc.slot, tc.name)
+	}
+
+	t.Run("execute leaves recipient and recipient_ata unset", func(t *testing.T) {
+		exec := builder.buildWithdrawAndExecuteAccounts(
+			caller, config, vault, cea, tss, executed,
+			solana.NewWallet().PublicKey(),
+			false, 2,
+			recipient, mint,
+			nil,
+			solana.PublicKey{}, solana.PublicKey{},
+		)
+		assert.Equal(t, builder.gatewayAddress, exec[8].PublicKey, "recipient is None for execute")
+		assert.Equal(t, builder.gatewayAddress, exec[15].PublicKey, "recipient_ata is None for execute")
+		assert.Equal(t, wantCeaATA, exec[10].PublicKey, "cea_ata is still real for execute")
+	})
+}
+
 func TestBuildRevertAccounts(t *testing.T) {
 	builder := newTestBuilder(t)
 
@@ -1239,10 +1307,10 @@ func TestBuildRevertAccounts(t *testing.T) {
 	caller := solana.NewWallet().PublicKey()
 	tokenMint := solana.NewWallet().PublicKey()
 
-	t.Run("SOL revert has 12 accounts (8 required + 4 None sentinels)", func(t *testing.T) {
+	t.Run("SOL revert has 14 accounts (8 required + 6 None sentinels)", func(t *testing.T) {
 		accounts := builder.buildRevertAccounts(config, vault, feeVault, tss, recipient, executed, caller, true, solana.PublicKey{})
 
-		assert.Len(t, accounts, 12)
+		assert.Len(t, accounts, 14)
 		assert.Equal(t, config, accounts[0].PublicKey, "config")
 		assert.False(t, accounts[0].IsWritable)
 		assert.Equal(t, vault, accounts[1].PublicKey, "vault")
@@ -1258,16 +1326,16 @@ func TestBuildRevertAccounts(t *testing.T) {
 		assert.Equal(t, caller, accounts[6].PublicKey, "caller")
 		assert.True(t, accounts[6].IsSigner)
 		assert.Equal(t, solana.SystemProgramID, accounts[7].PublicKey, "system_program")
-		// SOL: 4 optional SPL accounts are gateway sentinel (None)
-		for i := 8; i < 12; i++ {
+		// SOL: 6 optional SPL accounts are gateway sentinel (None)
+		for i := 8; i < 14; i++ {
 			assert.Equal(t, builder.gatewayAddress, accounts[i].PublicKey, "SOL sentinel account %d", i)
 		}
 	})
 
-	t.Run("SPL revert has 12 accounts (8 required + 4 SPL accounts)", func(t *testing.T) {
+	t.Run("SPL revert has 14 accounts (8 required + 6 SPL accounts)", func(t *testing.T) {
 		accounts := builder.buildRevertAccounts(config, vault, feeVault, tss, recipient, executed, caller, false, tokenMint)
 
-		assert.Len(t, accounts, 12)
+		assert.Len(t, accounts, 14)
 		// First 8 same as SOL
 		assert.Equal(t, config, accounts[0].PublicKey, "config")
 		assert.Equal(t, vault, accounts[1].PublicKey, "vault")
@@ -1277,11 +1345,19 @@ func TestBuildRevertAccounts(t *testing.T) {
 		assert.Equal(t, executed, accounts[5].PublicKey, "executed_tx")
 		assert.Equal(t, caller, accounts[6].PublicKey, "caller")
 		assert.Equal(t, solana.SystemProgramID, accounts[7].PublicKey, "system_program")
-		// SPL: token_vault, recipient_token_account, token_mint, token_program
+		// SPL: token_vault, recipient_token_account, token_mint, token_program,
+		// associated_token_program, rent. The last two are what let the gateway
+		// create the recipient ATA itself.
 		assert.True(t, accounts[8].IsWritable, "token_vault should be writable")
 		assert.True(t, accounts[9].IsWritable, "recipient_token_account should be writable")
 		assert.Equal(t, tokenMint, accounts[10].PublicKey, "token_mint")
 		assert.Equal(t, solana.TokenProgramID, accounts[11].PublicKey, "token_program")
+		assert.Equal(t, solana.SPLAssociatedTokenAccountProgramID, accounts[12].PublicKey, "associated_token_program")
+		assert.Equal(t, solana.SysVarRentPubkey, accounts[13].PublicKey, "rent")
+
+		wantRecipientATA, _, err := solana.FindAssociatedTokenAddress(recipient, tokenMint)
+		require.NoError(t, err)
+		assert.Equal(t, wantRecipientATA, accounts[9].PublicKey, "recipient_token_account must be the canonical ATA")
 	})
 }
 
@@ -2810,31 +2886,40 @@ func TestVerifyBroadcastedTx_NotFoundVersusRPCFailure(t *testing.T) {
 	})
 }
 
-// The gateway creates the recipient ATA and meters the rent into gas_used.
-// A create prepended here would put that cost outside the metered path, so the
-// built transaction must carry only the compute limit and the gateway call.
-func TestBuildOutboundTransaction_NoRecipientATACreate(t *testing.T) {
+// The gateway creates the recipient ATA on every path and meters the rent into
+// gas_used, so the client must not create it: doing so makes the gateway see the
+// account already present, leaving the rent outside gas_used (F-2026-18815).
+func TestBuildOutboundTransaction_NoClientSideATACreate(t *testing.T) {
 	ataProgram := solana.MustPublicKeyFromBase58("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
 
 	for _, tc := range []struct {
-		name      string
-		txType    string
-		assetAddr string
+		name   string
+		txType string
+		spl    bool
 	}{
-		{"SPL withdraw", "FUNDS", solana.NewWallet().PublicKey().String()},
-		{"SPL revert", "INBOUND_REVERT", solana.NewWallet().PublicKey().String()},
-		{"native withdraw", "FUNDS", ""},
+		{"SPL withdraw", "FUNDS", true},
+		{"SPL revert", "INBOUND_REVERT", true},
+		{"SPL rescue", "RESCUE_FUNDS", true},
+		{"native withdraw", "FUNDS", false},
+		{"native revert", "INBOUND_REVERT", false},
+		{"native rescue", "RESCUE_FUNDS", false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			builder := newBlockhashOnlyBuilder(t)
+			recipient := solana.NewWallet().PublicKey()
+			mint := solana.NewWallet().PublicKey()
+			assetAddr := ""
+			if tc.spl {
+				assetAddr = mint.String()
+			}
 			data := &uetypes.OutboundCreatedEvent{
 				TxID:             "0x" + strings.Repeat("11", 32),
 				UniversalTxId:    "0x" + strings.Repeat("22", 32),
 				DestinationChain: "solana:devnet",
 				Sender:           "0x" + strings.Repeat("33", 20),
-				Recipient:        solana.NewWallet().PublicKey().String(),
+				Recipient:        recipient.String(),
 				Amount:           "1000",
-				AssetAddr:        tc.assetAddr,
+				AssetAddr:        assetAddr,
 				GasLimit:         "400000",
 				GasFee:           "3000000",
 				TxType:           tc.txType,
@@ -2842,15 +2927,30 @@ func TestBuildOutboundTransaction_NoRecipientATACreate(t *testing.T) {
 			}
 			req := &common.UnsignedSigningReq{SigningHash: make([]byte, 32), Nonce: 0}
 
-			tx, _, err := builder.BuildOutboundTransaction(context.Background(), req, data, make([]byte, 65))
+			tx, instructionID, err := builder.BuildOutboundTransaction(context.Background(), req, data, make([]byte, 65))
 			require.NoError(t, err)
 			require.NotNil(t, tx)
 
-			require.Len(t, tx.Message.Instructions, 2, "expected only compute limit and the gateway call")
-			for i, ix := range tx.Message.Instructions {
-				program, err := tx.Message.Program(ix.ProgramIDIndex)
+			require.Len(t, tx.Message.Instructions, 2, "compute limit and the gateway call only")
+			for i := range tx.Message.Instructions {
+				program, err := tx.Message.Program(tx.Message.Instructions[i].ProgramIDIndex)
 				require.NoError(t, err)
 				assert.NotEqual(t, ataProgram, program, "instruction %d creates an ATA", i)
+			}
+
+			// Revert and rescue must still hand the gateway the canonical ATA plus
+			// the two accounts it needs to create it.
+			if tc.spl && (instructionID == 3 || instructionID == 4) {
+				gatewayIx := tx.Message.Instructions[len(tx.Message.Instructions)-1]
+				metas, err := gatewayIx.ResolveInstructionAccounts(&tx.Message)
+				require.NoError(t, err)
+				require.Len(t, metas, 14)
+
+				wantATA, _, err := solana.FindAssociatedTokenAddress(recipient, mint)
+				require.NoError(t, err)
+				assert.Equal(t, wantATA, metas[9].PublicKey, "recipient_token_account")
+				assert.Equal(t, solana.SPLAssociatedTokenAccountProgramID, metas[12].PublicKey, "associated_token_program")
+				assert.Equal(t, solana.SysVarRentPubkey, metas[13].PublicKey, "rent")
 			}
 		})
 	}
@@ -2888,8 +2988,6 @@ func newBlockhashOnlyBuilder(t *testing.T) *TxBuilder {
 	require.NoError(t, err)
 	return builder
 }
-
-
 
 // ---------------------------------------------------------------------------
 // Empty-recipient parking sentinel (F-2026-18184)

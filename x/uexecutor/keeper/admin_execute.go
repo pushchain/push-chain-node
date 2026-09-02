@@ -12,44 +12,17 @@ import (
 )
 
 // ExecuteStuckInbound finalizes a stuck inbound ballot as PASSED and runs the
-// same post-finalization pipeline a finalizing vote would have run, so the user
-// receives the bridged funds on Push.
+// pipeline a finalizing vote would have, so the user receives the funds.
 //
-// It is the sibling of RevertStuckInbound, and exists because that hatch is the
-// wrong resolution for one specific shape of F-2026-18147. RecomputeBallotQuorum
-// rebuilds EligibleVoters from the live UV set, recomputes the threshold and
-// preserves the votes of validators still present - but returns PENDING
-// unconditionally, never tallying the votes it just rebuilt against the
-// threshold it just computed. A ballot whose preserved YES votes already clear
-// the recomputed threshold therefore sits PENDING forever, and since recompute
-// dropped the departed validators that never voted, every remaining eligible
-// voter has voted and no further vote can be cast. Without this message the only
-// hatch was a source-chain refund - so an inbound the whole live validator set
-// attested got refunded instead of executed.
+// Sibling of RevertStuckInbound, which is the wrong resolution when a ballot's
+// preserved YES votes already clear the recomputed threshold — RecomputeBallotQuorum
+// leaves those PENDING forever, and a refund was the only hatch (F-2026-18147).
 //
-// Preconditions, both required:
+// Requires PENDING-unreachable with YES >= VotingThreshold. EXPIRED belongs to
+// RevertStuckInbound: no quorum ever formed, so there is nothing to act on.
 //
-//   - Ballot.IsUnreachablePending: stored PENDING, at least one eligible voter,
-//     and every eligible voter has already voted. This is what makes admin
-//     intervention legitimate - AddVote rejects repeat votes, so nothing can move
-//     the ballot on its own.
-//   - YES votes >= VotingThreshold. The threshold is checked explicitly rather
-//     than inferred. Today both inbound vote sites hardcode VOTE_RESULT_SUCCESS,
-//     so an unreachable-pending inbound ballot always has yes == len(voters),
-//     which always clears (2N/3)+1; the check must not depend on that staying
-//     true if a negative-vote path is ever added.
-//
-// Everything else is refused. EXPIRED in particular belongs to
-// MsgRevertStuckInbound: quorum never formed there, so there is no attestation to
-// act on and a refund is the honest resolution.
-//
-// Deriving the ballot key from the admin-supplied inbound is the security
-// property that makes this safe: the admin cannot execute anything other than
-// exactly the payload the validators voted on. A modified payload derives a
-// different ballot key, which either has no ballot or has one whose votes are
-// for that other payload.
-//
-// Returns the new UTX ID for telemetry.
+// The ballot key is derived from the supplied inbound, so the admin cannot
+// execute anything other than the payload the validators voted on.
 func (k Keeper) ExecuteStuckInbound(ctx context.Context, inbound types.Inbound) (utxId string, err error) {
 	// Same canonical form as the vote path, so the admin-supplied payload
 	// derives the same ballot key / UTX key the votes did.

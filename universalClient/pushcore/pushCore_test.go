@@ -1391,17 +1391,22 @@ func TestGetAllPendingOutbounds_RowBudgetSurvivesDegradedPages(t *testing.T) {
 	require.Equal(t, fullEntries[len(fullEntries)-1].OutboundId, degradedEntries[len(degradedEntries)-1].OutboundId)
 }
 
-// An endpoint that rejects everything but the smallest page must not turn one
-// poll into thousands of requests.
-func TestGetAllPendingOutbounds_RequestCapBoundsTheDegradedPath(t *testing.T) {
-	m := &oversizedPageClient{total: 20000, maxServable: 1}
+// Every payload sitting at the cap is the worst page the client can meet: 8 MiB
+// over a 128 KiB row is 64 rows, so the page settles at 62 and the poll costs
+// more than 80 requests. It must still read the full budget rather than stop at
+// some request count.
+func TestGetAllPendingOutbounds_WorstCaseRowSizeStillReadsTheBudget(t *testing.T) {
+	m := &oversizedPageClient{total: 20000, maxServable: 64}
 	client := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{m}}
 
 	entries, _, err := client.GetAllPendingOutbounds(context.Background())
-	require.NoError(t, err, "a bounded walk still returns what it read")
-	assert.LessOrEqual(t, len(m.reqs), pendingOutboundMaxRequests+10)
-	assert.NotEmpty(t, entries, "the poll must still make progress")
-	assert.Less(t, len(entries), pendingOutboundMaxRows, "the remainder waits for the next poll")
+	require.NoError(t, err)
+	require.Len(t, entries, pendingOutboundMaxRows, "a small page must not shrink the poll")
+	assert.Greater(t, len(m.reqs), 64, "this case genuinely needs more than 64 requests")
+
+	for i, e := range entries {
+		require.Equal(t, fmt.Sprintf("ob-%d", i), e.OutboundId, "row %d out of order", i)
+	}
 }
 
 // The cap is only useful if the rows under it are the right ones. Asserting the

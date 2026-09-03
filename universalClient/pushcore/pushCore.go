@@ -409,10 +409,6 @@ const (
 	// rather than fewer rows.
 	pendingOutboundMaxRows = 5000
 
-	// pendingOutboundMaxRequests stops the degraded path from turning into one
-	// request per row if an endpoint rejects everything but the smallest page.
-	pendingOutboundMaxRequests = 64
-
 	chainConfigPageSize = 200
 	chainConfigMaxPages = 20
 
@@ -455,22 +451,15 @@ func (c *Client) GetAllPendingOutbounds(ctx context.Context) ([]*uexecutortypes.
 	// one always fits and no row is ever unfetchable.
 	var offset uint64
 	limit := uint64(pendingOutboundPageSize)
-	requests := 0
 
+	// The walk is bounded without counting requests: a served page adds at least
+	// one row or is short and ends the walk, so there are at most
+	// pendingOutboundMaxRows of them, and halving bottoms out at a page of one.
 	for uint64(len(entries)) < pendingOutboundMaxRows {
-		if requests >= pendingOutboundMaxRequests {
-			c.logger.Warn().
-				Int("requests", requests).
-				Int("fetched", len(entries)).
-				Msg("pending outbound request cap reached; the remainder is read on the next poll")
-			return entries, outbounds, nil
-		}
-
 		pageLimit := limit
 		if remaining := pendingOutboundMaxRows - uint64(len(entries)); pageLimit > remaining {
 			pageLimit = remaining
 		}
-		requests++
 		resp, err := retryWithRoundRobin(
 			len(c.uexecutorClients),
 			&c.rr,

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
+	"time"
 
 	cmtservice "github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
@@ -1349,9 +1350,22 @@ func TestGetAllPendingOutbounds_HalvesOnResourceExhausted(t *testing.T) {
 		m := &oversizedPageClient{total: 10, maxServable: 0}
 		client := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{m}}
 
-		_, _, err := client.GetAllPendingOutbounds(ctx)
-		require.Error(t, err, "nothing left to halve, so the caller must see it")
-		assert.Equal(t, codes.ResourceExhausted, status.Code(err))
+		// Bounded, because the failure mode here is a walk that never ends: if
+		// the floor guard let the page reach zero, every request would return no
+		// rows and the offset would stop moving. That must fail, not hang.
+		done := make(chan error, 1)
+		go func() {
+			_, _, err := client.GetAllPendingOutbounds(ctx)
+			done <- err
+		}()
+
+		select {
+		case err := <-done:
+			require.Error(t, err, "nothing left to halve, so the caller must see it")
+			assert.Equal(t, codes.ResourceExhausted, status.Code(err))
+		case <-time.After(5 * time.Second):
+			t.Fatal("the walk did not terminate; the page size floor is gone")
+		}
 	})
 
 	t.Run("an unrelated error is not retried smaller", func(t *testing.T) {
@@ -1471,4 +1485,30 @@ func TestGetAllPendingOutbounds_ReadsTheCappedSetExactlyOnce(t *testing.T) {
 		assert.Equal(t, "ob-0", entries[0].OutboundId)
 		assert.Equal(t, "ob-2499", entries[2499].OutboundId)
 	})
+}
+
+// The last page is trimmed to what is left of the budget. It matters whenever
+// the page the walk settled on does not divide the budget: at 62 rows the walk
+// reaches 4960 and the final request must ask for 40, not another 62.
+func TestGetAllPendingOutbounds_LastPageIsTrimmedToTheBudget(t *testing.T) {
+	m := &oversizedPageClient{total: 20000, maxServable: 64}
+	client := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{m}}
+
+	entries, outbounds, err := client.GetAllPendingOutbounds(context.Background())
+	require.NoError(t, err)
+
+	require.Len(t, entries, pendingOutboundMaxRows, "the budget is a ceiling, not a rounding")
+	require.Len(t, outbounds, pendingOutboundMaxRows)
+
+	last := m.reqs[len(m.reqs)-1]
+	assert.Equal(t, uint64(40), last.Limit, "the final page asks only for what is left")
+	assert.Equal(t, uint64(pendingOutboundMaxRows-40), last.Offset)
+
+	// No request may reach past the budget.
+	for i, r := range m.reqs {
+		if r.Limit <= m.maxServable {
+			assert.LessOrEqual(t, r.Offset+r.Limit, uint64(pendingOutboundMaxRows),
+				"request %d would read past the budget", i)
+		}
+	}
 }

@@ -22,8 +22,10 @@ import (
 	uvalidatortypes "github.com/pushchain/push-chain-node/x/uvalidator/types"
 	"github.com/rs/zerolog"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 )
 
 // Client is a fan-out client that connects to multiple Push Chain gRPC endpoints.
@@ -401,7 +403,11 @@ const (
 	// gRPC's 4 MiB default. Asking for the whole set in one request would fail
 	// the call outright once the set grew, taking the poll down entirely.
 	pendingOutboundPageSize = 1000
-	pendingOutboundMaxPages = 5
+
+	// pendingOutboundMaxRows caps one poll. The remainder is read on the next
+	// tick. Counted in rows so a page that had to shrink costs extra requests
+	// rather than fewer rows.
+	pendingOutboundMaxRows = 5000
 
 	chainConfigPageSize = 200
 	chainConfigMaxPages = 20
@@ -439,35 +445,58 @@ func (c *Client) GetAllPendingOutbounds(ctx context.Context) ([]*uexecutortypes.
 		outbounds []*uexecutortypes.OutboundTx
 	)
 
-	for page := 0; page < pendingOutboundMaxPages; page++ {
-		offset := uint64(page) * pendingOutboundPageSize
+	// Halving on ResourceExhausted is what keeps one large row from blinding the
+	// whole poll. It terminates because core caps an outbound payload
+	// (MaxOutboundPayloadBytes) well below maxPushCoreRecvMsgSize, so a page of
+	// one always fits and no row is ever unfetchable.
+	var offset uint64
+	limit := uint64(pendingOutboundPageSize)
+
+	// The walk is bounded without counting requests: a served page adds at least
+	// one row or is short and ends the walk, so there are at most
+	// pendingOutboundMaxRows of them, and halving bottoms out at a page of one.
+	for uint64(len(entries)) < pendingOutboundMaxRows {
+		pageLimit := limit
+		if remaining := pendingOutboundMaxRows - uint64(len(entries)); pageLimit > remaining {
+			pageLimit = remaining
+		}
 		resp, err := retryWithRoundRobin(
 			len(c.uexecutorClients),
 			&c.rr,
 			func(idx int) (*uexecutortypes.QueryAllPendingOutboundsResponse, error) {
 				return c.uexecutorClients[idx].AllPendingOutbounds(ctx, &uexecutortypes.QueryAllPendingOutboundsRequest{
-					Pagination: &query.PageRequest{Offset: offset, Limit: pendingOutboundPageSize},
+					Pagination: &query.PageRequest{Offset: offset, Limit: pageLimit},
 				})
 			},
 			"GetAllPendingOutbounds",
 			c.logger,
 		)
 		if err != nil {
-			return nil, nil, err
+			if status.Code(err) != codes.ResourceExhausted || limit == 1 {
+				return nil, nil, err
+			}
+			limit /= 2
+			c.logger.Warn().
+				Uint64("offset", offset).
+				Uint64("was", pageLimit).
+				Uint64("now", limit).
+				Msg("pending outbound page exceeded the receive limit; halving the page")
+			continue
 		}
 
 		entries = append(entries, resp.Entries...)
 		outbounds = append(outbounds, resp.Outbounds...)
 
-		if len(resp.Entries) < pendingOutboundPageSize {
+		if uint64(len(resp.Entries)) < pageLimit {
 			return entries, outbounds, nil
 		}
+		offset += uint64(len(resp.Entries))
 	}
 
 	c.logger.Warn().
-		Int("max_pages", pendingOutboundMaxPages).
+		Int("max_rows", pendingOutboundMaxRows).
 		Int("fetched", len(entries)).
-		Msg("pending outbound page cap reached; the remainder is read on the next poll")
+		Msg("pending outbound row budget reached; the remainder is read on the next poll")
 
 	return entries, outbounds, nil
 }

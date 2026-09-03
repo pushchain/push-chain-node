@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
+	"time"
 
 	cmtservice "github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
@@ -22,6 +23,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestNew(t *testing.T) {
@@ -1243,16 +1246,16 @@ func TestClient_GetAllPendingOutbounds_WalksOldestFirst(t *testing.T) {
 	})
 
 	// The cap bounds one poll; the rest is read on the next tick.
-	t.Run("stops at the page cap and says so", func(t *testing.T) {
+	t.Run("stops at the row budget and says so", func(t *testing.T) {
 		var logBuf bytes.Buffer
-		m := &mockUExecutorQueryClient{pendingTotal: pendingOutboundPageSize * (pendingOutboundMaxPages + 2)}
+		m := &mockUExecutorQueryClient{pendingTotal: pendingOutboundMaxRows + 2*pendingOutboundPageSize}
 		client := &Client{logger: zerolog.New(&logBuf), uexecutorClients: []uexecutortypes.QueryClient{m}}
 
 		entries, _, err := client.GetAllPendingOutbounds(ctx)
 		require.NoError(t, err)
-		assert.Len(t, m.pendingReqs, pendingOutboundMaxPages)
-		assert.Len(t, entries, pendingOutboundPageSize*pendingOutboundMaxPages)
-		assert.Contains(t, logBuf.String(), "page cap reached")
+		assert.Len(t, m.pendingReqs, pendingOutboundMaxRows/pendingOutboundPageSize)
+		assert.Len(t, entries, pendingOutboundMaxRows)
+		assert.Contains(t, logBuf.String(), "row budget reached")
 	})
 
 	t.Run("quiet when the set fits", func(t *testing.T) {
@@ -1264,4 +1267,248 @@ func TestClient_GetAllPendingOutbounds_WalksOldestFirst(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotContains(t, logBuf.String(), "page cap reached")
 	})
+}
+
+// oversizedPageClient serves rows by offset like the mock above, but rejects any
+// page larger than maxServable with ResourceExhausted, the way grpc-go does when
+// a response exceeds the receive limit.
+type oversizedPageClient struct {
+	uexecutortypes.QueryClient
+	total       int
+	maxServable uint64
+	reqs        []*query.PageRequest
+}
+
+func (m *oversizedPageClient) AllPendingOutbounds(ctx context.Context, req *uexecutortypes.QueryAllPendingOutboundsRequest, opts ...grpc.CallOption) (*uexecutortypes.QueryAllPendingOutboundsResponse, error) {
+	m.reqs = append(m.reqs, req.Pagination)
+	if req.Pagination.GetLimit() > m.maxServable {
+		return nil, status.Error(codes.ResourceExhausted,
+			"grpc: received message larger than max")
+	}
+	offset := int(req.Pagination.GetOffset())
+	end := offset + int(req.Pagination.GetLimit())
+	if end > m.total {
+		end = m.total
+	}
+	resp := &uexecutortypes.QueryAllPendingOutboundsResponse{
+		Pagination: &query.PageResponse{Total: uint64(m.total)},
+	}
+	for i := offset; i < end; i++ {
+		id := fmt.Sprintf("ob-%d", i)
+		resp.Entries = append(resp.Entries, &uexecutortypes.PendingOutboundEntry{OutboundId: id})
+		resp.Outbounds = append(resp.Outbounds, &uexecutortypes.OutboundTx{Id: id})
+	}
+	return resp, nil
+}
+
+// A page that will not fit must not blind the poll. The client halves until the
+// response fits, which terminates because core caps an outbound payload well
+// below the receive limit, so a page of one always fits.
+func TestGetAllPendingOutbounds_HalvesOnResourceExhausted(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("degrades and still returns every row oldest first", func(t *testing.T) {
+		m := &oversizedPageClient{total: 300, maxServable: 250}
+		client := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{m}}
+
+		entries, outbounds, err := client.GetAllPendingOutbounds(ctx)
+		require.NoError(t, err, "an oversized page must not fail the whole poll")
+		require.Len(t, entries, 300)
+		require.Len(t, outbounds, 300)
+
+		assert.Equal(t, "ob-0", entries[0].OutboundId, "oldest first")
+		assert.Equal(t, "ob-299", entries[299].OutboundId)
+
+		// 1000 rejected, then 500 rejected, then 250 serves.
+		require.GreaterOrEqual(t, len(m.reqs), 3)
+		assert.Equal(t, uint64(1000), m.reqs[0].Limit)
+		assert.Equal(t, uint64(500), m.reqs[1].Limit)
+		assert.Equal(t, uint64(250), m.reqs[2].Limit)
+	})
+
+	t.Run("offsets follow the rows actually returned", func(t *testing.T) {
+		m := &oversizedPageClient{total: 300, maxServable: 250}
+		client := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{m}}
+
+		_, _, err := client.GetAllPendingOutbounds(ctx)
+		require.NoError(t, err)
+
+		// The second served page must start where the first ended, not at a
+		// multiple of the original page size.
+		var served []*query.PageRequest
+		for _, r := range m.reqs {
+			if r.Limit <= m.maxServable {
+				served = append(served, r)
+			}
+		}
+		require.GreaterOrEqual(t, len(served), 2)
+		assert.Equal(t, uint64(0), served[0].Offset)
+		assert.Equal(t, uint64(250), served[1].Offset, "no row may be skipped or read twice")
+	})
+
+	t.Run("a page of one that still fails is a real error", func(t *testing.T) {
+		m := &oversizedPageClient{total: 10, maxServable: 0}
+		client := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{m}}
+
+		// Bounded, because the failure mode here is a walk that never ends: if
+		// the floor guard let the page reach zero, every request would return no
+		// rows and the offset would stop moving. That must fail, not hang.
+		done := make(chan error, 1)
+		go func() {
+			_, _, err := client.GetAllPendingOutbounds(ctx)
+			done <- err
+		}()
+
+		select {
+		case err := <-done:
+			require.Error(t, err, "nothing left to halve, so the caller must see it")
+			assert.Equal(t, codes.ResourceExhausted, status.Code(err))
+		case <-time.After(5 * time.Second):
+			t.Fatal("the walk did not terminate; the page size floor is gone")
+		}
+	})
+
+	t.Run("an unrelated error is not retried smaller", func(t *testing.T) {
+		m := &mockUExecutorQueryClient{err: status.Error(codes.Unavailable, "endpoint down")}
+		client := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{m}}
+
+		_, _, err := client.GetAllPendingOutbounds(ctx)
+		require.Error(t, err)
+		assert.Len(t, m.pendingReqs, 1, "halving is only for a response that did not fit")
+	})
+}
+
+// A page that had to shrink must cost extra requests, not rows. Bounding the
+// walk by iterations instead would quietly cut a degraded poll from 5000 rows to
+// five times whatever the page shrank to.
+func TestGetAllPendingOutbounds_RowBudgetSurvivesDegradedPages(t *testing.T) {
+	ctx := context.Background()
+
+	full := &oversizedPageClient{total: 20000, maxServable: pendingOutboundPageSize}
+	fullClient := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{full}}
+	fullEntries, _, err := fullClient.GetAllPendingOutbounds(ctx)
+	require.NoError(t, err)
+
+	degraded := &oversizedPageClient{total: 20000, maxServable: 250}
+	degradedClient := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{degraded}}
+	degradedEntries, _, err := degradedClient.GetAllPendingOutbounds(ctx)
+	require.NoError(t, err)
+
+	assert.Len(t, fullEntries, pendingOutboundMaxRows)
+	assert.Len(t, degradedEntries, pendingOutboundMaxRows,
+		"a shrunken page must not shrink the poll")
+	assert.Greater(t, len(degraded.reqs), len(full.reqs),
+		"the cost of degrading is requests, not rows")
+
+	// Same rows, same order, whatever the page size was.
+	require.Equal(t, fullEntries[0].OutboundId, degradedEntries[0].OutboundId)
+	require.Equal(t, fullEntries[len(fullEntries)-1].OutboundId, degradedEntries[len(degradedEntries)-1].OutboundId)
+}
+
+// Every payload sitting at the cap is the worst page the client can meet: 8 MiB
+// over a 128 KiB row is 64 rows, so the page settles at 62 and the poll costs
+// more than 80 requests. It must still read the full budget rather than stop at
+// some request count.
+func TestGetAllPendingOutbounds_WorstCaseRowSizeStillReadsTheBudget(t *testing.T) {
+	m := &oversizedPageClient{total: 20000, maxServable: 64}
+	client := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{m}}
+
+	entries, _, err := client.GetAllPendingOutbounds(context.Background())
+	require.NoError(t, err)
+	require.Len(t, entries, pendingOutboundMaxRows, "a small page must not shrink the poll")
+	assert.Greater(t, len(m.reqs), 64, "this case genuinely needs more than 64 requests")
+
+	for i, e := range entries {
+		require.Equal(t, fmt.Sprintf("ob-%d", i), e.OutboundId, "row %d out of order", i)
+	}
+}
+
+// The cap is only useful if the rows under it are the right ones. Asserting the
+// count alone would pass on a walk that skipped a page and re-read another, so
+// this checks the whole sequence, and that entries and outbounds stay aligned.
+func TestGetAllPendingOutbounds_ReadsTheCappedSetExactlyOnce(t *testing.T) {
+	ctx := context.Background()
+
+	assertContiguous := func(t *testing.T, entries []*uexecutortypes.PendingOutboundEntry, outbounds []*uexecutortypes.OutboundTx) {
+		t.Helper()
+		require.Len(t, entries, pendingOutboundMaxRows)
+		require.Len(t, outbounds, pendingOutboundMaxRows, "an outbound per entry")
+
+		seen := make(map[string]int, len(entries))
+		for i, e := range entries {
+			assert.Equal(t, fmt.Sprintf("ob-%d", i), e.OutboundId, "row %d out of order", i)
+			assert.Equal(t, e.OutboundId, outbounds[i].Id, "entry and outbound diverged at %d", i)
+			seen[e.OutboundId]++
+		}
+		require.Len(t, seen, pendingOutboundMaxRows, "a row was skipped or read twice")
+		for id, n := range seen {
+			require.Equal(t, 1, n, "%s appeared %d times", id, n)
+		}
+	}
+
+	t.Run("full pages", func(t *testing.T) {
+		m := &oversizedPageClient{total: 20000, maxServable: pendingOutboundPageSize}
+		client := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{m}}
+
+		entries, outbounds, err := client.GetAllPendingOutbounds(ctx)
+		require.NoError(t, err)
+		assertContiguous(t, entries, outbounds)
+	})
+
+	t.Run("pages that had to shrink", func(t *testing.T) {
+		m := &oversizedPageClient{total: 20000, maxServable: 250}
+		client := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{m}}
+
+		entries, outbounds, err := client.GetAllPendingOutbounds(ctx)
+		require.NoError(t, err)
+		assertContiguous(t, entries, outbounds)
+	})
+
+	t.Run("exactly the cap available stops without a second empty request", func(t *testing.T) {
+		m := &oversizedPageClient{total: pendingOutboundMaxRows, maxServable: pendingOutboundPageSize}
+		client := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{m}}
+
+		entries, outbounds, err := client.GetAllPendingOutbounds(ctx)
+		require.NoError(t, err)
+		assertContiguous(t, entries, outbounds)
+		assert.Len(t, m.reqs, pendingOutboundMaxRows/pendingOutboundPageSize,
+			"hitting the cap exactly must not cost an extra round trip")
+	})
+
+	t.Run("under the cap returns everything and stops early", func(t *testing.T) {
+		m := &oversizedPageClient{total: 2500, maxServable: pendingOutboundPageSize}
+		client := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{m}}
+
+		entries, _, err := client.GetAllPendingOutbounds(ctx)
+		require.NoError(t, err)
+		require.Len(t, entries, 2500)
+		assert.Equal(t, "ob-0", entries[0].OutboundId)
+		assert.Equal(t, "ob-2499", entries[2499].OutboundId)
+	})
+}
+
+// The last page is trimmed to what is left of the budget. It matters whenever
+// the page the walk settled on does not divide the budget: at 62 rows the walk
+// reaches 4960 and the final request must ask for 40, not another 62.
+func TestGetAllPendingOutbounds_LastPageIsTrimmedToTheBudget(t *testing.T) {
+	m := &oversizedPageClient{total: 20000, maxServable: 64}
+	client := &Client{logger: zerolog.Nop(), uexecutorClients: []uexecutortypes.QueryClient{m}}
+
+	entries, outbounds, err := client.GetAllPendingOutbounds(context.Background())
+	require.NoError(t, err)
+
+	require.Len(t, entries, pendingOutboundMaxRows, "the budget is a ceiling, not a rounding")
+	require.Len(t, outbounds, pendingOutboundMaxRows)
+
+	last := m.reqs[len(m.reqs)-1]
+	assert.Equal(t, uint64(40), last.Limit, "the final page asks only for what is left")
+	assert.Equal(t, uint64(pendingOutboundMaxRows-40), last.Offset)
+
+	// No request may reach past the budget.
+	for i, r := range m.reqs {
+		if r.Limit <= m.maxServable {
+			assert.LessOrEqual(t, r.Offset+r.Limit, uint64(pendingOutboundMaxRows),
+				"request %d would read past the budget", i)
+		}
+	}
 }

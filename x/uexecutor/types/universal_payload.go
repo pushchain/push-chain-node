@@ -34,6 +34,16 @@ func (p *UniversalPayload) ValidateSize() error {
 	return nil
 }
 
+// ValidateOutboundPayloadBlobSize enforces MaxOutboundPayloadBytes on an
+// outbound's payload.
+func ValidateOutboundPayloadBlobSize(field, blob string) error {
+	if len(blob) > MaxOutboundPayloadBytes {
+		return errors.Wrapf(sdkerrors.ErrInvalidRequest,
+			"%s too large: %d bytes exceeds the %d byte limit", field, len(blob), MaxOutboundPayloadBytes)
+	}
+	return nil
+}
+
 // ValidatePayloadBlobSize enforces MaxUniversalPayloadBytes on a hex blob that
 // carries a universal payload (or its verification data) before it is decoded.
 func ValidatePayloadBlobSize(field, blob string) error {

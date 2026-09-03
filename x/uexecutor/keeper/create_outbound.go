@@ -69,6 +69,11 @@ func (k Keeper) BuildOutboundsFromReceipt(
 			return nil, fmt.Errorf("no token config for PRC20 %s on chain %s: %w", event.Token, event.ChainId, err)
 		}
 
+		// The gateway payload is attacker-controlled and lands in state (F-2026-18146).
+		if err := types.ValidateOutboundPayloadBlobSize("payload", event.Payload); err != nil {
+			return nil, err
+		}
+
 		outbound := &types.OutboundTx{
 			DestinationChain:  event.ChainId,
 			Recipient:         event.Target,

@@ -218,7 +218,7 @@ func (k Keeper) CallUEAExecutePayload(
 		return nil, err
 	}
 
-	return k.evmKeeper.DerivedEVMCall(
+	res, err := k.evmKeeper.DerivedEVMCall(
 		ctx,
 		abi,
 		from,
@@ -233,6 +233,17 @@ func (k Keeper) CallUEAExecutePayload(
 		abiUniversalPayload,
 		verificationData,
 	)
+	if err != nil {
+		return res, err
+	}
+
+	// The hook x/ucallback ingests from never fires for derived calls, and every
+	// payload path funnels through here.
+	if err := k.ucallbackKeeper.IngestReadRequests(ctx, res); err != nil {
+		return res, errors.Wrap(err, "failed to ingest read requests")
+	}
+
+	return res, nil
 }
 
 // CallUEAMigrateUEA migrates UEA through existing UEA

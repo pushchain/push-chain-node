@@ -765,6 +765,9 @@ func NewChainApp(
 		app.FeeMarketKeeper,
 	)
 
+	// Payload receipts reach x/ucallback through here, not the EVM hook.
+	app.UexecutorKeeper.SetUCallbackKeeper(app.UcallbackKeeper)
+
 	// Create the uvalidator Keeper
 	app.UvalidatorKeeper = uvalidatorkeeper.NewKeeper(
 		appCodec,

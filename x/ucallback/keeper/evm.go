@@ -38,6 +38,24 @@ func trim0x(s string) string {
 	return s
 }
 
+// Gas limits for the module's own calls into UniversalCallback.
+//
+// Passed explicitly, never nil: a nil limit makes DerivedEVMCallWithData estimate,
+// and the estimator's only failure signal is a top-level VmError. Both
+// fulfillExternalCallback and _refund catch their inner failure and return
+// cleanly, so estimation converges on a limit that starves them.
+const (
+	// fulfilGasBuffer covers the contract's own work on top of the callbackGasLimit
+	// forwarded to the app.
+	fulfilGasBuffer = 50_000
+
+	// Fixed: neither method forwards a caller-declared budget. Worst measured cost
+	// is 89,372 (TestSettleGas_AgainstRealContract), leaving ~60k for an expensive
+	// revertRecipient receive().
+	expireGasLimit = 150_000
+	reportGasLimit = 150_000
+)
+
 // callAsModule issues a DerivedEVMCall to UniversalCallback from the x/ucallback
 // module account.
 //
@@ -48,6 +66,7 @@ func trim0x(s string) string {
 func (k Keeper) callAsModule(
 	ctx sdk.Context,
 	method string,
+	gasLimit *big.Int,
 	args ...interface{},
 ) (*evmtypes.MsgEthereumTxResponse, error) {
 	callbackABI, err := types.ParseUniversalCallbackABI()
@@ -86,10 +105,7 @@ func (k Keeper) callAsModule(
 		false, // not gasless — we want gas accounted in the receipt
 		true,  // isModuleSender
 		big.NewInt(0),
-		// nil gas limit — the callback's own budget is enforced by the contract
-		// (callbackGasLimit, capped at MAX_CALLBACK_GAS_LIMIT), so a limit here
-		// would only add a second ceiling that could cut the callback short.
-		nil,
+		gasLimit,
 		&nonce,
 	)
 }
@@ -100,6 +116,7 @@ func (k Keeper) CallFulfillExternalCallback(
 	ctx sdk.Context,
 	requestID string,
 	result *types.ReadResult,
+	callbackGasLimit uint64,
 ) (*evmtypes.MsgEthereumTxResponse, error) {
 	if result == nil {
 		return nil, fmt.Errorf("cannot fulfil %s: nil result", requestID)
@@ -117,6 +134,7 @@ func (k Keeper) CallFulfillExternalCallback(
 
 	return k.callAsModule(ctx,
 		types.MethodFulfillExternalCallback,
+		new(big.Int).SetUint64(callbackGasLimit+fulfilGasBuffer),
 		id,
 		result.ResultData,
 	)
@@ -134,7 +152,7 @@ func (k Keeper) CallExpireExternalRead(
 
 	k.Logger().Debug("EVM call: expireExternalRead", "request_id", requestID)
 
-	return k.callAsModule(ctx, types.MethodExpireExternalRead, id)
+	return k.callAsModule(ctx, types.MethodExpireExternalRead, big.NewInt(expireGasLimit), id)
 }
 
 // pcTxFrom renders an EVM call attempt as a PCTx audit entry. Both the success and
@@ -225,7 +243,7 @@ func (k Keeper) CallReportCallbackGas(
 		return nil, err
 	}
 	k.Logger().Debug("EVM call: reportCallbackGas", "request_id", requestID, "cost", cost.String())
-	return k.callAsModule(ctx, types.MethodReportCallbackGas, id, cost)
+	return k.callAsModule(ctx, types.MethodReportCallbackGas, big.NewInt(reportGasLimit), id, cost)
 }
 
 // TakeAndBurn moves the consumed callback budget out of UniversalCallback and

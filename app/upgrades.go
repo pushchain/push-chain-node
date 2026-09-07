@@ -24,6 +24,7 @@ import (
 	evmv050 "github.com/pushchain/push-chain-node/app/upgrades/evm-v0-5-0"
 	evmv060 "github.com/pushchain/push-chain-node/app/upgrades/evm-v0-6-0"
 	evmv062 "github.com/pushchain/push-chain-node/app/upgrades/evm-v0-6-2"
+	evmv063 "github.com/pushchain/push-chain-node/app/upgrades/evm-v0-6-3"
 	feeabs "github.com/pushchain/push-chain-node/app/upgrades/fee-abs"
 	gasoracle "github.com/pushchain/push-chain-node/app/upgrades/gas-oracle"
 	"github.com/pushchain/push-chain-node/app/upgrades/noop"
@@ -100,6 +101,7 @@ var Upgrades = []upgrades.Upgrade{
 	// read-state — adds the x/ucallback store and reserves every system-contract
 	// address still unclaimed in the A/B/C ranges (41 of 47 on donut, incl. 0xC2)
 	readstate.NewUpgrade(),
+	evmv063.NewUpgrade(),
 }
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers

@@ -201,7 +201,7 @@ func TestLifecycle_FulfilSettleBurn_AgainstRealContract(t *testing.T) {
 	res, err := k.CallFulfillExternalCallback(ctx, hexID(requestID), &ucallbacktypes.ReadResult{
 		Status:     ucallbacktypes.ReadStatus_READ_STATUS_SUCCESS,
 		ResultData: []byte{0x01, 0x02},
-	})
+	}, 200_000)
 	require.NoError(t, err, "fulfillExternalCallback must succeed against the real contract")
 	require.Empty(t, res.VmError)
 

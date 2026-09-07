@@ -63,7 +63,8 @@ func TestAfterBallotTerminal_FulfilsOnPassed(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, moduleEVMAddr(), c.from, "must be sent as the x/ucallback module account")
 	require.True(t, c.isModule)
-	require.Nil(t, c.gasLimit, "the contract enforces the callback budget, not us")
+	require.Equal(t, big.NewInt(testCallbackGasLimit+50_000), c.gasLimit,
+		"explicit limit, or the estimator picks one that starves the callback")
 
 	// requestId reaches the contract as a uint256, not a string
 	require.Len(t, c.args, 2,

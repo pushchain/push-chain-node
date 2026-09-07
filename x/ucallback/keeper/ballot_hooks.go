@@ -125,7 +125,7 @@ func (k Keeper) FulfilRead(ctx sdk.Context, ur types.UniversalRead) error {
 	}
 
 	tmpCtx, commit := ctx.CacheContext()
-	res, callErr := k.CallFulfillExternalCallback(tmpCtx, ur.Id, ur.Result)
+	res, callErr := k.CallFulfillExternalCallback(tmpCtx, ur.Id, ur.Result, ur.Request.GetCallbackGasLimit())
 
 	var vmErr string
 	var revertData []byte

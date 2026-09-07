@@ -74,6 +74,7 @@ type testFixture struct {
 	mockBankKeeper      *mocks.MockBankKeeper
 	mockEVMKeeper       *mocks.MockEVMKeeper
 	mockUregistryKeeper *mocks.MockUregistryKeeper
+	mockUCallbackKeeper *mocks.MockUCallbackKeeper
 }
 
 func SetupTest(t *testing.T) *testFixture {
@@ -86,6 +87,7 @@ func SetupTest(t *testing.T) *testFixture {
 	f.mockBankKeeper = mocks.NewMockBankKeeper(f.ctrl)
 	f.mockEVMKeeper = mocks.NewMockEVMKeeper(f.ctrl)
 	f.mockUregistryKeeper = mocks.NewMockUregistryKeeper(f.ctrl)
+	f.mockUCallbackKeeper = mocks.NewMockUCallbackKeeper(f.ctrl)
 
 	cfg := sdk.GetConfig() // do not seal, more set later
 	cfg.SetBech32PrefixForAccount(app.Bech32PrefixAccAddr, app.Bech32PrefixAccPub)
@@ -118,6 +120,7 @@ func SetupTest(t *testing.T) *testFixture {
 
 	// Setup Keeper.
 	f.k = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(keys[types.ModuleName]), logger, f.govModAddr, f.mockEVMKeeper, &feemarketkeeper.Keeper{}, f.mockBankKeeper, authkeeper.AccountKeeper{}, f.mockUregistryKeeper, &uvalidatorKeeper.Keeper{})
+	f.k.SetUCallbackKeeper(f.mockUCallbackKeeper)
 	f.msgServer = keeper.NewMsgServerImpl(f.k)
 	f.queryServer = keeper.NewQuerier(f.k)
 	f.appModule = module.NewAppModule(encCfg.Codec, f.k, f.mockEVMKeeper, &feemarketkeeper.Keeper{}, f.mockBankKeeper, authkeeper.AccountKeeper{}, f.mockUregistryKeeper, &uvalidatorKeeper.Keeper{})

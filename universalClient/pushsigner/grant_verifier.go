@@ -26,6 +26,7 @@ var requiredMsgGrants = []string{
 	"/uexecutor.v1.MsgVoteOutbound",
 	"/utss.v1.MsgVoteTssKeyProcess",
 	"/utss.v1.MsgVoteFundMigration",
+	"/ucallback.v1.MsgVoteReadResult",
 }
 
 // GrantInfo represents information about a single AuthZ grant.

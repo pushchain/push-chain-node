@@ -131,6 +131,12 @@ type UValidatorKeeper interface {
 	MarkBallotFinalized(ctx context.Context, id string, status uvalidatortypes.BallotStatus) error
 }
 
+// UCallbackKeeper ingests read requests from derived-call receipts, which the
+// EVM post-tx hook never sees.
+type UCallbackKeeper interface {
+	IngestReadRequests(ctx context.Context, receipt *types.MsgEthereumTxResponse) error
+}
+
 // ParamSubspace defines the expected Subspace interface for parameters.
 type ParamSubspace interface {
 	Get(context.Context, []byte, interface{})

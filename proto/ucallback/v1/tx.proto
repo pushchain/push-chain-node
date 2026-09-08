@@ -1,0 +1,104 @@
+syntax = "proto3";
+package ucallback.v1;
+
+import "cosmos/msg/v1/msg.proto";
+import "ucallback/v1/genesis.proto";
+import "ucallback/v1/types.proto";
+import "gogoproto/gogo.proto";
+import "cosmos_proto/cosmos.proto";
+import "amino/amino.proto";
+
+option go_package = "github.com/pushchain/push-chain-node/x/ucallback/types";
+
+// Msg defines the Msg service.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // VoteReadResult submits one universal validator's observation of a read
+  // request's outcome on the destination chain.
+  rpc VoteReadResult(MsgVoteReadResult) returns (MsgVoteReadResultResponse);
+
+  // RetryReadExpiry reopens the expiry of a read the chain abandoned.
+  rpc RetryReadExpiry(MsgRetryReadExpiry) returns (MsgRetryReadExpiryResponse);
+
+  // UpdateParams defines a governance operation for updating the parameters.
+  //
+  // Since: cosmos-sdk 0.47
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+}
+
+// MsgUpdateParams is the Msg/UpdateParams request type.
+//
+// Since: cosmos-sdk 0.47
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  // authority is the address of the governance account.
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // params defines the parameters to update.
+  //
+  // NOTE: All parameters must be supplied.
+  Params params = 2 [(gogoproto.nullable) = false];
+}
+
+// MsgUpdateParamsResponse defines the response structure for executing a
+// MsgUpdateParams message.
+//
+// Since: cosmos-sdk 0.47
+message MsgUpdateParamsResponse {}
+
+// MsgVoteReadResult is broadcast by a universal validator that has executed a
+// read request against the destination chain.
+//
+// The ballot the vote lands on is derived from (request_id, result), so two
+// validators reporting the same observation converge on one ballot and any
+// disagreement produces a distinct ballot that never reaches quorum. Nothing
+// validator-local may appear in `result` for that reason — notably there is no
+// error message field.
+message MsgVoteReadResult {
+  option (amino.name) = "ucallback/MsgVoteReadResult";
+  option (cosmos.msg.v1.signer) = "signer";
+
+  // signer is the Cosmos address of the voting universal validator.
+  string signer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // request_id identifies the read request being voted on.
+  string request_id = 2;
+
+  // result is the observation. Every field participates in the ballot key.
+  ReadResult result = 3;
+}
+
+message MsgVoteReadResultResponse {
+  // finalized reports whether this vote carried the ballot to quorum.
+  bool finalized = 1;
+}
+
+// MsgRetryReadExpiry is an admin escape hatch. For a read left ABORTED after
+// MaxExpiryAttempts, this makes one more attempt at expireExternalRead.
+//
+// Needed because ABORTED is a dead end that nothing else can leave. The contract
+// may still hold the request as pending with the funder's refund uncredited, and
+// expireExternalRead is module-gated — no user, relayer or admin can call it
+// directly. The sweeper will not retry either: ABORTED is terminal, so the record
+// is out of PendingByExpiry.
+//
+// Each message is worth exactly one attempt: the attempt count is the record's own
+// PCTx history, which is already at the limit, so a failure returns it to ABORTED
+// with the new reason rather than granting a fresh budget.
+message MsgRetryReadExpiry {
+  option (amino.name) = "ucallback/MsgRetryReadExpiry";
+  option (cosmos.msg.v1.signer) = "signer";
+
+  // signer must equal uvalidator Params.Admin
+  string signer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // request_id of the abandoned read.
+  string request_id = 2;
+}
+
+message MsgRetryReadExpiryResponse {
+  // settled reports whether the contract accepted the expiry this time.
+  bool settled = 1;
+}

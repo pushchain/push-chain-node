@@ -1,0 +1,472 @@
+package svm
+
+import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/hex"
+	"fmt"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/gagliardetto/solana-go"
+	solanarpc "github.com/gagliardetto/solana-go/rpc"
+	"github.com/rs/zerolog"
+
+	"github.com/pushchain/push-chain-node/universalClient/db"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
+)
+
+// Warn (not refuse) once a single poll has processed this many in-range sigs;
+// re-emitted per subsequent page so ops sees a sustained signal, not a blip.
+const largePollWarnThreshold uint64 = 100_000
+
+// rpcClientInterface is the subset of *RPCClient methods the listener depends on.
+// Defined as an interface so tests can supply a mock without spinning up a real
+// JSON-RPC server. *RPCClient satisfies it implicitly.
+type rpcClientInterface interface {
+	GetLatestSlot(ctx context.Context) (uint64, error)
+	GetSignaturesForAddress(ctx context.Context, address solana.PublicKey, before solana.Signature) ([]*solanarpc.TransactionSignature, error)
+	GetTransaction(ctx context.Context, signature solana.Signature) (*solanarpc.GetTransactionResult, error)
+}
+
+// EventListener listens for gateway events on SVM chains and stores them in the database
+type EventListener struct {
+	// Core dependencies
+	rpcClient  rpcClientInterface
+	chainStore *common.ChainStore
+	database   *db.DB
+
+	// Configuration
+	gatewayAddress           string
+	chainID                  string
+	discriminatorToEventType map[string]string
+	eventPollingSeconds      int
+	eventStartFrom           *int64
+
+	// State
+	logger  zerolog.Logger
+	running bool
+	stopCh  chan struct{}
+	wg      sync.WaitGroup
+}
+
+// NewEventListener creates a new SVM event listener
+func NewEventListener(
+	rpcClient rpcClientInterface,
+	gatewayAddress string,
+	chainID string,
+	gatewayMethods []*uregistrytypes.GatewayMethods,
+	database *db.DB,
+	eventPollingSeconds int,
+	eventStartFrom *int64,
+	logger zerolog.Logger,
+) (*EventListener, error) {
+	if gatewayAddress == "" {
+		return nil, fmt.Errorf("gateway address not configured")
+	}
+
+	if chainID == "" {
+		return nil, fmt.Errorf("chain ID not configured")
+	}
+
+	// Build discriminator to event type mapping
+	discriminatorToEventType := make(map[string]string)
+	for _, method := range gatewayMethods {
+		if method.EventIdentifier == "" {
+			continue
+		}
+		switch method.Name {
+		case EventTypeSendFunds,
+			EventTypeFinalizeUniversalTx,
+			EventTypeRevertUniversalTx,
+			EventTypeFundsRescued:
+			discriminator := strings.ToLower(method.EventIdentifier)
+			discriminatorToEventType[discriminator] = method.Name
+		}
+	}
+
+	return &EventListener{
+		rpcClient:                rpcClient,
+		chainStore:               common.NewChainStore(database),
+		database:                 database,
+		gatewayAddress:           gatewayAddress,
+		chainID:                  chainID,
+		discriminatorToEventType: discriminatorToEventType,
+		eventPollingSeconds:      eventPollingSeconds,
+		eventStartFrom:           eventStartFrom,
+		logger:                   logger.With().Str("component", "svm_event_listener").Str("chain", chainID).Logger(),
+		stopCh:                   make(chan struct{}),
+	}, nil
+}
+
+// Start begins listening for gateway events
+func (el *EventListener) Start(ctx context.Context) error {
+	if el.running {
+		return fmt.Errorf("event listener is already running")
+	}
+
+	el.running = true
+	el.stopCh = make(chan struct{})
+
+	el.wg.Add(1)
+	go el.listen(ctx)
+
+	return nil
+}
+
+// Stop gracefully stops the event listener
+func (el *EventListener) Stop() error {
+	if !el.running {
+		return nil
+	}
+
+	el.logger.Debug().Msg("stopping SVM event listener")
+	close(el.stopCh)
+	el.running = false
+
+	el.wg.Wait()
+	return nil
+}
+
+// IsRunning returns whether the listener is currently running
+func (el *EventListener) IsRunning() bool {
+	return el.running
+}
+
+// listen is the main event listening loop
+func (el *EventListener) listen(ctx context.Context) {
+	defer el.wg.Done()
+
+	// Get polling interval from config
+	pollInterval := el.getPollingInterval()
+
+	// Get starting slot
+	fromSlot, err := el.getStartSlot(ctx)
+	if err != nil {
+		el.logger.Error().Err(err).Msg("failed to get start slot")
+		return
+	}
+
+	el.logger.Debug().
+		Uint64("from_slot", fromSlot).
+		Dur("poll_interval", pollInterval).
+		Msg("starting event watching")
+
+	currentSlot := fromSlot
+	ticker := time.NewTicker(pollInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			el.logger.Debug().Msg("context cancelled, stopping event listener")
+			return
+		case <-el.stopCh:
+			el.logger.Debug().Msg("stop signal received, stopping event listener")
+			return
+		case <-ticker.C:
+			if err := el.processNewSlots(ctx, &currentSlot); err != nil {
+				el.logger.Error().Err(err).Msg("failed to process new slots")
+				// Continue processing on error
+			}
+		}
+	}
+}
+
+// processNewSlots processes new slots since last processed slot
+func (el *EventListener) processNewSlots(
+	ctx context.Context,
+	currentSlot *uint64,
+) error {
+	// Get latest slot
+	latestSlot, err := el.rpcClient.GetLatestSlot(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get latest slot: %w", err)
+	}
+
+	// Skip if no new slots
+	if *currentSlot >= latestSlot {
+		return nil
+	}
+
+	// Process slots in range
+	if err := el.processSlotRange(ctx, *currentSlot, latestSlot); err != nil {
+		return fmt.Errorf("failed to process slot range: %w", err)
+	}
+
+	// Update last processed slot in database
+	if err := el.updateLastProcessedSlot(latestSlot); err != nil {
+		el.logger.Error().Err(err).Msg("failed to update last processed slot")
+		// Don't return error - continue processing
+	}
+
+	// Move to next slot
+	*currentSlot = latestSlot + 1
+	return nil
+}
+
+// processSlotRange processes events in a range of slots
+func (el *EventListener) processSlotRange(
+	ctx context.Context,
+	fromSlot, toSlot uint64,
+) error {
+	// Parse gateway address
+	gatewayAddr, err := solana.PublicKeyFromBase58(el.gatewayAddress)
+	if err != nil {
+		return fmt.Errorf("invalid gateway address: %w", err)
+	}
+
+	// Per-page streaming so memory stays bounded on long bootstraps. Termination
+	// and cursor use min(slot) of the batch — per
+	// https://github.com/solana-labs/solana/issues/22456 in-page order is not
+	// guaranteed descending, so batch[len-1] would risk an early break.
+	var beforeSig solana.Signature
+	var processedInRange uint64
+	for page := 0; ; page++ {
+		batch, err := el.rpcClient.GetSignaturesForAddress(ctx, gatewayAddr, beforeSig)
+		if err != nil {
+			return fmt.Errorf("failed to get signatures (page %d): %w", page, err)
+		}
+		if len(batch) == 0 {
+			break
+		}
+
+		processed, err := el.processSignatureBatch(ctx, batch, fromSlot, toSlot)
+		if err != nil {
+			return err
+		}
+		processedInRange += processed
+		if processedInRange >= largePollWarnThreshold {
+			el.logger.Warn().
+				Uint64("processed_in_range", processedInRange).
+				Uint64("threshold", largePollWarnThreshold).
+				Uint64("from_slot", fromSlot).
+				Uint64("to_slot", toSlot).
+				Int("pages", page+1).
+				Msg("large signature backlog being processed; if this is unexpected, " +
+					"restart with EventStartFrom set to -1 (latest) or a recent slot, " +
+					"and verify the RPC tier can sustain the request volume")
+		}
+
+		minSlot := batch[0].Slot
+		minSig := batch[0].Signature
+		for _, s := range batch[1:] {
+			if s.Slot < minSlot {
+				minSlot = s.Slot
+				minSig = s.Signature
+			}
+		}
+
+		if minSlot < fromSlot {
+			break
+		}
+		beforeSig = minSig
+	}
+
+	return nil
+}
+
+// Processes in-range sigs from `batch`, returns how many. `continue` on both
+// bounds so it tolerates any in-page order.
+func (el *EventListener) processSignatureBatch(
+	ctx context.Context,
+	batch []*solanarpc.TransactionSignature,
+	fromSlot, toSlot uint64,
+) (uint64, error) {
+	var processed uint64
+	for _, sig := range batch {
+		if sig.Slot < fromSlot {
+			continue
+		}
+		if sig.Slot > toSlot {
+			continue
+		}
+		processed++
+
+		// Get transaction details
+		tx, err := el.rpcClient.GetTransaction(ctx, sig.Signature)
+		if err != nil {
+			el.logger.Error().
+				Err(err).
+				Str("signature", sig.Signature.String()).
+				Msg("failed to get transaction")
+			continue
+		}
+
+		// Events come from emit_cpi inner instructions, not logs, so log
+		// truncation cannot drop one.
+		// A failed tx still records what ran before it aborted, and all of it was
+		// rolled back.
+		if tx != nil && tx.Meta != nil && tx.Meta.Err != nil {
+			el.logger.Debug().
+				Str("signature", sig.Signature.String()).
+				Msg("skipping failed transaction")
+			continue
+		}
+
+		for payloadIndex, payload := range gatewayEventPayloads(tx, el.gatewayAddress) {
+			eventType := el.determineEventType(payload)
+			if eventType == "" {
+				continue
+			}
+
+			event := ParseEvent(payload, sig.Signature.String(), sig.Slot, uint(payloadIndex), eventType, el.chainID, el.logger)
+			if event == nil {
+				continue
+			}
+
+			if stored, err := el.chainStore.InsertEventIfNotExists(event); err != nil {
+				el.logger.Error().
+					Err(err).
+					Str("event_id", event.EventID).
+					Str("type", event.Type).
+					Uint64("slot", event.BlockHeight).
+					Msg("failed to store event")
+			} else if stored {
+				el.logger.Debug().
+					Str("event_id", event.EventID).
+					Str("type", event.Type).
+					Uint64("slot", event.BlockHeight).
+					Str("confirmation_type", event.ConfirmationType).
+					Msg("stored new event")
+			}
+		}
+	}
+
+	return processed, nil
+}
+
+// getStartSlot returns the slot to start watching from
+func (el *EventListener) getStartSlot(ctx context.Context) (uint64, error) {
+	// Get chain height from store
+	blockHeight, err := el.chainStore.GetChainHeight()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get chain height: %w", err)
+	}
+
+	// If no previous state or invalid, check config
+	if blockHeight == 0 {
+		return el.getStartSlotFromConfig(ctx)
+	}
+
+	el.logger.Info().
+		Uint64("slot", blockHeight).
+		Msg("resuming from last processed slot")
+
+	return blockHeight, nil
+}
+
+// getStartSlotFromConfig determines start slot from configuration
+func (el *EventListener) getStartSlotFromConfig(ctx context.Context) (uint64, error) {
+	// Check config for EventStartFrom
+	if el.eventStartFrom != nil {
+		if *el.eventStartFrom >= 0 {
+			startSlot := uint64(*el.eventStartFrom)
+			el.logger.Info().
+				Uint64("slot", startSlot).
+				Msg("no previous state found, starting from configured EventStartFrom")
+			return startSlot, nil
+		}
+
+		// -1 means start from latest slot
+		if *el.eventStartFrom == -1 {
+			latestSlot, err := el.rpcClient.GetLatestSlot(ctx)
+			if err != nil {
+				el.logger.Warn().Err(err).Msg("failed to get latest slot, starting from 0")
+				return 0, nil
+			}
+			el.logger.Info().
+				Uint64("slot", latestSlot).
+				Msg("no previous state found, starting from latest slot (EventStartFrom=-1)")
+			return latestSlot, nil
+		}
+	}
+
+	// No config, get latest slot
+	el.logger.Info().Msg("no last processed slot found, starting from latest")
+	return el.rpcClient.GetLatestSlot(ctx)
+}
+
+// updateLastProcessedSlot updates the last processed slot in the database
+func (el *EventListener) updateLastProcessedSlot(slotNumber uint64) error {
+	return el.chainStore.UpdateChainHeight(slotNumber)
+}
+
+// getPollingInterval returns the polling interval from config with default
+func (el *EventListener) getPollingInterval() time.Duration {
+	if el.eventPollingSeconds > 0 {
+		return time.Duration(el.eventPollingSeconds) * time.Second
+	}
+	return 5 * time.Second // default
+}
+
+// eventIxTag prefixes the data of every Anchor emit_cpi instruction.
+var eventIxTag = []byte{0xe4, 0x45, 0xa5, 0x2e, 0x51, 0xcb, 0x9a, 0x1d}
+
+// gatewayEventPayloads returns the gateway's emit_cpi events in the
+// "Program data:" form the parsers take. Event data is eventIxTag ||
+// discriminator || borsh, so dropping the tag leaves the old payload.
+//
+// Only instructions the gateway itself ran are read. A discriminator is a
+// schema tag, not proof of who emitted it.
+func gatewayEventPayloads(tx *solanarpc.GetTransactionResult, gatewayAddress string) []string {
+	if tx == nil || tx.Meta == nil || len(tx.Meta.InnerInstructions) == 0 {
+		return nil
+	}
+	gateway, err := solana.PublicKeyFromBase58(gatewayAddress)
+	if err != nil {
+		return nil
+	}
+	parsed, txErr := tx.Transaction.GetTransaction()
+	if txErr != nil || parsed == nil {
+		return nil
+	}
+
+	// Index order: static keys, then ALT writable, then ALT readonly.
+	keys := append(solana.PublicKeySlice{}, parsed.Message.AccountKeys...)
+	keys = append(keys, tx.Meta.LoadedAddresses.Writable...)
+	keys = append(keys, tx.Meta.LoadedAddresses.ReadOnly...)
+
+	var payloads []string
+	for _, group := range tx.Meta.InnerInstructions {
+		for _, ix := range group.Instructions {
+			if int(ix.ProgramIDIndex) >= len(keys) || !keys[ix.ProgramIDIndex].Equals(gateway) {
+				continue
+			}
+			if len(ix.Data) < len(eventIxTag) || !bytes.Equal(ix.Data[:len(eventIxTag)], eventIxTag) {
+				continue
+			}
+			payloads = append(payloads, "Program data: "+base64.StdEncoding.EncodeToString(ix.Data[len(eventIxTag):]))
+		}
+	}
+	return payloads
+}
+
+func (el *EventListener) determineEventType(log string) string {
+	if !strings.HasPrefix(log, "Program data: ") {
+		return ""
+	}
+
+	eventData := strings.TrimPrefix(log, "Program data: ")
+	decoded, err := base64.StdEncoding.DecodeString(eventData)
+	if err != nil {
+		return ""
+	}
+
+	if len(decoded) < 8 {
+		return ""
+	}
+
+	discriminator := strings.ToLower(hex.EncodeToString(decoded[:8]))
+
+	// Look up event type from discriminator map
+	eventType, ok := el.discriminatorToEventType[discriminator]
+	if !ok {
+		return ""
+	}
+
+	return eventType
+}

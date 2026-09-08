@@ -1,0 +1,574 @@
+package externalchains
+
+import (
+	"context"
+	"fmt"
+	"path/filepath"
+	"sync"
+	"time"
+
+	"github.com/pushchain/push-chain-node/universalClient/config"
+	"github.com/pushchain/push-chain-node/universalClient/db"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains/evm"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains/svm"
+	"github.com/pushchain/push-chain-node/universalClient/pushcore"
+	"github.com/pushchain/push-chain-node/universalClient/pushsigner"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
+	"github.com/rs/zerolog"
+)
+
+// Chains manages chain clients by fetching chain configs periodically and adding/removing clients accordingly
+type Chains struct {
+	pushCore   *pushcore.Client
+	pushSigner *pushsigner.Signer
+	config     *config.Config
+	logger     zerolog.Logger
+
+	// Chain client management
+	chains       map[string]common.ChainClient          // key: CAIP-2 chain ID
+	chainConfigs map[string]*uregistrytypes.ChainConfig // key: CAIP-2 chain ID
+	// Handle opened for each live chain, kept so removal can close it. Every
+	// getChainDB call opens a new pool, so a handle dropped without closing keeps
+	// its file descriptors until the process exits.
+	chainDBs    map[string]*db.DB // key: CAIP-2 chain ID
+	chainsMu    sync.RWMutex
+	pushChainID string // Push chain ID (always present)
+
+	// Database opener, swapped in tests to observe handle lifecycle.
+	openDB func(dir, filename string, migrateSchema bool) (*db.DB, error)
+
+	// Background control
+	muRunning sync.Mutex
+	running   bool
+	stopCh    chan struct{}
+	wg        sync.WaitGroup
+}
+
+const (
+	// perSyncTimeout is the timeout for each sync operation
+	perSyncTimeout = 30 * time.Second
+)
+
+// NewChains creates a new chains manager
+func NewChains(
+	pushCore *pushcore.Client,
+	pushSigner *pushsigner.Signer,
+	cfg *config.Config,
+	logger zerolog.Logger,
+) *Chains {
+	return &Chains{
+		pushCore:     pushCore,
+		pushSigner:   pushSigner,
+		config:       cfg,
+		logger:       logger.With().Str("component", "chains").Logger(),
+		chains:       make(map[string]common.ChainClient),
+		chainConfigs: make(map[string]*uregistrytypes.ChainConfig),
+		chainDBs:     make(map[string]*db.DB),
+		openDB:       db.OpenFileDB,
+		pushChainID:  cfg.PushChainID,
+	}
+}
+
+// Start begins fetching chains and managing chain clients
+func (c *Chains) Start(ctx context.Context) error {
+	c.muRunning.Lock()
+	defer c.muRunning.Unlock()
+
+	if c.running {
+		return nil
+	}
+
+	if c.pushCore == nil {
+		return fmt.Errorf("pushCore must be non-nil")
+	}
+
+	c.running = true
+	c.stopCh = make(chan struct{})
+	c.wg.Add(1)
+
+	go c.run(ctx)
+	return nil
+}
+
+// Stop stops the chains manager
+func (c *Chains) Stop() {
+	c.muRunning.Lock()
+	if !c.running {
+		c.muRunning.Unlock()
+		return
+	}
+	close(c.stopCh)
+	c.running = false
+	c.muRunning.Unlock()
+
+	c.wg.Wait()
+
+	// Stop all chain clients
+	c.StopAll()
+}
+
+// run executes the main loop
+func (c *Chains) run(parent context.Context) {
+	defer c.wg.Done()
+
+	// Initial fetch
+	if err := c.fetchAndUpdate(parent); err != nil {
+		c.logger.Warn().Err(err).Msg("initial chain fetch failed; continuing")
+	}
+
+	// Periodic updates - get interval from config
+	interval := time.Duration(c.config.ConfigRefreshIntervalSeconds) * time.Second
+	if interval <= 0 {
+		interval = 60 * time.Second
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-parent.Done():
+			c.logger.Debug().Msg("context canceled; stopping")
+			return
+		case <-c.stopCh:
+			c.logger.Debug().Msg("stop requested; stopping")
+			return
+		case <-ticker.C:
+			if err := c.fetchAndUpdate(parent); err != nil {
+				c.logger.Warn().Err(err).Msg("periodic chain fetch failed; keeping previous chains")
+			}
+		}
+	}
+}
+
+// fetchAndUpdate fetches chain configs and updates chain clients
+func (c *Chains) fetchAndUpdate(parent context.Context) error {
+	timeout := perSyncTimeout
+	if dl, ok := parent.Deadline(); ok {
+		if remain := time.Until(dl); remain > 0 && remain < timeout {
+			timeout = remain
+		}
+	}
+	ctx, cancel := context.WithTimeout(parent, timeout)
+	defer cancel()
+
+	// Fetch chain configs from pushcore (does NOT return Push chain)
+	cfgs, err := c.pushCore.GetAllChainConfigs(ctx)
+	if err != nil {
+		return err
+	}
+
+	// Track seen chains
+	seenChains := make(map[string]bool)
+
+	// Process each chain config (Push chain is managed by core, not here)
+	for _, cfg := range cfgs {
+		chainID := cfg.Chain
+		if chainID == "" || chainID == c.pushChainID {
+			continue
+		}
+
+		seenChains[chainID] = true
+		action := c.determineChainAction(cfg)
+
+		switch action {
+		case chainActionSkip:
+			continue
+
+		case chainActionAdd:
+			if err := c.addChain(parent, cfg); err != nil {
+				c.logger.Error().Err(err).Str("chain", chainID).Msg("failed to add chain")
+			}
+
+		case chainActionUpdate:
+			c.logger.Info().Str("chain", chainID).Msg("chain config changed, updating")
+			if err := c.removeChain(chainID); err != nil {
+				c.logger.Error().Err(err).Str("chain", chainID).Msg("failed to remove chain for update")
+			}
+			if err := c.addChain(parent, cfg); err != nil {
+				c.logger.Error().Err(err).Str("chain", chainID).Msg("failed to add updated chain")
+			}
+
+		case chainActionRemove:
+			if err := c.removeChain(chainID); err != nil {
+				c.logger.Error().Err(err).Str("chain", chainID).Msg("failed to remove disabled chain")
+			}
+		}
+	}
+
+	c.removeStaleChains(seenChains)
+
+	return nil
+}
+
+// removeStaleChains drops chains the registry no longer lists, never the Push chain.
+//
+// The ids are collected under the read lock and removed after releasing it.
+// removeChain takes the write lock and sync.RWMutex is not reentrant, so removing
+// from inside the loop would park the refresh goroutine forever while it still
+// holds the read lock, taking every later reader of the registry down with it.
+func (c *Chains) removeStaleChains(seenChains map[string]bool) {
+	c.chainsMu.RLock()
+	var stale []string
+	for chainID := range c.chains {
+		if chainID != c.pushChainID && !seenChains[chainID] {
+			stale = append(stale, chainID)
+		}
+	}
+	c.chainsMu.RUnlock()
+
+	for _, chainID := range stale {
+		c.logger.Info().Str("chain", chainID).Msg("removing chain no longer in config")
+		if err := c.removeChain(chainID); err != nil {
+			c.logger.Error().Err(err).Str("chain", chainID).Msg("failed to remove chain")
+		}
+	}
+}
+
+// chainAction represents the action to take for a chain config
+type chainAction int
+
+const (
+	chainActionSkip chainAction = iota
+	chainActionAdd
+	chainActionUpdate
+	chainActionRemove
+)
+
+// determineChainAction determines what action to take for a chain config
+func (c *Chains) determineChainAction(cfg *uregistrytypes.ChainConfig) chainAction {
+	chainID := cfg.Chain
+
+	// Check if chain is fully disabled (both flags off)
+	bothDisabled := cfg.Enabled == nil ||
+		(!cfg.Enabled.IsInboundEnabled && !cfg.Enabled.IsOutboundEnabled)
+
+	c.chainsMu.RLock()
+	_, exists := c.chains[chainID]
+	existingConfig := c.chainConfigs[chainID]
+	c.chainsMu.RUnlock()
+
+	if bothDisabled {
+		if exists {
+			c.logger.Info().Str("chain", chainID).Msg("chain disabled, removing")
+			return chainActionRemove
+		}
+		c.logger.Debug().Str("chain", chainID).Msg("chain disabled, skipping")
+		return chainActionSkip
+	}
+
+	if !exists {
+		return chainActionAdd
+	}
+
+	// Check if config changed (includes enabled flag changes)
+	if existingConfig != nil && !configsEqual(existingConfig, cfg) {
+		return chainActionUpdate
+	}
+
+	// No change
+	return chainActionSkip
+}
+
+// addChain adds a new chain client
+func (c *Chains) addChain(ctx context.Context, cfg *uregistrytypes.ChainConfig) error {
+	if cfg == nil || cfg.Chain == "" {
+		return fmt.Errorf("invalid chain config")
+	}
+
+	// Get or create database for this chain
+	chainDB, err := c.getChainDB(cfg.Chain)
+	if err != nil {
+		return fmt.Errorf("failed to get database for chain %s: %w", cfg.Chain, err)
+	}
+
+	// Ownership passes to the registry only once the client is live. Until then
+	// close it on the way out, or a chain that cannot start leaks a handle on
+	// every refresh tick for as long as the misconfiguration lasts.
+	adopted := false
+	defer func() {
+		if adopted {
+			return
+		}
+		if cerr := chainDB.Close(); cerr != nil {
+			c.logger.Warn().Err(cerr).Str("chain", cfg.Chain).Msg("failed to close database after unsuccessful chain add")
+		}
+	}()
+
+	// Get chain-specific config
+	chainConfig := c.config.GetChainConfig(cfg.Chain)
+
+	// Create chain client based on VM type
+	var client common.ChainClient
+	switch cfg.VmType {
+	case uregistrytypes.VmType_EVM:
+		client, err = evm.NewClient(cfg, chainDB, chainConfig, c.pushSigner, c.config.AllowsZeroConfirmations(), c.logger)
+	case uregistrytypes.VmType_SVM:
+		client, err = svm.NewClient(cfg, chainDB, chainConfig, c.pushSigner, c.config.NodeHome, c.config.AllowsZeroConfirmations(), c.logger)
+	default:
+		return fmt.Errorf("unsupported VM type: %v", cfg.VmType)
+	}
+
+	if err != nil {
+		return fmt.Errorf("failed to create chain client: %w", err)
+	}
+
+	// Start the chain client
+	if err := client.Start(ctx); err != nil {
+		return fmt.Errorf("failed to start chain client: %w", err)
+	}
+
+	// Store the client and config
+	c.chainsMu.Lock()
+	c.chains[cfg.Chain] = client
+	c.chainConfigs[cfg.Chain] = cfg
+	c.chainDBs[cfg.Chain] = chainDB
+	c.chainsMu.Unlock()
+	adopted = true
+
+	c.logger.Info().
+		Str("chain", cfg.Chain).
+		Msg("chain client added")
+
+	return nil
+}
+
+// removeChain removes a chain client
+func (c *Chains) removeChain(chainID string) error {
+	c.chainsMu.Lock()
+	defer c.chainsMu.Unlock()
+
+	client, exists := c.chains[chainID]
+	if !exists {
+		return nil
+	}
+	// Stop the client
+	if err := client.Stop(); err != nil {
+		c.logger.Error().
+			Err(err).
+			Str("chain", chainID).
+			Msg("error stopping chain client during removal")
+	}
+
+	// After Stop, so nothing is still reading through it.
+	if database, ok := c.chainDBs[chainID]; ok {
+		if err := database.Close(); err != nil {
+			c.logger.Error().Err(err).Str("chain", chainID).Msg("error closing chain database during removal")
+		}
+		delete(c.chainDBs, chainID)
+	}
+
+	delete(c.chains, chainID)
+	delete(c.chainConfigs, chainID)
+
+	c.logger.Info().
+		Str("chain", chainID).
+		Msg("chain client removed")
+
+	return nil
+}
+
+// StopAll stops all chain clients
+func (c *Chains) StopAll() {
+	c.chainsMu.Lock()
+	defer c.chainsMu.Unlock()
+
+	c.logger.Debug().Msg("stopping all chain clients")
+
+	for chainID, client := range c.chains {
+		if err := client.Stop(); err != nil {
+			c.logger.Error().
+				Err(err).
+				Str("chain", chainID).
+				Msg("error stopping chain client")
+		}
+	}
+
+	for chainID, database := range c.chainDBs {
+		if err := database.Close(); err != nil {
+			c.logger.Error().
+				Err(err).
+				Str("chain", chainID).
+				Msg("error closing chain database")
+		}
+	}
+
+	// Clear the registry
+	c.chains = make(map[string]common.ChainClient)
+	c.chainConfigs = make(map[string]*uregistrytypes.ChainConfig)
+	c.chainDBs = make(map[string]*db.DB)
+}
+
+// GetClient returns the chain client for the specified chain ID
+func (c *Chains) GetClient(chainID string) (common.ChainClient, error) {
+	c.chainsMu.RLock()
+	defer c.chainsMu.RUnlock()
+
+	client, exists := c.chains[chainID]
+	if !exists {
+		return nil, fmt.Errorf("chain client not found for chain %s", chainID)
+	}
+
+	return client, nil
+}
+
+// IsEVMChain returns true if the chain uses EVM (e.g. Ethereum, BSC). Used by coordinator for nonce behaviour.
+func (c *Chains) IsEVMChain(chainID string) bool {
+	c.chainsMu.RLock()
+	cfg := c.chainConfigs[chainID]
+	c.chainsMu.RUnlock()
+	return cfg != nil && cfg.VmType == uregistrytypes.VmType_EVM
+}
+
+// IsChainInboundEnabled returns whether inbound is enabled for the given chain
+func (c *Chains) IsChainInboundEnabled(chainID string) bool {
+	c.chainsMu.RLock()
+	cfg := c.chainConfigs[chainID]
+	c.chainsMu.RUnlock()
+	return cfg != nil && cfg.Enabled != nil && cfg.Enabled.IsInboundEnabled
+}
+
+// IsChainOutboundEnabled returns whether outbound is enabled for the given chain
+func (c *Chains) IsChainOutboundEnabled(chainID string) bool {
+	c.chainsMu.RLock()
+	cfg := c.chainConfigs[chainID]
+	c.chainsMu.RUnlock()
+	return cfg != nil && cfg.Enabled != nil && cfg.Enabled.IsOutboundEnabled
+}
+
+// GetStandardConfirmations returns the chain's standard block confirmations from registry config (BlockConfirmation.StandardInbound). Used for outbound tx completion. Returns 12 if not set.
+func (c *Chains) GetStandardConfirmations(chainID string) uint64 {
+	c.chainsMu.RLock()
+	cfg := c.chainConfigs[chainID]
+	c.chainsMu.RUnlock()
+	if cfg != nil && cfg.BlockConfirmation != nil && cfg.BlockConfirmation.StandardInbound > 0 {
+		return uint64(cfg.BlockConfirmation.StandardInbound)
+	}
+	return 12
+}
+
+// getChainDB returns a database instance for a specific chain
+func (c *Chains) getChainDB(chainID string) (*db.DB, error) {
+	// Create database file directly named after the chain's CAIP-2 format
+	// e.g., "eip155:1" -> "eip155_1.db"
+	sanitizedChainID := sanitizeChainID(chainID)
+	dbFilename := sanitizedChainID + ".db"
+
+	// Derive database base directory from NodeHome
+	baseDir := filepath.Join(c.config.NodeHome, config.DatabasesSubdir)
+
+	database, err := c.openDB(baseDir, dbFilename, true)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create database for chain %s: %w", chainID, err)
+	}
+
+	c.logger.Debug().
+		Str("chain", chainID).
+		Str("db_path", filepath.Join(baseDir, dbFilename)).
+		Msg("created file database for chain")
+
+	return database, nil
+}
+
+// Helper functions
+
+// sanitizeChainID converts chain ID to filesystem-safe format
+// e.g., "eip155:1" -> "eip155_1"
+func sanitizeChainID(chainID string) string {
+	result := ""
+	for _, r := range chainID {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_' {
+			result += string(r)
+		} else {
+			result += "_"
+		}
+	}
+	return result
+}
+
+// configsEqual compares two chain configurations for fields relevant to the universal client
+func configsEqual(a, b *uregistrytypes.ChainConfig) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+
+	if a.Chain != b.Chain ||
+		a.VmType != b.VmType ||
+		a.GatewayAddress != b.GatewayAddress {
+		return false
+	}
+
+	// Compare gateway methods
+	if !gatewayMethodsEqual(a.GatewayMethods, b.GatewayMethods) {
+		return false
+	}
+
+	// Compare vault methods
+	if !vaultMethodsEqual(a.VaultMethods, b.VaultMethods) {
+		return false
+	}
+
+	// Compare block confirmation
+	if !blockConfirmationEqual(a.BlockConfirmation, b.BlockConfirmation) {
+		return false
+	}
+
+	// Compare enabled flags
+	if !chainEnabledEqual(a.Enabled, b.Enabled) {
+		return false
+	}
+
+	return true
+}
+
+func gatewayMethodsEqual(a, b []*uregistrytypes.GatewayMethods) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i].Name != b[i].Name ||
+			a[i].Identifier != b[i].Identifier ||
+			a[i].EventIdentifier != b[i].EventIdentifier ||
+			a[i].ConfirmationType != b[i].ConfirmationType {
+			return false
+		}
+	}
+	return true
+}
+
+func vaultMethodsEqual(a, b []*uregistrytypes.VaultMethods) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i].Name != b[i].Name ||
+			a[i].Identifier != b[i].Identifier ||
+			a[i].EventIdentifier != b[i].EventIdentifier ||
+			a[i].ConfirmationType != b[i].ConfirmationType {
+			return false
+		}
+	}
+	return true
+}
+
+func chainEnabledEqual(a, b *uregistrytypes.ChainEnabled) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return a.IsInboundEnabled == b.IsInboundEnabled &&
+		a.IsOutboundEnabled == b.IsOutboundEnabled
+}
+
+func blockConfirmationEqual(a, b *uregistrytypes.BlockConfirmation) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return a.FastInbound == b.FastInbound &&
+		a.StandardInbound == b.StandardInbound
+}

@@ -2,6 +2,7 @@ package ante
 
 import (
 	"context"
+	"time"
 
 	addresscodec "cosmossdk.io/core/address"
 	corestoretypes "cosmossdk.io/core/store"
@@ -38,9 +39,10 @@ type AccountKeeper interface {
 	GetParams(ctx context.Context) (params authtypes.Params)
 	GetSequence(ctx context.Context, addr sdk.AccAddress) (uint64, error)
 	AddressCodec() addresscodec.Codec
-	// RemoveExpiredUnorderedNonces(ctx sdk.Context) error
-	// TryAddUnorderedNonce(sdk.Context, []byte, time.Time) error
-	// UnorderedTransactionsEnabled() bool
+	// Unordered transaction support (added in cosmos-sdk v0.53).
+	UnorderedTransactionsEnabled() bool
+	RemoveExpiredUnorderedNonces(ctx sdk.Context) error
+	TryAddUnorderedNonce(ctx sdk.Context, sender []byte, timestamp time.Time) error
 }
 
 // UValidatorKeeper is the minimal slice of the uvalidator keeper the ante chain

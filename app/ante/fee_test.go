@@ -3,6 +3,7 @@ package ante_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -95,6 +96,18 @@ func (m *mockAccountKeeperAnte) GetSequence(_ context.Context, _ sdk.AccAddress)
 
 func (m *mockAccountKeeperAnte) AddressCodec() addresscodec.Codec {
 	return sdkaddress.NewBech32Codec("push")
+}
+
+func (m *mockAccountKeeperAnte) UnorderedTransactionsEnabled() bool {
+	return false
+}
+
+func (m *mockAccountKeeperAnte) RemoveExpiredUnorderedNonces(_ sdk.Context) error {
+	return nil
+}
+
+func (m *mockAccountKeeperAnte) TryAddUnorderedNonce(_ sdk.Context, _ []byte, _ time.Time) error {
+	return nil
 }
 
 // mockBankKeeperAnte records whether the deduct call was made.

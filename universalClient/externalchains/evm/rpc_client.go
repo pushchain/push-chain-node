@@ -1,0 +1,383 @@
+package evm
+
+import (
+	"context"
+	"fmt"
+	"math/big"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"github.com/ethereum/go-ethereum"
+	ethcommon "github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/rs/zerolog"
+)
+
+// RPCClient provides EVM-specific RPC operations
+type RPCClient struct {
+	clients []*ethclient.Client
+	index   uint64
+	mu      sync.RWMutex
+	logger  zerolog.Logger
+}
+
+// NewRPCClient creates a new EVM RPC client from RPC URLs and validates chain ID
+func NewRPCClient(rpcURLs []string, expectedChainID int64, logger zerolog.Logger) (*RPCClient, error) {
+	if len(rpcURLs) == 0 {
+		return nil, fmt.Errorf("no RPC URLs provided")
+	}
+
+	log := logger.With().Str("component", "evm_rpc_client").Logger()
+	clients := make([]*ethclient.Client, 0, len(rpcURLs))
+
+	// Create a temporary context for initial connection and chain ID verification
+	// Use longer timeout for chain ID verification (30 seconds)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	for i, url := range rpcURLs {
+		client, err := ethclient.DialContext(ctx, url)
+		if err != nil {
+			log.Warn().Err(err).Int("index", i).Msg("failed to connect to RPC endpoint, skipping")
+			continue
+		}
+
+		// Verify chain ID matches (with timeout handling)
+		clientChainID, err := client.ChainID(ctx)
+		if err != nil {
+			// If chain ID verification fails (timeout or error), log warning but still add client
+			// This allows the system to continue even if verification is slow/unavailable
+			log.Warn().
+				Err(err).
+				Int("index", i).
+				Int64("expected_chain_id", expectedChainID).
+				Msg("failed to verify chain ID (timeout or error), proceeding with client anyway")
+			clients = append(clients, client)
+			continue
+		}
+
+		if clientChainID.Int64() != expectedChainID {
+			client.Close()
+			log.Warn().
+				Int("index", i).
+				Int64("expected_chain_id", expectedChainID).
+				Int64("actual_chain_id", clientChainID.Int64()).
+				Msg("chain ID mismatch, closing client")
+			continue
+		}
+
+		clients = append(clients, client)
+		log.Debug().Int("index", i).Msg("RPC client added to pool")
+	}
+
+	if len(clients) == 0 {
+		return nil, fmt.Errorf("failed to connect to any valid RPC endpoints")
+	}
+
+	return &RPCClient{
+		clients: clients,
+		logger:  log,
+	}, nil
+}
+
+// executeWithFailover executes a function with round-robin failover
+func (rc *RPCClient) executeWithFailover(ctx context.Context, operation string, fn func(*ethclient.Client) error) error {
+	rc.mu.RLock()
+	clients := rc.clients
+	rc.mu.RUnlock()
+
+	if len(clients) == 0 {
+		return fmt.Errorf("no RPC clients available for %s", operation)
+	}
+
+	maxAttempts := len(clients)
+	// Snapshot start index once per call so concurrent callers can't share
+	// counter advances and retry the same failing endpoint.
+	startIndex := atomic.AddUint64(&rc.index, 1) - 1
+	var lastErr error
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		if ctx != nil {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
+		}
+
+		client := clients[(startIndex+uint64(attempt))%uint64(len(clients))]
+
+		if client == nil {
+			continue
+		}
+
+		err := fn(client)
+		if err == nil {
+			return nil
+		}
+		lastErr = err
+
+		rc.logger.Warn().
+			Str("operation", operation).
+			Int("attempt", attempt+1).
+			Err(err).
+			Msg("operation failed, trying next endpoint")
+	}
+
+	if lastErr != nil {
+		return fmt.Errorf("operation %s failed after trying %d endpoints: %w", operation, maxAttempts, lastErr)
+	}
+	return fmt.Errorf("operation %s failed after trying %d endpoints", operation, maxAttempts)
+}
+
+// IsHealthy checks if any RPC in the pool is healthy by pinging it
+func (rc *RPCClient) IsHealthy(ctx context.Context) bool {
+	rc.mu.RLock()
+	hasClients := len(rc.clients) > 0
+	rc.mu.RUnlock()
+
+	if !hasClients {
+		return false
+	}
+
+	_, err := rc.GetLatestBlock(ctx)
+	return err == nil
+}
+
+// GetLatestBlock returns the latest block number
+func (rc *RPCClient) GetLatestBlock(ctx context.Context) (uint64, error) {
+	var blockNum uint64
+	err := rc.executeWithFailover(ctx, "get_block_number", func(client *ethclient.Client) error {
+		var innerErr error
+		blockNum, innerErr = client.BlockNumber(ctx)
+		return innerErr
+	})
+	return blockNum, err
+}
+
+// GetGasPrice fetches the current gas price
+func (rc *RPCClient) GetGasPrice(ctx context.Context) (*big.Int, error) {
+	var gasPrice *big.Int
+	err := rc.executeWithFailover(ctx, "get_gas_price", func(client *ethclient.Client) error {
+		callCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+		var innerErr error
+		gasPrice, innerErr = client.SuggestGasPrice(callCtx)
+		return innerErr
+	})
+	return gasPrice, err
+}
+
+// GetBalance fetches the native token balance for an address at the latest block.
+func (rc *RPCClient) GetBalance(ctx context.Context, address ethcommon.Address) (*big.Int, error) {
+	var balance *big.Int
+	err := rc.executeWithFailover(ctx, "get_balance", func(client *ethclient.Client) error {
+		callCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+		var innerErr error
+		balance, innerErr = client.BalanceAt(callCtx, address, nil)
+		return innerErr
+	})
+	return balance, err
+}
+
+// GetBalanceAt fetches the native token balance for an address at a specific block.
+func (rc *RPCClient) GetBalanceAt(ctx context.Context, address ethcommon.Address, blockNumber *big.Int) (*big.Int, error) {
+	var balance *big.Int
+	err := rc.executeWithFailover(ctx, "get_balance_at", func(client *ethclient.Client) error {
+		callCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+		var innerErr error
+		balance, innerErr = client.BalanceAt(callCtx, address, blockNumber)
+		return innerErr
+	})
+	return balance, err
+}
+
+// GetStorageAt fetches a storage slot value for a contract at a specific block.
+func (rc *RPCClient) GetStorageAt(ctx context.Context, address ethcommon.Address, slot ethcommon.Hash, blockNumber *big.Int) ([]byte, error) {
+	var value []byte
+	err := rc.executeWithFailover(ctx, "get_storage_at", func(client *ethclient.Client) error {
+		callCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+		var innerErr error
+		value, innerErr = client.StorageAt(callCtx, address, slot, blockNumber)
+		return innerErr
+	})
+	return value, err
+}
+
+// GetHeaderByNumber fetches a block header by number.
+func (rc *RPCClient) GetHeaderByNumber(ctx context.Context, blockNumber *big.Int) (*types.Header, error) {
+	var header *types.Header
+	err := rc.executeWithFailover(ctx, "get_header_by_number", func(client *ethclient.Client) error {
+		callCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+		var innerErr error
+		header, innerErr = client.HeaderByNumber(callCtx, blockNumber)
+		return innerErr
+	})
+	return header, err
+}
+
+// FilterLogs fetches logs matching the filter query
+func (rc *RPCClient) FilterLogs(ctx context.Context, query ethereum.FilterQuery) ([]types.Log, error) {
+	var logs []types.Log
+	err := rc.executeWithFailover(ctx, "filter_logs", func(client *ethclient.Client) error {
+		var innerErr error
+		logs, innerErr = client.FilterLogs(ctx, query)
+		return innerErr
+	})
+	return logs, err
+}
+
+// Receipt holds the transaction-receipt fields the universal client needs,
+// including the OP-Stack L1 data fee that go-ethereum's typed receipt omits.
+type Receipt struct {
+	Status            uint64
+	BlockNumber       uint64
+	GasUsed           uint64
+	EffectiveGasPrice *big.Int // nil if the receipt omits the field (pre-London / non-compliant RPC)
+	L1Fee             *big.Int // OP-Stack L1 data fee; 0 on non-OP chains
+}
+
+// GetTransactionReceipt fetches a transaction receipt in a single raw call,
+// reading the OP-Stack l1Fee alongside the standard fields. Returns (nil, nil)
+// if the tx is not found (receipt is null).
+func (rc *RPCClient) GetTransactionReceipt(ctx context.Context, txHash ethcommon.Hash) (*Receipt, error) {
+	var raw struct {
+		Status            *hexutil.Uint64 `json:"status"`
+		BlockNumber       *hexutil.Big    `json:"blockNumber"`
+		GasUsed           *hexutil.Uint64 `json:"gasUsed"`
+		EffectiveGasPrice *hexutil.Big    `json:"effectiveGasPrice"`
+		L1Fee             *hexutil.Big    `json:"l1Fee"`
+	}
+	err := rc.executeWithFailover(ctx, "get_transaction_receipt", func(client *ethclient.Client) error {
+		return client.Client().CallContext(ctx, &raw, "eth_getTransactionReceipt", txHash)
+	})
+	if err != nil {
+		return nil, err
+	}
+	if raw.GasUsed == nil {
+		return nil, nil // not found
+	}
+	r := &Receipt{
+		GasUsed: uint64(*raw.GasUsed),
+		L1Fee:   big.NewInt(0),
+	}
+	if raw.Status != nil {
+		r.Status = uint64(*raw.Status)
+	}
+	if raw.BlockNumber != nil {
+		r.BlockNumber = (*big.Int)(raw.BlockNumber).Uint64()
+	}
+	if raw.EffectiveGasPrice != nil {
+		r.EffectiveGasPrice = (*big.Int)(raw.EffectiveGasPrice)
+	}
+	if raw.L1Fee != nil {
+		r.L1Fee = (*big.Int)(raw.L1Fee)
+	}
+	return r, nil
+}
+
+// GetTransactionByHash returns a transaction by its hash.
+func (rc *RPCClient) GetTransactionByHash(ctx context.Context, txHash ethcommon.Hash) (*types.Transaction, bool, error) {
+	var tx *types.Transaction
+	var isPending bool
+	err := rc.executeWithFailover(ctx, "get_transaction_by_hash", func(client *ethclient.Client) error {
+		var innerErr error
+		tx, isPending, innerErr = client.TransactionByHash(ctx, txHash)
+		return innerErr
+	})
+	return tx, isPending, err
+}
+
+// GetPendingNonce returns the pending nonce (next nonce the chain will accept for this account).
+func (rc *RPCClient) GetPendingNonce(ctx context.Context, address ethcommon.Address) (uint64, error) {
+	var nonce uint64
+	err := rc.executeWithFailover(ctx, "get_transaction_count_pending", func(client *ethclient.Client) error {
+		var innerErr error
+		nonce, innerErr = client.PendingNonceAt(ctx, address)
+		return innerErr
+	})
+	return nonce, err
+}
+
+// GetFinalizedNonce returns the finalized nonce at a block.
+func (rc *RPCClient) GetFinalizedNonce(ctx context.Context, address ethcommon.Address, blockNum *big.Int) (uint64, error) {
+	var nonce uint64
+	err := rc.executeWithFailover(ctx, "get_transaction_count_finalized", func(client *ethclient.Client) error {
+		var innerErr error
+		nonce, innerErr = client.NonceAt(ctx, address, blockNum)
+		return innerErr
+	})
+	return nonce, err
+}
+
+// CallContract calls a contract method and returns the result
+func (rc *RPCClient) CallContract(ctx context.Context, contractAddr ethcommon.Address, data []byte, blockNumber *big.Int) ([]byte, error) {
+	var result []byte
+	err := rc.executeWithFailover(ctx, "call_contract", func(client *ethclient.Client) error {
+		msg := ethereum.CallMsg{
+			To:   &contractAddr,
+			Data: data,
+		}
+		var innerErr error
+		result, innerErr = client.CallContract(ctx, msg, blockNumber)
+		if innerErr != nil {
+			return innerErr
+		}
+		return nil
+	})
+	return result, err
+}
+
+// CallContractWithFrom simulates a contract call as if from the given address (eth_call).
+// No private key needed - use for simulation to check if a tx would pass or fail.
+func (rc *RPCClient) CallContractWithFrom(ctx context.Context, from, contractAddr ethcommon.Address, data []byte, value *big.Int, blockNumber *big.Int) ([]byte, error) {
+	var result []byte
+	err := rc.executeWithFailover(ctx, "call_contract", func(client *ethclient.Client) error {
+		msg := ethereum.CallMsg{
+			From:  from,
+			To:    &contractAddr,
+			Data:  data,
+			Value: value,
+		}
+		var innerErr error
+		result, innerErr = client.CallContract(ctx, msg, blockNumber)
+		if innerErr != nil {
+			return innerErr
+		}
+		return nil
+	})
+	return result, err
+}
+
+// BroadcastTransaction broadcasts a signed transaction and returns the transaction hash
+func (rc *RPCClient) BroadcastTransaction(ctx context.Context, tx *types.Transaction) (string, error) {
+	var txHash string
+	err := rc.executeWithFailover(ctx, "send_transaction", func(client *ethclient.Client) error {
+		innerErr := client.SendTransaction(ctx, tx)
+		if innerErr != nil {
+			return innerErr
+		}
+		txHash = tx.Hash().Hex()
+		return nil
+	})
+	return txHash, err
+}
+
+// Close closes all RPC connections
+func (rc *RPCClient) Close() {
+	rc.mu.Lock()
+	defer rc.mu.Unlock()
+
+	for _, client := range rc.clients {
+		if client != nil {
+			client.Close()
+		}
+	}
+	rc.clients = nil
+}

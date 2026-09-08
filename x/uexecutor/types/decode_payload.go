@@ -112,7 +112,7 @@ func DecodeRawPayload(rawPayload string, sourceChain string) (*UniversalPayload,
 
 // DecodeUniversalPayloadEVM decodes an ABI-encoded UniversalPayload from a hex string.
 // The hex string should contain ABI-encoded tuple data as emitted by the EVM gateway contract.
-// Ported from universalClient/chains/evm/event_parser.go:decodeUniversalPayload.
+// Ported from universalClient/externalchains/evm/event_parser.go:decodeUniversalPayload.
 func DecodeUniversalPayloadEVM(hexStr string) (*UniversalPayload, error) {
 	if hexStr == "" || strings.TrimSpace(hexStr) == "" {
 		return nil, nil

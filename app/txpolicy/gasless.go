@@ -5,6 +5,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/authz"
+	ucallbacktypes "github.com/pushchain/push-chain-node/x/ucallback/types"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 )
@@ -21,6 +22,7 @@ func IsGaslessTx(tx sdk.Tx) bool {
 			sdk.MsgTypeURL(&utsstypes.MsgVoteTssKeyProcess{}),
 			sdk.MsgTypeURL(&utsstypes.MsgVoteFundMigration{}),
 			sdk.MsgTypeURL(&uexecutortypes.MsgVoteChainMeta{}),
+			sdk.MsgTypeURL(&ucallbacktypes.MsgVoteReadResult{}),
 		}
 	)
 

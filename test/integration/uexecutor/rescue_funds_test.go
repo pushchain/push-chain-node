@@ -760,3 +760,73 @@ func findRescueOutbound(utx uexecutortypes.UniversalTx) *uexecutortypes.Outbound
 
 // Ensure the fmt import is used.
 var _ = fmt.Sprintf
+
+// TestRescueFunds_PC20 covers the rescue escape hatch for a stuck PC20 return.
+// A PC20 return burns the wrapper on the external chain; if the on-Push unlock
+// fails and the auto INBOUND_REVERT (wrapper re-mint) also fails (REVERTED), the
+// funds are stuck and rescue re-attempts the re-mint. The chain must build the
+// rescue outbound carrying the WRAPPER as its token (the external Vault.rescueFunds
+// detects a PC20 wrapper and re-mints it), WITHOUT the PRC20 token-config lookup
+// that the PRC20 path uses — that lookup would fail for a wrapper and, before this
+// branch, fatally reverted the whole tx.
+func TestRescueFunds_PC20(t *testing.T) {
+	t.Run("PC20 return rescue builds with the wrapper as token and skips the PRC20 lookup", func(t *testing.T) {
+		chainApp, ctx, _, _, _ := setupInboundBridgeTest(t, 4)
+
+		// A PC20 wrapper that is deliberately NOT registered as a PRC20 token — the
+		// PC20 rescue must not need a token config for it.
+		wrapper := common.HexToAddress("0x000000000000000000000000000000000000FACE")
+		sender := common.HexToAddress(utils.GetDefaultAddresses().DefaultTestAddr)
+
+		inbound := &uexecutortypes.Inbound{
+			SourceChain:        "eip155:11155111",
+			TxHash:             "0xpc20rescue01",
+			Sender:             sender.Hex(),
+			Amount:             "1000000",
+			AssetAddr:          wrapper.Hex(), // the external wrapper
+			LogIndex:           "1",
+			TxType:             uexecutortypes.TxType_FUNDS_AND_PAYLOAD,
+			IsPc20:             true,
+			IsCEA:              false,
+			RevertInstructions: &uexecutortypes.RevertInstructions{FundRecipient: sender.Hex()},
+		}
+		utxId := uexecutortypes.GetInboundUniversalTxKey(*inbound)
+
+		// Stuck state: the auto INBOUND_REVERT (re-mint) reached REVERTED, which makes
+		// a non-CEA inbound eligible for rescue.
+		utx := uexecutortypes.UniversalTx{
+			Id:        utxId,
+			InboundTx: inbound,
+			OutboundTx: []*uexecutortypes.OutboundTx{
+				{
+					Id:             "pc20-reverted-revert",
+					TxType:         uexecutortypes.TxType_INBOUND_REVERT,
+					OutboundStatus: uexecutortypes.Status_REVERTED,
+				},
+			},
+		}
+		require.NoError(t, chainApp.UexecutorKeeper.CreateUniversalTx(ctx, utxId, utx))
+
+		// The chain detects PC20 via the original inbound's is_pc20, not the rescue
+		// event, so the event's indexed address is irrelevant here (pass the wrapper).
+		log := buildRescueFundsLog(t, utxId, wrapper, sender,
+			"eip155", big.NewInt(333), big.NewInt(1_000_000_000), big.NewInt(200_000))
+		err := chainApp.UexecutorKeeper.AttachRescueOutboundFromReceipt(
+			ctx, makeRescueReceipt(t, "0xpc20rescuetx01", log),
+			uexecutortypes.PCTx{TxHash: "0xpc20rescuetx01", Status: "SUCCESS"},
+		)
+		require.NoError(t, err, "PC20 rescue must not fatally fail on the missing PRC20 token config")
+
+		got, _, err := chainApp.UexecutorKeeper.GetUniversalTx(ctx, utxId)
+		require.NoError(t, err)
+		rescueOb := findRescueOutbound(got)
+		require.NotNil(t, rescueOb, "RESCUE_FUNDS outbound must be attached")
+		require.Equal(t, uexecutortypes.TxType_RESCUE_FUNDS, rescueOb.TxType)
+		require.Equal(t, uexecutortypes.Status_PENDING, rescueOb.OutboundStatus)
+		require.Equal(t, wrapper.Hex(), rescueOb.ExternalAssetAddr, "rescue carries the wrapper as its token (Vault re-mints it)")
+		require.Empty(t, rescueOb.Prc20AssetAddr, "a PC20 rescue has no PRC20 asset")
+		require.False(t, rescueOb.IsPc20, "rescue outbound is not flagged is_pc20 — the Vault detects PC20 from the token")
+		require.Equal(t, "eip155:11155111", rescueOb.DestinationChain)
+		require.Equal(t, "333", rescueOb.GasFee)
+	})
+}

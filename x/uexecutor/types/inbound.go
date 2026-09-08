@@ -49,17 +49,30 @@ func (p *Inbound) NormalizeForTxType() error {
 		// Core validator decodes from raw_payload.
 		p.UniversalPayload = nil
 
-		// Decode raw_payload → universal_payload
+		// Route by the leading magic selector before decoding: a PC20 return (burn
+		// wrapper on the source chain -> unlock the locked native on Push) is flagged
+		// here via IsPc20 and its selector stripped for decoding. The full observed
+		// raw_payload (selector included) is intentionally left in place so that a
+		// failed decode preserves the exact on-chain bytes for forensics/debugging;
+		// raw_payload is cleared only after a successful decode. An unrecognised/absent
+		// selector takes the PRC20 path unchanged.
 		if p.RawPayload != "" {
-			decoded, err := DecodeRawPayload(p.RawPayload, p.SourceChain)
-			if err != nil {
-				return fmt.Errorf("failed to decode raw payload: %w", err)
+			isPC20, userPayload := RouteInboundPayload(p.RawPayload)
+			p.IsPc20 = isPC20
+
+			// Decode only the selector-stripped user payload → universal_payload.
+			if userPayload != "" {
+				decoded, err := DecodeRawPayload(userPayload, p.SourceChain)
+				if err != nil {
+					// Leave the full original raw_payload in place for forensics.
+					return fmt.Errorf("failed to decode raw payload: %w", err)
+				}
+				if decoded == nil {
+					return fmt.Errorf("raw_payload decoded to nil for payload tx type")
+				}
+				p.UniversalPayload = decoded
+				p.RawPayload = "" // clear after successful decode to save storage
 			}
-			if decoded == nil {
-				return fmt.Errorf("raw_payload decoded to nil for payload tx type")
-			}
-			p.UniversalPayload = decoded
-			p.RawPayload = "" // clear after successful decode to save storage
 		}
 	default:
 		// Non-payload types: payload is not used

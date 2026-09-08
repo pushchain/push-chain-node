@@ -1325,7 +1325,7 @@ sdk_patch_local_svm_outbound_execution() {
     return 0
   fi
 
-  ROUTE_HANDLERS_FILE="$route_handlers_file" PUSH_CHAIN_TX_FILE="$push_chain_tx_file" RESPONSE_BUILDER_FILE="$response_builder_file" node <<'NODE'
+  if ROUTE_HANDLERS_FILE="$route_handlers_file" PUSH_CHAIN_TX_FILE="$push_chain_tx_file" RESPONSE_BUILDER_FILE="$response_builder_file" node <<'NODE'
 const fs = require('fs');
 
 const routeFile = process.env.ROUTE_HANDLERS_FILE;
@@ -1618,8 +1618,11 @@ if (!responseBuilder.includes('LOCAL_SVM_SKIP_INBOUND_ROUND_TRIP')) {
   fs.writeFileSync(responseBuilderFile, responseBuilder);
 }
 NODE
-
-  log_ok "Patched SDK local SVM outbound execution behavior"
+  then
+    log_ok "Patched SDK local SVM outbound execution behavior"
+  else
+    log_warn "SDK local SVM outbound patch skipped: SDK source (branch '${PUSH_CHAIN_SDK_BRANCH:-?}') already includes these fixes natively or differs from expected anchors. SVM outbound local execution is not exercised by 'all'."
+  fi
 }
 
 sdk_sync_localnet_constants() {
@@ -1636,13 +1639,15 @@ sdk_sync_localnet_constants() {
 
   ensure_deploy_file
 
-  local peth peth_arb peth_base pbnb psol usdt_eth usdt_sol usdt_bnb
+  local peth peth_arb peth_base pbnb psol usdt_eth usdt_arb usdt_base usdt_sol usdt_bnb
   peth="$(address_from_deploy_token "pETH")"
   peth_arb="$(address_from_deploy_token "pETH.arb")"
   peth_base="$(address_from_deploy_token "pETH.base")"
   pbnb="$(address_from_deploy_token "pBNB")"
   psol="$(address_from_deploy_token "pSOL")"
   usdt_eth="$(address_from_deploy_token "USDT.eth")"
+  usdt_arb="$(address_from_deploy_token "USDT.arb")"
+  usdt_base="$(address_from_deploy_token "USDT.base")"
   usdt_sol="$(address_from_deploy_token "USDT.sol")"
   usdt_bnb="$(address_from_deploy_token "USDT.bsc")"
 
@@ -1652,6 +1657,8 @@ sdk_sync_localnet_constants() {
   [[ -n "$pbnb" ]] || pbnb="0xTBD"
   [[ -n "$psol" ]] || psol="0xTBD"
   [[ -n "$usdt_eth" ]] || usdt_eth="0xTBD"
+  [[ -n "$usdt_arb" ]] || usdt_arb="0xTBD"
+  [[ -n "$usdt_base" ]] || usdt_base="0xTBD"
   [[ -n "$usdt_sol" ]] || usdt_sol="0xTBD"
   [[ -n "$usdt_bnb" ]] || usdt_bnb="$usdt_eth"
 
@@ -1661,6 +1668,8 @@ sdk_sync_localnet_constants() {
   PBNB_ADDR="$pbnb" \
   PSOL_ADDR="$psol" \
   USDT_ETH_ADDR="$usdt_eth" \
+  USDT_ARB_ADDR="$usdt_arb" \
+  USDT_BASE_ADDR="$usdt_base" \
   USDT_SOL_ADDR="$usdt_sol" \
   USDT_BNB_ADDR="$usdt_bnb" \
   perl -0pi -e '
@@ -1670,6 +1679,8 @@ sdk_sync_localnet_constants() {
     s#(\[PUSH_NETWORK\.LOCALNET\]:\s*\{[\s\S]*?pETH_BNB:\s*)'\''[^'\''\n]*'\''#$1'\''$ENV{PBNB_ADDR}'\''#s;
     s#(\[PUSH_NETWORK\.LOCALNET\]:\s*\{[\s\S]*?pSOL:\s*)'\''[^'\''\n]*'\''#$1'\''$ENV{PSOL_ADDR}'\''#s;
     s#(\[PUSH_NETWORK\.LOCALNET\]:\s*\{[\s\S]*?USDT_ETH:\s*)'\''[^'\''\n]*'\''#$1'\''$ENV{USDT_ETH_ADDR}'\''#s;
+    s#(\[PUSH_NETWORK\.LOCALNET\]:\s*\{[\s\S]*?USDT_ARB:\s*)'\''[^'\''\n]*'\''#$1'\''$ENV{USDT_ARB_ADDR}'\''#s;
+    s#(\[PUSH_NETWORK\.LOCALNET\]:\s*\{[\s\S]*?USDT_BASE:\s*)'\''[^'\''\n]*'\''#$1'\''$ENV{USDT_BASE_ADDR}'\''#s;
     s#(\[PUSH_NETWORK\.LOCALNET\]:\s*\{[\s\S]*?USDT_SOL:\s*)'\''[^'\''\n]*'\''#$1'\''$ENV{USDT_SOL_ADDR}'\''#s;
     s#(\[PUSH_NETWORK\.LOCALNET\]:\s*\{[\s\S]*?USDT_BNB:\s*)'\''[^'\''\n]*'\''#$1'\''$ENV{USDT_BNB_ADDR}'\''#s;
   ' "$chain_constants_file"
@@ -2314,6 +2325,10 @@ step_run_sdk_quick_testing_outbound() {
 step_run_sdk_quick_testing_inbound_evm() {
   local inbound_file="$PUSH_CHAIN_SDK_DIR/packages/core/__e2e__/evm/inbound/uea-to-push.spec.ts"
 
+  # Run the full inbound EVM "Core Scenarios" suite against a single origin chain.
+  # Ethereum Sepolia has both native (pETH) and USDT synthetic tokens deployed on
+  # the local Push Chain, so it exercises every Core Scenario. BSC and the other
+  # EVM origins are intentionally excluded (one chain covers all core scenarios).
   export E2E_TARGET_CHAINS="Ethereum Sepolia"
 
   step_setup_push_chain_sdk
@@ -2326,13 +2341,15 @@ step_run_sdk_quick_testing_inbound_evm() {
     exit 1
   fi
 
-  log_info "Running SDK inbound EVM test on local Push Chain with Ethereum Sepolia origin only: uea-to-push.spec.ts"
+  log_info "Running all inbound EVM 'Core Scenarios' on local Push Chain (Ethereum Sepolia origin only): uea-to-push.spec.ts"
   (
     cd "$PUSH_CHAIN_SDK_DIR"
-    E2E_TARGET_CHAINS="Ethereum Sepolia" npx nx test core --runInBand --testPathPattern="__e2e__/evm/inbound/uea-to-push.spec.ts"
+    E2E_TARGET_CHAINS="Ethereum Sepolia" npx nx test core --runInBand \
+      --testPathPattern="__e2e__/evm/inbound/uea-to-push.spec.ts" \
+      --testNamePattern="Core Scenarios"
   )
 
-  log_ok "Completed quick-testing-inbound-evm SDK E2E test"
+  log_ok "Completed quick-testing-inbound-evm SDK E2E test (Core Scenarios)"
 }
 
 step_devnet() {

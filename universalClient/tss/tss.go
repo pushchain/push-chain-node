@@ -14,8 +14,8 @@ import (
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/rs/zerolog"
 
-	"github.com/pushchain/push-chain-node/universalClient/chains"
 	"github.com/pushchain/push-chain-node/universalClient/db"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains"
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/pushsigner"
 	"github.com/pushchain/push-chain-node/universalClient/tss/coordinator"
@@ -48,7 +48,7 @@ type Config struct {
 	IOTimeout        time.Duration
 
 	// Chains manager (required for sign operations to get txBuilders)
-	Chains *chains.Chains
+	Chains *externalchains.Chains
 
 	// Session expiry checker configuration
 	SessionExpiryTime          time.Duration // How long a session can be inactive before expiring (default: 5m)
@@ -97,7 +97,7 @@ type Node struct {
 	keyshareManager  *keyshare.Manager
 	database         *db.DB
 	pushCore         *pushcore.Client
-	chains           *chains.Chains
+	chains           *externalchains.Chains
 	logger           zerolog.Logger
 	eventStore       *eventstore.Store
 	coordinator      *coordinator.Coordinator

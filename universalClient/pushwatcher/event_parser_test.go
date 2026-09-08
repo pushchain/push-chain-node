@@ -1,0 +1,513 @@
+package pushwatcher
+
+import (
+	"encoding/json"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/pushchain/push-chain-node/universalClient/store"
+	ucallbacktypes "github.com/pushchain/push-chain-node/x/ucallback/types"
+	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
+	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
+)
+
+func TestConvertTssEvent(t *testing.T) {
+	t.Run("nil event returns error", func(t *testing.T) {
+		result, err := convertTssEvent(nil)
+		require.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "tss event is nil")
+	})
+
+	t.Run("unknown process type returns error", func(t *testing.T) {
+		result, err := convertTssEvent(&utsstypes.TssEvent{
+			ProcessId:   999,
+			ProcessType: "UNKNOWN_TYPE",
+		})
+		require.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "unknown process type: UNKNOWN_TYPE")
+	})
+
+	t.Run("keygen event with participants", func(t *testing.T) {
+		tssEvent := &utsstypes.TssEvent{
+			Id:           1,
+			EventType:    utsstypes.TssEventType_TSS_EVENT_PROCESS_INITIATED,
+			Status:       utsstypes.TssEventStatus_TSS_EVENT_ACTIVE,
+			ProcessId:    123,
+			ProcessType:  utsstypes.TssProcessType_TSS_PROCESS_KEYGEN.String(),
+			Participants: []string{"val1", "val2", "val3"},
+			ExpiryHeight: 1000,
+			BlockHeight:  500,
+		}
+
+		result, err := convertTssEvent(tssEvent)
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		assert.Equal(t, hashEventID(store.EventTypeKeygen, "123"), result.EventID)
+		assert.Equal(t, store.EventTypeKeygen, result.Type)
+		assert.Equal(t, uint64(500), result.BlockHeight)
+		assert.Equal(t, uint64(1000), result.ExpiryBlockHeight)
+		assert.Equal(t, store.StatusConfirmed, result.Status)
+		assert.Equal(t, store.ConfirmationInstant, result.ConfirmationType)
+
+		// Verify event data JSON
+		require.NotNil(t, result.EventData)
+		var data map[string]interface{}
+		require.NoError(t, json.Unmarshal(result.EventData, &data))
+		assert.Equal(t, float64(123), data["process_id"])
+		participants := data["participants"].([]interface{})
+		assert.Len(t, participants, 3)
+		assert.Equal(t, "val1", participants[0])
+	})
+
+	t.Run("refresh event", func(t *testing.T) {
+		result, err := convertTssEvent(&utsstypes.TssEvent{
+			ProcessId:   456,
+			ProcessType: utsstypes.TssProcessType_TSS_PROCESS_REFRESH.String(),
+			BlockHeight: 600,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, hashEventID(store.EventTypeKeyrefresh, "456"), result.EventID)
+		assert.Equal(t, store.EventTypeKeyrefresh, result.Type)
+		assert.Equal(t, uint64(600), result.BlockHeight)
+		assert.Nil(t, result.EventData) // no participants
+	})
+
+	t.Run("quorum change event", func(t *testing.T) {
+		result, err := convertTssEvent(&utsstypes.TssEvent{
+			ProcessId:    789,
+			ProcessType:  utsstypes.TssProcessType_TSS_PROCESS_QUORUM_CHANGE.String(),
+			ExpiryHeight: 2000,
+			BlockHeight:  700,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, hashEventID(store.EventTypeQuorumChange, "789"), result.EventID)
+		assert.Equal(t, store.EventTypeQuorumChange, result.Type)
+		assert.Equal(t, uint64(2000), result.ExpiryBlockHeight)
+	})
+
+	t.Run("empty participants produces nil event data", func(t *testing.T) {
+		result, err := convertTssEvent(&utsstypes.TssEvent{
+			ProcessId:    100,
+			ProcessType:  utsstypes.TssProcessType_TSS_PROCESS_KEYGEN.String(),
+			Participants: []string{},
+		})
+		require.NoError(t, err)
+		assert.Nil(t, result.EventData)
+	})
+}
+
+func TestConvertOutboundToEvent(t *testing.T) {
+	t.Run("nil entry returns error", func(t *testing.T) {
+		result, err := convertOutboundToEvent(nil, &uexecutortypes.OutboundTx{})
+		require.Error(t, err)
+		assert.Nil(t, result)
+	})
+
+	t.Run("nil outbound returns error", func(t *testing.T) {
+		result, err := convertOutboundToEvent(&uexecutortypes.PendingOutboundEntry{}, nil)
+		require.Error(t, err)
+		assert.Nil(t, result)
+	})
+
+	t.Run("full outbound with all fields", func(t *testing.T) {
+		entry := &uexecutortypes.PendingOutboundEntry{
+			OutboundId:    "0x123abc",
+			UniversalTxId: "utx-001",
+			CreatedAt:     1000,
+		}
+		outbound := &uexecutortypes.OutboundTx{
+			Id:                "0x123abc",
+			DestinationChain:  "eip155:1",
+			Recipient:         "0xrecipient",
+			Amount:            "1000000",
+			ExternalAssetAddr: "0xtoken",
+			Sender:            "0xsender",
+			Payload:           "0xpayload",
+			GasFee:            "21000",
+			GasLimit:          "100000",
+			GasPrice:          "50",
+			GasToken:          "ETH",
+			TxType:            uexecutortypes.TxType_FUNDS,
+			PcTx: &uexecutortypes.OriginatingPcTx{
+				TxHash:   "0xpctxhash",
+				LogIndex: "5",
+			},
+			RevertInstructions: &uexecutortypes.RevertInstructions{
+				FundRecipient: "0xrevert",
+			},
+		}
+
+		result, err := convertOutboundToEvent(entry, outbound)
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		// Verify store.Event fields
+		assert.Equal(t, "0x123abc", result.EventID)
+		assert.Equal(t, store.EventTypeSignOutbound, result.Type)
+		assert.Equal(t, uint64(1000), result.BlockHeight)
+		assert.Equal(t, uint64(0), result.ExpiryBlockHeight, "sign events have no client-side expiry")
+		assert.Equal(t, store.StatusConfirmed, result.Status)
+		assert.Equal(t, store.ConfirmationInstant, result.ConfirmationType)
+
+		// Verify OutboundCreatedEvent JSON
+		var data uexecutortypes.OutboundCreatedEvent
+		require.NoError(t, json.Unmarshal(result.EventData, &data))
+		assert.Equal(t, "0x123abc", data.TxID)
+		assert.Equal(t, "utx-001", data.UniversalTxId)
+		assert.Equal(t, "eip155:1", data.DestinationChain)
+		assert.Equal(t, "0xrecipient", data.Recipient)
+		assert.Equal(t, "1000000", data.Amount)
+		assert.Equal(t, "0xtoken", data.AssetAddr)
+		assert.Equal(t, "0xsender", data.Sender)
+		assert.Equal(t, "0xpayload", data.Payload)
+		assert.Equal(t, "21000", data.GasFee)
+		assert.Equal(t, "100000", data.GasLimit)
+		assert.Equal(t, "50", data.GasPrice)
+		assert.Equal(t, "ETH", data.GasToken)
+		assert.Equal(t, "FUNDS", data.TxType)
+		assert.Equal(t, "0xpctxhash", data.PcTxHash)
+		assert.Equal(t, "5", data.LogIndex)
+		assert.Equal(t, "0xrevert", data.RevertMsg)
+	})
+
+	t.Run("outbound without PcTx and RevertInstructions", func(t *testing.T) {
+		entry := &uexecutortypes.PendingOutboundEntry{
+			OutboundId:    "0xminimal",
+			UniversalTxId: "utx-002",
+			CreatedAt:     500,
+		}
+		outbound := &uexecutortypes.OutboundTx{
+			Id:               "0xminimal",
+			DestinationChain: "eip155:1",
+			Amount:           "100",
+		}
+
+		result, err := convertOutboundToEvent(entry, outbound)
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		assert.Equal(t, "0xminimal", result.EventID)
+		assert.Equal(t, uint64(500), result.BlockHeight)
+		assert.Equal(t, uint64(0), result.ExpiryBlockHeight, "sign events have no client-side expiry")
+
+		var data uexecutortypes.OutboundCreatedEvent
+		require.NoError(t, json.Unmarshal(result.EventData, &data))
+		assert.Empty(t, data.PcTxHash)
+		assert.Empty(t, data.LogIndex)
+		assert.Empty(t, data.RevertMsg)
+		assert.Equal(t, "utx-002", data.UniversalTxId)
+	})
+
+	t.Run("outbound with RevertInstructions but no PcTx", func(t *testing.T) {
+		entry := &uexecutortypes.PendingOutboundEntry{
+			OutboundId: "0xrevert-only",
+			CreatedAt:  300,
+		}
+		outbound := &uexecutortypes.OutboundTx{
+			Id: "0xrevert-only",
+			RevertInstructions: &uexecutortypes.RevertInstructions{
+				FundRecipient: "0xfundrecipient",
+			},
+		}
+
+		result, err := convertOutboundToEvent(entry, outbound)
+		require.NoError(t, err)
+
+		var data uexecutortypes.OutboundCreatedEvent
+		require.NoError(t, json.Unmarshal(result.EventData, &data))
+		assert.Equal(t, "0xfundrecipient", data.RevertMsg)
+		assert.Empty(t, data.PcTxHash)
+	})
+
+	t.Run("outbound with PcTx but no RevertInstructions", func(t *testing.T) {
+		entry := &uexecutortypes.PendingOutboundEntry{
+			OutboundId: "0xpctx-only",
+			CreatedAt:  400,
+		}
+		outbound := &uexecutortypes.OutboundTx{
+			Id: "0xpctx-only",
+			PcTx: &uexecutortypes.OriginatingPcTx{
+				TxHash:   "0xhash",
+				LogIndex: "3",
+			},
+		}
+
+		result, err := convertOutboundToEvent(entry, outbound)
+		require.NoError(t, err)
+
+		var data uexecutortypes.OutboundCreatedEvent
+		require.NoError(t, json.Unmarshal(result.EventData, &data))
+		assert.Equal(t, "0xhash", data.PcTxHash)
+		assert.Equal(t, "3", data.LogIndex)
+		assert.Empty(t, data.RevertMsg)
+	})
+
+	t.Run("both nil returns error", func(t *testing.T) {
+		result, err := convertOutboundToEvent(nil, nil)
+		require.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "entry or outbound is nil")
+	})
+
+	t.Run("chain-supplied signing deadline flows through", func(t *testing.T) {
+		entry := &uexecutortypes.PendingOutboundEntry{
+			OutboundId:      "0xabc",
+			UniversalTxId:   "utx-deadline",
+			CreatedAt:       1000,
+			SigningDeadline: 1735689600,
+		}
+		outbound := &uexecutortypes.OutboundTx{
+			Id:               "0xabc",
+			DestinationChain: "solana:devnet",
+			Amount:           "1",
+		}
+
+		result, err := convertOutboundToEvent(entry, outbound)
+		require.NoError(t, err)
+
+		var data uexecutortypes.OutboundCreatedEvent
+		require.NoError(t, json.Unmarshal(result.EventData, &data))
+		assert.Equal(t, int64(1735689600), data.SigningDeadline)
+	})
+
+	t.Run("zero signing deadline stays zero", func(t *testing.T) {
+		entry := &uexecutortypes.PendingOutboundEntry{
+			OutboundId:    "0xnone",
+			UniversalTxId: "utx-no-deadline",
+			CreatedAt:     1000,
+		}
+		outbound := &uexecutortypes.OutboundTx{
+			Id:               "0xnone",
+			DestinationChain: "eip155:1",
+			Amount:           "1",
+		}
+
+		result, err := convertOutboundToEvent(entry, outbound)
+		require.NoError(t, err)
+
+		var data uexecutortypes.OutboundCreatedEvent
+		require.NoError(t, json.Unmarshal(result.EventData, &data))
+		assert.Equal(t, int64(0), data.SigningDeadline)
+	})
+}
+
+func TestConvertOutboundToEvent_PC20AssetAddr(t *testing.T) {
+	entry := &uexecutortypes.PendingOutboundEntry{UniversalTxId: "0xutx"}
+	source := "0xdAC17F958D2ee523a2206206994597C13D831ec7"
+
+	t.Run("PC20 export: asset_addr surfaces the source (mirrors core)", func(t *testing.T) {
+		outbound := &uexecutortypes.OutboundTx{
+			Id:                  "0xexport",
+			DestinationChain:    "eip155:1",
+			Amount:              "1000",
+			ExternalAssetAddr:   "", // empty for PC20 until settlement
+			IsPc20:              true,
+			Pc20ContractAddress: source,
+			TxType:              uexecutortypes.TxType_FUNDS_AND_PAYLOAD,
+		}
+		result, err := convertOutboundToEvent(entry, outbound)
+		require.NoError(t, err)
+
+		var data uexecutortypes.OutboundCreatedEvent
+		require.NoError(t, json.Unmarshal(result.EventData, &data))
+		assert.Equal(t, source, data.AssetAddr, "PC20 asset_addr = source token")
+		assert.True(t, data.IsPc20)
+		assert.Equal(t, source, data.Pc20ContractAddress)
+	})
+
+	t.Run("PRC20: asset_addr stays the external asset", func(t *testing.T) {
+		outbound := &uexecutortypes.OutboundTx{
+			Id:                "0xprc20",
+			DestinationChain:  "eip155:1",
+			Amount:            "1000",
+			ExternalAssetAddr: "0xexternaltoken",
+			IsPc20:            false,
+			TxType:            uexecutortypes.TxType_FUNDS,
+		}
+		result, err := convertOutboundToEvent(entry, outbound)
+		require.NoError(t, err)
+
+		var data uexecutortypes.OutboundCreatedEvent
+		require.NoError(t, json.Unmarshal(result.EventData, &data))
+		assert.Equal(t, "0xexternaltoken", data.AssetAddr)
+		assert.False(t, data.IsPc20)
+	})
+}
+
+func TestConvertFundMigrationEvent(t *testing.T) {
+	t.Run("nil migration returns error", func(t *testing.T) {
+		result, err := convertFundMigrationEvent(nil)
+		require.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "fund migration is nil")
+	})
+
+	t.Run("valid migration converts correctly", func(t *testing.T) {
+		migration := &utsstypes.FundMigration{
+			Id:               1,
+			OldKeyId:         "old-key-001",
+			OldTssPubkey:     "0x02abc123",
+			CurrentKeyId:     "new-key-002",
+			CurrentTssPubkey: "0x03def456",
+			Chain:            "eip155:421614",
+			InitiatedBlock:   5000,
+			GasPrice:         "1000000000",
+			GasLimit:         21100,
+			L1GasFee:         "42",
+			TransferAmount:   "999999999999999999",
+		}
+
+		result, err := convertFundMigrationEvent(migration)
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		assert.Equal(t, hashEventID(store.EventTypeSignFundMigrate, "1"), result.EventID)
+		assert.Equal(t, store.EventTypeSignFundMigrate, result.Type)
+		assert.Equal(t, store.StatusConfirmed, result.Status)
+		assert.Equal(t, store.ConfirmationInstant, result.ConfirmationType)
+		assert.Equal(t, uint64(5000), result.BlockHeight)
+		assert.Equal(t, uint64(0), result.ExpiryBlockHeight, "fund migration events have no client-side expiry")
+
+		var data utsstypes.FundMigrationInitiatedEventData
+		require.NoError(t, json.Unmarshal(result.EventData, &data))
+		assert.Equal(t, uint64(1), data.MigrationID)
+		assert.Equal(t, "old-key-001", data.OldKeyID)
+		assert.Equal(t, "0x02abc123", data.OldTssPubkey)
+		assert.Equal(t, "new-key-002", data.CurrentKeyID)
+		assert.Equal(t, "0x03def456", data.CurrentTssPubkey)
+		assert.Equal(t, "eip155:421614", data.Chain)
+		assert.Equal(t, int64(5000), data.BlockHeight)
+		assert.Equal(t, "1000000000", data.GasPrice)
+		assert.Equal(t, uint64(21100), data.GasLimit)
+		assert.Equal(t, "42", data.L1GasFee, "L1 gas fee must be forwarded to downstream consumers")
+		assert.Equal(t, "999999999999999999", data.TransferAmount,
+			"the chain-pinned sweep amount is what every validator signs; dropping it here leaves nothing deterministic to sign")
+	})
+
+	// A field on the record but not copied here reaches signers empty.
+	t.Run("fields the signing path depends on are all carried", func(t *testing.T) {
+		migration := &utsstypes.FundMigration{
+			Id:               7,
+			OldKeyId:         "old",
+			OldTssPubkey:     "0x02aa",
+			CurrentKeyId:     "new",
+			CurrentTssPubkey: "0x03bb",
+			Chain:            "eip155:84532",
+			InitiatedBlock:   9,
+			GasPrice:         "1",
+			GasLimit:         2,
+			L1GasFee:         "3",
+			TransferAmount:   "4",
+		}
+
+		result, err := convertFundMigrationEvent(migration)
+		require.NoError(t, err)
+
+		var data utsstypes.FundMigrationInitiatedEventData
+		require.NoError(t, json.Unmarshal(result.EventData, &data))
+
+		for name, got := range map[string]string{
+			"old_tss_pubkey":     data.OldTssPubkey,
+			"current_tss_pubkey": data.CurrentTssPubkey,
+			"chain":              data.Chain,
+			"gas_price":          data.GasPrice,
+			"l1_gas_fee":         data.L1GasFee,
+			"transfer_amount":    data.TransferAmount,
+			"old_key_id":         data.OldKeyID,
+		} {
+			assert.NotEmpty(t, got, "%s was dropped in conversion", name)
+		}
+		assert.NotZero(t, data.GasLimit, "gas_limit was dropped in conversion")
+	})
+
+	t.Run("event ID is hash of type and migration ID", func(t *testing.T) {
+		migration := &utsstypes.FundMigration{
+			Id:             42,
+			InitiatedBlock: 100,
+		}
+
+		result, err := convertFundMigrationEvent(migration)
+		require.NoError(t, err)
+		assert.Equal(t, hashEventID(store.EventTypeSignFundMigrate, "42"), result.EventID)
+	})
+}
+
+func TestConvertReadRequestEvent(t *testing.T) {
+	t.Run("nil request returns error", func(t *testing.T) {
+		result, err := convertReadRequestEvent(nil)
+		require.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "read request is nil or missing request id")
+	})
+
+	t.Run("empty request id returns error", func(t *testing.T) {
+		result, err := convertReadRequestEvent(&ucallbacktypes.ReadRequest{RequestId: ""})
+		require.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "read request is nil or missing request id")
+	})
+
+	t.Run("valid request converts correctly", func(t *testing.T) {
+		req := &ucallbacktypes.ReadRequest{
+			RequestId:              "0x00000000000000000000000000000000000000000000000000000000000000a1",
+			DestinationChain:       "eip155:11155111",
+			Owner:                  []byte{0x01, 0x02},
+			Query:                  []byte{0xde, 0xad},
+			MinConfirmations:       3,
+			DestinationBlockHeight: 500,
+			ExpiryBlockHeight:      900,
+			CreatedAtHeight:        420,
+		}
+
+		result, err := convertReadRequestEvent(req)
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		// EventID is the on-chain requestId verbatim (no hashing)
+		assert.Equal(t, req.RequestId, result.EventID)
+		assert.Equal(t, store.EventTypeReadRequest, result.Type)
+		assert.Equal(t, store.StatusConfirmed, result.Status)
+		assert.Equal(t, store.ConfirmationInstant, result.ConfirmationType)
+		assert.Equal(t, uint64(420), result.BlockHeight, "block height is the request's created-at height")
+		assert.Equal(t, uint64(900), result.ExpiryBlockHeight, "expiry height must be stamped for the processor's expiry check")
+
+		// EventData round-trips back to the request
+		var decoded ucallbacktypes.ReadRequest
+		require.NoError(t, json.Unmarshal(result.EventData, &decoded))
+		assert.Equal(t, req.RequestId, decoded.RequestId)
+		assert.Equal(t, req.DestinationChain, decoded.DestinationChain)
+		assert.Equal(t, req.Query, decoded.Query)
+		assert.Equal(t, req.MinConfirmations, decoded.MinConfirmations)
+		assert.Equal(t, req.DestinationBlockHeight, decoded.DestinationBlockHeight)
+	})
+}
+
+func TestHashEventID(t *testing.T) {
+	t.Run("deterministic output", func(t *testing.T) {
+		id1 := hashEventID("keygen", "123")
+		id2 := hashEventID("keygen", "123")
+		assert.Equal(t, id1, id2)
+	})
+
+	t.Run("different types produce different IDs", func(t *testing.T) {
+		id1 := hashEventID("keygen", "123")
+		id2 := hashEventID("refresh", "123")
+		assert.NotEqual(t, id1, id2)
+	})
+
+	t.Run("different raw IDs produce different IDs", func(t *testing.T) {
+		id1 := hashEventID("keygen", "1")
+		id2 := hashEventID("keygen", "2")
+		assert.NotEqual(t, id1, id2)
+	})
+
+	t.Run("output is hex string of sha256 length", func(t *testing.T) {
+		id := hashEventID("type", "id")
+		assert.Len(t, id, 64) // sha256 = 32 bytes = 64 hex chars
+	})
+}

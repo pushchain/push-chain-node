@@ -31,6 +31,12 @@ type OutboundCreatedEvent struct {
 	LogIndex         string `json:"log_index"`
 	RevertMsg        string `json:"revert_msg"`
 	SigningDeadline  int64  `json:"signing_deadline,omitempty"`
+	// PC20 export only: true routes settlement to the PC20 mint path, and
+	// pc20_contract_address is the Push-native source token to mint the wrapper
+	// for (asset_addr is empty for PC20 since the wrapper address is not known
+	// until settlement).
+	IsPc20              bool   `json:"is_pc20,omitempty"`
+	Pc20ContractAddress string `json:"pc20_contract_address,omitempty"`
 }
 
 // NewOutboundCreatedEvent creates a Cosmos SDK event for outbound creation.
@@ -63,6 +69,8 @@ func NewOutboundCreatedEvent(e OutboundCreatedEvent) (sdk.Event, error) {
 		sdk.NewAttribute("log_index", e.LogIndex),
 		sdk.NewAttribute("revert_msg", e.RevertMsg),
 		sdk.NewAttribute("signing_deadline", strconv.FormatInt(e.SigningDeadline, 10)),
+		sdk.NewAttribute("is_pc20", strconv.FormatBool(e.IsPc20)),
+		sdk.NewAttribute("pc20_contract_address", e.Pc20ContractAddress),
 		sdk.NewAttribute("data", string(bz)), // full JSON payload for indexers
 	)
 

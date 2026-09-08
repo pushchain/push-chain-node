@@ -1,5 +1,5 @@
 // Package core provides the top-level orchestrator for the Push Universal Validator.
-// It wires together all subsystems (pushcore, pushsigner, chains, tss, api)
+// It wires together all subsystems (pushcore, pushsigner, externalchains, pushwatcher, tss, api)
 // and manages their lifecycle.
 package core
 
@@ -11,12 +11,13 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pushchain/push-chain-node/universalClient/api"
-	"github.com/pushchain/push-chain-node/universalClient/chains"
 	"github.com/pushchain/push-chain-node/universalClient/config"
 	"github.com/pushchain/push-chain-node/universalClient/db"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains"
 	"github.com/pushchain/push-chain-node/universalClient/logger"
 	"github.com/pushchain/push-chain-node/universalClient/pushcore"
 	"github.com/pushchain/push-chain-node/universalClient/pushsigner"
+	"github.com/pushchain/push-chain-node/universalClient/pushwatcher"
 	"github.com/pushchain/push-chain-node/universalClient/tss"
 	"github.com/rs/zerolog"
 )
@@ -29,7 +30,8 @@ type UniversalClient struct {
 	queryServer *api.Server
 	pushCore    *pushcore.Client
 	pushSigner  *pushsigner.Signer
-	chains      *chains.Chains
+	chains      *externalchains.Chains
+	pushWatcher *pushwatcher.Client
 	tssNode     *tss.Node
 }
 
@@ -66,9 +68,28 @@ func NewUniversalClient(ctx context.Context, cfg *config.Config) (*UniversalClie
 		return nil, fmt.Errorf("failed to create pushsigner: %w", err)
 	}
 
-	chainsManager := chains.NewChains(pushCore, pushSigner, cfg, log)
+	chainsManager := externalchains.NewChains(pushCore, pushSigner, cfg, log)
 
-	tssNode, err := initTSS(ctx, cfg, pushCore, chainsManager, pushSigner, log)
+	// Push chain DB is shared by the push watcher and the TSS node.
+	pushDB, err := openPushDB(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	pushWatcher, err := pushwatcher.NewClient(
+		pushDB,
+		cfg.GetChainConfig(cfg.PushChainID),
+		pushCore,
+		cfg.PushChainID,
+		log,
+		pushSigner,
+		chainsManager,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create push watcher: %w", err)
+	}
+
+	tssNode, err := initTSS(ctx, cfg, pushCore, chainsManager, pushSigner, pushDB, log)
 	if err != nil {
 		return nil, err
 	}
@@ -83,8 +104,24 @@ func NewUniversalClient(ctx context.Context, cfg *config.Config) (*UniversalClie
 		pushCore:    pushCore,
 		pushSigner:  pushSigner,
 		chains:      chainsManager,
+		pushWatcher: pushWatcher,
 		tssNode:     tssNode,
 	}, nil
+}
+
+// openPushDB opens the Push chain database under NodeHome.
+func openPushDB(cfg *config.Config) (*db.DB, error) {
+	if cfg.PushChainID == "" {
+		return nil, fmt.Errorf("push_chain_id is required")
+	}
+	// Sanitize chain ID for use as a database filename (e.g. "push_42101-1" → "push_42101-1.db")
+	dbFilename := sanitizeForFilename(cfg.PushChainID) + ".db"
+	baseDir := filepath.Join(cfg.NodeHome, config.DatabasesSubdir)
+	pushDB, err := db.OpenFileDB(baseDir, dbFilename, true)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create push database: %w", err)
+	}
+	return pushDB, nil
 }
 
 // Start launches all subsystems, blocks until ctx is cancelled, then shuts down.
@@ -93,6 +130,10 @@ func (uc *UniversalClient) Start() error {
 
 	if err := uc.chains.Start(uc.ctx); err != nil {
 		return fmt.Errorf("failed to start chains manager: %w", err)
+	}
+
+	if err := uc.pushWatcher.Start(uc.ctx); err != nil {
+		return fmt.Errorf("failed to start push watcher: %w", err)
 	}
 
 	if uc.tssNode != nil {
@@ -127,6 +168,12 @@ func (uc *UniversalClient) shutdown() {
 		}
 	}
 
+	if uc.pushWatcher != nil {
+		if err := uc.pushWatcher.Stop(); err != nil {
+			uc.log.Error().Err(err).Str("subsystem", "push_watcher").Msg("subsystem failed to stop")
+		}
+	}
+
 	if uc.chains != nil {
 		uc.chains.Stop()
 	}
@@ -158,20 +205,13 @@ func initTSS(
 	ctx context.Context,
 	cfg *config.Config,
 	pushCore *pushcore.Client,
-	chainsManager *chains.Chains,
+	chainsManager *externalchains.Chains,
 	pushSigner *pushsigner.Signer,
+	pushDB *db.DB,
 	log zerolog.Logger,
 ) (*tss.Node, error) {
 	if cfg.PushValoperAddress == "" || cfg.TSSP2PPrivateKeyHex == "" {
 		return nil, nil
-	}
-
-	// Sanitize chain ID for use as a database filename (e.g. "push_42101-1" → "push_42101-1.db")
-	dbFilename := sanitizeForFilename(cfg.PushChainID) + ".db"
-	baseDir := filepath.Join(cfg.NodeHome, config.DatabasesSubdir)
-	pushDB, err := db.OpenFileDB(baseDir, dbFilename, true)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create push database: %w", err)
 	}
 
 	node, err := tss.NewNode(ctx, tss.Config{

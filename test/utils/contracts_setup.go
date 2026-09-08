@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pushchain/push-chain-node/app"
 	uetypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
+	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -396,4 +397,24 @@ func setupUniversalGatewayPC(
 		common.LeftPadBytes(vaultPCAddr.Bytes(), 32), // value []byte
 	)
 	return nil
+}
+
+// SetupUniversalCallback deploys UniversalCallback's runtime code at its reserved
+// system address and returns it.
+//
+// initialize() is never run — DeployContract writes code directly — so any storage
+// the test depends on must be set by the caller. The module-address immutable is
+// already baked into the bytecode, so access control works without it.
+func SetupUniversalCallback(t *testing.T, app *app.ChainApp, ctx sdk.Context) common.Address {
+	t.Helper()
+	addr := common.HexToAddress(
+		uregistrytypes.SYSTEM_CONTRACTS["UNIVERSAL_CALLBACK"].Address)
+	return DeployContract(t, app, ctx, addr, UNIVERSAL_CALLBACK_BYTECODE)
+}
+
+// SetupMockUniversalCoreForReads deploys the IUniversalCore stand-in that
+// UniversalCallback consults when a read request is created.
+func SetupMockUniversalCoreForReads(t *testing.T, app *app.ChainApp, ctx sdk.Context) common.Address {
+	addr := common.HexToAddress("0x00000000000000000000000000000000000C0BE1")
+	return DeployContract(t, app, ctx, addr, MOCK_UNIVERSAL_CORE_READS_BYTECODE)
 }

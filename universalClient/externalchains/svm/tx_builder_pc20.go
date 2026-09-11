@@ -753,6 +753,17 @@ func (tb *TxBuilder) buildPC20ExportAccounts(
 		accounts = append(accounts, &solana.AccountMeta{PublicKey: storeRefundRecipient, IsWritable: true, IsSigner: false})
 	}
 
+	// #[event_cpi] accounts: required, at the same named-account boundary as the
+	// non-PC20 finalize route, so the gateway can self-CPI its emit_cpi event.
+	eventAuthority, err := tb.deriveEventAuthorityPDA()
+	if err != nil {
+		return nil, fmt.Errorf("failed to derive event_authority PDA: %w", err)
+	}
+	accounts = append(accounts,
+		&solana.AccountMeta{PublicKey: eventAuthority, IsWritable: false, IsSigner: false},
+		&solana.AccountMeta{PublicKey: tb.gatewayAddress, IsWritable: false, IsSigner: false},
+	)
+
 	// Remaining accounts: [pc20_state, pc20_mint] + the payload accounts (only when
 	// user_data is present). The gateway requires exactly these two when user_data is
 	// empty — no recipient_ata, since the wrapper is minted to cea_ata.
@@ -775,7 +786,12 @@ func (tb *TxBuilder) buildPC20ExportAccounts(
 
 // buildPC20RemintAccounts builds the revert_universal_tx / rescue_funds account list for
 // the PC20 remint branch: token_vault + recipient_token_account None, token_mint + token_program
-// present, remaining = [pc20_state, pc20_mint(w), recipient_ata(w), ATA_program, rent].
+// present, associated_token_program + rent None (unused: the remaining accounts below carry
+// their own copies for creating recipient_ata), then the #[event_cpi] pair, then
+// remaining = [pc20_state, pc20_mint(w), recipient_ata(w), ATA_program, rent].
+//
+// Must match the same RevertUniversalTx struct as buildRevertAccounts — PC20 remint
+// dispatches through the same instruction, so positions 1-14 have to line up with it.
 func (tb *TxBuilder) buildPC20RemintAccounts(
 	configPDA solana.PublicKey,
 	vaultPDA solana.PublicKey,
@@ -812,12 +828,28 @@ func (tb *TxBuilder) buildPC20RemintAccounts(
 		none, // recipient_token_account
 		{PublicKey: mint, IsWritable: false, IsSigner: false},
 		{PublicKey: solana.TokenProgramID, IsWritable: false, IsSigner: false},
-		// remaining accounts — exact shape required by is_pc20_remint_account_shape
-		{PublicKey: pc20State, IsWritable: false, IsSigner: false},
-		{PublicKey: mint, IsWritable: true, IsSigner: false},
-		{PublicKey: recipientATA, IsWritable: true, IsSigner: false},
-		{PublicKey: solana.SPLAssociatedTokenAccountProgramID, IsWritable: false, IsSigner: false},
-		{PublicKey: solana.SysVarRentPubkey, IsWritable: false, IsSigner: false},
+		none, // associated_token_program
+		none, // rent
 	}
+
+	// #[event_cpi] accounts: required so the gateway can self-CPI its emit_cpi
+	// event, at the same named-account boundary buildRevertAccounts uses.
+	eventAuthority, err := tb.deriveEventAuthorityPDA()
+	if err != nil {
+		return nil, fmt.Errorf("failed to derive event_authority PDA: %w", err)
+	}
+	accounts = append(accounts,
+		&solana.AccountMeta{PublicKey: eventAuthority, IsWritable: false, IsSigner: false},
+		&solana.AccountMeta{PublicKey: tb.gatewayAddress, IsWritable: false, IsSigner: false},
+	)
+
+	// remaining accounts — exact shape required by is_pc20_remint_account_shape
+	accounts = append(accounts,
+		&solana.AccountMeta{PublicKey: pc20State, IsWritable: false, IsSigner: false},
+		&solana.AccountMeta{PublicKey: mint, IsWritable: true, IsSigner: false},
+		&solana.AccountMeta{PublicKey: recipientATA, IsWritable: true, IsSigner: false},
+		&solana.AccountMeta{PublicKey: solana.SPLAssociatedTokenAccountProgramID, IsWritable: false, IsSigner: false},
+		&solana.AccountMeta{PublicKey: solana.SysVarRentPubkey, IsWritable: false, IsSigner: false},
+	)
 	return accounts, nil
 }

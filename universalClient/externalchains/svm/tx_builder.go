@@ -66,6 +66,7 @@ var (
 	rateLimitConfigSeed = []byte("rate_limit_config")
 	tokenRateLimitSeed  = []byte("rate_limit")
 	storedIxDataSeed    = []byte("stored_ix_data")
+	eventAuthoritySeed  = []byte("__event_authority")
 
 	// TSS message envelope — cross-protocol replay guard.
 	tssMessagePrefix = []byte("PUSH_CHAIN_SVM")
@@ -1468,6 +1469,16 @@ func (tb *TxBuilder) deriveTSSPDA() (solana.PublicKey, error) {
 	return address, err
 }
 
+// deriveEventAuthorityPDA derives the account Anchor's #[event_cpi] macro requires
+// on every instruction that may self-CPI to emit an event. Every gateway
+// instruction that emits an event needs this PDA, plus the gateway program
+// itself, appended after its named accounts and before any remaining accounts.
+func (tb *TxBuilder) deriveEventAuthorityPDA() (solana.PublicKey, error) {
+	seeds := [][]byte{eventAuthoritySeed}
+	address, _, err := solana.FindProgramAddress(seeds, tb.gatewayAddress)
+	return address, err
+}
+
 // fetchTSSChainID reads the TSS PDA account from on-chain and extracts the chain ID.
 //
 // On-chain layout (Borsh-serialized TssPda struct from state.rs):
@@ -2079,8 +2090,11 @@ func (tb *TxBuilder) buildRescueData(
 //	--- Optional ref-finalize accounts (19-20) ---
 //	19  stored_ix_data         read/None   StoredIxData PDA (only used by ref-finalize route)
 //	20  store_refund_recipient mut/None    Receives store-tx fee reimbursement (ref route only)
+//	--- #[event_cpi] accounts (21-22) ---
+//	21  event_authority        read-only   PDA ["__event_authority"], for the gateway's self-CPI
+//	22  program                read-only   The gateway program itself
 //	--- Execute-only remaining accounts ---
-//	21+ remaining_accounts     varies      Accounts that the target program needs
+//	23+ remaining_accounts     varies      Accounts that the target program needs
 //
 // For Anchor Option<Account> fields: passing the gateway program's own ID = None.
 // This is Anchor's convention for encoding "this optional account is not provided".
@@ -2203,6 +2217,14 @@ func (tb *TxBuilder) buildWithdrawAndExecuteAccounts(
 		accounts = append(accounts, &solana.AccountMeta{PublicKey: storeRefundRecipient, IsWritable: true, IsSigner: false})
 	}
 
+	// #[event_cpi] accounts (#21-22): required on every named-account boundary
+	// before remaining_accounts, so the gateway can self-CPI its emit_cpi event.
+	eventAuthority, _ := tb.deriveEventAuthorityPDA()
+	accounts = append(accounts,
+		&solana.AccountMeta{PublicKey: eventAuthority, IsWritable: false, IsSigner: false},
+		&solana.AccountMeta{PublicKey: tb.gatewayAddress, IsWritable: false, IsSigner: false},
+	)
+
 	// For execute mode: append the target program's accounts as "remaining_accounts".
 	// These are the accounts that the gateway will pass through via CPI to the target program.
 	if instructionID == 2 {
@@ -2233,11 +2255,16 @@ func (tb *TxBuilder) buildWithdrawAndExecuteAccounts(
 //	6   executed_sub_tx          mut         Replay protection (gets created)
 //	7   caller                   signer,mut  Relayer
 //	8   system_program           read-only
-//	--- Optional SPL accounts (9-12) ---
+//	--- Optional SPL accounts (9-14) ---
 //	9   token_vault              mut/None    Vault's ATA for the token
 //	10  recipient_token_account  mut/None    Recipient's ATA
 //	11  token_mint               read/None   The SPL token mint
 //	12  token_program            read/None   SPL Token program
+//	13  associated_token_program read/None   Needed to create the recipient ATA
+//	14  rent                     read/None   Needed to create the recipient ATA
+//	--- #[event_cpi] accounts (15-16) ---
+//	15  event_authority          read-only   PDA ["__event_authority"], for the gateway's self-CPI
+//	16  program                  read-only   The gateway program itself
 func (tb *TxBuilder) buildRevertAccounts(
 	configPDA solana.PublicKey,
 	vaultPDA solana.PublicKey,
@@ -2285,6 +2312,14 @@ func (tb *TxBuilder) buildRevertAccounts(
 			&solana.AccountMeta{PublicKey: solana.SysVarRentPubkey, IsWritable: false, IsSigner: false},
 		)
 	}
+
+	// #[event_cpi] accounts: required so the gateway can self-CPI its emit_cpi
+	// event. revert_universal_tx has no remaining_accounts, so these are last.
+	eventAuthority, _ := tb.deriveEventAuthorityPDA()
+	accounts = append(accounts,
+		&solana.AccountMeta{PublicKey: eventAuthority, IsWritable: false, IsSigner: false},
+		&solana.AccountMeta{PublicKey: tb.gatewayAddress, IsWritable: false, IsSigner: false},
+	)
 
 	return accounts
 }

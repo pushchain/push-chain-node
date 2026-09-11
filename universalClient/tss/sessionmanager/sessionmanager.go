@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"slices"
 	"sync"
 	"time"
 
@@ -24,6 +25,7 @@ import (
 	"github.com/pushchain/push-chain-node/universalClient/tss/keyshare"
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
+	uvalidatortypes "github.com/pushchain/push-chain-node/x/uvalidator/types"
 )
 
 // SendFunc is a function type for sending messages to participants.
@@ -178,7 +180,7 @@ func (sm *SessionManager) handleSetupMessage(ctx context.Context, senderPeerID s
 	}
 
 	// 5. Validate participants list matches event protocol requirements
-	if err := sm.validateParticipants(msg.Participants, event); err != nil {
+	if err := sm.validateParticipants(ctx, msg.Participants, event); err != nil {
 		return fmt.Errorf("participants validation failed: %w", err)
 	}
 
@@ -194,6 +196,18 @@ func (sm *SessionManager) handleSetupMessage(ctx context.Context, senderPeerID s
 		if err := sm.verifyFundMigrationSigningRequest(ctx, event, msg.UnsignedSigningReq); err != nil {
 			return fmt.Errorf("fund migration signing request verification failed: %w", err)
 		}
+	}
+
+	// 6c. Everything validated above came from message fields, but the DKLS
+	// session runs on msg.Payload, and the two arrive unbound. Require the setup
+	// blob to carry exactly what we approved, before the ACK, so no shares are
+	// ever produced for a setup we did not verify.
+	if err := verifySetupMatchesValidated(msg, event.Type); err != nil {
+		sm.logger.Error().Err(err).
+			Str("event_id", msg.EventID).
+			Str("coordinator", senderPeerID).
+			Msg("setup message does not match the validated request - rejecting")
+		return err
 	}
 
 	// 7. Create session based on protocol type
@@ -414,9 +428,8 @@ func (sm *SessionManager) handleSignatureBroadcast(ctx context.Context, senderPe
 	// Persist as SIGNED via the same path a local sign-completion uses, so
 	// signing_data lands on event_data in the format txbroadcaster expects.
 	rebuiltReq := &common.UnsignedSigningReq{
-		SigningHash:            msg.SignedData.SigningHash,
-		Nonce:                  msg.SignedData.Nonce,
-		TSSFundMigrationAmount: msg.SignedData.TSSFundMigrationAmount,
+		SigningHash: msg.SignedData.SigningHash,
+		Nonce:       msg.SignedData.Nonce,
 	}
 	if err := sm.handleSigningComplete(ctx, msg.EventID, event.EventData, msg.SignedData.Signature, rebuiltReq); err != nil {
 		return fmt.Errorf("persist signature from broadcast: %w", err)
@@ -502,10 +515,9 @@ func (sm *SessionManager) handleSignFinished(ctx context.Context, eventID string
 	// SIGNED and can vote on failure. Best-effort: failed sends are logged but
 	// do not abort. Recovery via sweeper retry covers any peers we miss.
 	sm.broadcastSignature(ctx, eventID, &coordinator.SignedDataPayload{
-		Signature:              result.Signature,
-		SigningHash:            signingReq.SigningHash,
-		Nonce:                  signingReq.Nonce,
-		TSSFundMigrationAmount: signingReq.TSSFundMigrationAmount,
+		Signature:   result.Signature,
+		SigningHash: signingReq.SigningHash,
+		Nonce:       signingReq.Nonce,
 	})
 
 	sm.logger.Info().Str("event_id", eventID).Msg("sign session finished successfully")
@@ -739,9 +751,24 @@ func (sm *SessionManager) createSession(ctx context.Context, event *store.Event,
 // validateParticipants validates that participants match protocol requirements.
 // For keygen/keyrefresh: participants must match exactly with eligible participants (same elements).
 // For sign: participants must be a valid >2/3 subset of eligible participants.
-func (sm *SessionManager) validateParticipants(participants []string, event *store.Event) error {
-	// Get eligible validators for this protocol
-	eligible := sm.coordinator.GetEligibleUV(string(event.Type))
+func (sm *SessionManager) validateParticipants(ctx context.Context, participants []string, event *store.Event) error {
+	// Get eligible validators for this protocol.
+	//
+	// Fund migration is signed with the old key's shares, so both who may take
+	// part and how many are required come from that key rather than from the
+	// current validator set. Resolved through the coordinator so the check here
+	// mirrors the selection exactly.
+	var eligible []*uvalidatortypes.UniversalValidator
+	var fundMigrateRequired int
+	if event.Type == store.EventTypeSignFundMigrate {
+		var err error
+		eligible, fundMigrateRequired, err = sm.coordinator.FundMigrateEligible(ctx, *event)
+		if err != nil {
+			return fmt.Errorf("resolve fund migration signers: %w", err)
+		}
+	} else {
+		eligible = sm.coordinator.GetEligibleUV(string(event.Type))
+	}
 	if len(eligible) == 0 {
 		return fmt.Errorf("no eligible validators for protocol")
 	}
@@ -780,14 +807,23 @@ func (sm *SessionManager) validateParticipants(participants []string, event *sto
 			}
 		}
 
-	case store.EventTypeSignOutbound, store.EventTypeSignFundMigrate:
-		// For SIGN and FUND_MIGRATE the coordinator picks a random threshold subset (>2/3 of eligible)
+	case store.EventTypeSignOutbound:
+		// For SIGN the coordinator picks a random threshold subset (>2/3 of eligible)
 		// rather than all eligible validators. Accept any subset as long as it meets the threshold
 		// minimum; all participants are already verified eligible by the eligibleSet check above.
 		threshold := coordinator.CalculateThreshold(len(eligibleList))
 		if len(participants) < threshold {
 			return fmt.Errorf("%s participants count %d is below required threshold %d (eligible: %d)",
 				event.Type, len(participants), threshold, len(eligibleList))
+		}
+
+	case store.EventTypeSignFundMigrate:
+		// The old key's threshold, not the current set's. Sizing this from the
+		// live validator set would reject a legitimate selection whenever the
+		// set has grown since that key was created.
+		if len(participants) < fundMigrateRequired {
+			return fmt.Errorf("%s participants count %d is below required threshold %d (shareholders still eligible: %d)",
+				event.Type, len(participants), fundMigrateRequired, len(eligibleList))
 		}
 
 	default:
@@ -940,16 +976,15 @@ func (sm *SessionManager) verifyOutboundSigningRequest(ctx context.Context, even
 		return nil
 	}
 
-	// Guard against stale / replayed nonces: reject if coordinator's nonce is below the
-	// last finalized nonce on chain (i.e. that nonce has already been committed).
+	// Bound the coordinator's nonce on both sides: below finalized it is already
+	// committed, and far above it would never mine, freezing the outbound.
 	// We only hard-reject on a definitive answer — warn and skip if we can't determine it.
 	if tssAddr, addrErr := sm.getTSSAddress(ctx); addrErr != nil {
 		sm.logger.Warn().Err(addrErr).Str("chain", chainID).Msg("cannot get TSS address for nonce check, skipping")
-	} else if finalizedNonce, nonceErr := builder.GetNextNonce(ctx, tssAddr, true /* useFinalized */); nonceErr != nil {
+	} else if finalizedNonce, ceilingBase, nonceErr := nonceBounds(ctx, builder, tssAddr); nonceErr != nil {
 		sm.logger.Warn().Err(nonceErr).Str("chain", chainID).Msg("cannot get finalized nonce for check, skipping")
-	} else if req.Nonce < finalizedNonce {
-		return fmt.Errorf("coordinator assigned nonce %d is below chain finalized nonce %d for %s — nonce already used on chain",
-			req.Nonce, finalizedNonce, chainID)
+	} else if err := checkNonceInRange(req.Nonce, finalizedNonce, ceilingBase, chainID); err != nil {
+		return err
 	}
 
 	// Use coordinator's nonce so our computed hash matches
@@ -975,6 +1010,124 @@ func (sm *SessionManager) verifyOutboundSigningRequest(ctx context.Context, even
 		Msg("sign metadata verified - hash matches")
 
 	return nil
+}
+
+// verifySetupMatchesValidated requires the coordinator's DKLS setup blob to
+// carry exactly the values the follower validated from the message fields.
+// DKLS runs on the blob, so without this the validated values are decorative:
+// a coordinator can present legitimate ones for checking and embed different
+// ones in Payload.
+//
+// Participants are checked for every protocol. Sign types additionally bind the
+// signing hash; key-lifecycle types additionally bind the threshold, which the
+// session constructors accept but ignore, so the embedded value is what the
+// protocol actually runs with.
+func verifySetupMatchesValidated(msg *coordinator.Message, eventType string) error {
+	if err := setupBindsParticipants(msg.Payload, msg.Participants); err != nil {
+		return err
+	}
+	if eventType == store.EventTypeSignOutbound || eventType == store.EventTypeSignFundMigrate {
+		if msg.UnsignedSigningReq == nil {
+			return fmt.Errorf("sign setup has no signing request to bind against")
+		}
+		return setupBindsHash(msg.Payload, msg.UnsignedSigningReq.SigningHash)
+	}
+	return setupBindsThreshold(msg.Payload, msg.Participants)
+}
+
+// setupBindsThreshold requires the setup blob to embed the threshold the
+// follower derives from the validated participants. Without it a coordinator can
+// embed a lower one and elicit help producing a weaker key than was agreed.
+func setupBindsThreshold(setupData []byte, validated []string) error {
+	expected := coordinator.CalculateThreshold(len(validated))
+	embedded, err := dkls.SetupThreshold(setupData)
+	if err != nil {
+		return fmt.Errorf("cannot decode setup message threshold: %w", err)
+	}
+	if embedded != expected {
+		return fmt.Errorf("setup message threshold %d does not match expected %d for %d participants",
+			embedded, expected, len(validated))
+	}
+	return nil
+}
+
+// setupBindsHash requires the setup blob to embed exactly the verified hash.
+func setupBindsHash(setupData, verifiedHash []byte) error {
+	if len(verifiedHash) == 0 {
+		return fmt.Errorf("no verified signing hash to bind setup message to")
+	}
+	embedded, err := dkls.SetupMessageHash(setupData)
+	if err != nil {
+		return fmt.Errorf("cannot decode setup message to check signing hash: %w", err)
+	}
+	if !bytes.Equal(embedded, verifiedHash) {
+		return fmt.Errorf("setup message signs hash %s but verified hash is %s",
+			hex.EncodeToString(embedded), hex.EncodeToString(verifiedHash))
+	}
+	return nil
+}
+
+// setupBindsParticipants requires the setup blob to embed exactly the validated
+// participants, in the same order. Index order is part of the protocol, so a
+// reorder is as consequential as a substitution.
+func setupBindsParticipants(setupData []byte, validated []string) error {
+	if len(validated) == 0 {
+		return fmt.Errorf("no validated participants to bind setup message to")
+	}
+	embedded, err := dkls.SetupParticipants(setupData)
+	if err != nil {
+		return fmt.Errorf("cannot decode setup message participants: %w", err)
+	}
+	if !slices.Equal(embedded, validated) {
+		return fmt.Errorf("setup message participants %v do not match validated participants %v",
+			embedded, validated)
+	}
+	return nil
+}
+
+// maxNonceGap bounds how far above the ceiling base a coordinator may assign.
+// An honest coordinator starts at the pending nonce and increments at most
+// coordinator.PerChainCap times per poll, so pending+PerChainCap is the true
+// ceiling; 2x absorbs nonce skew between our RPC view and the coordinator's.
+//
+// The base is the pending nonce, not the finalized one: a BROADCASTED event no
+// longer counts toward the in-flight cap but still holds a nonce in the
+// mempool, so pending-minus-finalized grows while a chain is congested. Anchored
+// to finalized, any fixed gap would eventually reject honest coordinators.
+const maxNonceGap = 2 * coordinator.PerChainCap
+
+// checkNonceInRange rejects a coordinator-assigned nonce that is already
+// committed on chain, or so far ahead it would never mine — which would freeze
+// the outbound with its PRC20 already burned at the gateway.
+// ceilingBase is the pending nonce where available, else the finalized nonce.
+func checkNonceInRange(assigned, finalized, ceilingBase uint64, target string) error {
+	if assigned < finalized {
+		return fmt.Errorf("coordinator assigned nonce %d is below chain finalized nonce %d for %s — nonce already used on chain",
+			assigned, finalized, target)
+	}
+	if ceilingBase < finalized {
+		ceilingBase = finalized
+	}
+	if assigned > ceilingBase+maxNonceGap {
+		return fmt.Errorf("coordinator assigned nonce %d exceeds nonce %d by more than %d for %s — gap nonce would never mine",
+			assigned, ceilingBase, maxNonceGap, target)
+	}
+	return nil
+}
+
+// nonceBounds returns the finalized nonce and the ceiling base for signer.
+// A failed pending lookup falls back to the finalized nonce, which is stricter
+// but never wrong; a failed finalized lookup is reported so the caller skips.
+func nonceBounds(ctx context.Context, builder common.TxBuilder, signer string) (finalized, ceilingBase uint64, err error) {
+	finalized, err = builder.GetNextNonce(ctx, signer, true /* useFinalized */)
+	if err != nil {
+		return 0, 0, err
+	}
+	pending, pErr := builder.GetNextNonce(ctx, signer, false /* pending */)
+	if pErr != nil || pending < finalized {
+		return finalized, finalized, nil
+	}
+	return finalized, pending, nil
 }
 
 // verifyFundMigrationSigningRequest validates the coordinator's fund migration signing request.
@@ -1003,6 +1156,10 @@ func (sm *SessionManager) verifyFundMigrationSigningRequest(ctx context.Context,
 	if err != nil {
 		return fmt.Errorf("failed to derive current TSS address: %w", err)
 	}
+	transferAmount, ok := new(big.Int).SetString(migrationData.TransferAmount, 10)
+	if !ok || transferAmount.Sign() <= 0 {
+		return fmt.Errorf("migration event carries no usable transfer amount: %q", migrationData.TransferAmount)
+	}
 
 	// Get chain client and tx builder
 	if sm.chains == nil {
@@ -1020,15 +1177,12 @@ func (sm *SessionManager) verifyFundMigrationSigningRequest(ctx context.Context,
 		return nil
 	}
 
-	// Guard against stale / replayed nonces: reject if coordinator's nonce is below the
-	// last finalized nonce on chain for the old TSS address.
-	if finalizedNonce, nonceErr := builder.GetNextNonce(ctx, oldTSSAddr, true /* useFinalized */); nonceErr != nil {
+	// Bound the coordinator's nonce on both sides for the old TSS address.
+	if finalizedNonce, ceilingBase, nonceErr := nonceBounds(ctx, builder, oldTSSAddr); nonceErr != nil {
 		sm.logger.Warn().Err(nonceErr).Str("chain", migrationData.Chain).Msg("cannot get finalized nonce for old TSS, skipping nonce check")
-	} else if req.Nonce < finalizedNonce {
-		return fmt.Errorf("coordinator assigned nonce %d is below chain finalized nonce %d for old TSS %s — nonce already used on chain",
-			req.Nonce, finalizedNonce, oldTSSAddr)
+	} else if err := checkNonceInRange(req.Nonce, finalizedNonce, ceilingBase, oldTSSAddr); err != nil {
+		return err
 	}
-
 	// Rebuild fund migration signing request with coordinator's nonce.
 	// Parsing must match what the coordinator did; otherwise the reconstructed
 	// hash on OP-stack chains diverges and the verification below rejects it.
@@ -1039,11 +1193,12 @@ func (sm *SessionManager) verifyFundMigrationSigningRequest(ctx context.Context,
 	l1GasFee.SetString(migrationData.L1GasFee, 10)
 
 	migrationFundData := &common.FundMigrationData{
-		From:     oldTSSAddr,
-		To:       currentTSSAddr,
-		GasPrice: gasPrice,
-		GasLimit: migrationData.GasLimit,
-		L1GasFee: l1GasFee,
+		From:           oldTSSAddr,
+		To:             currentTSSAddr,
+		GasPrice:       gasPrice,
+		GasLimit:       migrationData.GasLimit,
+		L1GasFee:       l1GasFee,
+		TransferAmount: transferAmount,
 	}
 	signingReq, err := builder.GetFundMigrationSigningRequest(ctx, migrationFundData, req.Nonce)
 	if err != nil {
@@ -1060,23 +1215,12 @@ func (sm *SessionManager) verifyFundMigrationSigningRequest(ctx context.Context,
 		return fmt.Errorf("fund migration signing hash mismatch: our computed hash does not match coordinator's hash")
 	}
 
-	// Defense-in-depth: hash match implies amount match, but cross-check explicitly so
-	// a wire-format bug, coordinator bug, or missing amount surfaces here rather than
-	// as a nil-deref / insufficient-balance error later in broadcast.
-	if req.TSSFundMigrationAmount == nil {
-		return fmt.Errorf("coordinator's signing request is missing TSSFundMigrationAmount")
-	}
-	if req.TSSFundMigrationAmount.Cmp(signingReq.TSSFundMigrationAmount) != 0 {
-		return fmt.Errorf("TSSFundMigrationAmount mismatch: coordinator=%s ours=%s",
-			req.TSSFundMigrationAmount.String(), signingReq.TSSFundMigrationAmount.String())
-	}
-
 	sm.logger.Debug().
 		Str("event_id", event.EventID).
 		Str("signing_hash", hex.EncodeToString(req.SigningHash)).
 		Str("old_tss_addr", oldTSSAddr).
 		Str("current_tss_addr", currentTSSAddr).
-		Msg("fund migration sign metadata verified - hash and amount match")
+		Msg("fund migration sign metadata verified")
 
 	return nil
 }
@@ -1091,8 +1235,6 @@ func (sm *SessionManager) getTSSAddress(ctx context.Context) (string, error) {
 }
 
 // handleSigningComplete handles post-sign steps. EVM: set status SIGNED and store payload (txlifecycle/signed runs BroadcastOutboundSigningRequest). Solana: enqueue for sequential per-chain broadcast (PDA nonce order).
-// signingReq is the cached signing request from the coordinator setup message; for FUND_MIGRATE
-// its TSSFundMigrationAmount is populated by verifyFundMigrationSigningRequest and persisted here.
 func (sm *SessionManager) handleSigningComplete(_ context.Context, eventID string, eventData []byte, signature []byte, signingReq *common.UnsignedSigningReq) error {
 	if signingReq == nil {
 		return fmt.Errorf("signing request is nil - cannot persist signing data")
@@ -1104,7 +1246,6 @@ func (sm *SessionManager) handleSigningComplete(_ context.Context, eventID strin
 		signature,
 		signingReq.SigningHash,
 		signingReq.Nonce,
-		signingReq.TSSFundMigrationAmount,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to persist signing data: %w", err)
@@ -1131,10 +1272,9 @@ func extractSignedDataFromEvent(event *store.Event) (*coordinator.SignedDataPayl
 	}
 	var raw struct {
 		SigningData *struct {
-			Signature              string   `json:"signature"`
-			SigningHash            string   `json:"signing_hash"`
-			Nonce                  uint64   `json:"nonce"`
-			TSSFundMigrationAmount *big.Int `json:"tss_fund_migration_amount,omitempty"`
+			Signature   string `json:"signature"`
+			SigningHash string `json:"signing_hash"`
+			Nonce       uint64 `json:"nonce"`
 		} `json:"signing_data,omitempty"`
 	}
 	if err := json.Unmarshal(event.EventData, &raw); err != nil {
@@ -1152,9 +1292,8 @@ func extractSignedDataFromEvent(event *store.Event) (*coordinator.SignedDataPayl
 		return nil, fmt.Errorf("decode signing_data.signing_hash hex: %w", err)
 	}
 	return &coordinator.SignedDataPayload{
-		Signature:              sigBytes,
-		SigningHash:            hashBytes,
-		Nonce:                  raw.SigningData.Nonce,
-		TSSFundMigrationAmount: raw.SigningData.TSSFundMigrationAmount,
+		Signature:   sigBytes,
+		SigningHash: hashBytes,
+		Nonce:       raw.SigningData.Nonce,
 	}, nil
 }

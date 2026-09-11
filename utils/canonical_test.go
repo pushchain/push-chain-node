@@ -2,7 +2,10 @@ package utils_test
 
 import (
 	"encoding/hex"
+	"math/rand"
+	"strings"
 	"testing"
+	"time"
 
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/mr-tron/base58"
@@ -136,6 +139,75 @@ func TestCAIP2Namespace(t *testing.T) {
 	require.Equal(t, "eip155", utils.CAIP2Namespace("eip155:1"))
 	require.Equal(t, "solana", utils.CAIP2Namespace("solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"))
 	require.Equal(t, "", utils.CAIP2Namespace("no-colon"))
+}
+
+// referenceSolanaTxHash reproduces the pre-fix behaviour for pure-base58 input:
+// decode unconditionally, convert only on an exact 64-byte result, otherwise
+// return the input untouched. The length band added in canonicalizeSolanaTxHash
+// must not change the result for any input.
+func referenceSolanaTxHash(s string) string {
+	if raw, err := base58.Decode(s); err == nil && len(raw) == 64 {
+		return "0x" + hex.EncodeToString(raw)
+	}
+	return s
+}
+
+func TestCanonicalizeTxHashByNamespace_Solana_LengthBandIsOutputEquivalent(t *testing.T) {
+	// Only 64..88 base58 chars can decode to exactly 64 bytes, so the band gate
+	// is a pure performance change. Sweep across it — 63/64/88/89 are the edges.
+	rng := rand.New(rand.NewSource(1))
+	alphabet := []byte("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz")
+
+	lengths := []int{1, 2, 31, 32, 43, 44, 63, 64, 65, 87, 88, 89, 90, 128, 200, 300}
+	for n := 3; n < 63; n += 7 {
+		lengths = append(lengths, n)
+	}
+
+	for _, n := range lengths {
+		for variant := 0; variant < 4; variant++ {
+			b := make([]byte, n)
+			for i := range b {
+				switch variant {
+				case 0:
+					b[i] = '1' // all-zero decode: the short edge of the band
+				case 1:
+					b[i] = 'z' // largest digit: the long edge
+				default:
+					b[i] = alphabet[rng.Intn(len(alphabet))]
+				}
+			}
+			in := string(b)
+			require.Equal(t, referenceSolanaTxHash(in),
+				utils.LenientCanonicalizeTxHash("solana:devnet", in),
+				"length band changed the result for a %d-char input %q", n, in)
+		}
+	}
+}
+
+func TestCanonicalizeTxHashByNamespace_Solana_RealSignatureStillConverges(t *testing.T) {
+	// The band must not break the case it exists to serve: an 88-char base58
+	// signature still folds to 0x-hex.
+	got, err := utils.CanonicalizeTxHashByNamespace("solana:devnet", solSig)
+	require.NoError(t, err)
+	require.Equal(t, "0x", got[:2])
+	require.Len(t, got, 2+128)
+}
+
+func TestCanonicalizeTxHashByNamespace_Solana_OversizedInputDoesNotDecode(t *testing.T) {
+	// F-2026-18821: mr-tron/base58 decoding is quadratic, and the result for an
+	// out-of-band length is discarded. Before the fix a single 1e5-char decode
+	// measured 4.5-29s (and InboundKeys does three of them); after, no decode
+	// runs at all. The bound is loose enough not to flake on a busy CI box while
+	// still failing hard on any return to O(n^2).
+	huge := strings.Repeat("z", 100_000)
+
+	start := time.Now()
+	got := utils.LenientCanonicalizeTxHash("solana:devnet", huge)
+	elapsed := time.Since(start)
+
+	require.Equal(t, huge, got, "out-of-band input must pass through unchanged")
+	require.Less(t, elapsed, time.Second,
+		"oversized base58 tx_hash must not be decoded (took %s)", elapsed)
 }
 
 // AddressToBytes32: an EVM address goes into the low 20 bytes (bytes32(uint160(addr))).

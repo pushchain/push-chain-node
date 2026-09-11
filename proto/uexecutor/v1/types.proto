@@ -13,6 +13,13 @@ message Params {
   option (gogoproto.goproto_stringer) = false;
 
   bool some_value = 2;
+
+  // max_gasless_tx_gas is the maximum gas limit a fee-exempt (gasless)
+  // transaction is allowed to declare. Gasless transactions pay no fee, so
+  // their declared gas is not bounded by anything the sender has to spend;
+  // this cap is the only bound on how much a single gasless transaction can
+  // contribute to the block's cumulative gas wanted.
+  uint64 max_gasless_tx_gas = 3;
 }
 
 // Signature verification types
@@ -36,17 +43,6 @@ message UniversalPayload {
   string nonce = 7;                 // uint256 as string
   string deadline = 8;              // uint256 as string
   VerificationType v_type = 9; // Type of verification to use before execution
-}
-
-// MigrationPayload mirrors the Solidity struct 
-message MigrationPayload {
-  option (amino.name) = "uexecutor/migration_payload";
-  option (gogoproto.equal) = true;
-  option (gogoproto.goproto_stringer) = false;
-
-  string migration = 1;             // Migration Address 
-  string nonce = 2;                 // unit256 as string 
-  string deadline = 3;              // unit256 as string 
 }
 
 // UniversalAccountId is the identifier of a owner account

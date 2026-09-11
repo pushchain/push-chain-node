@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	ethcommon "github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/rs/zerolog"
@@ -232,15 +233,53 @@ func (rc *RPCClient) FilterLogs(ctx context.Context, query ethereum.FilterQuery)
 	return logs, err
 }
 
-// GetTransactionReceipt fetches a transaction receipt
-func (rc *RPCClient) GetTransactionReceipt(ctx context.Context, txHash ethcommon.Hash) (*types.Receipt, error) {
-	var receipt *types.Receipt
+// Receipt holds the transaction-receipt fields the universal client needs,
+// including the OP-Stack L1 data fee that go-ethereum's typed receipt omits.
+type Receipt struct {
+	Status            uint64
+	BlockNumber       uint64
+	GasUsed           uint64
+	EffectiveGasPrice *big.Int // nil if the receipt omits the field (pre-London / non-compliant RPC)
+	L1Fee             *big.Int // OP-Stack L1 data fee; 0 on non-OP chains
+}
+
+// GetTransactionReceipt fetches a transaction receipt in a single raw call,
+// reading the OP-Stack l1Fee alongside the standard fields. Returns (nil, nil)
+// if the tx is not found (receipt is null).
+func (rc *RPCClient) GetTransactionReceipt(ctx context.Context, txHash ethcommon.Hash) (*Receipt, error) {
+	var raw struct {
+		Status            *hexutil.Uint64 `json:"status"`
+		BlockNumber       *hexutil.Big    `json:"blockNumber"`
+		GasUsed           *hexutil.Uint64 `json:"gasUsed"`
+		EffectiveGasPrice *hexutil.Big    `json:"effectiveGasPrice"`
+		L1Fee             *hexutil.Big    `json:"l1Fee"`
+	}
 	err := rc.executeWithFailover(ctx, "get_transaction_receipt", func(client *ethclient.Client) error {
-		var innerErr error
-		receipt, innerErr = client.TransactionReceipt(ctx, txHash)
-		return innerErr
+		return client.Client().CallContext(ctx, &raw, "eth_getTransactionReceipt", txHash)
 	})
-	return receipt, err
+	if err != nil {
+		return nil, err
+	}
+	if raw.GasUsed == nil {
+		return nil, nil // not found
+	}
+	r := &Receipt{
+		GasUsed: uint64(*raw.GasUsed),
+		L1Fee:   big.NewInt(0),
+	}
+	if raw.Status != nil {
+		r.Status = uint64(*raw.Status)
+	}
+	if raw.BlockNumber != nil {
+		r.BlockNumber = (*big.Int)(raw.BlockNumber).Uint64()
+	}
+	if raw.EffectiveGasPrice != nil {
+		r.EffectiveGasPrice = (*big.Int)(raw.EffectiveGasPrice)
+	}
+	if raw.L1Fee != nil {
+		r.L1Fee = (*big.Int)(raw.L1Fee)
+	}
+	return r, nil
 }
 
 // GetTransactionByHash returns a transaction by its hash.

@@ -57,7 +57,8 @@ func (p Precompile) VerifyEd25519(
 
 // VerifyEd25519RawMessage verifies a signature over raw message bytes —
 // standard Ed25519 semantics. Use this when the signer used the conventional
-// ed25519.Sign(privKey, rawBytes) API.
+// ed25519.Sign(privKey, rawBytes) API. Messages larger than
+// MaxEd25519MessageBytes are rejected.
 func (p Precompile) VerifyEd25519RawMessage(
 	method *abi.Method,
 	args []interface{},
@@ -71,6 +72,13 @@ func (p Precompile) VerifyEd25519RawMessage(
 	message, ok := args[1].([]byte)
 	if !ok {
 		return nil, fmt.Errorf("invalid message type")
+	}
+
+	// Hard size limit. RequiredGas already prices the message per 32-byte word,
+	// but this is a view method a contract can loop cheaply from memory, so the
+	// length is bounded outright rather than only priced.
+	if len(message) > MaxEd25519MessageBytes {
+		return nil, fmt.Errorf("message too large: %d bytes, max %d", len(message), MaxEd25519MessageBytes)
 	}
 
 	signature, ok := args[2].([]byte)

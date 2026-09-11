@@ -382,21 +382,21 @@ func TestSelectRandomThreshold(t *testing.T) {
 
 	t.Run("returns exactly threshold count", func(t *testing.T) {
 		// threshold(5) = 4
-		assert.Len(t, selectRandomThreshold(makeN(5)), 4)
+		assert.Len(t, selectRandomThreshold(makeN(5), CalculateThreshold(5)), 4)
 	})
 
 	t.Run("returns all when count equals threshold", func(t *testing.T) {
 		// threshold(2) = 2 → returns all 2
-		assert.Len(t, selectRandomThreshold(makeN(2)), 2)
+		assert.Len(t, selectRandomThreshold(makeN(2), CalculateThreshold(2)), 2)
 	})
 
 	t.Run("returns all when count is below threshold", func(t *testing.T) {
 		// threshold(1) = 1 → returns all 1
-		assert.Len(t, selectRandomThreshold(makeN(1)), 1)
+		assert.Len(t, selectRandomThreshold(makeN(1), CalculateThreshold(1)), 1)
 	})
 
 	t.Run("returns nil for empty list", func(t *testing.T) {
-		assert.Nil(t, selectRandomThreshold(nil))
+		assert.Nil(t, selectRandomThreshold(nil, 3))
 	})
 }
 
@@ -1126,6 +1126,10 @@ type stalenessMockPushCore struct {
 	block      uint64
 	validators []*types.UniversalValidator
 	failGetAll bool
+
+	// Old key history, consulted when selecting fund migration signers.
+	keysByID map[string]*utsstypes.TssKey
+	keyErr   error
 }
 
 func (m *stalenessMockPushCore) GetLatestBlock(_ context.Context) (uint64, error) {
@@ -1134,6 +1138,13 @@ func (m *stalenessMockPushCore) GetLatestBlock(_ context.Context) (uint64, error
 
 func (m *stalenessMockPushCore) GetCurrentKey(_ context.Context) (*utsstypes.TssKey, error) {
 	return &utsstypes.TssKey{KeyId: "test-key"}, nil
+}
+
+func (m *stalenessMockPushCore) GetKeyByID(_ context.Context, keyID string) (*utsstypes.TssKey, error) {
+	if m.keyErr != nil {
+		return nil, m.keyErr
+	}
+	return m.keysByID[keyID], nil
 }
 
 func (m *stalenessMockPushCore) GetAllUniversalValidators(_ context.Context) ([]*types.UniversalValidator, error) {
@@ -1278,5 +1289,86 @@ func TestValidatorsSnapshot(t *testing.T) {
 		coord.lastValidatorsRefreshAt = time.Now().Add(-500 * time.Millisecond)
 		coord.mu.Unlock()
 		assert.NotNil(t, coord.validatorsSnapshot())
+	})
+}
+
+func TestIsKnownPeer(t *testing.T) {
+	uv := func(peerID string, status types.UVStatus) *types.UniversalValidator {
+		return &types.UniversalValidator{
+			IdentifyInfo:  &types.IdentityInfo{CoreValidatorAddress: "addr-" + peerID},
+			NetworkInfo:   &types.NetworkInfo{PeerId: peerID, MultiAddrs: []string{"/ip4/127.0.0.1/tcp/9001"}},
+			LifecycleInfo: &types.LifecycleInfo{CurrentStatus: status},
+		}
+	}
+
+	setValidators := func(coord *Coordinator, vs []*types.UniversalValidator) {
+		coord.mu.Lock()
+		coord.allValidators = vs
+		coord.lastValidatorsRefreshAt = time.Now()
+		coord.mu.Unlock()
+	}
+
+	coord, _, _ := setupTestCoordinator(t)
+
+	t.Run("eligible statuses admitted", func(t *testing.T) {
+		setValidators(coord, []*types.UniversalValidator{
+			uv("active", types.UVStatus_UV_STATUS_ACTIVE),
+			uv("joining", types.UVStatus_UV_STATUS_PENDING_JOIN),
+			uv("leaving", types.UVStatus_UV_STATUS_PENDING_LEAVE),
+		})
+		assert.True(t, coord.IsKnownPeer("active"))
+		assert.True(t, coord.IsKnownPeer("joining"))
+		assert.True(t, coord.IsKnownPeer("leaving"))
+	})
+
+	t.Run("inactive and unspecified rejected", func(t *testing.T) {
+		setValidators(coord, []*types.UniversalValidator{
+			uv("active", types.UVStatus_UV_STATUS_ACTIVE),
+			uv("inactive", types.UVStatus_UV_STATUS_INACTIVE),
+			uv("unspecified", types.UVStatus_UV_STATUS_UNSPECIFIED),
+		})
+		assert.False(t, coord.IsKnownPeer("inactive"))
+		assert.False(t, coord.IsKnownPeer("unspecified"))
+	})
+
+	t.Run("unknown peer rejected", func(t *testing.T) {
+		setValidators(coord, []*types.UniversalValidator{
+			uv("active", types.UVStatus_UV_STATUS_ACTIVE),
+		})
+		assert.False(t, coord.IsKnownPeer("stranger"))
+	})
+
+	t.Run("nil lifecycle info rejected", func(t *testing.T) {
+		noLifecycle := uv("ghost", types.UVStatus_UV_STATUS_ACTIVE)
+		noLifecycle.LifecycleInfo = nil
+		setValidators(coord, []*types.UniversalValidator{
+			uv("active", types.UVStatus_UV_STATUS_ACTIVE),
+			noLifecycle,
+		})
+		assert.False(t, coord.IsKnownPeer("ghost"))
+	})
+
+	t.Run("bootstrap keygen peers admitted without any active validator", func(t *testing.T) {
+		// Fresh network: everyone is Pending Join. Strict filter must still
+		// admit them so keygen can start; Inactive stays rejected even here.
+		setValidators(coord, []*types.UniversalValidator{
+			uv("joining", types.UVStatus_UV_STATUS_PENDING_JOIN),
+			uv("joining2", types.UVStatus_UV_STATUS_PENDING_JOIN),
+			uv("inactive", types.UVStatus_UV_STATUS_INACTIVE),
+		})
+		assert.True(t, coord.IsKnownPeer("joining"))
+		assert.True(t, coord.IsKnownPeer("joining2"))
+		assert.False(t, coord.IsKnownPeer("inactive"))
+		assert.False(t, coord.IsKnownPeer("stranger"))
+	})
+
+	t.Run("stale cache fails closed", func(t *testing.T) {
+		setValidators(coord, []*types.UniversalValidator{
+			uv("active", types.UVStatus_UV_STATUS_ACTIVE),
+		})
+		coord.mu.Lock()
+		coord.lastValidatorsRefreshAt = time.Now().Add(-time.Hour)
+		coord.mu.Unlock()
+		assert.False(t, coord.IsKnownPeer("active"))
 	})
 }

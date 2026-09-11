@@ -57,6 +57,8 @@ type EVMKeeper interface {
 		args ...interface{},
 	) (*types.MsgEthereumTxResponse, error)
 	GetCodeHash(ctx sdk.Context, addr common.Address) common.Hash
+	// GetNonce returns the account nonce (auth sequence) the EVM sees for addr.
+	GetNonce(ctx sdk.Context, addr common.Address) uint64
 }
 
 // FeeMarketKeeper defines the expected interface for the fee market module.
@@ -98,6 +100,9 @@ type BankKeeper interface {
 // AccountKeeper defines the expected interface for the auth module
 type AccountKeeper interface {
 	GetModuleAccount(ctx context.Context, moduleName string) sdk.ModuleAccountI
+	// SetAccount persists an account. Used to keep the uexecutor module
+	// account's EVM nonce in step with the nonce handed to DerivedEVMCall.
+	SetAccount(ctx context.Context, acc sdk.AccountI)
 }
 
 type UValidatorKeeper interface {
@@ -120,6 +125,10 @@ type UValidatorKeeper interface {
 	GetEligibleVoters(ctx context.Context) ([]uvalidatortypes.UniversalValidator, error)
 	GetBallot(ctx context.Context, id string) (uvalidatortypes.Ballot, error)
 	GetAdmin(ctx context.Context) (string, error)
+	// MarkBallotFinalized drives a ballot to PASSED/REJECTED. Needed by the
+	// ExecuteStuckInbound escape hatch, which finalizes a ballot the vote flow
+	// can no longer finalize on its own.
+	MarkBallotFinalized(ctx context.Context, id string, status uvalidatortypes.BallotStatus) error
 }
 
 // UCallbackKeeper ingests read requests from derived-call receipts, which the

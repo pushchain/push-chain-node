@@ -11,6 +11,7 @@ import (
 	abci "github.com/cometbft/cometbft/abci/types"
 
 	"cosmossdk.io/client/v2/autocli"
+	"cosmossdk.io/core/appmodule"
 	errorsmod "cosmossdk.io/errors"
 
 	"github.com/cosmos/cosmos-sdk/client"
@@ -33,6 +34,13 @@ var (
 	_ module.AppModuleBasic   = AppModuleBasic{}
 	_ module.AppModuleGenesis = AppModule{}
 	_ module.AppModule        = AppModule{}
+
+	// The module manager only calls BeginBlock/EndBlock on modules that satisfy
+	// these interfaces — being listed in SetOrderBeginBlockers/EndBlockers is
+	// necessary but not sufficient. These assertions fail the build if a
+	// signature drifts and the hook silently stops firing.
+	_ appmodule.HasBeginBlocker = AppModule{}
+	_ appmodule.HasEndBlocker   = AppModule{}
 
 	_ autocli.HasAutoCLIConfig = AppModule{}
 )
@@ -186,4 +194,10 @@ func (a AppModule) BeginBlock(ctx context.Context) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
 	return BeginBlocker(sdkCtx, a.keeper)
+}
+
+func (a AppModule) EndBlock(ctx context.Context) error {
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+
+	return EndBlocker(sdkCtx, a.keeper)
 }

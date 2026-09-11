@@ -16,6 +16,15 @@ import (
 // query what happened to their cross-chain tx instead of having funds silently stuck
 // in the gateway contract.
 func (k Keeper) VoteInbound(ctx context.Context, universalValidator sdk.ValAddress, inbound types.Inbound) error {
+	// Bound the payload blobs before anything reads or writes state. The msg
+	// carrying this vote is fee exempt, so nothing charges the submitter for the
+	// bytes it puts into state. Repeated here rather than left to
+	// MsgVoteInbound.ValidateBasic so the cap holds for every caller of this
+	// keeper method, not just the one msg route.
+	if err := inbound.ValidateSize(); err != nil {
+		return err
+	}
+
 	// Canonicalize first so every derived key + the stored inbound use one
 	// representation per logical event.
 	inbound.Canonicalize()
@@ -84,6 +93,19 @@ func (k Keeper) VoteInbound(ctx context.Context, universalValidator sdk.ValAddre
 	}
 
 	// --- Ballot finalized: always create UTX from here on ---
+	return k.finalizeInboundAndExecute(ctx, inbound, universalTxKey)
+}
+
+// finalizeInboundAndExecute runs the post-finalization pipeline for an inbound
+// whose ballot has reached PASSED: normalize, create the UniversalTx, drop the
+// pending entry, then validate and execute.
+//
+// Shared by the normal vote path (VoteInbound) and the admin escape hatch
+// (ExecuteStuckInbound) so a finalized inbound resolves identically whichever
+// route finalized its ballot.
+func (k Keeper) finalizeInboundAndExecute(ctx context.Context, inbound types.Inbound, universalTxKey string) error {
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+
 	k.Logger().Info("inbound ballot finalized, creating utx", "utx_key", universalTxKey, "source_chain", inbound.SourceChain)
 
 	// Normalize inbound after finalization: strip irrelevant fields, decode raw_payload.

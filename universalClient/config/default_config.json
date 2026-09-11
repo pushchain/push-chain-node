@@ -2,6 +2,7 @@
   "log_level": 1,
   "log_format": "console",
   "log_sampler": false,
+  "push_network": "mainnet",
   "push_chain_id": "localchain_9000-1",
   "push_chain_grpc_urls": [
     "localhost:9090"

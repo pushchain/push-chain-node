@@ -1,6 +1,7 @@
 package svm
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/hex"
@@ -295,35 +296,42 @@ func (el *EventListener) processSignatureBatch(
 			continue
 		}
 
-		// Process each log in the transaction
-		if tx != nil && tx.Meta != nil && len(tx.Meta.LogMessages) > 0 {
-			for logIndex, log := range tx.Meta.LogMessages {
-				// Determine event type based on discriminator
-				eventType := el.determineEventType(log)
-				if eventType == "" {
-					continue
-				}
+		// Events come from emit_cpi inner instructions, not logs, so log
+		// truncation cannot drop one.
+		// A failed tx still records what ran before it aborted, and all of it was
+		// rolled back.
+		if tx != nil && tx.Meta != nil && tx.Meta.Err != nil {
+			el.logger.Debug().
+				Str("signature", sig.Signature.String()).
+				Msg("skipping failed transaction")
+			continue
+		}
 
-				// Parse gateway event from individual log
-				event := ParseEvent(log, sig.Signature.String(), sig.Slot, uint(logIndex), eventType, el.chainID, el.logger)
-				if event != nil {
-					// Insert event if it doesn't already exist
-					if stored, err := el.chainStore.InsertEventIfNotExists(event); err != nil {
-						el.logger.Error().
-							Err(err).
-							Str("event_id", event.EventID).
-							Str("type", event.Type).
-							Uint64("slot", event.BlockHeight).
-							Msg("failed to store event")
-					} else if stored {
-						el.logger.Debug().
-							Str("event_id", event.EventID).
-							Str("type", event.Type).
-							Uint64("slot", event.BlockHeight).
-							Str("confirmation_type", event.ConfirmationType).
-							Msg("stored new event")
-					}
-				}
+		for payloadIndex, payload := range gatewayEventPayloads(tx, el.gatewayAddress) {
+			eventType := el.determineEventType(payload)
+			if eventType == "" {
+				continue
+			}
+
+			event := ParseEvent(payload, sig.Signature.String(), sig.Slot, uint(payloadIndex), eventType, el.chainID, el.logger)
+			if event == nil {
+				continue
+			}
+
+			if stored, err := el.chainStore.InsertEventIfNotExists(event); err != nil {
+				el.logger.Error().
+					Err(err).
+					Str("event_id", event.EventID).
+					Str("type", event.Type).
+					Uint64("slot", event.BlockHeight).
+					Msg("failed to store event")
+			} else if stored {
+				el.logger.Debug().
+					Str("event_id", event.EventID).
+					Str("type", event.Type).
+					Uint64("slot", event.BlockHeight).
+					Str("confirmation_type", event.ConfirmationType).
+					Msg("stored new event")
 			}
 		}
 	}
@@ -395,7 +403,48 @@ func (el *EventListener) getPollingInterval() time.Duration {
 	return 5 * time.Second // default
 }
 
-// determineEventType determines the event type based on the log discriminator
+// eventIxTag prefixes the data of every Anchor emit_cpi instruction.
+var eventIxTag = []byte{0xe4, 0x45, 0xa5, 0x2e, 0x51, 0xcb, 0x9a, 0x1d}
+
+// gatewayEventPayloads returns the gateway's emit_cpi events in the
+// "Program data:" form the parsers take. Event data is eventIxTag ||
+// discriminator || borsh, so dropping the tag leaves the old payload.
+//
+// Only instructions the gateway itself ran are read. A discriminator is a
+// schema tag, not proof of who emitted it.
+func gatewayEventPayloads(tx *solanarpc.GetTransactionResult, gatewayAddress string) []string {
+	if tx == nil || tx.Meta == nil || len(tx.Meta.InnerInstructions) == 0 {
+		return nil
+	}
+	gateway, err := solana.PublicKeyFromBase58(gatewayAddress)
+	if err != nil {
+		return nil
+	}
+	parsed, txErr := tx.Transaction.GetTransaction()
+	if txErr != nil || parsed == nil {
+		return nil
+	}
+
+	// Index order: static keys, then ALT writable, then ALT readonly.
+	keys := append(solana.PublicKeySlice{}, parsed.Message.AccountKeys...)
+	keys = append(keys, tx.Meta.LoadedAddresses.Writable...)
+	keys = append(keys, tx.Meta.LoadedAddresses.ReadOnly...)
+
+	var payloads []string
+	for _, group := range tx.Meta.InnerInstructions {
+		for _, ix := range group.Instructions {
+			if int(ix.ProgramIDIndex) >= len(keys) || !keys[ix.ProgramIDIndex].Equals(gateway) {
+				continue
+			}
+			if len(ix.Data) < len(eventIxTag) || !bytes.Equal(ix.Data[:len(eventIxTag)], eventIxTag) {
+				continue
+			}
+			payloads = append(payloads, "Program data: "+base64.StdEncoding.EncodeToString(ix.Data[len(eventIxTag):]))
+		}
+	}
+	return payloads
+}
+
 func (el *EventListener) determineEventType(log string) string {
 	if !strings.HasPrefix(log, "Program data: ") {
 		return ""

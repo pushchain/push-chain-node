@@ -5,17 +5,22 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/gagliardetto/solana-go"
 	solanarpc "github.com/gagliardetto/solana-go/rpc"
+	"github.com/mr-tron/base58"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/pushchain/push-chain-node/universalClient/db"
+	"github.com/pushchain/push-chain-node/universalClient/externalchains/common"
+	"github.com/pushchain/push-chain-node/universalClient/store"
 	uregistrytypes "github.com/pushchain/push-chain-node/x/uregistry/types"
 )
 
@@ -675,4 +680,325 @@ func TestEventListener_StartWhileRunning(t *testing.T) {
 	// Clean up
 	cancel()
 	el.wg.Wait()
+}
+
+const (
+	testGatewayProgram  = "CFVSincHYbETh2k7w6u1ENEkjbSLtveRCEBupKidw2VS"
+	testAttackerProgram = "AttackerProgram1111111111111111111111111111"
+)
+
+type forgeryRPC struct {
+	slot   uint64
+	sig    solana.Signature
+	txJSON string
+}
+
+func (m *forgeryRPC) GetLatestSlot(context.Context) (uint64, error) { return m.slot, nil }
+
+func (m *forgeryRPC) GetSignaturesForAddress(context.Context, solana.PublicKey, solana.Signature) ([]*solanarpc.TransactionSignature, error) {
+	return []*solanarpc.TransactionSignature{{Signature: m.sig, Slot: m.slot}}, nil
+}
+
+func (m *forgeryRPC) GetTransaction(context.Context, solana.Signature) (*solanarpc.GetTransactionResult, error) {
+	var tx solanarpc.GetTransactionResult
+	if err := json.Unmarshal([]byte(m.txJSON), &tx); err != nil {
+		return nil, err
+	}
+	return &tx, nil
+}
+
+// txWithEmittedEvent builds a tx whose only inner instruction is an emit_cpi
+// event from `emitter`.
+func txWithEmittedEvent(t *testing.T, emitter string, payload []byte, logs []string) string {
+	t.Helper()
+	data := append(append([]byte{}, eventIxTag...), payload...)
+	logJSON, err := json.Marshal(logs)
+	require.NoError(t, err)
+	return fmt.Sprintf(`{
+		"slot": 100,
+		"transaction": {
+			"signatures": ["%s"],
+			"message": {
+				"header": {"numRequiredSignatures":1,"numReadonlySignedAccounts":0,"numReadonlyUnsignedAccounts":1},
+				"accountKeys": ["%s","%s"],
+				"recentBlockhash": "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+				"instructions": []
+			}
+		},
+		"meta": {
+			"err": null,
+			"logMessages": %s,
+			"innerInstructions": [
+				{"index":0,"instructions":[{"programIdIndex":1,"accounts":[],"data":"%s","stackHeight":2}]}
+			]
+		}
+	}`, mkSig(7).String(), testGatewayProgram, emitter, string(logJSON), base58.Encode(data))
+}
+
+// End-to-end proof that the listener drops a forged event. The same valid
+// send_funds payload is served twice: emitted by an attacker program it must be
+// ignored, emitted by the gateway it must be stored.
+func TestProcessSignatureBatch_RejectsForgedGatewayEvent(t *testing.T) {
+	discriminator := "0000000000000000" // buildSendFundsPayload zeroes the discriminator
+	payload := buildSendFundsPayload(
+		[32]byte{1}, [20]byte{2}, [32]byte{3}, 1_000_000,
+		nil, [32]byte{4}, 0, nil, false,
+	)
+
+	run := func(t *testing.T, emitter string) int {
+		t.Helper()
+		database, err := db.OpenInMemoryDB(true)
+		require.NoError(t, err)
+		t.Cleanup(func() { database.Close() })
+
+		methods := []*uregistrytypes.GatewayMethods{
+			{Name: EventTypeSendFunds, EventIdentifier: discriminator},
+		}
+		rpc := &forgeryRPC{slot: 100, sig: mkSig(7), txJSON: txWithEmittedEvent(t, emitter, payload, nil)}
+		el, err := NewEventListener(rpc, testGatewayProgram, "solana:test", methods, database, 10, nil, zerolog.Nop())
+		require.NoError(t, err)
+
+		_, err = el.processSignatureBatch(context.Background(), []*solanarpc.TransactionSignature{
+			{Signature: mkSig(7), Slot: 100},
+		}, 0, 200)
+		require.NoError(t, err)
+
+		events, err := common.NewChainStore(database).GetPendingEvents(100)
+		require.NoError(t, err)
+		return len(events)
+	}
+
+	t.Run("forged by attacker program is not stored", func(t *testing.T) {
+		assert.Zero(t, run(t, testAttackerProgram), "forged gateway event must not become an inbound")
+	})
+
+	t.Run("same payload from the gateway is stored", func(t *testing.T) {
+		assert.Equal(t, 1, run(t, testGatewayProgram), "genuine gateway event must be observed")
+	})
+}
+
+// A failed tx still lists what ran before it aborted, and all of it was
+// rolled back.
+func TestProcessSignatureBatch_SkipsFailedTransactions(t *testing.T) {
+	payload := buildSendFundsPayload(
+		[32]byte{1}, [20]byte{2}, [32]byte{3}, 1_000_000,
+		nil, [32]byte{4}, 0, nil, false,
+	)
+	methods := []*uregistrytypes.GatewayMethods{
+		{Name: EventTypeSendFunds, EventIdentifier: "0000000000000000"},
+	}
+
+	run := func(t *testing.T, txJSON string) int {
+		t.Helper()
+		database, err := db.OpenInMemoryDB(true)
+		require.NoError(t, err)
+		t.Cleanup(func() { database.Close() })
+
+		rpc := &forgeryRPC{slot: 100, sig: mkSig(7), txJSON: txJSON}
+		el, err := NewEventListener(rpc, testGatewayProgram, "solana:test", methods, database, 10, nil, zerolog.Nop())
+		require.NoError(t, err)
+
+		_, err = el.processSignatureBatch(context.Background(), []*solanarpc.TransactionSignature{
+			{Signature: mkSig(7), Slot: 100},
+		}, 0, 200)
+		require.NoError(t, err)
+
+		events, err := common.NewChainStore(database).GetPendingEvents(100)
+		require.NoError(t, err)
+		return len(events)
+	}
+
+	ok := txWithEmittedEvent(t, testGatewayProgram, payload, nil)
+
+	t.Run("succeeded transaction is stored", func(t *testing.T) {
+		assert.Equal(t, 1, run(t, ok))
+	})
+
+	t.Run("failed transaction is skipped", func(t *testing.T) {
+		failed := strings.Replace(ok, `"err": null`, `"err": {"InstructionError":[0,{"Custom":6020}]}`, 1)
+		require.NotEqual(t, ok, failed, "the fixture must actually carry a failure")
+		assert.Zero(t, run(t, failed),
+			"an event emitted before the abort must not be observed")
+	})
+}
+
+// The observation half of F-2026-18817: the event is an inner instruction, so
+// a flooded log buffer cannot take it down.
+func TestProcessSignatureBatch_TruncatedLogsStillYieldEvent(t *testing.T) {
+	database, err := db.OpenInMemoryDB(true)
+	require.NoError(t, err)
+	t.Cleanup(func() { database.Close() })
+
+	payload := buildSendFundsPayload(
+		[32]byte{1}, [20]byte{2}, [32]byte{3}, 1_000_000,
+		nil, [32]byte{4}, 0, nil, false,
+	)
+	truncated := []string{
+		"Program " + testGatewayProgram + " invoke [1]",
+		"Program log: truncated",
+	}
+
+	methods := []*uregistrytypes.GatewayMethods{
+		{Name: EventTypeSendFunds, EventIdentifier: "0000000000000000"},
+	}
+	rpc := &forgeryRPC{slot: 100, sig: mkSig(7), txJSON: txWithEmittedEvent(t, testGatewayProgram, payload, truncated)}
+	el, err := NewEventListener(rpc, testGatewayProgram, "solana:test", methods, database, 10, nil, zerolog.Nop())
+	require.NoError(t, err)
+
+	_, err = el.processSignatureBatch(context.Background(), []*solanarpc.TransactionSignature{
+		{Signature: mkSig(7), Slot: 100},
+	}, 0, 200)
+	require.NoError(t, err)
+
+	events, err := common.NewChainStore(database).GetPendingEvents(100)
+	require.NoError(t, err)
+	assert.Len(t, events, 1, "a truncated log buffer must not cost us the event")
+}
+
+// A real devnet finalize, signature 4ye6nTo4oKcEctDza44Zr7QAwHmqhH4qfeBkDjHqE2aFtgxuhdF9dfs1EmBbYiTfwXMvWUupJ592DQQQAGx5Abus.
+// It carries no "Program data:" line at all.
+const devnetFinalizeTx = `{"blockTime":1788253699,"meta":{"computeUnitsConsumed":132988,"costUnits":136994,"err":null,"fee":5000,"innerInstructions":[{"index":0,"instructions":[{"accounts":[0,5],"data":"11114pZy3PBZenKB1vn2UptrP91MCBmdVNUDneZKAWH7B8Sg5eCB3E67uKRhm1xbvr4ACz","programIdIndex":10,"stackHeight":2},{"accounts":[0,9],"data":"1111NuBxPLg6vZ28hQWMLnv7auFnJFYGTC4L1MUjrNkN9xikCBvdVStP4KiJr9vvBcWPa","programIdIndex":10,"stackHeight":2},{"accounts":[9,15],"data":"18ukwGkxoTJPx4HkLTz6ZybMUmX1yt47MVERA5H6yQGUdgK","programIdIndex":16,"stackHeight":2},{"accounts":[0,3],"data":"11113ahNe3Yfn6gi8hZhcH9k4YUezY3FJNRHx6tPLUTkr868BMzwWAZDTUtWcrGK2cw1Fx","programIdIndex":10,"stackHeight":2},{"accounts":[0,4,7,9,10,16],"data":"1","programIdIndex":13,"stackHeight":2},{"accounts":[9],"data":"84eT","programIdIndex":16,"stackHeight":3},{"accounts":[0,4],"data":"11113z11NKiYBjwDfL71F9myuy3cwdtTaatpiC6rj9zomYP4qbzHXZVjhEFkM5qi31QeQg","programIdIndex":10,"stackHeight":3},{"accounts":[4],"data":"P","programIdIndex":16,"stackHeight":3},{"accounts":[4,9],"data":"6VKrKvV2EjfdgaesMejJQDnusTVKHbdt2BPiddZq2WzGf","programIdIndex":16,"stackHeight":3},{"accounts":[9,4,9],"data":"6YF7VVXZihvw","programIdIndex":16,"stackHeight":2},{"accounts":[2,0],"data":"3Bxs4R98mv6mmz5M","programIdIndex":10,"stackHeight":2},{"accounts":[2,0],"data":"3Bxs4PckVVt51W8w","programIdIndex":10,"stackHeight":2},{"accounts":[11],"data":"9opCxkAgBxqeR8UTbeow8YC7933mDbBMCEMKiYsmMRqLs1N8zRudTsxXqkeWaXpNdpt2QZhCyZprcPNHfS7EwMkBnfrzuFhd3zMg8ZLA6Uk1BVxrx5nq9s2EYueLPKVCWCvzyKsZqph76dduPdkHBQs7TdFtP5FtvJssMKvwPu5zShUSegxsJLaYKZCjZAcrYscVbEmLzrvehE2s4qYdMGyW58rkamNjPC4BgKoZpPt136NYv31ftYXB4sVrTdjkJogbp9HpWA1BnewRmXuWddeYyGxyiFG3X44mG5ALa7rTuPgcZukdFmahFVfE2Txj","programIdIndex":14,"stackHeight":2}]}],"loadedAddresses":{"readonly":[],"writable":[]},"logMessages":["Program DJoFYDpgbTfxbXBv1QYhYGc9FK4J5FUKpYXAfSkHryXp invoke [1]","Program log: Instruction: FinalizeUniversalTxWithIxDataRef","Program 11111111111111111111111111111111 invoke [2]","Program 11111111111111111111111111111111 success","Program 11111111111111111111111111111111 invoke [2]","Program 11111111111111111111111111111111 success","Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]","Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 86 of 148619 compute units","Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success","Program 11111111111111111111111111111111 invoke [2]","Program 11111111111111111111111111111111 success","Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL invoke [2]","Program log: Create","Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [3]","Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 179 of 93967 compute units","Program return: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA pQAAAAAAAAA=","Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success","Program 11111111111111111111111111111111 invoke [3]","Program 11111111111111111111111111111111 success","Program log: Initialize the associated token account","Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [3]","Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 37 of 88878 compute units","Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success","Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [3]","Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 233 of 86415 compute units","Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success","Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL consumed 15010 of 100888 compute units","Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL success","Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]","Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 122 of 82575 compute units","Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success","Program 11111111111111111111111111111111 invoke [2]","Program 11111111111111111111111111111111 success","Program 11111111111111111111111111111111 invoke [2]","Program 11111111111111111111111111111111 success","Program DJoFYDpgbTfxbXBv1QYhYGc9FK4J5FUKpYXAfSkHryXp invoke [2]","Program DJoFYDpgbTfxbXBv1QYhYGc9FK4J5FUKpYXAfSkHryXp consumed 2517 of 71342 compute units","Program DJoFYDpgbTfxbXBv1QYhYGc9FK4J5FUKpYXAfSkHryXp success","Program DJoFYDpgbTfxbXBv1QYhYGc9FK4J5FUKpYXAfSkHryXp consumed 132988 of 200000 compute units","Program DJoFYDpgbTfxbXBv1QYhYGc9FK4J5FUKpYXAfSkHryXp success"],"postBalances":[5010154600,2793266460,17563563083,1203270,1855569,861288,0,0,1566000,1329930,1,0,2832720,5938070540,1141440,1009200,15367267856],"postTokenBalances":[{"accountIndex":4,"mint":"ZTgXiGpKZjEopH1mSqZ1GjY8k9G6dQaJoCm8iUkab7V","owner":"9C9ezHVSSpMrKAmqZa74jpUUxbjUBtcKUUYn8z9DDqqh","programId":"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA","uiTokenAmount":{"amount":"10000000","decimals":6,"uiAmount":10.0,"uiAmountString":"10"}}],"preBalances":[5006672783,2793266460,17568823140,0,0,0,3476817,0,1566000,0,1,0,2832720,5938070540,1141440,1009200,15367267856],"preTokenBalances":[],"rewards":[],"status":{"Ok":null}},"slot":491383584,"transaction":{"message":{"accountKeys":["4QbAt2CJ8QqCHeps2RmMjG1nWUCmPqjkEyYQMjrJaVtH","2EEYH6e1PtCdWzZaag9buJmDDS79gvrm1aQm9yEcgWdR","4sQLizYQ1ZJjc2doLqTQsk1Kj8XVS5uviJykpHNNMSi5","4VC5j3WgPU7TTF8YzgikNdpF8zwnGkqAjf9iWfA5xCi7","59oiUm1Anavheg38XWDDdv3GAjD4XYSUhQBY8qyxXnTc","5BT6kxRRU2jSVbvVdeEBAszUoCXTzUpHWeruS5kYkqz","5PZEHeEx9mhMNPneusoQvLunGDLgHAQcyGmnoT1jJCEk","9C9ezHVSSpMrKAmqZa74jpUUxbjUBtcKUUYn8z9DDqqh","FDxeNn8YT8DoWrJ5GzqNTW8rjx8cLFNFBgHpBTMifeYJ","ZTgXiGpKZjEopH1mSqZ1GjY8k9G6dQaJoCm8iUkab7V","11111111111111111111111111111111","5FRwYKUHLYoSq6uNgrjZ2sq436AAzPnv77fv9e7EiFPi","7QAS73zgRm7KMt85XMGWbWDnmhZR1UyTULhhxR254YYR","ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL","DJoFYDpgbTfxbXBv1QYhYGc9FK4J5FUKpYXAfSkHryXp","SysvarRent111111111111111111111111111111111","TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"],"header":{"numReadonlySignedAccounts":0,"numReadonlyUnsignedAccounts":7,"numRequiredSignatures":1},"instructions":[{"accounts":[0,12,2,7,8,5,10,10,1,14,4,14,16,15,13,14,14,14,6,0,11,14,3,9],"data":"42AXCSarXAyth9mmjqkpxW8qtkNjcbj5KuupCERvjRCapw5ydhidmiLmMnypfiZFedPUhVNQyeLPfF17ZtqeBJUS83v6DJRgwFHuVMK1dDy4MFW7QhMwVxfJwuZ1hgv9TtXcmdmixaHukCq77ikrN37w3UR2P12aY9ERa5tXuQGkxXAenYcsNHQuw7y99mXT2icCjvcVd3yGRtWgvnbrd4Gf36pzqRpZkrNgKdJzvSDYgoarEXdPq6m3GjZxRkvsgQJ2sZTsKbNCeRrL5tdxTRgd7YZXqXVDJ4ShaYAKqLXBqMGf1LbynGK2G8HUriKn41xVEFK2Rg37E3dykeHSDS","programIdIndex":14,"stackHeight":1}],"recentBlockhash":"2CEDFZcp6d5ug1BgDjuNzMPRXqi4WX8QTZskNr9yJicY"},"signatures":["4ye6nTo4oKcEctDza44Zr7QAwHmqhH4qfeBkDjHqE2aFtgxuhdF9dfs1EmBbYiTfwXMvWUupJ592DQQQAGx5Abus"]},"transactionIndex":12,"version":"legacy"}`
+
+func TestGatewayEventPayloads_Rejects(t *testing.T) {
+	var tx solanarpc.GetTransactionResult
+	require.NoError(t, json.Unmarshal([]byte(devnetFinalizeTx), &tx))
+
+	t.Run("unparseable gateway address", func(t *testing.T) {
+		assert.Nil(t, gatewayEventPayloads(&tx, "not-a-pubkey"))
+	})
+
+	t.Run("nil transaction and nil meta", func(t *testing.T) {
+		assert.Nil(t, gatewayEventPayloads(nil, testGatewayProgram))
+		assert.Nil(t, gatewayEventPayloads(&solanarpc.GetTransactionResult{}, testGatewayProgram))
+	})
+
+	t.Run("inner instruction that is not an event", func(t *testing.T) {
+		// Right emitter, no EVENT_IX_TAG: every ordinary gateway self-CPI.
+		var plain solanarpc.GetTransactionResult
+		require.NoError(t, json.Unmarshal([]byte(txWithRawInnerData(t, testGatewayProgram, []byte{1, 2, 3})), &plain))
+		assert.Empty(t, gatewayEventPayloads(&plain, testGatewayProgram))
+	})
+}
+
+// Index order is static keys, then ALT writable, then ALT readonly. The
+// gateway comes through the ALT, so a wrong order misattributes events.
+func TestGatewayEventPayloads_ResolvesLookupTableKeys(t *testing.T) {
+	payload := buildSendFundsPayload(
+		[32]byte{1}, [20]byte{2}, [32]byte{3}, 1_000_000,
+		nil, [32]byte{4}, 0, nil, false,
+	)
+	data := append(append([]byte{}, eventIxTag...), payload...)
+	other := "11111111111111111111111111111111"
+
+	// index 0 = static, 1 = ALT writable, 2 = ALT readonly (the gateway).
+	mk := func(programIdIndex int) string {
+		return fmt.Sprintf(`{
+			"slot": 100,
+			"transaction": {
+				"signatures": ["%s"],
+				"message": {
+					"header": {"numRequiredSignatures":1,"numReadonlySignedAccounts":0,"numReadonlyUnsignedAccounts":0},
+					"accountKeys": ["%s"],
+					"recentBlockhash": "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+					"instructions": []
+				}
+			},
+			"meta": {
+				"err": null,
+				"logMessages": [],
+				"loadedAddresses": {"writable": ["%s"], "readonly": ["%s"]},
+				"innerInstructions": [
+					{"index":0,"instructions":[{"programIdIndex":%d,"accounts":[],"data":"%s","stackHeight":2}]}
+				]
+			}
+		}`, mkSig(7).String(), other, testAttackerProgram, testGatewayProgram, programIdIndex, base58.Encode(data))
+	}
+
+	t.Run("gateway resolved from the readonly segment", func(t *testing.T) {
+		var tx solanarpc.GetTransactionResult
+		require.NoError(t, json.Unmarshal([]byte(mk(2)), &tx))
+		assert.Len(t, gatewayEventPayloads(&tx, testGatewayProgram), 1)
+	})
+
+	t.Run("writable segment is not mistaken for the gateway", func(t *testing.T) {
+		var tx solanarpc.GetTransactionResult
+		require.NoError(t, json.Unmarshal([]byte(mk(1)), &tx))
+		assert.Empty(t, gatewayEventPayloads(&tx, testGatewayProgram),
+			"index 1 is the ALT writable entry, not the gateway")
+	})
+
+	t.Run("an index past the key list is ignored", func(t *testing.T) {
+		var tx solanarpc.GetTransactionResult
+		require.NoError(t, json.Unmarshal([]byte(mk(99)), &tx))
+		assert.Empty(t, gatewayEventPayloads(&tx, testGatewayProgram))
+	})
+}
+
+// txWithRawInnerData builds a tx whose inner instruction data has no tag.
+func txWithRawInnerData(t *testing.T, emitter string, data []byte) string {
+	t.Helper()
+	return fmt.Sprintf(`{
+		"slot": 100,
+		"transaction": {
+			"signatures": ["%s"],
+			"message": {
+				"header": {"numRequiredSignatures":1,"numReadonlySignedAccounts":0,"numReadonlyUnsignedAccounts":1},
+				"accountKeys": ["%s","%s"],
+				"recentBlockhash": "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+				"instructions": []
+			}
+		},
+		"meta": {
+			"err": null,
+			"logMessages": [],
+			"innerInstructions": [
+				{"index":0,"instructions":[{"programIdIndex":1,"accounts":[],"data":"%s","stackHeight":2}]}
+			]
+		}
+	}`, mkSig(7).String(), testGatewayProgram, emitter, base58.Encode(data))
+}
+
+// Pinned to a real tx: the layout is the deployed program's, not ours. Here
+// gas_fee - gas_used == gas_to_refund, so the offsets check themselves.
+func TestGatewayEventPayloads_RealDevnetTransaction(t *testing.T) {
+	const gateway = "DJoFYDpgbTfxbXBv1QYhYGc9FK4J5FUKpYXAfSkHryXp"
+
+	var tx solanarpc.GetTransactionResult
+	require.NoError(t, json.Unmarshal([]byte(devnetFinalizeTx), &tx))
+
+	require.NotNil(t, tx.Meta)
+	for _, l := range tx.Meta.LogMessages {
+		require.False(t, strings.HasPrefix(l, "Program data: "),
+			"this transaction predates emit_cpi if it still logs event data")
+	}
+
+	payloads := gatewayEventPayloads(&tx, gateway)
+	require.Len(t, payloads, 1, "the finalize emits exactly one gateway event")
+
+	el := &EventListener{
+		gatewayAddress: gateway,
+		// sha256("event:UniversalTxFinalized")[:8], as emitted on chain.
+		discriminatorToEventType: map[string]string{"b3409670758c9c25": EventTypeFinalizeUniversalTx},
+		chainID:                  "solana:devnet",
+		logger:                   zerolog.Nop(),
+	}
+	eventType := el.determineEventType(payloads[0])
+	require.Equal(t, EventTypeFinalizeUniversalTx, eventType)
+
+	event := ParseEvent(payloads[0], "sig", 42, 0, eventType, "solana:devnet", zerolog.Nop())
+	require.NotNil(t, event)
+
+	var payload common.OutboundObservation
+	require.NoError(t, json.Unmarshal(event.EventData, &payload))
+	assert.Equal(t, "5260057", payload.GasFeeUsed, "gas_used must come from offset 112, not from wrapper_address")
+	assert.Equal(t, store.EventTypeOutbound, event.Type)
+}
+
+// Any program can put a gateway discriminator in its own inner instruction.
+func TestGatewayEventPayloads_IgnoresForeignEmitter(t *testing.T) {
+	var tx solanarpc.GetTransactionResult
+	require.NoError(t, json.Unmarshal([]byte(devnetFinalizeTx), &tx))
+
+	assert.Empty(t, gatewayEventPayloads(&tx, "11111111111111111111111111111111"),
+		"an event emitted by another program must not be read as the gateway's")
 }

@@ -87,6 +87,12 @@ message MsgInitiateFundMigration {
   string signer     = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
   string old_key_id = 2;
   string chain      = 3;  // CAIP-2 chain identifier
+  // Native balance (wei, uint256 decimal) observed by the admin on the old TSS
+  // address. The chain derives transfer_amount = balance - gas - l1_gas_fee from
+  // it, using the same fee figures it pins into the migration record, so every
+  // universal validator signs one amount instead of re-deriving it from a live
+  // balance that a 1-wei inflow can shift (F-2026-18142).
+  string balance    = 4;
 }
 
 message MsgInitiateFundMigrationResponse {

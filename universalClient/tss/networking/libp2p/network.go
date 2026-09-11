@@ -31,6 +31,10 @@ import (
 // observed DKLS Step() + coordinator.Message wrapping for our committee sizes.
 const MaxFrameSize = 1 * 1024 * 1024 // 1 MiB
 
+// maxConcurrentReads bounds in-flight framed reads across all inbound TSS
+// streams so slow peers cannot pin unbounded goroutines on blocking reads.
+const maxConcurrentReads = 64
+
 // Network implements networking.Network using libp2p.
 type Network struct {
 	cfg        Config
@@ -42,6 +46,8 @@ type Network struct {
 
 	peerMu sync.RWMutex
 	peers  map[string]peer.AddrInfo
+
+	readSem chan struct{}
 
 	logger zerolog.Logger
 }
@@ -58,10 +64,15 @@ func New(ctx context.Context, cfg Config, logger zerolog.Logger) (*Network, erro
 		return nil, err
 	}
 
-	host, err := libp2p.New(
+	opts := []libp2p.Option{
 		libp2p.Identity(priv),
 		libp2p.ListenAddrStrings(cfg.ListenAddrs...),
-	)
+	}
+	if cfg.Authorizer != nil {
+		opts = append(opts, libp2p.ConnectionGater(&validatorGater{authorizer: cfg.Authorizer}))
+	}
+
+	host, err := libp2p.New(opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -71,6 +82,7 @@ func New(ctx context.Context, cfg Config, logger zerolog.Logger) (*Network, erro
 		host:       host,
 		protocolID: protocol.ID(cfg.ProtocolID),
 		peers:      make(map[string]peer.AddrInfo),
+		readSem:    make(chan struct{}, maxConcurrentReads),
 		logger:     logger.With().Str("component", "networking_libp2p").Logger(),
 	}
 
@@ -194,6 +206,25 @@ func (n *Network) lookupPeer(peerID string) (peer.AddrInfo, error) {
 }
 
 func (n *Network) handleStream(stream network.Stream) {
+	remotePeer := stream.Conn().RemotePeer().String()
+	// Recheck authorization per stream: the gater only runs at connection
+	// admission, so this covers peers removed from the validator set while a
+	// connection is still open.
+	if n.cfg.Authorizer != nil && !n.cfg.Authorizer(remotePeer) {
+		n.logger.Warn().Str("peer_id", remotePeer).Msg("resetting stream from unauthorized peer")
+		_ = stream.Reset()
+		return
+	}
+
+	select {
+	case n.readSem <- struct{}{}:
+	default:
+		n.logger.Warn().Str("peer_id", remotePeer).Msg("concurrent read limit reached, resetting stream")
+		_ = stream.Reset()
+		return
+	}
+	defer func() { <-n.readSem }()
+
 	defer stream.Close()
 
 	if deadline := time.Now().Add(n.cfg.IOTimeout); true {
@@ -214,7 +245,7 @@ func (n *Network) handleStream(stream network.Stream) {
 	}
 
 	// Call handler in a goroutine to avoid blocking
-	go handler(stream.Conn().RemotePeer().String(), data)
+	go handler(remotePeer, data)
 }
 
 func loadIdentity(base64Key string) (crypto.PrivKey, error) {

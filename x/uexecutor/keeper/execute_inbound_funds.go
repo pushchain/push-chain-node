@@ -74,7 +74,18 @@ func (k Keeper) ExecuteInboundFunds(ctx context.Context, utx types.UniversalTx) 
 	// isCEA failures never create an INBOUND_REVERT outbound
 	// (consistent with execute_inbound_funds_and_payload.go and execute_inbound_gas_and_payload.go)
 	if err != nil && !inbound.IsCEA {
-		revertOutbound := k.buildRevertOutbound(sdkCtx, inbound)
+		revertOutbound, buildErr := k.buildRevertOutbound(sdkCtx, inbound)
+		if buildErr != nil {
+			// The revert is still attached (recorded ABORTED) so the attempt stays
+			// auditable and the UTX becomes eligible for rescue.
+			k.Logger().Error("revert outbound could not be fully built",
+				"utx_id", utx.Id,
+				"error", buildErr.Error(),
+			)
+		}
+		if revertOutbound == nil {
+			return nil
+		}
 		if attachErr := k.attachOutboundsToUtx(sdkCtx, utx.Id, []*types.OutboundTx{revertOutbound}, err.Error()); attachErr != nil {
 			if storeErr := k.UpdateUniversalTx(sdkCtx, utx.Id, func(u *types.UniversalTx) error {
 				u.RevertError = attachErr.Error()

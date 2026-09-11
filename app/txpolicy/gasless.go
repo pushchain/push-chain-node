@@ -16,7 +16,6 @@ func IsGaslessTx(tx sdk.Tx) bool {
 	var (
 		// GaslessMsgTypes defines the message types that are allowed in gasless transactions
 		GaslessMsgTypes = []string{
-			sdk.MsgTypeURL(&uexecutortypes.MsgMigrateUEA{}),
 			sdk.MsgTypeURL(&uexecutortypes.MsgExecutePayload{}),
 			sdk.MsgTypeURL(&uexecutortypes.MsgVoteInbound{}),
 			sdk.MsgTypeURL(&uexecutortypes.MsgVoteOutbound{}),
@@ -35,6 +34,11 @@ func IsGaslessTx(tx sdk.Tx) bool {
 	for _, msg := range msgs {
 		switch m := msg.(type) {
 		case *authz.MsgExec:
+			// An empty nest would pass the loop below vacuously and make the whole
+			// tx gasless, bypassing the fee and min-gas-price decorators (F-2026-18816).
+			if len(m.Msgs) == 0 {
+				return false
+			}
 			// Only gasless if ALL inner messages are allowed
 			for _, innerMsg := range m.Msgs {
 				if !slices.Contains(GaslessMsgTypes, innerMsg.TypeUrl) {

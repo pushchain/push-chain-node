@@ -12,9 +12,10 @@ import (
 	"github.com/pushchain/push-chain-node/x/uexecutor/types"
 )
 
-// ExecutePayloadV2 executes a universal payload through a UEA.
+// ExecutePayloadV2 executes a universal payload through a UEA and attaches the
+// gateway outbounds it emitted to utx, atomically with the execution itself.
 // The caller is responsible for resolving and validating ueaAddr before calling this function.
-func (k Keeper) ExecutePayloadV2(ctx context.Context, evmFrom common.Address, ueaAddr common.Address, universalPayload *types.UniversalPayload, verificationData string) (*vmtypes.MsgEthereumTxResponse, error) {
+func (k Keeper) ExecutePayloadV2(ctx context.Context, evmFrom common.Address, ueaAddr common.Address, universalPayload *types.UniversalPayload, verificationData string, utx types.UniversalTx) (*vmtypes.MsgEthereumTxResponse, error) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
 	k.Logger().Debug("execute payload v2",
@@ -32,10 +33,10 @@ func (k Keeper) ExecutePayloadV2(ctx context.Context, evmFrom common.Address, ue
 		return nil, errors.Wrapf(err, "invalid verificationData format")
 	}
 
-	// Step 2: Wrap EVM execution + fee deduction in a CacheContext so they
-	// commit/revert together. If fee deduction fails, the EVM state changes
-	// from CallUEAExecutePayload are discarded — closes the free-execution
-	// gap when the UEA has no native UPC to cover gas.
+	// Step 2: Wrap EVM execution + fee deduction + outbound attach in a
+	// CacheContext so they commit/revert together. If fee deduction fails, the
+	// EVM state changes from CallUEAExecutePayload are discarded — closes the
+	// free-execution gap when the UEA has no native UPC to cover gas.
 	cacheCtx, writeCache := sdkCtx.CacheContext()
 	receipt, execErr := k.CallUEAExecutePayload(cacheCtx, evmFrom, ueaAddr, universalPayload, verificationDataVal)
 
@@ -49,10 +50,25 @@ func (k Keeper) ExecutePayloadV2(ctx context.Context, evmFrom common.Address, ue
 
 	if execErr != nil {
 		// EVM execution failed — cache discarded by not calling writeCache.
+		// Bill the gas on the parent sdkCtx so the charge survives the discard.
+		k.ChargeRevertedPayloadGas(ctx, sdkCtx, ueaAddr, receipt, universalPayload)
 		return receipt, execErr
 	}
 
-	// Both succeeded — commit EVM state and fee deduction together.
+	// Step 4: Attach the outbounds the payload emitted, still inside the cache.
+	// A payload that calls UniversalGatewayPC has already burned the PRC20 by
+	// the time we get here, and BuildOutboundsFromReceipt is all-or-nothing:
+	// one invalid leg of a multicall (unregistered PRC20, disabled chain)
+	// discards every valid outbound alongside it. Attaching here means that
+	// failure also discards the burn, instead of leaving burned supply with no
+	// OutboundTx and no PendingOutbounds row to deliver against.
+	if receipt != nil {
+		if attachErr := k.AttachOutboundsToExistingUniversalTx(cacheCtx, receipt, utx); attachErr != nil {
+			return receipt, fmt.Errorf("outbound attach failed: %w", attachErr)
+		}
+	}
+
+	// All succeeded — commit EVM state, fee deduction and outbounds together.
 	writeCache()
 
 	k.Logger().Debug("payload executed via UEA",

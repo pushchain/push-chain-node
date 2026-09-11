@@ -28,8 +28,15 @@ type Chains struct {
 	// Chain client management
 	chains       map[string]common.ChainClient          // key: CAIP-2 chain ID
 	chainConfigs map[string]*uregistrytypes.ChainConfig // key: CAIP-2 chain ID
-	chainsMu     sync.RWMutex
-	pushChainID  string // Push chain ID (always present)
+	// Handle opened for each live chain, kept so removal can close it. Every
+	// getChainDB call opens a new pool, so a handle dropped without closing keeps
+	// its file descriptors until the process exits.
+	chainDBs    map[string]*db.DB // key: CAIP-2 chain ID
+	chainsMu    sync.RWMutex
+	pushChainID string // Push chain ID (always present)
+
+	// Database opener, swapped in tests to observe handle lifecycle.
+	openDB func(dir, filename string, migrateSchema bool) (*db.DB, error)
 
 	// Background control
 	muRunning sync.Mutex
@@ -57,6 +64,8 @@ func NewChains(
 		logger:       logger.With().Str("component", "chains").Logger(),
 		chains:       make(map[string]common.ChainClient),
 		chainConfigs: make(map[string]*uregistrytypes.ChainConfig),
+		chainDBs:     make(map[string]*db.DB),
+		openDB:       db.OpenFileDB,
 		pushChainID:  cfg.PushChainID,
 	}
 }
@@ -187,19 +196,33 @@ func (c *Chains) fetchAndUpdate(parent context.Context) error {
 		}
 	}
 
-	// Remove stale chains
+	c.removeStaleChains(seenChains)
+
+	return nil
+}
+
+// removeStaleChains drops chains the registry no longer lists, never the Push chain.
+//
+// The ids are collected under the read lock and removed after releasing it.
+// removeChain takes the write lock and sync.RWMutex is not reentrant, so removing
+// from inside the loop would park the refresh goroutine forever while it still
+// holds the read lock, taking every later reader of the registry down with it.
+func (c *Chains) removeStaleChains(seenChains map[string]bool) {
 	c.chainsMu.RLock()
+	var stale []string
 	for chainID := range c.chains {
-		if !seenChains[chainID] {
-			c.logger.Info().Str("chain", chainID).Msg("removing chain no longer in config")
-			if err := c.removeChain(chainID); err != nil {
-				c.logger.Error().Err(err).Str("chain", chainID).Msg("failed to remove chain")
-			}
+		if chainID != c.pushChainID && !seenChains[chainID] {
+			stale = append(stale, chainID)
 		}
 	}
 	c.chainsMu.RUnlock()
 
-	return nil
+	for _, chainID := range stale {
+		c.logger.Info().Str("chain", chainID).Msg("removing chain no longer in config")
+		if err := c.removeChain(chainID); err != nil {
+			c.logger.Error().Err(err).Str("chain", chainID).Msg("failed to remove chain")
+		}
+	}
 }
 
 // chainAction represents the action to take for a chain config
@@ -259,6 +282,19 @@ func (c *Chains) addChain(ctx context.Context, cfg *uregistrytypes.ChainConfig) 
 		return fmt.Errorf("failed to get database for chain %s: %w", cfg.Chain, err)
 	}
 
+	// Ownership passes to the registry only once the client is live. Until then
+	// close it on the way out, or a chain that cannot start leaks a handle on
+	// every refresh tick for as long as the misconfiguration lasts.
+	adopted := false
+	defer func() {
+		if adopted {
+			return
+		}
+		if cerr := chainDB.Close(); cerr != nil {
+			c.logger.Warn().Err(cerr).Str("chain", cfg.Chain).Msg("failed to close database after unsuccessful chain add")
+		}
+	}()
+
 	// Get chain-specific config
 	chainConfig := c.config.GetChainConfig(cfg.Chain)
 
@@ -266,9 +302,9 @@ func (c *Chains) addChain(ctx context.Context, cfg *uregistrytypes.ChainConfig) 
 	var client common.ChainClient
 	switch cfg.VmType {
 	case uregistrytypes.VmType_EVM:
-		client, err = evm.NewClient(cfg, chainDB, chainConfig, c.pushSigner, c.logger)
+		client, err = evm.NewClient(cfg, chainDB, chainConfig, c.pushSigner, c.config.AllowsZeroConfirmations(), c.logger)
 	case uregistrytypes.VmType_SVM:
-		client, err = svm.NewClient(cfg, chainDB, chainConfig, c.pushSigner, c.config.NodeHome, c.logger)
+		client, err = svm.NewClient(cfg, chainDB, chainConfig, c.pushSigner, c.config.NodeHome, c.config.AllowsZeroConfirmations(), c.logger)
 	default:
 		return fmt.Errorf("unsupported VM type: %v", cfg.VmType)
 	}
@@ -286,7 +322,9 @@ func (c *Chains) addChain(ctx context.Context, cfg *uregistrytypes.ChainConfig) 
 	c.chainsMu.Lock()
 	c.chains[cfg.Chain] = client
 	c.chainConfigs[cfg.Chain] = cfg
+	c.chainDBs[cfg.Chain] = chainDB
 	c.chainsMu.Unlock()
+	adopted = true
 
 	c.logger.Info().
 		Str("chain", cfg.Chain).
@@ -310,6 +348,14 @@ func (c *Chains) removeChain(chainID string) error {
 			Err(err).
 			Str("chain", chainID).
 			Msg("error stopping chain client during removal")
+	}
+
+	// After Stop, so nothing is still reading through it.
+	if database, ok := c.chainDBs[chainID]; ok {
+		if err := database.Close(); err != nil {
+			c.logger.Error().Err(err).Str("chain", chainID).Msg("error closing chain database during removal")
+		}
+		delete(c.chainDBs, chainID)
 	}
 
 	delete(c.chains, chainID)
@@ -338,9 +384,19 @@ func (c *Chains) StopAll() {
 		}
 	}
 
+	for chainID, database := range c.chainDBs {
+		if err := database.Close(); err != nil {
+			c.logger.Error().
+				Err(err).
+				Str("chain", chainID).
+				Msg("error closing chain database")
+		}
+	}
+
 	// Clear the registry
 	c.chains = make(map[string]common.ChainClient)
 	c.chainConfigs = make(map[string]*uregistrytypes.ChainConfig)
+	c.chainDBs = make(map[string]*db.DB)
 }
 
 // GetClient returns the chain client for the specified chain ID
@@ -401,7 +457,7 @@ func (c *Chains) getChainDB(chainID string) (*db.DB, error) {
 	// Derive database base directory from NodeHome
 	baseDir := filepath.Join(c.config.NodeHome, config.DatabasesSubdir)
 
-	database, err := db.OpenFileDB(baseDir, dbFilename, true)
+	database, err := c.openDB(baseDir, dbFilename, true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create database for chain %s: %w", chainID, err)
 	}

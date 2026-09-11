@@ -7,6 +7,7 @@ import (
 	"cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 var (
@@ -47,9 +48,19 @@ func (msg *MsgExecutePayload) GetSigners() []sdk.AccAddress {
 
 // ValidateBasic does a sanity check on the provided data.
 func (msg *MsgExecutePayload) ValidateBasic() error {
-	// Validate signer
-	if _, err := sdk.AccAddressFromBech32(msg.Signer); err != nil {
+	// Validate signer.
+	// The length check is deliberate: bech32 account addresses may carry up to
+	// 255 bytes, and this signer is later converted to a 20-byte EVM address
+	// that keeps only the rightmost bytes. A longer signer would therefore
+	// collapse onto an unrelated EVM address, including module addresses that
+	// the UEA trusts. Reject it here, at CheckTx, before the ante chain runs.
+	signerBz, err := sdk.AccAddressFromBech32(msg.Signer)
+	if err != nil {
 		return errors.Wrap(err, "invalid signer address")
+	}
+	if len(signerBz) != common.AddressLength {
+		return errors.Wrapf(sdkerrors.ErrInvalidAddress,
+			"invalid signer address length: got %d bytes, want %d", len(signerBz), common.AddressLength)
 	}
 
 	// Validate universalAccountId
@@ -65,6 +76,9 @@ func (msg *MsgExecutePayload) ValidateBasic() error {
 	// Validate verificationData
 	if len(msg.VerificationData) == 0 {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "verificationData cannot be empty")
+	}
+	if err := ValidatePayloadBlobSize("verificationData", msg.VerificationData); err != nil {
+		return err
 	}
 	if _, err := hex.DecodeString(strings.TrimPrefix(msg.VerificationData, "0x")); err != nil {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "invalid verificationData hex")

@@ -11,13 +11,7 @@ import (
 	usigverifierprecompile "github.com/pushchain/push-chain-node/precompiles/usigverifier"
 )
 
-// legacyUSigVerifierAddress is where the Ed25519 signature verifier precompile
-// used to live. Nothing is registered at it any more, so a genesis that still
-// declares it active routes calls to an unimplemented address, which panics
-// (recovered by baseapp, so the tx just fails).
-const legacyUSigVerifierAddress = "0x00000000000000000000000000000000000000ca"
-
-// legacyUtxHashVerifierAddress is the other stale entry: the utxhashverifier
+// legacyUtxHashVerifierAddress is the stale entry: the utxhashverifier
 // precompile has no implementation anywhere in the tree, and the
 // remove-utxverifier upgrade strips it from live chains. Leaving it in genesis
 // would re-introduce on every fresh chain exactly the address that upgrade
@@ -51,13 +45,16 @@ func TestGenesisScriptsActivateCurrentVerifier(t *testing.T) {
 			}
 			require.NotEmpty(t, line, "no active_static_precompiles assignment found")
 
-			require.NotContains(t, strings.ToLower(line), strings.ToLower(legacyUSigVerifierAddress),
-				"genesis must not declare the legacy verifier address, nothing is registered at it")
 			require.NotContains(t, strings.ToLower(line), strings.ToLower(legacyUtxHashVerifierAddress),
 				"genesis must not declare the utxhashverifier address, nothing is registered at it")
+			// The node registers the verifier at both addresses (app.go), so genesis
+			// must activate both: 0x…ca stays live for contracts that hardcoded it.
 			require.Contains(t, strings.ToLower(line),
 				strings.ToLower(usigverifierprecompile.USigVerifierPrecompileAddress),
 				"genesis must activate the verifier address the node registers")
+			require.Contains(t, strings.ToLower(line),
+				strings.ToLower(usigverifierprecompile.USigVerifierPrecompileAddressV2),
+				"genesis must activate the v2 verifier address the node registers")
 		})
 	}
 }

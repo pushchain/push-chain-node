@@ -8,6 +8,7 @@ import (
 	"github.com/pushchain/push-chain-node/app/upgrades"
 	aiauditfixes "github.com/pushchain/push-chain-node/app/upgrades/ai-audit-fixes"
 	aiauditfixes2 "github.com/pushchain/push-chain-node/app/upgrades/ai-audit-fixes-2"
+	auditfixes "github.com/pushchain/push-chain-node/app/upgrades/audit-fixes"
 	ceagasandpayload "github.com/pushchain/push-chain-node/app/upgrades/cea-gas-and-payload"
 	ceapayloadverificationfix "github.com/pushchain/push-chain-node/app/upgrades/cea-payload-verification-fix"
 	chainmeta "github.com/pushchain/push-chain-node/app/upgrades/chain-meta"
@@ -102,6 +103,7 @@ var Upgrades = []upgrades.Upgrade{
 	// address still unclaimed in the A/B/C ranges (41 of 47 on donut, incl. 0xC2)
 	readstate.NewUpgrade(),
 	evmv063.NewUpgrade(),
+	auditfixes.NewUpgrade(),
 }
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers

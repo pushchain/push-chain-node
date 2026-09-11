@@ -59,6 +59,8 @@ func EVMAppOptions(chainID string) error {
 		return err
 	}
 
+	seedDefaultEvmCoinInfo(coinInfo)
+
 	sealed = true
 	return nil
 }

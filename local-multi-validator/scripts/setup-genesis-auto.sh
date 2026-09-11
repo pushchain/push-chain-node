@@ -239,7 +239,7 @@ update_genesis `printf '.app_state["evm"]["params"]["chain_config"]["denom"]="%s
 update_genesis '.app_state["evm"]["params"]["chain_config"]["decimals"]="18"'
 
 # ERC20
-update_genesis '.app_state["erc20"]["params"]["native_precompiles"]=["0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"]'
+update_genesis '.app_state["erc20"]["native_precompiles"]=["0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"]'
 update_genesis `printf '.app_state["erc20"]["token_pairs"]=[{contract_owner:1,erc20_address:"0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",denom:"%s",enabled:true}]' $DENOM`
 
 # Fee market

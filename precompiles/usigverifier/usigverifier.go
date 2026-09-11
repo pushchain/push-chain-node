@@ -15,7 +15,10 @@ import (
 )
 
 const (
-	USigVerifierPrecompileAddress = "0xEC00000000000000000000000000000000000001"
+	// Both addresses stay registered: 0x…CA is live on donut and dropping it
+	// would unregister the precompile for contracts already calling it.
+	USigVerifierPrecompileAddress   = "0x00000000000000000000000000000000000000ca"
+	USigVerifierPrecompileAddressV2 = "0xEC00000000000000000000000000000000000001"
 	// VerifyEd25519Gas is the gas cost for verifying an Ed25519 signature over a
 	// bytes32 digest. The verified message is always the 66-byte ASCII hex form
 	// of that digest, so the work does not vary with the calldata — flat is the
@@ -65,6 +68,11 @@ func GetAddress() common.Address {
 	return common.HexToAddress(USigVerifierPrecompileAddress)
 }
 
+// GetAddressV2 returns the new (0xEC..01) address of the precompile
+func GetAddressV2() common.Address {
+	return common.HexToAddress(USigVerifierPrecompileAddressV2)
+}
+
 func NewPrecompile() (*Precompile, error) {
 	p := &Precompile{
 		Precompile: cmn.Precompile{
@@ -75,6 +83,22 @@ func NewPrecompile() (*Precompile, error) {
 	}
 
 	p.SetAddress(GetAddress())
+
+	return p, nil
+}
+
+// NewPrecompileV2 creates a new USigVerifier precompile at the new address (0xEC..01).
+// It provides the same functionality as NewPrecompile but at the reserved address range.
+func NewPrecompileV2() (*Precompile, error) {
+	p := &Precompile{
+		Precompile: cmn.Precompile{
+			KvGasConfig:          storetypes.KVGasConfig(),
+			TransientKVGasConfig: storetypes.TransientGasConfig(),
+		},
+		ABI: ABI,
+	}
+
+	p.SetAddress(GetAddressV2())
 
 	return p, nil
 }

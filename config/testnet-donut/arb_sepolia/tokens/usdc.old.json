@@ -1,0 +1,14 @@
+{
+  "chain": "eip155:421614",
+  "address": "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
+  "name": "USDC.arb.old",
+  "symbol": "USDC.arb.old",
+  "decimals": 6,
+  "enabled": true,
+  "liquidity_cap": "1000000000000000000000000",
+  "token_type": 1,
+  "native_representation": {
+    "denom": "",
+    "contract_address": "0xa261A10e94aE4bA88EE8c5845CbE7266bD679DD6"
+  }
+}

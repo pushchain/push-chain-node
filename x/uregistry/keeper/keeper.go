@@ -360,3 +360,17 @@ func (k Keeper) FixReservedBytecode(ctx context.Context) error {
 
 	return nil
 }
+
+// DeployMissingSystemContracts reserves every address in types.SYSTEM_CONTRACTS
+// that does not already hold code.
+//
+// The genesis loop only runs at InitGenesis, so a slot added to SYSTEM_CONTRACTS
+// after a chain launched is never reserved on that chain — an ordinary account can
+// take the address, and the module that expects a system contract there finds an
+// EOA. This is the upgrade-time counterpart: same map, same bytecode, same
+// deterministic order, and the same already-deployed guard, so it deploys only what
+// is genuinely missing and is safe to run on a chain where everything is present.
+func (k Keeper) DeployMissingSystemContracts(ctx context.Context) error {
+	deploySystemContracts(ctx, k.evmKeeper, types.SYSTEM_CONTRACTS)
+	return nil
+}

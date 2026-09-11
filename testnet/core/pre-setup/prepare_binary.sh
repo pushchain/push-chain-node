@@ -43,6 +43,21 @@ else
   echo "✅ Chain ID already set to $NEW_CHAIN_ID in app/app.go"
 fi
 
+# Update EVM chain ID in app/app.go (cosmos/evm v0.3.2 requires it as a Go constant)
+OLD_EVM_CHAIN_ID="9000"
+NEW_EVM_CHAIN_ID="42101"
+
+if grep -q "EVMChainID = uint64($OLD_EVM_CHAIN_ID)" "$APP_FILE"; then
+  echo "🔁 Patching EVM chain ID in app/app.go: $OLD_EVM_CHAIN_ID → $NEW_EVM_CHAIN_ID"
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    sed -i '' "s/EVMChainID = uint64($OLD_EVM_CHAIN_ID)/EVMChainID = uint64($NEW_EVM_CHAIN_ID)/" "$APP_FILE"
+  else
+    sed -i "s/EVMChainID = uint64($OLD_EVM_CHAIN_ID)/EVMChainID = uint64($NEW_EVM_CHAIN_ID)/" "$APP_FILE"
+  fi
+else
+  echo "✅ EVM Chain ID already set to $NEW_EVM_CHAIN_ID in app/app.go"
+fi
+
 ###############################################################################
 # SECTION 3: Verify Required Dependencies
 ###############################################################################

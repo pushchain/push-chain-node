@@ -2,7 +2,6 @@ package types
 
 import (
 	"encoding/json"
-	"math/big"
 	"strings"
 
 	"cosmossdk.io/errors"
@@ -21,6 +20,15 @@ func (p OutboundTx) String() string {
 }
 
 // ValidateBasic does the sanity check on the OutboundTx fields.
+// ValidateSize caps the payload. Split out so the keeper can apply it to an
+// event-sourced outbound before the row is built.
+func (p *OutboundTx) ValidateSize() error {
+	if p == nil {
+		return nil
+	}
+	return ValidateOutboundPayloadBlobSize("payload", p.Payload)
+}
+
 func (p OutboundTx) ValidateBasic() error {
 	// Validate destination_chain (must follow CAIP-2 format)
 	chain := strings.TrimSpace(p.DestinationChain)
@@ -57,7 +65,12 @@ func (p OutboundTx) ValidateBasic() error {
 		if strings.TrimSpace(p.Amount) == "" {
 			return errors.Wrap(sdkerrors.ErrInvalidRequest, "amount cannot be empty for funds tx")
 		}
-		if bi, ok := new(big.Int).SetString(p.Amount, 10); !ok || bi.Sign() <= 0 {
+		// Length-capped, range-checked uint256 parse — see F-2026-18798.
+		bi, err := ValidateUint256String(p.Amount, "amount must be a valid positive uint256")
+		if err != nil {
+			return err
+		}
+		if bi.Sign() <= 0 {
 			return errors.Wrap(sdkerrors.ErrInvalidRequest, "amount must be a valid positive uint256")
 		}
 	}
@@ -92,8 +105,9 @@ func (p OutboundTx) ValidateBasic() error {
 
 	// gas_limit (uint)
 	if strings.TrimSpace(p.GasLimit) != "" {
-		if _, ok := new(big.Int).SetString(p.GasLimit, 10); !ok {
-			return errors.Wrap(sdkerrors.ErrInvalidRequest, "gas_limit must be a valid uint")
+		// Length-capped, range-checked uint256 parse — see F-2026-18798.
+		if _, err := ValidateUint256String(p.GasLimit, "gas_limit must be a valid uint"); err != nil {
+			return err
 		}
 	}
 

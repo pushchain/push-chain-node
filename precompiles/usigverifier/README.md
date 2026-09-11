@@ -40,10 +40,35 @@ interface IUSigVerifier {
 
 | Method | Signed bytes | Gas | Use when |
 |---|---|---|---|
-| `verifyEd25519(bytes,bytes32,bytes)` | `"0x" + hex(msgDigest)` (66 ASCII bytes) | 4000 | UEA_SVM / Solana-wallet flows where the user signs a hex string in Phantom/Solflare |
-| `verifyEd25519RawMessage(bytes,bytes,bytes)` | Raw `message` bytes | 4000 | New integrations / relayers using standard `ed25519.Sign(privKey, rawBytes)` |
+| `verifyEd25519(bytes,bytes32,bytes)` | `"0x" + hex(msgDigest)` (66 ASCII bytes) | 4000 (flat) | UEA_SVM / Solana-wallet flows where the user signs a hex string in Phantom/Solflare |
+| `verifyEd25519RawMessage(bytes,bytes,bytes)` | Raw `message` bytes | `4000 + 12` per 32-byte word of `message` | New integrations / relayers using standard `ed25519.Sign(privKey, rawBytes)` |
 
 Both methods are `view` and touch no chain state.
+
+### Why only the raw method scales with size
+
+`ed25519.Verify` hashes the whole message, so its CPU cost grows with the message
+(~58 µs at 32 B, ~146 µs at 128 KiB, ~922 µs at 1 MB). `verifyEd25519` always verifies
+the same 66-byte ASCII string no matter what the caller sends, so its cost is constant
+and its price stays flat. `verifyEd25519RawMessage` verifies caller-supplied bytes, so
+it is priced per 32-byte word — the same per-word rate the EVM `SHA-256` precompile
+charges for comparable hashing work.
+
+Because both methods are `view`, a contract can park one large message in memory and
+loop `STATICCALL`s over it, paying the calldata only once. Pricing alone is therefore
+not the whole defence: `message` is also **hard-capped at 128 KiB**
+(`MaxEd25519MessageBytes`), and anything larger reverts with `message too large`
+instead of being verified.
+
+| `len(message)` | Gas |
+|---|---|
+| 0 | 4,000 |
+| 32 B | 4,012 |
+| 1 KiB | 4,384 |
+| 8 KiB | 7,072 |
+| 64 KiB | 28,576 |
+| 128 KiB (cap) | 53,152 |
+| > 128 KiB | reverts |
 
 ## Verification Semantics
 
@@ -69,13 +94,14 @@ Standard Ed25519 verification — signature is checked against the raw `message`
 ok = ed25519.Verify(pubKeyBytes, message, signature)
 ```
 
-Use this when your signer uses `ed25519.Sign(privKey, rawBytes)` (default in every Solana SDK / nacl library). `message` may be any length, not just 32 bytes.
+Use this when your signer uses `ed25519.Sign(privKey, rawBytes)` (default in every Solana SDK / nacl library). `message` may be any length up to `MaxEd25519MessageBytes` (128 KiB), not just 32 bytes.
 
 ### Common rules
 
 - `pubKey` must be exactly 32 bytes; `signature` must be exactly 64 bytes — otherwise the precompile reverts with `invalid params`.
+- `verifyEd25519RawMessage` reverts with `message too large` past `MaxEd25519MessageBytes` (128 KiB).
 - Unknown method IDs revert with the standard `unknown method` error.
-- Both methods cost `4000` gas.
+- `verifyEd25519` costs a flat `4000` gas; `verifyEd25519RawMessage` costs `4000` plus `12` per 32-byte word of `message`.
 
 ## Generating the ABI
 
@@ -120,7 +146,8 @@ If the call returns `0x` (empty), the precompile is not in `active_static_precom
 precompiles/usigverifier/
 |-- USigVerifier.sol     Solidity interface (the source of truth for the ABI)
 |-- abi.json             Embedded into the binary via go:embed
-|-- usigverifier.go      Precompile struct, NewPrecompile / NewPrecompileV2, RequiredGas, Run
-|-- query.go             VerifyEd25519 method handler
+|-- usigverifier.go      Precompile struct, NewPrecompile / NewPrecompileV2, RequiredGas (gas schedule), Run
+|-- query.go             VerifyEd25519 / VerifyEd25519RawMessage method handlers
+|-- gas_test.go          Gas-schedule + size-cap regression tests and benchmarks
 +-- README.md            (this file)
 ```

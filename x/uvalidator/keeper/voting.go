@@ -181,6 +181,12 @@ func (k Keeper) VoteOnBallot(
 		if err != nil {
 			return ballot, false, false, errors.Wrap(err, "Error while voting on the ballot")
 		}
+		// Mirror the active-set write into the expiry index. CreateBallot has
+		// already written both; both writes are idempotent, and pairing them
+		// here keeps the invariant local to every ActiveBallotIDs.Set site.
+		if err := k.indexPending(ctx, id, ballot.BlockHeightExpiry); err != nil {
+			return ballot, false, false, errors.Wrap(err, "Error while voting on the ballot")
+		}
 	}
 
 	ballot, err = k.AddVoteToBallot(ctx, ballot, voter, voteResult)

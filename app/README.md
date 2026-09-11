@@ -150,7 +150,9 @@ Push Chain ships exactly one custom precompile:
 |---|---|---|
 | `0xEC00000000000000000000000000000000000001` | `usigverifier` | Ed25519 signature verification (Solana signatures over `bytes32` digests), registered at the reserved Push range |
 
-Gas cost: `4000` per `verifyEd25519` call. See [`precompiles/usigverifier/README.md`](../precompiles/usigverifier/README.md).
+Gas cost: `4000` per `verifyEd25519` call (fixed 32-byte digest), and `4000` plus `12` per 32-byte
+word of `message` for `verifyEd25519RawMessage`, whose message is hard-capped at 128 KiB. See
+[`precompiles/usigverifier/README.md`](../precompiles/usigverifier/README.md).
 
 The baseline EVM precompiles (`bech32`, `p256`, `staking`, `distribution`, `ics20`, `bank`, `gov`, `slashing`, `evidence`) are wired in via `app/precompiles.go:NewAvailableStaticPrecompiles`.
 

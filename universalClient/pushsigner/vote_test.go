@@ -17,7 +17,11 @@ import (
 
 func TestVoteConstants(t *testing.T) {
 	t.Run("default gas limit", func(t *testing.T) {
-		assert.Equal(t, uint64(500000000), defaultGasLimit)
+		assert.Equal(t, uint64(100000000), defaultGasLimit)
+		// Votes are gasless, so the chain caps what they may declare. Declaring
+		// more than the cap gets every vote rejected in the ante handler.
+		assert.LessOrEqual(t, defaultGasLimit, uexecutortypes.DefaultMaxGaslessTxGas,
+			"the universal validator must declare no more gas than the chain's gasless cap")
 	})
 
 	t.Run("default fee amount is valid", func(t *testing.T) {

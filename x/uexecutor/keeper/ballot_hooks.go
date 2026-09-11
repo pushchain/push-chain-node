@@ -134,6 +134,30 @@ func (h BallotHooks) afterInboundBallotTerminal(
 	// All variants are terminal-failure (EXPIRED or REJECTED). Preserve
 	// the full audit trail in ExpiredInbounds for the future escape-hatch
 	// refund flow.
+	//
+	// Only EXPIRED is reachable here for inbounds: REJECTED comes solely from
+	// Ballot.IsFinalizingVote's threshold-FAILURE branch, and VoteOnInboundBallot
+	// hardcodes VOTE_RESULT_SUCCESS. An inbound observer votes for what it saw or
+	// stays silent; disagreement forks the ballot key into a separate variant
+	// rather than voting against one. The admin hatch (RevertStuckInbound)
+	// therefore accepts EXPIRED only, and refuses REJECTED deliberately - see the
+	// reasoning there.
+	//
+	// Shout if that ever stops being true. A REJECTED inbound reaching this point
+	// means someone added a negative-vote path and silently reopened a terminal
+	// state with no refund route (F-2026-18801).
+	for _, v := range entry.Variants {
+		if v.TerminalStatus == uvalidatortypes.BallotStatus_BALLOT_STATUS_REJECTED {
+			h.k.Logger().Error(
+				"REJECTED inbound ballot variant reached terminal routing - this should be unreachable; "+
+					"inbound votes are SUCCESS-only. RevertStuckInbound will refuse this entry, leaving it "+
+					"with no shipped refund path. Revisit F-2026-18801 before shipping inbound negative voting.",
+				"utx_key", utxKey,
+				"ballot_id", v.BallotId,
+			)
+		}
+	}
+
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	return h.k.ExpiredInbounds.Set(ctx, utxKey, types.ExpiredInboundEntry{
 		UtxKey:          utxKey,

@@ -45,6 +45,44 @@ func (b Ballot) AddVote(address string, vote VoteResult) (Ballot, error) {
 	return b, nil
 }
 
+// HasUnvotedEligibleVoter reports whether at least one eligible voter still
+// holds a NOT_YET_VOTED slot, i.e. whether AddVote can still succeed for
+// somebody.
+//
+// A ballot whose Votes slice is shorter than EligibleVoters is malformed; the
+// missing slots are counted as unvoted. That is the conservative answer for
+// every caller here, and it matches HasVoted, which would panic indexing them.
+func (b Ballot) HasUnvotedEligibleVoter() bool {
+	for i := range b.EligibleVoters {
+		if i >= len(b.Votes) || b.Votes[i] == VoteResult_VOTE_RESULT_NOT_YET_VOTED {
+			return true
+		}
+	}
+	return false
+}
+
+// IsUnreachablePending reports whether the ballot is stored PENDING yet is
+// terminal in fact: every eligible voter has already voted, so AddVote can
+// never fire again (it rejects repeat votes) and no further vote event can move
+// the ballot to PASSED or REJECTED. Such a ballot stays PENDING forever unless
+// its eligible-voter set is rebuilt. See F-2026-18147.
+//
+// A ballot with no eligible voters at all is deliberately NOT reported as
+// unreachable. RecomputeBallotQuorum rebuilds the voter list from the live
+// universal-validator set, so an empty ballot either gains real voters and
+// becomes votable or is auto-expired by that same call; a shipped path already
+// resolves it. An empty voter list is also evidence of a malformed ballot
+// rather than of a completed vote.
+func (b Ballot) IsUnreachablePending() bool {
+	if b.Status != BallotStatus_BALLOT_STATUS_PENDING {
+		return false
+	}
+	if len(b.EligibleVoters) == 0 {
+		return false
+	}
+	return !b.HasUnvotedEligibleVoter()
+}
+
 // CountVotes counts the YES and NO votes in the ballot.
 func (b Ballot) CountVotes() (yes, no int) {
 	for _, v := range b.Votes {

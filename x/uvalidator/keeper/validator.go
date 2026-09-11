@@ -50,7 +50,7 @@ func (k Keeper) GetValidatorsByStatus(ctx context.Context, status types.UVStatus
 //
 // Eligibility requires BOTH:
 //   - UV lifecycle status is ACTIVE or PENDING_JOIN; AND
-//   - the underlying Cosmos staking validator is bonded and not tombstoned.
+//   - the underlying Cosmos staking validator is bonded, not jailed and not tombstoned.
 //
 // The staking-state filter prevents stranded UVs (still ACTIVE on paper but
 // unbonded/jailed/tombstoned on the base chain) from inflating the ballot
@@ -78,6 +78,18 @@ func (k Keeper) GetEligibleVoters(ctx context.Context) ([]types.UniversalValidat
 			return false, nil
 		}
 		if !sv.IsBonded() {
+			return false, nil
+		}
+		// A jailed validator is NOT covered by the IsBonded() check above.
+		// Cosmos SDK's jailValidator sets Validator.Jailed and deletes the
+		// power index but never touches Validator.Status, and IsBonded() is
+		// only `GetStatus() == Bonded`. Slashing jails during BeginBlock while
+		// the bonded -> unbonding transition happens in staking's EndBlocker,
+		// so for the whole tx-processing phase in between a jailed validator
+		// still reports IsBonded() == true. Without this gate it is snapshotted
+		// into a ballot's EligibleVoters and inflates the threshold
+		// denominator ((2*N)/3 + 1), which strands the ballot at N <= 3.
+		if sv.IsJailed() {
 			return false, nil
 		}
 		consAddr, caErr := sv.GetConsAddr()

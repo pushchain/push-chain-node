@@ -18,7 +18,6 @@ type Config struct {
 	Chains        *externalchains.Chains
 	CheckInterval time.Duration
 	Logger        zerolog.Logger
-	GetTSSAddress func(ctx context.Context) (string, error)
 }
 
 type Broadcaster struct {
@@ -26,7 +25,6 @@ type Broadcaster struct {
 	chains        *externalchains.Chains
 	checkInterval time.Duration
 	logger        zerolog.Logger
-	getTSSAddress func(ctx context.Context) (string, error)
 }
 
 func NewBroadcaster(cfg Config) *Broadcaster {
@@ -39,7 +37,6 @@ func NewBroadcaster(cfg Config) *Broadcaster {
 		chains:        cfg.Chains,
 		checkInterval: interval,
 		logger:        cfg.Logger.With().Str("component", "txbroadcaster").Logger(),
-		getTSSAddress: cfg.GetTSSAddress,
 	}
 }
 

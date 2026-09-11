@@ -8,8 +8,6 @@
 package txflow
 
 import (
-	"math/big"
-
 	uexecutortypes "github.com/pushchain/push-chain-node/x/uexecutor/types"
 	utsstypes "github.com/pushchain/push-chain-node/x/utss/types"
 )
@@ -19,10 +17,9 @@ import (
 // — broadcaster to assemble + send the tx, resolver to compare the signed
 // nonce against the chain's finalized nonce.
 type SigningData struct {
-	Signature              string   `json:"signature"`    // hex-encoded 64/65 byte signature
-	SigningHash            string   `json:"signing_hash"` // hex-encoded signing hash
-	Nonce                  uint64   `json:"nonce"`
-	TSSFundMigrationAmount *big.Int `json:"tss_fund_migration_amount,omitempty"`
+	Signature   string `json:"signature"`    // hex-encoded 64/65 byte signature
+	SigningHash string `json:"signing_hash"` // hex-encoded signing hash
+	Nonce       uint64 `json:"nonce"`
 }
 
 // SignedOutboundData wraps OutboundCreatedEvent with the signing data the

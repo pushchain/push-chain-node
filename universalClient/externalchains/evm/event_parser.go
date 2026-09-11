@@ -28,7 +28,27 @@ const (
 
 // ParseEvent parses a log into a store.Event based on the event type.
 // eventType should be one of: sendFunds, revertUniversalTx, finalizeUniversalTx, fundsRescued.
-func ParseEvent(log *types.Log, eventType string, chainID string, logger zerolog.Logger) *store.Event {
+//
+// A panic in the decoders is contained here rather than allowed to unwind. Log
+// data is supplied by an RPC and the listener runs on a background goroutine, so
+// an unrecovered panic would take down every chain and the TSS node with it. A
+// log we cannot decode is skipped like any other undecodable one.
+func ParseEvent(log *types.Log, eventType string, chainID string, logger zerolog.Logger) (event *store.Event) {
+	defer func() {
+		if r := recover(); r != nil {
+			event = nil
+			logger.Error().
+				Interface("panic", r).
+				Str("event_type", eventType).
+				Str("tx_hash", log.TxHash.Hex()).
+				Uint("log_index", log.Index).
+				Msg("panic while decoding log; skipping it")
+		}
+	}()
+	return parseEvent(log, eventType, chainID, logger)
+}
+
+func parseEvent(log *types.Log, eventType string, chainID string, logger zerolog.Logger) *store.Event {
 	if len(log.Topics) == 0 {
 		return nil
 	}
@@ -74,8 +94,15 @@ func parseSendFundsEvent(log *types.Log, chainID string, logger zerolog.Logger) 
 		ExpiryBlockHeight: 0, // 0 means no expiry
 	}
 
-	// Parse universal tx event data
-	parseUniversalTxEvent(event, log, chainID, logger)
+	// Parse universal tx event data. A malformed event is dropped rather than
+	// stored half-decoded: the zero values it would carry are not neutral.
+	if err := parseUniversalTxEvent(event, log, chainID, logger); err != nil {
+		logger.Warn().
+			Err(err).
+			Str("event_id", eventID).
+			Msg("discarding malformed UniversalTx event")
+		return nil
+	}
 
 	return event
 }
@@ -162,10 +189,13 @@ func parseOutboundObservationEvent(log *types.Log, eventType string, logger zero
 }
 
 // parseUniversalTxEvent parses a UniversalTx event from log data.
-func parseUniversalTxEvent(event *store.Event, log *types.Log, chainID string, logger zerolog.Logger) {
+//
+// Static words through txType are required. A truncated log is rejected rather
+// than returned half-filled, since the zero values are not neutral: txType 0 is
+// GAS, which routes funds to a different account than FUNDS does.
+func parseUniversalTxEvent(event *store.Event, log *types.Log, chainID string, logger zerolog.Logger) error {
 	if len(log.Topics) < 3 {
-		logger.Warn().Msg("not enough indexed fields; nothing to do")
-		return
+		return fmt.Errorf("need 3 indexed fields, got %d", len(log.Topics))
 	}
 
 	payload := common.InboundObservation{
@@ -176,9 +206,7 @@ func parseUniversalTxEvent(event *store.Event, log *types.Log, chainID string, l
 	}
 
 	if len(log.Data) < 32*5 {
-		b, _ := json.Marshal(payload)
-		event.EventData = b
-		return
+		return fmt.Errorf("log data has %d bytes, need at least %d for the static words", len(log.Data), 32*5)
 	}
 
 	// Parse common static fields: token (Word 0), amount (Word 1)
@@ -186,21 +214,28 @@ func parseUniversalTxEvent(event *store.Event, log *types.Log, chainID string, l
 	payload.Amount = new(big.Int).SetBytes(log.Data[1*32 : 2*32]).String()
 
 	dataOffset := new(big.Int).SetBytes(log.Data[2*32 : 3*32]).Uint64()
-	parseUniversalTx(event, log, dataOffset, &payload, logger)
+	return parseUniversalTx(event, log, dataOffset, &payload, logger)
 }
 
 // readDynamicBytes decodes ABI-encoded dynamic bytes at the given absolute offset in data.
+//
+// Both absOff and the length word are attacker-controlled: they come from the
+// log data an RPC returns. Bounds are therefore checked by subtracting from the
+// buffer length rather than adding to the offset — absOff+32 and dataStart+byteLen
+// each wrap on a near-2^64 word and would pass an additive guard, then panic on
+// the slice.
 func readDynamicBytes(data []byte, absOff uint64) (string, bool) {
-	if absOff+32 > uint64(len(data)) {
+	n := uint64(len(data))
+	if absOff > n || n-absOff < 32 {
 		return "", false
 	}
 	byteLen := new(big.Int).SetBytes(data[absOff : absOff+32]).Uint64()
-	dataStart := absOff + 32
-	dataEnd := dataStart + byteLen
-	if dataEnd > uint64(len(data)) {
+
+	dataStart := absOff + 32 // safe: absOff+32 <= n was just established
+	if n-dataStart < byteLen {
 		return "", false
 	}
-	return "0x" + hex.EncodeToString(data[dataStart:dataEnd]), true
+	return "0x" + hex.EncodeToString(data[dataStart:dataStart+byteLen]), true
 }
 
 // readWord returns the i-th 32-byte word from data, or nil if out of bounds.
@@ -266,7 +301,7 @@ UniversalTx Event (V2 - upgraded chains):
   - signatureData (bytes)       — Word 5 (offset)
   - fromCEA (bool)              — Word 6
 */
-func parseUniversalTx(event *store.Event, log *types.Log, dataOffset uint64, payload *common.InboundObservation, logger zerolog.Logger) {
+func parseUniversalTx(event *store.Event, log *types.Log, dataOffset uint64, payload *common.InboundObservation, logger zerolog.Logger) error {
 	data := log.Data
 
 	decodePayload(data, dataOffset, payload, logger)
@@ -276,10 +311,9 @@ func parseUniversalTx(event *store.Event, log *types.Log, dataOffset uint64, pay
 		payload.RevertFundRecipient = ethcommon.BytesToAddress(w[12:32]).Hex()
 	}
 
-	// txType (Word 4)
-	if w := readWord(data, 4); w != nil {
-		payload.TxType = uint(new(big.Int).SetBytes(w).Uint64())
-	}
+	// txType (Word 4). Always present: the caller rejects anything shorter than
+	// five words, which is what stops this being left at 0 and read as GAS.
+	payload.TxType = uint(new(big.Int).SetBytes(readWord(data, 4)).Uint64())
 
 	// signatureData (Word 5 offset)
 	if w := readWord(data, 5); w != nil {
@@ -292,4 +326,5 @@ func parseUniversalTx(event *store.Event, log *types.Log, dataOffset uint64, pay
 	}
 
 	finalizeEvent(event, payload, logger)
+	return nil
 }

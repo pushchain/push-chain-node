@@ -207,58 +207,94 @@ func (el *EventListener) processNewBlocks(
 	}
 
 	// Process blocks in range
-	if err := el.processBlockRange(ctx, *currentBlock, latestBlock, topics); err != nil {
-		return fmt.Errorf("failed to process block range: %w", err)
+	nextBlock, rangeErr := el.processBlockRange(ctx, *currentBlock, latestBlock, topics)
+
+	// Commit whatever was covered even when a later chunk failed. Holding the
+	// cursor back would re-read the blocks already handled on every tick, so one
+	// unreadable window would sit in front of everything behind it indefinitely.
+	if nextBlock > *currentBlock {
+		if err := el.updateLastProcessedBlock(nextBlock - 1); err != nil {
+			el.logger.Error().Err(err).Msg("failed to update last processed block")
+			// Don't return error - continue processing
+		}
+		*currentBlock = nextBlock
 	}
 
-	// Update last processed block in database
-	if err := el.updateLastProcessedBlock(latestBlock); err != nil {
-		el.logger.Error().Err(err).Msg("failed to update last processed block")
-		// Don't return error - continue processing
+	if rangeErr != nil {
+		return fmt.Errorf("failed to process block range: %w", rangeErr)
 	}
-
-	// Move to next block
-	*currentBlock = latestBlock + 1
 	return nil
 }
 
-// processBlockRange processes events in a range of blocks
+// Block span for a single eth_getLogs call. Providers cap the result set rather
+// than the block count, so a dense window can be rejected at a span that is
+// normally fine. maxBlockRange is the optimistic starting point and minBlockRange
+// the floor we stop shrinking at.
+const (
+	maxBlockRange uint64 = 9000 // Safe under the 10000 RPC limit
+	minBlockRange uint64 = 100
+)
+
+// processBlockRange processes events in a range of blocks, returning the first
+// block it did not cover. That is fromBlock when nothing was processed and
+// toBlock+1 when everything was, so the caller can commit partial progress
+// whether or not an error is also returned.
+//
+// A rejected query is retried over a smaller span rather than abandoned: the
+// limit is on results, so halving until the window fits gets past a dense range
+// that a fixed span cannot. Shrinking is linear rather than a recursive split,
+// which would issue exponentially many calls against a range that keeps failing.
 func (el *EventListener) processBlockRange(
 	ctx context.Context,
 	fromBlock, toBlock uint64,
 	topics []ethcommon.Hash,
-) error {
-	const maxBlockRange uint64 = 9000 // Safe under the 10000 RPC limit
+) (uint64, error) {
+	span := maxBlockRange
+	nextFrom := fromBlock
 
-	currentFrom := fromBlock
-
-	// Process in chunks if the range is too large
-	for currentFrom <= toBlock {
-		currentTo := currentFrom + maxBlockRange - 1
-		if currentTo > toBlock {
+	for nextFrom <= toBlock {
+		currentTo := nextFrom + span - 1
+		if currentTo > toBlock || currentTo < nextFrom { // second test catches overflow
 			currentTo = toBlock
 		}
 
-		// Log chunk processing for large ranges
-		blockRange := currentTo - currentFrom + 1
+		blockRange := currentTo - nextFrom + 1
 		if blockRange > 1000 {
 			el.logger.Debug().
-				Uint64("from_block", currentFrom).
+				Uint64("from_block", nextFrom).
 				Uint64("to_block", currentTo).
 				Uint64("range_size", blockRange).
 				Msg("processing block chunk")
 		}
 
-		// Process chunk
-		if err := el.processBlockChunk(ctx, currentFrom, currentTo, topics); err != nil {
-			return fmt.Errorf("failed to process chunk %d-%d: %w", currentFrom, currentTo, err)
+		if err := el.processBlockChunk(ctx, nextFrom, currentTo, topics); err != nil {
+			// Halve what was actually attempted, not the nominal span: near the end
+			// of a range the span is clamped to toBlock, so shrinking the span alone
+			// would resend the identical query until it dropped below the remainder.
+			if blockRange > minBlockRange {
+				span = blockRange / 2
+				if span < minBlockRange {
+					span = minBlockRange
+				}
+				el.logger.Warn().
+					Err(err).
+					Uint64("from_block", nextFrom).
+					Uint64("to_block", currentTo).
+					Uint64("retry_span", span).
+					Msg("log query failed, retrying the same start over a smaller span")
+				continue
+			}
+
+			// At the floor the span is no longer the problem. Report the failure
+			// and leave the cursor here: skipping ahead would drop any deposits in
+			// these blocks permanently, which is worse than waiting for the RPC.
+			return nextFrom, fmt.Errorf("failed to process chunk %d-%d at minimum span: %w", nextFrom, currentTo, err)
 		}
 
-		// Move to next chunk
-		currentFrom = currentTo + 1
+		nextFrom = currentTo + 1
 	}
 
-	return nil
+	return nextFrom, nil
 }
 
 // processBlockChunk processes a single chunk of blocks

@@ -25,7 +25,6 @@ type Config struct {
 	PushSigner    *pushsigner.Signer
 	CheckInterval time.Duration
 	Logger        zerolog.Logger
-	GetTSSAddress func(ctx context.Context) (string, error)
 }
 
 type Resolver struct {
@@ -34,7 +33,6 @@ type Resolver struct {
 	pushSigner    *pushsigner.Signer
 	checkInterval time.Duration
 	logger        zerolog.Logger
-	getTSSAddress func(ctx context.Context) (string, error)
 }
 
 func NewResolver(cfg Config) *Resolver {
@@ -48,7 +46,6 @@ func NewResolver(cfg Config) *Resolver {
 		pushSigner:    cfg.PushSigner,
 		checkInterval: interval,
 		logger:        cfg.Logger.With().Str("component", "txresolver").Logger(),
-		getTSSAddress: cfg.GetTSSAddress,
 	}
 }
 

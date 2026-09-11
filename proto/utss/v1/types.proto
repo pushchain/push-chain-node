@@ -105,4 +105,5 @@ message FundMigration {
   string gas_price          = 11; // gas price from oracle (wei)
   uint64 gas_limit          = 12; // gas limit sourced from UniversalCore per chain namespace
   string l1_gas_fee         = 13; // L1 data-availability fee (wei) from UniversalCore; 0 for non-L2 chains
+  string transfer_amount    = 14; // native amount (wei) to sweep, derived at initiate time as balance - (gas_price * gas_limit) - l1_gas_fee
 }

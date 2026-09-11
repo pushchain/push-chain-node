@@ -10,6 +10,16 @@ var (
 	_ sdk.Msg = &MsgVoteChainMeta{}
 )
 
+// MaxObservedChainIdLen caps the CAIP-2 chain id carried by a chain-meta vote.
+//
+// F-2026-18803: the id is used verbatim as the ChainMetas map key
+// (collections.StringKey), so an uncapped id is an attacker-controlled IAVL key
+// of arbitrary size. CAIP-2 itself allows at most 8 (namespace) + 1 + 32
+// (reference) = 41 characters, and the longest id we actually register is
+// "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1" (41). 128 leaves generous headroom
+// for future namespaces while keeping the key bounded.
+const MaxObservedChainIdLen = 128
+
 // NewMsgVoteChainMeta creates new instance of MsgVoteChainMeta
 func NewMsgVoteChainMeta(
 	sender sdk.Address,
@@ -48,6 +58,19 @@ func (msg *MsgVoteChainMeta) ValidateBasic() error {
 	}
 	if msg.ObservedChainId == "" {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "observed_chain_id cannot be empty")
+	}
+	// F-2026-18803 (stateless half): ValidateBasic has no keeper, so it cannot
+	// ask whether the chain is registered — Keeper.VoteChainMeta does that. What
+	// it can do for free at CheckTx time is bound the id's size and shape, so an
+	// absurd id is dropped at mempool admission rather than after a block
+	// commits it as a ChainMetas key.
+	if len(msg.ObservedChainId) > MaxObservedChainIdLen {
+		return errors.Wrapf(sdkerrors.ErrInvalidRequest,
+			"observed_chain_id exceeds %d characters (got %d)", MaxObservedChainIdLen, len(msg.ObservedChainId))
+	}
+	if _, _, err := ParseCAIP2(msg.ObservedChainId); err != nil {
+		return errors.Wrap(sdkerrors.ErrInvalidRequest,
+			"observed_chain_id must be in CAIP-2 format <namespace>:<reference>")
 	}
 	if msg.Price == 0 {
 		return errors.Wrap(sdkerrors.ErrInvalidRequest, "price must be greater than 0")

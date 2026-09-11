@@ -90,6 +90,67 @@ func (k Keeper) CalculateGasCost(
 	return gasCost, nil
 }
 
+// ChargeRevertedPayloadGas bills a reverted payload for the gas it burned. It
+// charges the parent ctx so the amount survives the caller's discarded EVM cache,
+// clamps to the balance held, and never returns an error — callers record a FAILED
+// PcTx and carry on.
+//
+// INBOUND ROUTES ONLY. Never call this from MsgExecutePayload: submission there is
+// permissionless and a revert rolls back the UEA nonce, so one captured owner
+// signature stays replayable and billing it would let anyone drain the UEA.
+func (k Keeper) ChargeRevertedPayloadGas(
+	ctx context.Context,
+	sdkCtx sdk.Context,
+	recipient common.Address,
+	receipt *evmtypes.MsgEthereumTxResponse,
+	universalPayload *types.UniversalPayload,
+) {
+	if receipt == nil || receipt.GasUsed == 0 || universalPayload == nil {
+		return
+	}
+
+	abiPayload, err := types.NewAbiUniversalPayload(universalPayload)
+	if err != nil {
+		return
+	}
+	baseFee := k.feemarketKeeper.GetBaseFee(sdkCtx)
+	if baseFee.IsNil() {
+		return
+	}
+	gasCost, err := k.CalculateGasCost(baseFee, abiPayload.MaxFeePerGas, abiPayload.MaxPriorityFeePerGas, receipt.GasUsed)
+	if err != nil || gasCost.Sign() <= 0 {
+		return
+	}
+
+	recipientAccAddr := sdk.AccAddress(recipient.Bytes())
+	available := k.bankKeeper.GetBalance(sdkCtx, recipientAccAddr, pchaintypes.BaseDenom).Amount.BigInt()
+
+	charge := gasCost
+	if available.Cmp(gasCost) < 0 {
+		charge = available
+	}
+	if charge.Sign() <= 0 {
+		k.Logger().Info("reverted payload not billed: no balance",
+			"recipient", recipient.Hex(), "gas_used", receipt.GasUsed, "gas_cost", gasCost.String())
+		return
+	}
+
+	if err := k.DeductAndBurnFees(ctx, recipientAccAddr, charge); err != nil {
+		// Best effort: never fail the message over the revert-path charge.
+		k.Logger().Error("failed to bill reverted payload gas",
+			"recipient", recipient.Hex(), "charge", charge.String(), "error", err)
+		return
+	}
+
+	k.Logger().Info("reverted payload gas billed",
+		"recipient", recipient.Hex(),
+		"gas_used", receipt.GasUsed,
+		"gas_cost", gasCost.String(),
+		"charged", charge.String(),
+		"partial", charge.Cmp(gasCost) < 0,
+	)
+}
+
 // DeductGasFeesFromReceipt calculates and deducts gas fees from a recipient address
 // based on the EVM receipt and universal payload parameters.
 // Returns nil if receipt is nil (Go-level error, no EVM tx was created).

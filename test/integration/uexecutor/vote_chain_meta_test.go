@@ -53,6 +53,18 @@ func setupVoteChainMetaTest(t *testing.T, numVals int) (*app.ChainApp, sdk.Conte
 	return testApp, ctx, universalVals, validators
 }
 
+// chainMetaKeys returns every key currently present in the ChainMetas map.
+func chainMetaKeys(t *testing.T, ctx sdk.Context, testApp *app.ChainApp) []string {
+	t.Helper()
+	var keys []string
+	require.NoError(t, testApp.UexecutorKeeper.ChainMetas.Walk(ctx, nil,
+		func(chainID string, _ uexecutortypes.ChainMeta) (bool, error) {
+			keys = append(keys, chainID)
+			return false, nil
+		}))
+	return keys
+}
+
 func TestVoteChainMetaIntegration(t *testing.T) {
 	t.Parallel()
 	chainId := "eip155:11155111"
@@ -82,6 +94,37 @@ func TestVoteChainMetaIntegration(t *testing.T) {
 		stored, _, _ = testApp.UexecutorKeeper.GetChainMeta(ctx, chainId)
 		require.Len(t, stored.Prices, 2)
 		require.Equal(t, uint64(0), stored.LastAppliedChainHeight, "two votes should still not bootstrap the oracle")
+	})
+
+	t.Run("vote for an unregistered chain is rejected and writes no ChainMetas row", func(t *testing.T) {
+		// F-2026-18803: only eip155:11155111 is registered by the fixture. A
+		// bonded universal validator voting on any other chain id used to mint a
+		// ChainMetas row keyed by that raw id (collections.StringKey).
+		const unregistered = "eip155:999999999"
+
+		testApp, ctx, uvals, vals := setupVoteChainMetaTest(t, 1)
+
+		coreVal, err := sdk.ValAddressFromBech32(vals[0].OperatorAddress)
+		require.NoError(t, err)
+		coreAcc := sdk.AccAddress(coreVal).String()
+
+		before := chainMetaKeys(t, ctx, testApp)
+		require.Empty(t, before)
+
+		voteErr := utils.ExecVoteChainMeta(t, ctx, testApp, uvals[0], coreAcc, unregistered, 100_000_000_000, 12345)
+
+		// Store first, deliberately: the finding is the row being written.
+		_, found, err := testApp.UexecutorKeeper.GetChainMeta(ctx, unregistered)
+		require.NoError(t, err)
+		require.False(t, found, "unregistered chain must not create a ChainMetas row")
+		require.Equal(t, before, chainMetaKeys(t, ctx, testApp), "ChainMetas must be unchanged")
+
+		require.Error(t, voteErr)
+		require.Contains(t, voteErr.Error(), "is not registered")
+
+		// The registered chain still works from the same validator.
+		require.NoError(t, utils.ExecVoteChainMeta(t, ctx, testApp, uvals[0], coreAcc, chainId, 100_000_000_000, 12345))
+		require.Equal(t, []string{chainId}, chainMetaKeys(t, ctx, testApp))
 	})
 
 	t.Run("third fresh vote bootstraps the oracle and sets LastAppliedChainHeight to median", func(t *testing.T) {

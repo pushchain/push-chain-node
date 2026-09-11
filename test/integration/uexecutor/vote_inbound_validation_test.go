@@ -233,7 +233,11 @@ func TestVoteInboundValidation(t *testing.T) {
 				foundRevert = true
 				require.Equal(t, inbound.SourceChain, ob.DestinationChain)
 				require.Equal(t, inbound.Amount, ob.Amount)
-				require.Equal(t, uexecutortypes.Status_PENDING, ob.OutboundStatus)
+				// The harness's UniversalCore stub cannot serve gas metadata, so the
+				// revert is unsignable and is recorded ABORTED instead of queued.
+				require.Equal(t, uexecutortypes.Status_ABORTED, ob.OutboundStatus)
+				require.NotEmpty(t, ob.AbortReason)
+				requireNotQueuedForSigning(t, chainApp, ctx, ob.Id)
 				break
 			}
 		}
@@ -356,7 +360,12 @@ func TestVoteInboundValidation(t *testing.T) {
 				require.Equal(t, inbound.SourceChain, ob.DestinationChain)
 				require.Equal(t, inbound.Amount, ob.Amount)
 				require.Equal(t, inbound.AssetAddr, ob.ExternalAssetAddr)
-				require.Equal(t, uexecutortypes.Status_PENDING, ob.OutboundStatus)
+				// The token config was removed above, so the revert cannot resolve the
+				// PRC20 it needs for gas metadata. It is recorded ABORTED with the
+				// reason instead of being queued as an unsignable PENDING row.
+				require.Equal(t, uexecutortypes.Status_ABORTED, ob.OutboundStatus)
+				require.Contains(t, ob.AbortReason, "failed to resolve PRC20")
+				requireNotQueuedForSigning(t, chainApp, ctx, ob.Id)
 				break
 			}
 		}

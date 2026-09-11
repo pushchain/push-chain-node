@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	defaultGasLimit    = uint64(500000000)
+	defaultGasLimit    = uint64(100000000)
 	defaultFeeAmount   = "500000000000000upc"
 	defaultVoteTimeout = 30 * time.Second
 	txPollInterval     = 500 * time.Millisecond

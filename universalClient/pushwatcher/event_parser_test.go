@@ -359,6 +359,7 @@ func TestConvertFundMigrationEvent(t *testing.T) {
 			GasPrice:         "1000000000",
 			GasLimit:         21100,
 			L1GasFee:         "42",
+			TransferAmount:   "999999999999999999",
 		}
 
 		result, err := convertFundMigrationEvent(migration)
@@ -384,6 +385,44 @@ func TestConvertFundMigrationEvent(t *testing.T) {
 		assert.Equal(t, "1000000000", data.GasPrice)
 		assert.Equal(t, uint64(21100), data.GasLimit)
 		assert.Equal(t, "42", data.L1GasFee, "L1 gas fee must be forwarded to downstream consumers")
+		assert.Equal(t, "999999999999999999", data.TransferAmount,
+			"the chain-pinned sweep amount is what every validator signs; dropping it here leaves nothing deterministic to sign")
+	})
+
+	// A field on the record but not copied here reaches signers empty.
+	t.Run("fields the signing path depends on are all carried", func(t *testing.T) {
+		migration := &utsstypes.FundMigration{
+			Id:               7,
+			OldKeyId:         "old",
+			OldTssPubkey:     "0x02aa",
+			CurrentKeyId:     "new",
+			CurrentTssPubkey: "0x03bb",
+			Chain:            "eip155:84532",
+			InitiatedBlock:   9,
+			GasPrice:         "1",
+			GasLimit:         2,
+			L1GasFee:         "3",
+			TransferAmount:   "4",
+		}
+
+		result, err := convertFundMigrationEvent(migration)
+		require.NoError(t, err)
+
+		var data utsstypes.FundMigrationInitiatedEventData
+		require.NoError(t, json.Unmarshal(result.EventData, &data))
+
+		for name, got := range map[string]string{
+			"old_tss_pubkey":     data.OldTssPubkey,
+			"current_tss_pubkey": data.CurrentTssPubkey,
+			"chain":              data.Chain,
+			"gas_price":          data.GasPrice,
+			"l1_gas_fee":         data.L1GasFee,
+			"transfer_amount":    data.TransferAmount,
+			"old_key_id":         data.OldKeyID,
+		} {
+			assert.NotEmpty(t, got, "%s was dropped in conversion", name)
+		}
+		assert.NotZero(t, data.GasLimit, "gas_limit was dropped in conversion")
 	})
 
 	t.Run("event ID is hash of type and migration ID", func(t *testing.T) {

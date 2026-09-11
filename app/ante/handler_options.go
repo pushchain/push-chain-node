@@ -45,12 +45,20 @@ type AccountKeeper interface {
 	TryAddUnorderedNonce(ctx sdk.Context, sender []byte, timestamp time.Time) error
 }
 
+// UValidatorKeeper is the minimal slice of the uvalidator keeper the ante chain
+// needs. Declared locally, like AccountKeeper/BankKeeper above, so the ante
+// package does not depend on a concrete keeper.
+type UValidatorKeeper interface {
+	IsBondedUniversalValidator(ctx context.Context, universalValidator string) (bool, error)
+}
+
 // HandlerOptions defines the list of module keepers required to run the EVM
 // AnteHandler decorators.
 type HandlerOptions struct {
 	Cdc                    codec.BinaryCodec
 	AccountKeeper          AccountKeeper
 	BankKeeper             BankKeeper
+	UValidatorKeeper       UValidatorKeeper
 	FeegrantKeeper         ante.FeegrantKeeper
 	ExtensionOptionChecker ante.ExtensionOptionChecker
 	SignModeHandler        *txsigning.HandlerMap
@@ -62,6 +70,10 @@ type HandlerOptions struct {
 	MaxTxGasWanted  uint64
 	FeeMarketKeeper anteinterfaces.FeeMarketKeeper
 	EvmKeeper       anteinterfaces.EVMKeeper
+
+	// UexecutorKeeper supplies the governance-controlled cap on the gas a
+	// fee-exempt (gasless) tx may declare.
+	UexecutorKeeper GaslessParamsKeeper
 
 
 	IBCKeeper     *ibckeeper.Keeper
@@ -78,6 +90,9 @@ func (options HandlerOptions) Validate() error {
 	}
 	if options.BankKeeper == nil {
 		return errorsmod.Wrap(errortypes.ErrLogic, "bank keeper is required for AnteHandler")
+	}
+	if options.UValidatorKeeper == nil {
+		return errorsmod.Wrap(errortypes.ErrLogic, "uvalidator keeper is required for AnteHandler")
 	}
 	if options.SigGasConsumer == nil {
 		return errorsmod.Wrap(errortypes.ErrLogic, "signature gas consumer is required for AnteHandler")
@@ -104,6 +119,9 @@ func (options HandlerOptions) Validate() error {
 	}
 	if options.EvmKeeper == nil {
 		return errorsmod.Wrap(errortypes.ErrLogic, "evm keeper is required for AnteHandler")
+	}
+	if options.UexecutorKeeper == nil {
+		return errorsmod.Wrap(errortypes.ErrLogic, "uexecutor keeper is required for AnteHandler")
 	}
 
 	return nil

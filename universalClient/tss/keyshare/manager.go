@@ -144,6 +144,59 @@ func (m *Manager) Exists(id string) (bool, error) {
 	return true, nil
 }
 
+// List returns the IDs of all stored keyshares.
+func (m *Manager) List() ([]string, error) {
+	entries, err := os.ReadDir(m.keysharesDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to read keyshares directory: %w", err)
+	}
+
+	ids := make([]string, 0, len(entries))
+	for _, e := range entries {
+		if !e.IsDir() {
+			ids = append(ids, e.Name())
+		}
+	}
+	return ids, nil
+}
+
+// Delete removes a stored keyshare. It overwrites the file with random bytes
+// before unlinking; on SSD/COW filesystems that is best-effort, so the real
+// protection remains the at-rest encryption. Deleting a missing ID is a no-op.
+func (m *Manager) Delete(id string) error {
+	if id == "" {
+		return ErrInvalidID
+	}
+
+	if strings.Contains(id, "/") || strings.Contains(id, "\\") || strings.Contains(id, "..") {
+		return fmt.Errorf("%w: id contains invalid characters", ErrInvalidID)
+	}
+
+	filePath := filepath.Join(m.keysharesDir, id)
+	info, err := os.Stat(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to stat keyshare file: %w", err)
+	}
+
+	if info.Mode().IsRegular() && info.Size() > 0 {
+		scratch := make([]byte, info.Size())
+		if _, rerr := rand.Read(scratch); rerr == nil {
+			_ = os.WriteFile(filePath, scratch, filePerms)
+		}
+	}
+
+	if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to remove keyshare file: %w", err)
+	}
+	return nil
+}
+
 // encrypt encrypts keyshare data using AES-256-GCM with a password-derived key.
 // Returns encrypted data in format: [salt(32) || nonce(12) || ciphertext || tag(16)]
 func (m *Manager) encrypt(keyshareData []byte) ([]byte, error) {

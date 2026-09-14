@@ -210,9 +210,9 @@ func TestBuildPC20ExportAccounts_Direct(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	// 20 typed slots + [pc20_state, pc20_mint] (export-only mints to cea_ata, so no
-	// recipient_ata in the remaining accounts).
-	require.Len(t, accounts, 22)
+	// 20 typed slots + event_cpi(2) + [pc20_state, pc20_mint] (export-only mints to
+	// cea_ata, so no recipient_ata in the remaining accounts).
+	require.Len(t, accounts, 24)
 
 	assert.Equal(t, caller, accounts[0].PublicKey)
 	assert.True(t, accounts[0].IsSigner)
@@ -236,11 +236,17 @@ func TestBuildPC20ExportAccounts_Direct(t *testing.T) {
 	assert.Equal(t, solana.SysVarRentPubkey, accounts[13].PublicKey)
 	assert.Equal(t, solana.SPLAssociatedTokenAccountProgramID, accounts[14].PublicKey)
 
+	// event_cpi accounts (20-21)
+	wantEventAuthority, err := tb.deriveEventAuthorityPDA()
+	require.NoError(t, err)
+	assert.Equal(t, wantEventAuthority, accounts[20].PublicKey, "event_authority")
+	assert.Equal(t, tb.gatewayAddress, accounts[21].PublicKey, "program")
+
 	// Remaining accounts: [pc20_state, pc20_mint]
-	assert.Equal(t, state, accounts[20].PublicKey)
-	assert.True(t, accounts[20].IsWritable)
-	assert.Equal(t, mint, accounts[21].PublicKey)
-	assert.True(t, accounts[21].IsWritable)
+	assert.Equal(t, state, accounts[22].PublicKey)
+	assert.True(t, accounts[22].IsWritable)
+	assert.Equal(t, mint, accounts[23].PublicKey)
+	assert.True(t, accounts[23].IsWritable)
 }
 
 func TestBuildPC20ExportAccounts_WithPayload(t *testing.T) {
@@ -267,8 +273,8 @@ func TestBuildPC20ExportAccounts_WithPayload(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	// 20 typed slots + [pc20_state, pc20_mint] + 1 payload account
-	require.Len(t, accounts, 23)
+	// 20 typed slots + event_cpi(2) + [pc20_state, pc20_mint] + 1 payload account
+	require.Len(t, accounts, 25)
 	assert.Equal(t, target, accounts[7].PublicKey) // destination_program = payload target
 
 	// cea_ata (slot 10) is the CEA's ATA, writable
@@ -279,11 +285,17 @@ func TestBuildPC20ExportAccounts_WithPayload(t *testing.T) {
 	assert.Equal(t, expectedCeaATA, accounts[10].PublicKey)
 	assert.True(t, accounts[10].IsWritable)
 
+	// event_cpi accounts (20-21)
+	wantEventAuthority, err := tb.deriveEventAuthorityPDA()
+	require.NoError(t, err)
+	assert.Equal(t, wantEventAuthority, accounts[20].PublicKey, "event_authority")
+	assert.Equal(t, tb.gatewayAddress, accounts[21].PublicKey, "program")
+
 	// remaining: state, mint, then payload accounts (no recipient_ata)
-	assert.Equal(t, state, accounts[20].PublicKey)
-	assert.Equal(t, mint, accounts[21].PublicKey)
-	assert.Equal(t, recipient, accounts[22].PublicKey)
-	assert.True(t, accounts[22].IsWritable)
+	assert.Equal(t, state, accounts[22].PublicKey)
+	assert.Equal(t, mint, accounts[23].PublicKey)
+	assert.Equal(t, recipient, accounts[24].PublicKey)
+	assert.True(t, accounts[24].IsWritable)
 }
 
 func TestBuildPC20RemintAccounts(t *testing.T) {
@@ -308,8 +320,8 @@ func TestBuildPC20RemintAccounts(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	// 12 typed slots + 5 remaining
-	require.Len(t, accounts, 17)
+	// 12 typed slots + associated_token_program/rent None sentinels(2) + event_cpi(2) + 5 remaining
+	require.Len(t, accounts, 21)
 
 	assert.Equal(t, configPDA, accounts[0].PublicKey)
 	assert.Equal(t, recipient, accounts[4].PublicKey)
@@ -322,21 +334,32 @@ func TestBuildPC20RemintAccounts(t *testing.T) {
 	assert.Equal(t, mint, accounts[10].PublicKey)
 	assert.Equal(t, solana.TokenProgramID, accounts[11].PublicKey)
 
+	// associated_token_program(12) and rent(13) are also None sentinels — PC20 remint
+	// creates recipient_ata via the remaining accounts below, not this typed slot.
+	assert.Equal(t, tb.gatewayAddress, accounts[12].PublicKey)
+	assert.Equal(t, tb.gatewayAddress, accounts[13].PublicKey)
+
+	// event_cpi accounts (14-15)
+	wantEventAuthority, err := tb.deriveEventAuthorityPDA()
+	require.NoError(t, err)
+	assert.Equal(t, wantEventAuthority, accounts[14].PublicKey, "event_authority")
+	assert.Equal(t, tb.gatewayAddress, accounts[15].PublicKey, "program")
+
 	// remaining: [pc20_state(ro), pc20_mint(w), recipient_ata(w), ATA program(ro), rent(ro)]
-	assert.Equal(t, state, accounts[12].PublicKey)
-	assert.False(t, accounts[12].IsWritable)
-	assert.Equal(t, mint, accounts[13].PublicKey)
-	assert.True(t, accounts[13].IsWritable)
+	assert.Equal(t, state, accounts[16].PublicKey)
+	assert.False(t, accounts[16].IsWritable)
+	assert.Equal(t, mint, accounts[17].PublicKey)
+	assert.True(t, accounts[17].IsWritable)
 	expectedATA, _, _ := solana.FindProgramAddress(
 		[][]byte{recipient.Bytes(), solana.TokenProgramID.Bytes(), mint.Bytes()},
 		solana.SPLAssociatedTokenAccountProgramID,
 	)
-	assert.Equal(t, expectedATA, accounts[14].PublicKey)
-	assert.True(t, accounts[14].IsWritable)
-	assert.Equal(t, solana.SPLAssociatedTokenAccountProgramID, accounts[15].PublicKey)
-	assert.False(t, accounts[15].IsWritable)
-	assert.Equal(t, solana.SysVarRentPubkey, accounts[16].PublicKey)
-	assert.False(t, accounts[16].IsWritable)
+	assert.Equal(t, expectedATA, accounts[18].PublicKey)
+	assert.True(t, accounts[18].IsWritable)
+	assert.Equal(t, solana.SPLAssociatedTokenAccountProgramID, accounts[19].PublicKey)
+	assert.False(t, accounts[19].IsWritable)
+	assert.Equal(t, solana.SysVarRentPubkey, accounts[20].PublicKey)
+	assert.False(t, accounts[20].IsWritable)
 }
 
 func TestValidatePC20UserData(t *testing.T) {

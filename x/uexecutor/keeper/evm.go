@@ -286,8 +286,8 @@ func (k Keeper) CallUEAExecutePayload(
 		return res, err
 	}
 
-	// The hook x/ucallback ingests from never fires for derived calls, and every
-	// payload path funnels through here.
+	// The hook x/ucallback ingests from never fires for derived calls.
+	// CallExecuteUniversalTx carries the same hand-off for CEA recipients.
 	if err := k.ucallbackKeeper.IngestReadRequests(ctx, res); err != nil {
 		return res, errors.Wrap(err, "failed to ingest read requests")
 	}
@@ -854,7 +854,7 @@ func (k Keeper) CallExecuteUniversalTx(
 
 	ueModuleAccAddress, _ := k.GetUeModuleAddress(ctx)
 
-	return k.derivedModuleCall(
+	res, err := k.derivedModuleCall(
 		ctx,
 		recipientABI,
 		ueModuleAccAddress,
@@ -869,4 +869,16 @@ func (k Keeper) CallExecuteUniversalTx(
 		prc20AssetAddr,
 		txId,
 	)
+	if err != nil {
+		return res, err
+	}
+
+	// Same hand-off as CallUEAExecutePayload: the hook x/ucallback ingests from
+	// never fires for derived calls. Callers pass a cached ctx, so an ingested
+	// read is discarded with the rest if the parent execution is rolled back.
+	if err := k.ucallbackKeeper.IngestReadRequests(ctx, res); err != nil {
+		return res, errors.Wrap(err, "failed to ingest read requests")
+	}
+
+	return res, nil
 }

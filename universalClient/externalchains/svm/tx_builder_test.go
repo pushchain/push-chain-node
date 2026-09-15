@@ -1188,7 +1188,13 @@ func TestBuildWithdrawAndExecuteAccounts(t *testing.T) {
 		assert.Equal(t, builder.gatewayAddress, accounts[18].PublicKey, "stored_ix_data should be gateway sentinel for direct route")
 		assert.Equal(t, builder.gatewayAddress, accounts[19].PublicKey, "store_refund_recipient should be gateway sentinel for direct route")
 
-		assert.Len(t, accounts, 20, "total accounts for SOL withdraw (direct route)")
+		// event_cpi accounts (21-22)
+		wantEventAuthority, err := builder.deriveEventAuthorityPDA()
+		require.NoError(t, err)
+		assert.Equal(t, wantEventAuthority, accounts[20].PublicKey, "event_authority")
+		assert.Equal(t, builder.gatewayAddress, accounts[21].PublicKey, "program")
+
+		assert.Len(t, accounts, 22, "total accounts for SOL withdraw (direct route)")
 	})
 
 	t.Run("execute (id=2) appends remaining_accounts", func(t *testing.T) {
@@ -1209,8 +1215,8 @@ func TestBuildWithdrawAndExecuteAccounts(t *testing.T) {
 		// For execute: recipient should be gateway sentinel (None)
 		assert.Equal(t, builder.gatewayAddress, accounts[8].PublicKey, "recipient should be None for execute")
 
-		// remaining_accounts appended at the end
-		totalRequired := 20 // 8 required + 8 SPL optional + 2 rate limit + 2 ref-finalize optional
+		// remaining_accounts appended at the end, after the event_cpi accounts
+		totalRequired := 22 // 8 required + 8 SPL optional + 2 rate limit + 2 ref-finalize optional + 2 event_cpi
 		assert.Len(t, accounts, totalRequired+2)
 
 		// Check remaining_accounts
@@ -1249,7 +1255,7 @@ func TestBuildWithdrawAndExecuteAccounts_SPLSlots(t *testing.T) {
 		nil,
 		solana.PublicKey{}, solana.PublicKey{},
 	)
-	require.Len(t, accounts, 20)
+	require.Len(t, accounts, 22)
 
 	wantVaultATA, _, err := solana.FindAssociatedTokenAddress(vault, mint)
 	require.NoError(t, err)
@@ -1305,10 +1311,13 @@ func TestBuildRevertAccounts(t *testing.T) {
 	caller := solana.NewWallet().PublicKey()
 	tokenMint := solana.NewWallet().PublicKey()
 
-	t.Run("SOL revert has 14 accounts (8 required + 6 None sentinels)", func(t *testing.T) {
+	wantEventAuthority, err := builder.deriveEventAuthorityPDA()
+	require.NoError(t, err)
+
+	t.Run("SOL revert has 16 accounts (8 required + 6 None sentinels + event_cpi)", func(t *testing.T) {
 		accounts := builder.buildRevertAccounts(config, vault, feeVault, tss, recipient, executed, caller, true, solana.PublicKey{})
 
-		assert.Len(t, accounts, 14)
+		assert.Len(t, accounts, 16)
 		assert.Equal(t, config, accounts[0].PublicKey, "config")
 		assert.False(t, accounts[0].IsWritable)
 		assert.Equal(t, vault, accounts[1].PublicKey, "vault")
@@ -1328,12 +1337,16 @@ func TestBuildRevertAccounts(t *testing.T) {
 		for i := 8; i < 14; i++ {
 			assert.Equal(t, builder.gatewayAddress, accounts[i].PublicKey, "SOL sentinel account %d", i)
 		}
+		assert.Equal(t, wantEventAuthority, accounts[14].PublicKey, "event_authority")
+		assert.False(t, accounts[14].IsWritable)
+		assert.Equal(t, builder.gatewayAddress, accounts[15].PublicKey, "program")
+		assert.False(t, accounts[15].IsWritable)
 	})
 
-	t.Run("SPL revert has 14 accounts (8 required + 6 SPL accounts)", func(t *testing.T) {
+	t.Run("SPL revert has 16 accounts (8 required + 6 SPL accounts + event_cpi)", func(t *testing.T) {
 		accounts := builder.buildRevertAccounts(config, vault, feeVault, tss, recipient, executed, caller, false, tokenMint)
 
-		assert.Len(t, accounts, 14)
+		assert.Len(t, accounts, 16)
 		// First 8 same as SOL
 		assert.Equal(t, config, accounts[0].PublicKey, "config")
 		assert.Equal(t, vault, accounts[1].PublicKey, "vault")
@@ -1351,6 +1364,8 @@ func TestBuildRevertAccounts(t *testing.T) {
 		assert.Equal(t, solana.TokenProgramID, accounts[11].PublicKey, "token_program")
 		assert.Equal(t, solana.SPLAssociatedTokenAccountProgramID, accounts[12].PublicKey, "associated_token_program")
 		assert.Equal(t, solana.SysVarRentPubkey, accounts[13].PublicKey, "rent")
+		assert.Equal(t, wantEventAuthority, accounts[14].PublicKey, "event_authority")
+		assert.Equal(t, builder.gatewayAddress, accounts[15].PublicKey, "program")
 
 		wantRecipientATA, _, err := solana.FindAssociatedTokenAddress(recipient, tokenMint)
 		require.NoError(t, err)
@@ -1979,7 +1994,7 @@ func TestBuildCloseStoredIxDataAccounts(t *testing.T) {
 
 func TestBuildWithdrawAndExecuteAccounts_RefRouteSlots(t *testing.T) {
 	// Verify the ref-finalize slots (#19-20) carry real values when populated,
-	// and that remaining_accounts still land at position 21+ in execute mode.
+	// and that remaining_accounts still land after the event_cpi slots in execute mode.
 	builder := newTestBuilder(t)
 	caller := solana.NewWallet().PublicKey()
 	configPDA := solana.NewWallet().PublicKey()
@@ -2012,11 +2027,17 @@ func TestBuildWithdrawAndExecuteAccounts_RefRouteSlots(t *testing.T) {
 	assert.Equal(t, storeRefund, accounts[19].PublicKey, "store_refund_recipient slot")
 	assert.True(t, accounts[19].IsWritable, "store_refund_recipient must be writable for reimbursement")
 
-	// Position 20+: remaining_accounts (the execute CPI accounts)
-	require.Len(t, accounts, 21, "8 required + 8 SPL + 2 rate-limit + 2 ref + 1 remaining")
+	// Position 20-21: event_cpi accounts
+	wantEventAuthority, err := builder.deriveEventAuthorityPDA()
+	require.NoError(t, err)
+	assert.Equal(t, wantEventAuthority, accounts[20].PublicKey, "event_authority slot")
+	assert.Equal(t, builder.gatewayAddress, accounts[21].PublicKey, "program slot")
+
+	// Position 22+: remaining_accounts (the execute CPI accounts)
+	require.Len(t, accounts, 23, "8 required + 8 SPL + 2 rate-limit + 2 ref + 2 event_cpi + 1 remaining")
 	expectedRemaining := makeTxID(0xAA)
-	assert.Equal(t, solana.PublicKeyFromBytes(expectedRemaining[:]), accounts[20].PublicKey, "remaining account 0")
-	assert.True(t, accounts[20].IsWritable)
+	assert.Equal(t, solana.PublicKeyFromBytes(expectedRemaining[:]), accounts[22].PublicKey, "remaining account 0")
+	assert.True(t, accounts[22].IsWritable)
 }
 
 // newTestBuilderWithKeypair returns a TxBuilder whose nodeHome contains a
@@ -2286,7 +2307,7 @@ func TestBuildPC20ExportAccounts_RefSlots(t *testing.T) {
 		storedIx, refund,
 	)
 	require.NoError(t, err)
-	require.Len(t, ref, 22)
+	require.Len(t, ref, 24)
 	assert.Equal(t, storedIx, ref[18].PublicKey)
 	assert.True(t, ref[18].IsWritable)
 	assert.Equal(t, refund, ref[19].PublicKey)
@@ -2299,7 +2320,7 @@ func TestBuildPC20ExportAccounts_RefSlots(t *testing.T) {
 		solana.PublicKey{}, solana.PublicKey{},
 	)
 	require.NoError(t, err)
-	require.Len(t, direct, 22)
+	require.Len(t, direct, 24)
 	assert.Equal(t, tb.gatewayAddress, direct[18].PublicKey)
 	assert.False(t, direct[18].IsWritable)
 	assert.Equal(t, tb.gatewayAddress, direct[19].PublicKey)
@@ -3191,7 +3212,7 @@ func TestBuildOutboundTransaction_NoClientSideATACreate(t *testing.T) {
 				gatewayIx := tx.Message.Instructions[len(tx.Message.Instructions)-1]
 				metas, err := gatewayIx.ResolveInstructionAccounts(&tx.Message)
 				require.NoError(t, err)
-				require.Len(t, metas, 14)
+				require.Len(t, metas, 16)
 
 				wantATA, _, err := solana.FindAssociatedTokenAddress(recipient, mint)
 				require.NoError(t, err)
@@ -3793,11 +3814,11 @@ func TestPC20DummyGateway_ExportBuild(t *testing.T) {
 		solana.PublicKey{}, solana.PublicKey{},
 	)
 	require.NoError(t, err)
-	require.Len(t, accounts, 22)
+	require.Len(t, accounts, 24)
 
 	// Remaining accounts [pc20_state, pc20_mint] hit the frozen dummy-gateway addresses.
-	assert.Equal(t, "7G5dx7WgVyxvzstv3ZS6ohrb1w17qAkXFXaYyoCewzL1", accounts[20].PublicKey.String())
-	assert.Equal(t, "BCwdEfbVJtt47ukvdX7jW5kzAUKZhjyXveSZvQL3MF8", accounts[21].PublicKey.String())
+	assert.Equal(t, "7G5dx7WgVyxvzstv3ZS6ohrb1w17qAkXFXaYyoCewzL1", accounts[22].PublicKey.String())
+	assert.Equal(t, "BCwdEfbVJtt47ukvdX7jW5kzAUKZhjyXveSZvQL3MF8", accounts[23].PublicKey.String())
 }
 
 func TestPC20DummyGateway_RemintMessage(t *testing.T) {

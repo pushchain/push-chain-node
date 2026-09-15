@@ -11,6 +11,7 @@ import (
 	auditfixes "github.com/pushchain/push-chain-node/app/upgrades/audit-fixes"
 	ceagasandpayload "github.com/pushchain/push-chain-node/app/upgrades/cea-gas-and-payload"
 	ceapayloadverificationfix "github.com/pushchain/push-chain-node/app/upgrades/cea-payload-verification-fix"
+	ceareadingest "github.com/pushchain/push-chain-node/app/upgrades/cea-read-ingest"
 	chainmeta "github.com/pushchain/push-chain-node/app/upgrades/chain-meta"
 	chainmetavotegasless "github.com/pushchain/push-chain-node/app/upgrades/chain-meta-vote-gasless"
 	contractauditchanges "github.com/pushchain/push-chain-node/app/upgrades/contract-audit-changes"
@@ -104,6 +105,8 @@ var Upgrades = []upgrades.Upgrade{
 	readstate.NewUpgrade(),
 	evmv063.NewUpgrade(),
 	auditfixes.NewUpgrade(),
+	// cea-read-ingest — ingests reads from CEA-invoked contracts (#373)
+	ceareadingest.NewUpgrade(),
 }
 
 // RegisterUpgradeHandlers registers the chain upgrade handlers

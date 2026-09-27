@@ -28,8 +28,8 @@ func (k Keeper) VoteOnInboundBallot(
 	// number of validators
 	totalValidators := len(universalValidatorSet)
 
-	// votesNeeded = ceil(2/3 * totalValidators)
-	// >2/3 quorum similar to tendermint
+	// votesNeeded = floor(2/3 * totalValidators) + 1, i.e. a strict >2/3 majority,
+	// matching tendermint and every other ballot on this chain.
 	votesNeeded := (types.VotesThresholdNumerator*totalValidators)/types.VotesThresholdDenominator + 1
 
 	k.Logger().Debug("voting on inbound ballot",
@@ -92,8 +92,8 @@ func (k Keeper) VoteOnOutboundBallot(
 	// number of validators
 	totalValidators := len(universalValidatorSet)
 
-	// votesNeeded = ceil(2/3 * totalValidators)
-	// >2/3 quorum similar to tendermint
+	// votesNeeded = floor(2/3 * totalValidators) + 1, i.e. a strict >2/3 majority,
+	// matching tendermint and every other ballot on this chain.
 	votesNeeded := (types.VotesThresholdNumerator*totalValidators)/types.VotesThresholdDenominator + 1
 
 	k.Logger().Debug("voting on outbound ballot",
